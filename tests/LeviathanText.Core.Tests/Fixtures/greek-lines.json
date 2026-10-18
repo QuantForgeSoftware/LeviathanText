@@ -1,0 +1,44 @@
+{
+  "contractVersion": "C0-0.2-draft",
+  "note": "INVENTED ILLUSTRATIVE FIXTURES per docs/contracts/examples.md. Not ground truth; derived from no real item; excluded from corpus counts.",
+  "lines": [
+    {
+      "id": "fix-man-1",
+      "material": "manuscript",
+      "exampleRef": "EX-1",
+      "text": "\u03c4\u03b7\u0342\u03c2 \u03c7\u03b1\u0301\u03c1\u03b9\u03c4\u03bf\u03c2 \u039a\u0305\u03f2\u0305 \u03c5\u0314\u03bc\u03c9\u0342\u03bd",
+      "annotations": [
+        { "kind": "Sign", "anchor": "\u039a\u0305\u03f2\u0305", "occurrence": 0, "description": "overbar-nomen-sacrum" }
+      ]
+    },
+    {
+      "id": "fix-ins-1",
+      "material": "inscription",
+      "exampleRef": "EX-3",
+      "text": "\u0395\u0391\u039d\u03a4\u0399\u03f9\u0391\u039b\u039b\u039f\u0393\u03a1\u0391\u03a6\u0397",
+      "annotations": [
+        { "kind": "GlyphForm", "anchor": "\u03f9", "occurrence": 0, "description": "lunate-capital-sigma" }
+      ]
+    },
+    {
+      "id": "fix-pap-1",
+      "material": "papyrus",
+      "exampleRef": "EX-4, EX-5",
+      "text": "\u03b1\u0305\u03bb\u0305\u03b1\u0305\u03bd\u03b8\u03c1\u03c9\u03c0",
+      "annotations": [
+        { "kind": "Lost", "anchorType": "scalarIndex", "index": 0, "gapExtent": "Unknown" },
+        { "kind": "Sign", "anchor": "\u03b1\u0305\u03bb\u0305\u03b1\u0305", "occurrence": 0, "description": "overbar-abbreviation" },
+        { "kind": "Unclear", "anchor": "\u03c0", "occurrence": 0, "description": "worn-final-letter" }
+      ]
+    },
+    {
+      "id": "fix-comb-1",
+      "material": "manuscript",
+      "exampleRef": "EX-2",
+      "text": "\u03b1\u0313\u0301\u03bd\u03b8\u03c1\u03c9\u03c0\u03bf\u03c2",
+      "annotations": [
+        { "kind": "Unclear", "anchor": "\u03bd\u03b8\u03c1", "occurrence": 0, "description": "annotator-doubt-over-middle" }
+      ]
+    }
+  ]
+}

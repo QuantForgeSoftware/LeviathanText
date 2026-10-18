@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>LeviathanText.Contracts</RootNamespace>
+  </PropertyGroup>
+</Project>

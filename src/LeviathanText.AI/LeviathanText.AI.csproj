@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>LeviathanText.AI</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
+    <ProjectReference Include="../LeviathanText.Core/LeviathanText.Core.csproj" />
+  </ItemGroup>
+</Project>

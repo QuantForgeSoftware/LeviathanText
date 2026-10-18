@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>LeviathanText.Training</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
+    <ProjectReference Include="../LeviathanText.Core/LeviathanText.Core.csproj" />
+    <ProjectReference Include="../LeviathanText.Recognition/LeviathanText.Recognition.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="TorchSharp" Version="0.107.0" />
+    <PackageReference Include="libtorch-cpu-osx-arm64" Version="2.10.0" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+</Project>
