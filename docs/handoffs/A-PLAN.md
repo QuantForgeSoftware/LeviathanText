@@ -126,3 +126,20 @@ Blockers recorded so far:
 
 - Contract version to review: **`C0-0.2-draft`** (which incorporates `C0-0.1-draft` unchanged). B's review requests: stable IDs per issue, affected section, source-backed example, requested resolution — delivered in B's own handoff, per B's brief.
 - Document checks performed: internal cross-consistency of the five contracts (layer/offset/frame/scoring references), coverage checklist in `examples.md` §3 against the brief's required case list, hash recomputation at each release, and verification that no owned-path or no-code boundary was crossed. No runtime tests or benchmarks were run — none are possible under this assignment, and none are claimed.
+
+### Handoff revision 4 — 2026-10-18 (C0 implementation begins)
+
+- Action: **the user issued a separate instruction authorizing implementation** (the condition todo §1 required). Instance A began the C0 package as integrator. Git repository established; contract types and Core text machinery implemented against `C0-0.2-draft`; tests green.
+- Git baseline: commit `728ec9c` (planning documents + contract drafts), then commit `5f6ac24` (C0 increment 1). Branch `main`.
+- Toolchain decision: **.NET 10 (SDK 10.0.301, current LTS), target `net10.0`** pinned in `Directory.Build.props`; central files (solution `.slnx`, `.gitignore`, `Directory.Build.props`) are integrator-owned.
+- Changed files (vs handoff rev 3): `LeviathanText.slnx`, `Directory.Build.props`, `.gitignore`, `src/LeviathanText.Contracts/*.cs` + csproj, `src/LeviathanText.Core/{Unicode,Revisions}/*.cs` + csproj, `tests/LeviathanText.{Contracts,Core}.Tests/**`, `todo.md` (implementation status + ownership-collision note). Content hashes at rev 4:
+  - `todo.md` `5bdc08f9203a17dc0fc8d7d89ed8a175949147356152dc496002a418b8c587c5`
+  - `tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj` `29b6c2c85f6f982ece44cd2b2e96b7eb4193efb07b01d9554f7692b98367c04e`
+  - `src/LeviathanText.Contracts/LeviathanText.Contracts.csproj` `499bda7f4e7a0fdde492e4b4d51710d66419c705a3fba8291e71153f396beebd`
+  - `src/LeviathanText.Core/LeviathanText.Core.csproj` `86ea7a5908eadccd1702ebaf85eb74f513209993ad6331a64166eb8fb8dbfa34`
+  - `Directory.Build.props` `149d11d465547a4586c03e68bc7baa41a6f0609b03a78f19a9fd6059c150bb59`
+  - `LeviathanText.slnx` `ba222441b171e6b9a7b5ca6839215670425121481791275b28be562b44d1814c`
+  - `.gitignore` `a3ed35d74cacd986ac967b4051626f4d05b2ac80707aab615419a53082cc8257`
+- Tests/verification *now performed and real*: `dotnet build` succeeds; `dotnet test` → 28/28 Contracts.Tests, 44/44 Core.Tests pass. Bug found and fixed during verification: composed-cluster scalar mapping originally too coarse (all cluster scalars mapped to the first target scalar); replaced with prefix-based mapping so only actually composed scalars merge. Also fixed end-anchored range indexing (`SourceToTarget` carries a trailing boundary entry).
+- **Ownership collision recorded**: a concurrent worker rewrote `tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj` and `src/LeviathanText.Contracts/LeviathanText.Contracts.csproj` (C0-owned paths) and added AI/EVAL/ML/Recognition scaffolds. Disjoint packages accepted; centralization adopted; workers must route central-file changes through the integrator (todo §6). If the collision repeats, escalate to the user.
+- Open questions from the contract documents' reviewer sections remain open for B/the owner.
