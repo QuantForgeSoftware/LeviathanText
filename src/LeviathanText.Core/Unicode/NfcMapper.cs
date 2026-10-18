@@ -57,7 +57,7 @@ public sealed record NfcMapping
             i = j + 1;
         }
 
-        return new ScalarRange(SourceToTarget[rangeStart], SourceToTarget[rangeEnd]);
+        return new ScalarRange(SourceToTarget[rangeStart], rangeEnd == n ? TargetScalarLength : SourceToTarget[rangeEnd]);
     }
 }
 
