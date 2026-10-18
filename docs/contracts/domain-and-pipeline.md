@@ -1,6 +1,6 @@
 # Domain and pipeline contract
 
-Contract: **C0-0.2-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**; depends on `C0-0.1-draft` (corpus-manifest, greek-transcription), which it extends rather than repeats.
+Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (StageRun input/output lists use `StageArtifact` records; JSON conventions §2.0 added). Depends on the transcription contract (greek-transcription.md) and corpus-manifest.md, which it extends rather than repeats.
 
 Source requirements: todo Section 4 (architecture, pipeline and domain model, storage and jobs), Section 6 (C0 ownership list, stage contracts, versioning), Section 7 (training/reload parity, idempotency evidence). All names here are **design placeholders** pending implementation assignment; nothing in this document authorizes code.
 

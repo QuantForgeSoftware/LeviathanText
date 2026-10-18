@@ -55,6 +55,9 @@ public enum StageStatus
     Invalidated,
 }
 
+/// <summary>An artifact bound to the entity it was produced for/consumed from.</summary>
+public sealed record StageArtifact(EntityId Entity, Checksum Artifact);
+
 /// <summary>Common stage envelope (domain-and-pipeline.md §2.1).</summary>
 public sealed record StageRun
 {
@@ -64,8 +67,8 @@ public sealed record StageRun
     /// <summary>Which declared I/O contract this run used; null means the pre-contract default.</summary>
     public string? ContractVersion { get; init; }
 
-    public required IReadOnlyList<(EntityId Entity, Checksum Artifact)> Inputs { get; init; }
-    public required IReadOnlyList<(EntityId Entity, Checksum Artifact)> Outputs { get; init; }
+    public required IReadOnlyList<StageArtifact> Inputs { get; init; }
+    public required IReadOnlyList<StageArtifact> Outputs { get; init; }
 
     /// <summary>Null for manual stages; manual layout still records <see cref="LayoutSource"/>.</summary>
     public ModelRef? Model { get; init; }

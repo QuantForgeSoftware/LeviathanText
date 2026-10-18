@@ -54,6 +54,37 @@ public sealed record LeviathanError
 
     public override string ToString() =>
         $"{Code} (scope: {Scope}, remedy: {RemedyHint}){(Message is null ? "" : $": {Message}")}";
+
+    // Details compares by content, so a round-tripped error is equal to its original.
+    public bool Equals(LeviathanError? other)
+    {
+        if (other is null) return false;
+        if (!Code.Equals(other.Code) || !Scope.Equals(other.Scope, StringComparison.Ordinal)
+            || RemedyHint != other.RemedyHint || !string.Equals(Message, other.Message, StringComparison.Ordinal))
+            return false;
+        if (Details is null || other.Details is null) return Details is null && other.Details is null;
+        if (Details.Count != other.Details.Count) return false;
+        foreach (var (key, value) in Details)
+            if (!other.Details.TryGetValue(key, out var otherValue) || !string.Equals(value, otherValue, StringComparison.Ordinal))
+                return false;
+        return true;
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Code);
+        hash.Add(Scope);
+        hash.Add(RemedyHint);
+        hash.Add(Message);
+        if (Details is not null)
+            foreach (var (key, value) in Details)
+            {
+                hash.Add(key.GetHashCode());
+                hash.Add(value, StringComparer.Ordinal);
+            }
+        return hash.ToHashCode();
+    }
 }
 
 /// <summary>Runtime exception carrying the contract error shape.</summary>

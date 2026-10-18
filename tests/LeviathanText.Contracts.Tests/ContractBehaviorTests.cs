@@ -51,8 +51,8 @@ public class StageRunTests
             Id = new EntityId(EntityKind.Job, "s1"),
             Stage = StageName.Layout,
             ContractVersion = ContractVersion.Current,
-            Inputs = [(new EntityId(EntityKind.Derivative, "d1"), Checksum)],
-            Outputs = [(new EntityId(EntityKind.Region, "r1"), Checksum)],
+            Inputs = [new StageArtifact(new EntityId(EntityKind.Derivative, "d1"), Checksum)],
+            Outputs = [new StageArtifact(new EntityId(EntityKind.Region, "r1"), Checksum)],
             Model = null, // manual: no model
             ConfigHash = "cfg",
             Status = StageStatus.Succeeded,

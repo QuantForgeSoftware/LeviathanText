@@ -1,6 +1,6 @@
 # Corpus manifest contract
 
-Contract: **C0-0.1-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review** by Instance B and the project owner; Greek-specialist adjudication pending.
+Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review** by Instance B and the project owner; Greek-specialist adjudication pending. Revision history: 0.1 (initial) → 0.2 (added domain/pipeline, interchange, examples; no change to 0.1 documents) → 0.3 (StageRun I/O artifacts became `StageArtifact` records; native JSON serialization conventions added to interchange §2.0; no semantic change to manifest/transcription rules).
 
 Source requirements: todo Section 5 (`DATA-01`, `DATA-02`, `DATA-03`, intake backlog), Section 6 (C0, dataset-worker ownership, artifact-store prefixes), Section 7 (split hashes, leakage checks). This document defines the **field dictionary and conventions** for human-readable corpus manifests. It defines no file formats, code, or schemas; when implementation is authorized, a machine-readable serialization of exactly these fields will be derived from this revision.
 

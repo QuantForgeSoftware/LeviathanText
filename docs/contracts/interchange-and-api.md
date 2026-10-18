@@ -1,6 +1,6 @@
 # Interchange and API contract
 
-Contract: **C0-0.2-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Depends on `C0-0.1-draft` (corpus-manifest, greek-transcription) and `C0-0.2-draft` (domain-and-pipeline).
+Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (native JSON serialization conventions §2.0 added; conventions implemented in `LeviathanText.Contracts.Serialization.ContractJson`). Depends on the transcription contract (greek-transcription.md) and domain-and-pipeline.md.
 
 Source requirements: todo Section 3 (scholarly interchange, bounded TEI/EpiDoc profile), Section 4 (web workspace, AI integration), Section 6 (FMT/UI/AI package inputs), Section 7 (formats, AI, UI verification). This document is **prose and tables only**; it defines no OpenAPI file, no generated client, no schemas.
 
@@ -50,6 +50,22 @@ Every lossy export carries a machine-checkable loss report: which distinctions w
 ## 2. HTTP API behavior (prose contract)
 
 Versioned REST under a versioned prefix (e.g. `/api/v1/…`). JSON bodies only; UTF-8; all text fields are Unicode scalar text per greek-transcription.md §4. Resource shape follows the domain model (objects, surfaces, captures, regions, lines, revisions, annotations, jobs, models, exports).
+
+### 2.0 Native JSON serialization conventions (implemented in `LeviathanText.Contracts.Serialization.ContractJson`)
+
+These conventions apply to every contract record on the wire:
+
+| Value kind | JSON form |
+| --- | --- |
+| Property names | camelCase |
+| Enums | camelCase strings (`"revisionConflict"`, `"l1Diplomatic"`, `"notYetTranscribed"`); unknown strings and integer values are hard errors when read (schema-strict) |
+| `EntityId` | its string form (`"ln-line17"`) |
+| `ScalarRange` | `{"start":n,"end":m}` (half-open, scalar offsets) |
+| `Confidence` | `"none"` or `{"value":x,"scale":"…"}` — absent confidence is `"none"`, never `0` |
+| `Checksum` | `{"algorithm":"sha256","digest":"…"}` |
+| Numbers | strict (no quoted numbers, no NaN/Infinity) |
+| Records with dictionary payloads (e.g. `LeviathanError.Details`) | compare by content, not reference (round-trip equality holds) |
+
 
 ### 2.1 Core resource behaviors
 
