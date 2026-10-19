@@ -6,6 +6,7 @@
  */
 import { Component, computed, input, signal } from '@angular/core';
 import { ApiClient, LinePayload, RevisionPayload } from './api-client';
+import { scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 
 interface UndoStack {
   text: string;
@@ -21,8 +22,11 @@ interface UndoStack {
         <h3>Line <code>{{ data.line }}</code></h3>
 
         <label>Diplomatic (L1)
-          <input class="greek" [value]="text()" (input)="onEdit($event)" spellcheck="false" />
+          <input class="greek" [value]="text()" (input)="onEdit($event)" (keydown)="onKeydown($event)" spellcheck="false" />
         </label>
+        @if (draftRestored()) {
+          <p class="hint">Unsaved draft restored after reload (⌘/Ctrl+S saves, ⌘/Ctrl+Z undoes).</p>
+        }
 
         <div class="tools">
           <button type="button" (click)="markUnclear()" [disabled]="caret() === 0 && text().length === 0">Mark unclear (at caret)</button>
@@ -74,11 +78,41 @@ export class LineEditor {
     this.api.line(this.lineId()).subscribe({
       next: (data) => {
         this.payload.set(data);
-        this.text.set(data.diplomatic ?? '');
         this.history.set([...data.history]);
+
+        // Crash recovery: restore an unsaved draft if one exists for this line AND it
+        // differs from the server text (drafts never override a newer saved revision).
+        const draft = this.readDraft();
+        const serverText = data.diplomatic ?? '';
+        this.text.set(draft !== null && draft !== serverText ? draft : serverText);
+        this.draftRestored.set(draft !== null && draft !== serverText);
       },
       error: () => this.payload.set({ line: this.lineId(), diplomatic: null, history: [] }),
     });
+  }
+
+  protected readonly draftRestored = signal(false);
+
+  protected onEdit(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const previous = this.text();
+    this.undoStack.update(stack => [...stack, { text: previous, revisionId: this.currentRevisionId() }]);
+    this.text.set(input.value);
+    // Caret position measured in scalars (grapheme-safe currency) from the UTF-16 index.
+    this.caret.set(scalarOffsetFromUtf16(input.value, input.selectionStart ?? 0));
+    this.writeDraft(input.value);
+  }
+
+  protected onKeydown(event: KeyboardEvent): void {
+    const modifier = event.metaKey || event.ctrlKey;
+    if (!modifier) return;
+    if (event.key === 's') {
+      event.preventDefault();
+      if (this.dirty()) this.save();
+    } else if (event.key === 'z') {
+      event.preventDefault();
+      this.undo();
+    }
   }
 
   protected readonly dirty = computed(() =>
@@ -87,15 +121,6 @@ export class LineEditor {
   protected readonly scalarTotal = computed(() => scalarCount(this.text()));
 
   protected readonly canUndo = computed(() => this.undoStack().length > 0);
-
-  protected onEdit(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const previous = this.text();
-    this.undoStack.update(stack => [...stack, { text: previous, revisionId: this.currentRevisionId() }]);
-    this.text.set(input.value);
-    // Caret position measured in scalars up to the selection start (grapheme-safe currency).
-    this.caret.set(scalarCount(input.value.slice(0, input.selectionStart ?? 0)));
-  }
 
   protected markUnclear(): void {
     const selectionStart = this.caret();
@@ -129,12 +154,46 @@ export class LineEditor {
   protected save(): void {
     const parent = this.currentRevisionId();
     this.api.appendRevision(this.lineId(), 'L1Diplomatic', this.text(), this.authorId(), parent ?? undefined)
-      .subscribe({ next: () => this.refresh() });
+      .subscribe({
+        next: () => {
+          this.clearDraft();
+          this.refresh();
+        },
+      });
   }
 
   private currentRevisionId(): string | null {
     const history = this.history();
     return history.length > 0 ? history[history.length - 1].id : null;
+  }
+
+  private draftKey(): string {
+    return `leviathan:draft:${this.lineId()}`;
+  }
+
+  private readDraft(): string | null {
+    try {
+      return globalThis.localStorage?.getItem(this.draftKey()) ?? null;
+    } catch {
+      return null; // storage unavailable (private mode): drafts degrade to none
+    }
+  }
+
+  private writeDraft(text: string): void {
+    try {
+      globalThis.localStorage?.setItem(this.draftKey(), text);
+    } catch {
+      /* ignore: no draft persistence available */
+    }
+  }
+
+  private clearDraft(): void {
+    try {
+      globalThis.localStorage?.removeItem(this.draftKey());
+    } catch {
+      /* ignore */
+    }
+    this.draftRestored.set(false);
   }
 
   private refresh(): void {
@@ -145,10 +204,4 @@ export class LineEditor {
       this.undoStack.set([]);
     });
   }
-}
-
-function scalarCount(text: string): number {
-  let count = 0;
-  for (const _ of text) count++;
-  return count;
 }
