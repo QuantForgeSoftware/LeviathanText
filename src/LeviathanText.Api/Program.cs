@@ -118,7 +118,7 @@ api.MapPost("projects/{id}/import-page", (ProjectService projects, string id, [F
             Message = "Page XML path must be absolute and readable on the server host.",
         });
 
-    var (imported, unsupported) = new InterchangeService(projects).ImportPage(project, request.PageXmlPath);
+    var (imported, unsupported) = new InterchangeService(projects).ImportPage(project, request.PageXmlPath, request.Kind ?? "page");
     return Results.Ok(new
     {
         objectId = imported.Id.ToString(),
@@ -371,7 +371,7 @@ app.MapGet("/", () => Results.Ok(new { service = "LeviathanText", contract = Con
 app.Run();
 
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
-public sealed record ImportPageRequest(string PageXmlPath);
+public sealed record ImportPageRequest(string PageXmlPath, string? Kind = null);
 public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);

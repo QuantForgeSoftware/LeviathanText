@@ -62,7 +62,8 @@ public sealed class ProjectService(IProjectStore store)
 public sealed class InterchangeService(ProjectService projects)
 {
     /// <summary>Import a PAGE XML file as a new object in an existing project.</summary>
-    public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Unsupported) ImportPage(NativeProject project, string pageXmlPath)
+    public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Unsupported) ImportPage(
+        NativeProject project, string pageXmlPath, string surfaceKind = "page")
     {
         var xml = File.ReadAllText(pageXmlPath);
         var captureId = NewCaptureId(project);
@@ -82,7 +83,7 @@ public sealed class InterchangeService(ProjectService projects)
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),
-            Kind = "papyrus-side",
+            Kind = surfaceKind,
             Captures = [new NativeCapture
             {
                 Id = captureId,

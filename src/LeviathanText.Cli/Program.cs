@@ -102,7 +102,8 @@ public static class Program
             case "import" when rest.Length >= 4 && rest[1] == "page":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
-                var (imported, unsupported) = interchange.ImportPage(project, rest[3]);
+                var kind = rest.Length >= 6 && rest[4] == "--kind" ? rest[5] : "page";
+                var (imported, unsupported) = interchange.ImportPage(project, rest[3], kind);
                 Console.WriteLine($"imported object {imported.Id}, surface {imported.Surfaces[0].Id}, lines {imported.Surfaces[0].Lines.Count}");
                 foreach (var issue in unsupported)
                     Console.WriteLine($"unsupported: {issue.Element}: {issue.Description}");
