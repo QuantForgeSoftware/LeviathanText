@@ -30,8 +30,15 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             .ToList();
         var labels = new LabelSet(vocabulary);
 
+        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        Directory.CreateDirectory(artifactDir);
+        var splitHash = TrainingRunManifestWriter.SplitHash(snapshot.WitnessSplitMap.Select(kv => $"{kv.Key}={kv.Value}"));
+
         var baseline = TrainAndEvaluate(snapshot, labels, augment: false);
-        var augmented = TrainAndEvaluate(snapshot, labels, augment: true);
+        var augmented = TrainAndEvaluate(snapshot, labels, augment: true,
+            packageDirectory: Path.Combine(artifactDir, "model-p01-h16-aug"),
+            splitHash: splitHash,
+            testLockedLines: snapshot.TestLocked.Count);
         var augmented32 = TrainAndEvaluate(snapshot32, labels, augment: true);
 
         var summary = new StringBuilder();
@@ -46,20 +53,26 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         summary.AppendLine();
         summary.AppendLine("Augmentation = stretch ±10%, vertical shift ±1 px, 1% salt/pepper, training only.");
         summary.AppendLine();
+        summary.AppendLine($"Packaged candidate: `{Path.Combine(artifactDir, "model-p01-h16-aug")}` (weights, metadata, manifest, model card).");
+        summary.AppendLine();
         summary.AppendLine("Augmentation is training-only; validation images are never transformed. The comparison is");
         summary.AppendLine("dev-only, so either direction is a selection input, not a release claim.");
 
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
-        Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-augmentation.txt"), text);
 
         Assert.All(new[] { baseline, augmented, augmented32 }, r => Assert.True(r.Cer < 1.0, "every run must beat the empty baseline"));
     }
 
-    private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, bool augment)
+    private static Result TrainAndEvaluate(
+        P01LineDataset.Snapshot snapshot,
+        LabelSet labels,
+        bool augment,
+        string? packageDirectory = null,
+        string? splitHash = null,
+        int testLockedLines = 0)
     {
         var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-aug-{augment}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
@@ -82,6 +95,19 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         var trainer = new CtcTrainer(model, labels, config);
         var run = trainer.Fit(snapshot.Train, snapshot.Dev);
         trainer.RestoreBest(); // measure the selected checkpoint, not the last epoch
+
+        if (packageDirectory is not null)
+        {
+            var manifest = TrainingRunManifestWriter.Create(
+                model, labels, config, run,
+                trainLines: snapshot.Train.Count,
+                devLines: snapshot.Dev.Count,
+                testLockedLines: testLockedLines,
+                splitHash: splitHash ?? string.Empty);
+            ModelPackageWriter.Write(
+                packageDirectory, checkpointDir, config.ModelName, manifest,
+                "Best measured P01 dev configuration (height 16, width 4, augmentation on). Pilot-scale; labels not adjudicated; not a release model.");
+        }
 
         var images = snapshot.Dev.Select(l => l.Image).ToArray();
         var recognizer = new TorchLineRecognizer(model, labels);

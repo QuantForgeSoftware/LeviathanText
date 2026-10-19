@@ -119,7 +119,9 @@ configuration exists (`CrnnModel(..., dropout:)`) and is recorded in the run man
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
   existing runs/checkpoints remain comparable.
 - Best measured next-candidate configuration: **height 16, width 4, augmentation on,
-  weight decay 0, dropout 0**.
+  weight decay 0, dropout 0**. The measured run is packaged under
+  `.artifacts/pilot/model-p01-h16-aug/` (weights, metadata/label set, run manifest, model
+  card; dev CER 0.783). The package is an evaluation artifact, not a release model.
   A future frozen candidate must use fresh held-out witnesses (acceptance-plan.md §2).
 - Do **not** claim calibrated confidence or use confidence-based abstention from this data.
 - The earlier height-32 recommendation is withdrawn for now; re-test it after the
