@@ -38,6 +38,16 @@ public sealed record AiProposalRequest
     public required string ProviderConfigRef { get; init; }
 
     public required string PromptVersion { get; init; }
+
+    /// <summary>
+    /// Diplomatic text of the selected span, resolved server-side from the target
+    /// revision. Optional so the record stays compatible with clients that only name
+    /// a span; real adapters send a conservative prompt when it is absent.
+    /// </summary>
+    public string SourceText { get; init; } = string.Empty;
+
+    /// <summary>Optional caller note; source text remains the only evidence.</summary>
+    public string? Instruction { get; init; }
 }
 
 /// <summary>

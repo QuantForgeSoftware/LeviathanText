@@ -41,6 +41,15 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
         {
             throw;
         }
+        catch (AiProviderException ex)
+        {
+            return ProposalOutcome.Failed(new AiProposalFailure
+            {
+                ProviderId = inner.ProviderId,
+                Reason = ex.Reason,
+                RawResponseExcerpt = ex.RedactedExcerpt,
+            });
+        }
         catch (Exception ex)
         {
             return ProposalOutcome.Failed(new AiProposalFailure
