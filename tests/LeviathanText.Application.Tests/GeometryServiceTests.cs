@@ -175,6 +175,61 @@ public sealed class GeometryServiceTests
     }
 
     [Fact]
+    public void AddLine_creates_a_manual_region_when_none_exists()
+    {
+        var store = new InMemoryStore();
+        var captureId = new EntityId(EntityKind.Capture, "cap1");
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "surf-empty"),
+            Kind = "page",
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = new Checksum { Algorithm = "unavailable", Digest = "pending" } },
+                ImageLocation = "page.png",
+            }],
+            Regions = [],
+            Lines = [],
+        };
+        var project = new NativeProject
+        {
+            Id = new EntityId(EntityKind.Collection, "col-empty"),
+            Name = "manual",
+            Objects = [new NativeObject { Id = new EntityId(EntityKind.PhysicalObject, "obj"), Surfaces = [surface] }],
+        };
+        store.SaveProject(project);
+
+        var (updated, updatedSurface, line) = new GeometryService(store).AddLine(
+            project, surface.Id,
+            [new(10, 10), new(100, 10), new(100, 40), new(10, 40)],
+            [new(10, 38), new(100, 38)]);
+
+        Assert.Single(updatedSurface.Regions);
+        Assert.Equal(LayoutSource.Manual, updatedSurface.Regions[0].LayoutSource);
+        Assert.Equal(updatedSurface.Regions[0].Id, line.RegionId);
+        Assert.Single(store.LoadProject(updated.Id)!.Objects[0].Surfaces[0].Lines);
+    }
+
+    [Fact]
+    public void DeleteLine_removes_untranscribed_but_refuses_transcribed_evidence()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        // The fixture line has an L1 revision: deletion is refused.
+        var ex = Assert.Throws<LeviathanException>(() => service.DeleteLine(project, lineId));
+        Assert.Equal(ErrorCode.RevisionConflict, ex.Error.Code);
+
+        // An untranscribed line can be removed.
+        var (withExtra, surfaceWithExtra, _) = service.AddLine(project, project.Objects[0].Surfaces[0].Id,
+            [new(1, 1), new(30, 1), new(30, 20), new(1, 20)], [new(1, 18), new(30, 18)]);
+        var added = surfaceWithExtra.Lines[^1];
+        var (afterDelete, surfaceAfter) = service.DeleteLine(withExtra, added.Id);
+        Assert.DoesNotContain(surfaceAfter.Lines, l => l.Id == added.Id);
+        Assert.Single(store.LoadProject(afterDelete.Id)!.Objects[0].Surfaces[0].Lines);
+    }
+
+    [Fact]
     public void SetLineOrder_rejects_incomplete_sets()
     {
         var (_, _, service, store) = Setup();

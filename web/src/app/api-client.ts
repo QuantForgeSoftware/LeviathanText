@@ -154,6 +154,14 @@ export class ApiClient {
     return this.http.put(`/api/v1/regions/${regionId}/line-order`, { lineIds });
   }
 
+  addLine(surfaceId: string, polygon: GeometryPoint[], baseline: GeometryPoint[]): Observable<{ lineId: string }> {
+    return this.http.post<{ lineId: string }>(`/api/v1/surfaces/${surfaceId}/lines`, { polygon, baseline });
+  }
+
+  deleteLine(lineId: string): Observable<unknown> {
+    return this.http.delete(`/api/v1/lines/${lineId}`);
+  }
+
   detectLayout(surfaceId: string): Observable<{ lineCount: number; method: string }> {
     return this.http.post<{ lineCount: number; method: string }>(`/api/v1/surfaces/${surfaceId}/detect-layout`, {});
   }

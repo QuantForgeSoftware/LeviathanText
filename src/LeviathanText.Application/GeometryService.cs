@@ -33,6 +33,93 @@ public sealed class GeometryService(IProjectStore store)
         return (foundProject, surface, surface.Lines.Single(l => l.Id == lineId));
     }
 
+    /// <summary>
+    /// Add a manually drawn line (the fallback when automatic layout misses one). A manual
+    /// region is created when the surface has none; explicit geometry is required.
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Line) AddLine(
+        NativeProject project, EntityId surfaceId,
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline, EntityId? regionId = null)
+    {
+        Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
+        var (foundProject, surface) = FindSurface(project, surfaceId);
+
+        NativeRegion? region = null;
+        if (regionId is { } requested)
+        {
+            region = surface.Regions.FirstOrDefault(r => r.Id == requested)
+                ?? throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.InputMissing,
+                    Scope = requested.ToString(),
+                    Message = "No such region on the surface.",
+                });
+        }
+
+        if (region is null)
+        {
+            region = surface.Regions.Count > 0
+                ? surface.Regions.OrderBy(r => r.ReadingOrderIndex).First()
+                : new NativeRegion
+                {
+                    Id = new EntityId(EntityKind.Region, Guid.NewGuid().ToString("N")[..12]),
+                    FrameRef = surface.Captures.FirstOrDefault()?.Id ?? default,
+                    Polygon =
+                    [
+                        new PointD(0, 0),
+                        new PointD(polygon.Max(p => p.X), 0),
+                        new PointD(polygon.Max(p => p.X), polygon.Max(p => p.Y)),
+                        new PointD(0, polygon.Max(p => p.Y)),
+                    ],
+                    LayoutSource = LayoutSource.Manual,
+                    ReadingOrderIndex = 0,
+                };
+        }
+
+        var line = new NativeLine
+        {
+            Id = new EntityId(EntityKind.Line, Guid.NewGuid().ToString("N")[..12]),
+            RegionId = region.Id,
+            FrameRef = region.FrameRef,
+            Polygon = validatedPolygon,
+            Baseline = validatedBaseline,
+        };
+
+        var updated = surface with
+        {
+            Regions = surface.Regions.Any(r => r.Id == region.Id)
+                ? surface.Regions
+                : [.. surface.Regions, region],
+            Lines = [.. surface.Lines, line],
+        };
+        foundProject = WithSurface(foundProject, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated, line);
+    }
+
+    /// <summary>
+    /// Delete a line that carries no transcription evidence. Lines with an L1 revision are
+    /// refused: removing the scope would orphan reviewed text (delete the revision history
+    /// deliberately instead, once a review workflow exists).
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface) DeleteLine(NativeProject project, EntityId lineId)
+    {
+        var (foundProject, surface, line) = FindLine(project, lineId);
+        if (line.DiplomaticRevisionId is not null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RevisionConflict,
+                Scope = lineId.ToString(),
+                RemedyHint = RemedyHint.RebaseRevision,
+                Message = "Line has a diplomatic revision; refusing to delete transcribed evidence.",
+            });
+
+        var updated = surface with { Lines = [.. surface.Lines.Where(l => l.Id != lineId)] };
+        foundProject = WithSurface(foundProject, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated);
+    }
+
     public (NativeProject Project, NativeSurface Surface) SetReadingOrder(
         NativeProject project, EntityId surfaceId, IReadOnlyList<EntityId> orderedRegionIds)
     {

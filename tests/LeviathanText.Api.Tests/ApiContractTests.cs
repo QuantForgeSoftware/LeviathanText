@@ -325,6 +325,32 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Manual_line_can_be_added_then_deleted_but_transcribed_lines_are_protected()
+    {
+        var client = NewClient();
+        var (_, firstTranscribed, surfaceId) = await ImportFixtureAsync(client, "manual-line-e2e");
+
+        var created = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/lines", new
+        {
+            polygon = new[]
+            {
+                new { x = 10.0, y = 70.0 }, new { x = 190.0, y = 70.0 },
+                new { x = 190.0, y = 90.0 }, new { x = 10.0, y = 90.0 },
+            },
+            baseline = new[] { new { x = 10.0, y = 88.0 }, new { x = 190.0, y = 88.0 } },
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var newLineId = createdJson.RootElement.GetProperty("lineId").GetString()!;
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/v1/lines/{newLineId}")).StatusCode);
+        // Transcribed fixture line: deletion refused with the conflict code.
+        var refused = await client.DeleteAsync($"/api/v1/lines/{firstTranscribed}");
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("revisionConflict", await refused.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Jobs_listing_returns_records_and_filters_by_status()
     {
         var client = NewClient();

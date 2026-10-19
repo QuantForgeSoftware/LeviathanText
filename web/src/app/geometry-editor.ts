@@ -31,9 +31,14 @@ interface DragState {
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Surface capture with editable line boxes"
+          (pointerdown)="onSvgDown($event)"
           (pointermove)="onMove($event)"
           (pointerup)="onUp()"
           (pointerleave)="onUp()">
+          @if (drawRect(); as rect) {
+            <rect [attr.x]="rect.x" [attr.y]="rect.y" [attr.width]="rect.width" [attr.height]="rect.height"
+                  class="draft" />
+          }
           @for (line of lines(); track line.id) {
             <g [attr.data-id]="line.id">
               <polygon
@@ -59,10 +64,14 @@ interface DragState {
       </div>
 
       <div class="tools">
+        <button type="button" (click)="setMode('move')" [disabled]="mode() === 'move'">Move / resize</button>
+        <button type="button" (click)="setMode('draw')" [disabled]="mode() === 'draw'">Draw new line</button>
         <button type="button" (click)="saveGeometry()" [disabled]="!dirty()">Save geometry</button>
         <button type="button" (click)="undoGeometry()" [disabled]="history().length === 0">Undo edit</button>
+        <button type="button" (click)="deleteSelected()" [disabled]="!selectedId()">Delete line</button>
         <button type="button" (click)="reset()" [disabled]="!dirty()">Reset</button>
         <span class="hint">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
+        @if (actionStatus()) { <span class="hint">{{ actionStatus() }}</span> }
       </div>
 
       <h4>Region order</h4>
@@ -100,6 +109,7 @@ interface DragState {
     polygon.sel { fill: rgba(220, 120, 40, 0.25); stroke: #dc7828; }
     .baseline { fill: none; stroke: #dc3c28; stroke-width: 2; pointer-events: none; }
     .handle { fill: #fff; stroke: #dc7828; stroke-width: 2; cursor: nwse-resize; }
+    .draft { fill: rgba(40, 160, 80, 0.2); stroke: #28a050; stroke-width: 2; stroke-dasharray: 5 3; pointer-events: none; }
     .tools { margin-top: 0.5rem; display: flex; gap: 0.75rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
@@ -117,6 +127,10 @@ export class GeometryEditor implements OnInit {
   protected readonly dirty = signal(false);
   protected readonly orderDirty = signal(false);
   protected readonly lineOrderDirty = signal(false);
+  protected readonly mode = signal<'move' | 'draw'>('move');
+  protected readonly drawRect = signal<{ x: number; y: number; width: number; height: number } | null>(null);
+  protected readonly actionStatus = signal('');
+  private drawStart: { x: number; y: number } | null = null;
   protected readonly lineOrder = signal<string[]>([]);
   protected readonly history = signal<GeometryLine[][]>([]);
   private pendingSnapshot: GeometryLine[] | null = null;
@@ -173,7 +187,21 @@ export class GeometryEditor implements OnInit {
     return line.baseline.map(p => `${p.x},${p.y}`).join(' ');
   }
 
+  protected setMode(mode: 'move' | 'draw'): void {
+    this.mode.set(mode);
+    this.drawRect.set(null);
+    this.drawStart = null;
+  }
+
+  protected onSvgDown(event: PointerEvent): void {
+    if (this.mode() !== 'draw' || event.target !== event.currentTarget) return;
+    const point = this.dragFor(event);
+    this.drawStart = { x: point.startX, y: point.startY };
+    this.drawRect.set({ x: point.startX, y: point.startY, width: 0, height: 0 });
+  }
+
   protected onDown(event: PointerEvent, line: GeometryLine): void {
+    if (this.mode() === 'draw') return;
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
     this.pendingSnapshot = this.snapshot();
@@ -181,6 +209,7 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onResizeDown(event: PointerEvent, line: GeometryLine, corner: number): void {
+    if (this.mode() === 'draw') return;
     event.stopPropagation();
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
@@ -215,6 +244,17 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onMove(event: PointerEvent): void {
+    if (this.drawStart) {
+      const point = this.dragFor(event);
+      const x = Math.min(this.drawStart.x, point.startX);
+      const y = Math.min(this.drawStart.y, point.startY);
+      this.drawRect.set({
+        x, y,
+        width: Math.abs(point.startX - this.drawStart.x),
+        height: Math.abs(point.startY - this.drawStart.y),
+      });
+      return;
+    }
     if (!this.drag) return;
     const svg = (event.target as Element).closest('svg');
     if (!svg) return;
@@ -259,11 +299,53 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onUp(): void {
+    if (this.drawStart) {
+      const rect = this.drawRect();
+      this.drawStart = null;
+      this.drawRect.set(null);
+      if (rect && rect.width >= 4 && rect.height >= 4) this.createLine(rect);
+      return;
+    }
     if (this.drag && this.pendingSnapshot
         && JSON.stringify(this.pendingSnapshot) !== JSON.stringify(this.snapshot()))
       this.history.update(stack => [...stack, this.pendingSnapshot!]);
     this.pendingSnapshot = null;
     this.drag = null;
+  }
+
+  private createLine(rect: { x: number; y: number; width: number; height: number }): void {
+    const right = rect.x + rect.width;
+    const bottom = rect.y + rect.height;
+    this.api.addLine(this.surfaceId(),
+      [
+        { x: rect.x, y: rect.y }, { x: right, y: rect.y },
+        { x: right, y: bottom }, { x: rect.x, y: bottom },
+      ],
+      [{ x: rect.x, y: bottom }, { x: right, y: bottom }])
+      .subscribe({
+        next: () => {
+          this.actionStatus.set('line added');
+          this.reload();
+        },
+        error: () => this.actionStatus.set('could not add line'),
+      });
+  }
+
+  protected deleteSelected(): void {
+    const id = this.selectedId();
+    if (!id) return;
+    this.api.deleteLine(id).subscribe({
+      next: () => {
+        this.actionStatus.set('line deleted');
+        this.selectedId.set(null);
+        this.reload();
+      },
+      error: () => this.actionStatus.set('deletion refused (line has transcribed text)'),
+    });
+  }
+
+  private reload(): void {
+    this.api.loadProject(this.projectId()).subscribe(payload => this.loadFrom(payload));
   }
 
   protected undoGeometry(): void {

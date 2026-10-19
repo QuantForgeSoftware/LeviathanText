@@ -61,7 +61,7 @@ dotnet run --project src/LeviathanText.Api
 # ingestion: POST /projects/{id}/import-page | import-iiif | import-legacy (ALTO/hOCR + image)
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
-# geometry: PUT /lines/{id}/geometry
+# geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}
 # exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | alto | hocr
 #          GET /projects/{id}/training-export | bundle (zip with manifest)
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept

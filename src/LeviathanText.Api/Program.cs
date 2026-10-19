@@ -262,6 +262,32 @@ api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService 
     });
 });
 
+api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] AddLineRequest request) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+
+    var (_, _, line) = geometry.AddLine(project, surfaceEntityId, request.Polygon, request.Baseline, request.RegionId);
+    return Results.Created($"/api/v1/lines/{line.Id}", new
+    {
+        lineId = line.Id.ToString(),
+        regionId = line.RegionId.ToString(),
+        polygon = line.Polygon,
+        baseline = line.Baseline,
+    });
+});
+
+api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, string lineId) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    geometry.DeleteLine(project, lineEntityId);
+    return Results.NoContent();
+});
+
 api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] ReadingOrderRequest request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
@@ -525,6 +551,8 @@ public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnl
 public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds);
 
 public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds);
+
+public sealed record AddLineRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, EntityId? RegionId = null);
 
 /// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource
