@@ -20,6 +20,7 @@ public sealed class AiHttpTransport
     private readonly IAiCredentialSource _credentials;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly AiSpendBudget? _budget;
+    private int _logicalRequests;
 
     public AiHttpTransport(
         AiProviderSettings settings,
@@ -73,6 +74,12 @@ public sealed class AiHttpTransport
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(requestFactory);
+
+        if (_settings.MaxRequests > 0
+            && Interlocked.Increment(ref _logicalRequests) > _settings.MaxRequests)
+            throw new AiProviderException(
+                AiFailureReasons.RequestBudgetExceeded,
+                detail: $"The configured limit of {_settings.MaxRequests} provider calls has been reached.");
 
         for (var attempt = 1; ; attempt++)
         {

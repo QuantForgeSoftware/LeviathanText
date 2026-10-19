@@ -254,6 +254,23 @@ public class HttpProviderTests
     }
 
     [Fact]
+    public async Task Request_cap_stops_further_calls_without_touching_the_network()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Json("""{"choices":[{"message":{"content":"κυρίου"}}]}""")));
+        var settings = OpenAiSettings() with { MaxRequests = 1 };
+        var provider = new SchemaValidatingAiProvider(
+            new AiHttpProvider(settings, new HttpClient(handler), Credentials(), NoDelay));
+
+        var first = await provider.ProposeAsync(Request());
+        var second = await provider.ProposeAsync(Request());
+
+        Assert.True(first.Succeeded);
+        Assert.False(second.Succeeded);
+        Assert.Equal(AiFailureReasons.RequestBudgetExceeded, second.Failure!.Reason);
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
     public async Task Missing_credential_fails_as_configuration_without_a_request()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json("{}")));
