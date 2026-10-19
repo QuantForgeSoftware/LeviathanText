@@ -104,6 +104,16 @@ Weight decay hurts monotonically at this data volume; keep it **0**. The knob ex
 Dropout on the LSTM output does not help at this data volume; keep it **0**. The
 configuration exists (`CrnnModel(..., dropout:)`) and is recorded in the run manifest.
 
+## Learning-rate A/B (height 16, width 4, augmentation on)
+
+| Learning rate | Dev scalar CER |
+| --- | --- |
+| 1e-3 | 0.8028 |
+| **3e-3 (default)** | **0.7829** |
+| 5e-3 | 0.7898 |
+
+3e-3 remains the best measured rate; no change.
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
