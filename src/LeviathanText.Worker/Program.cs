@@ -22,7 +22,9 @@ public static class Program
         }
 
         using var store = new LocalStore(storePath);
-        var host = new WorkerHost(new LocalStoreJobStore(store), [new NoOpHandler(), new LayoutDetectHandler(store)]);
+        var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+        var host = new WorkerHost(new LocalStoreJobStore(store),
+            [new NoOpHandler(), new LayoutDetectHandler(store, new ImageResolver(store, imageCache))]);
         var workerId = host.WorkerId.ToString();
 
         Console.WriteLine($"worker {workerId} polling {storePath}");
@@ -39,23 +41,17 @@ public static class Program
         return 0;
     }
 
-    /// <summary>Adapter exposing LocalStore's job persistence to the host protocol.</summary>
+    /// <summary>
+    /// Adapter exposing LocalStore's durable job table to the host protocol. Reads are
+    /// DB-backed so jobs enqueued by other processes (API) are picked up.
+    /// </summary>
     public sealed class LocalStoreJobStore(LocalStore store) : IJobStore
     {
-        private readonly List<JobRecord> _cache = [];
+        public IReadOnlyList<JobRecord> PendingJobs() => store.LoadJobsByStatus(JobStatus.Pending);
 
-        public IReadOnlyList<JobRecord> PendingJobs() =>
-            [.. _cache.Where(j => j.Status == JobStatus.Pending)];
+        public void Save(JobRecord job) => store.SaveJob(job);
 
-        public void Save(JobRecord job)
-        {
-            store.SaveJob(job);
-            _cache.RemoveAll(j => j.Id == job.Id);
-            _cache.Add(job);
-        }
-
-        public JobRecord? Find(EntityId id) =>
-            _cache.FirstOrDefault(j => j.Id == id) ?? store.LoadJob(id);
+        public JobRecord? Find(EntityId id) => store.LoadJob(id);
     }
 
     /// <summary>Placeholder handler proving the claim/execute/finalize protocol end to end.</summary>

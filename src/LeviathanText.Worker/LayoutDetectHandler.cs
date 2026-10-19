@@ -9,7 +9,7 @@ namespace LeviathanText.Worker;
 /// (checksum fields are informational for this job type). Runs the projection detector,
 /// refuses to overwrite existing layout, and finalizes idempotently through the host.
 /// </summary>
-public sealed class LayoutDetectHandler(IProjectStore store) : IJobHandler
+public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imageResolver = null) : IJobHandler
 {
     public const string JobType = "layout.detect";
 
@@ -40,7 +40,7 @@ public sealed class LayoutDetectHandler(IProjectStore store) : IJobHandler
                 Message = "Surface not found in any project.",
             });
 
-        var service = new LayoutService(store);
+        var service = new LayoutService(store, imageResolver);
         var outcome = service.Detect(project, input.Entity);
 
         return job with

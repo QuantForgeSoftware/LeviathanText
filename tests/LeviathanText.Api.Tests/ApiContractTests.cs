@@ -269,6 +269,25 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Layout_job_carries_the_surface_as_its_input()
+    {
+        var client = NewClient();
+        var (_, _, surfaceId) = await ImportFixtureAsync(client, "job-input-e2e");
+
+        var response = await client.PostAsJsonAsync("/api/v1/jobs", new
+        {
+            type = "layout.detect",
+            ownerId = "test",
+            idempotencyKey = "layout-input-1",
+            surfaceId,
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains(surfaceId, body);
+        Assert.Contains("\"inputs\"", body);
+    }
+
+    [Fact]
     public async Task Job_events_stream_replays_created_event()
     {
         var client = NewClient();
