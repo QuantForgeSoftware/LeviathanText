@@ -16,6 +16,15 @@ import { GeometryEditor } from './geometry-editor';
     @if (exportData(); as data) {
       <section>
         <h2>Diplomatic text</h2>
+        @if (captures().length > 1) {
+          <label>View
+            <select (change)="onCapture($event)">
+              @for (capture of captures(); track capture.id; let index = $index) {
+                <option [value]="index" [selected]="index === captureIndex()">view {{ index + 1 }}: {{ capture.imageLocation }}</option>
+              }
+            </select>
+          </label>
+        }
         <ol class="lines">
           @for (line of lines(); track $index) {
             <li><span class="greek" (click)="select($index)" role="button" tabindex="0">{{ line }}</span></li>
@@ -71,9 +80,17 @@ export class SurfaceView {
   protected readonly totalScalars = signal(0);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly imageLink = signal('');
+  protected readonly captures = signal<{ id: string; imageLocation?: string }[]>([]);
+  protected readonly captureIndex = signal(0);
   protected readonly showGeometry = signal(false);
   protected readonly exportStatus = signal('');
   private readonly lineIdsByIndex = signal<string[]>([]);
+
+  protected onCapture(event: Event): void {
+    const index = Number((event.target as HTMLSelectElement).value);
+    this.captureIndex.set(index);
+    this.imageLink.set(this.captures()[index]?.imageLocation ?? '');
+  }
 
   protected toggleGeometry(): void {
     this.showGeometry.update(v => !v);
@@ -146,8 +163,11 @@ export class SurfaceView {
         .flatMap(o => o.surfaces)
         .find(s => s.id === this.surfaceId());
       this.lineIdsByIndex.set(surface?.lines.map(l => l.id) ?? []);
-      // Image link from the surface's first capture (original captures are immutable).
-      this.imageLink.set(surface?.captures?.[0]?.imageLocation ?? '');
+      // Captures (views) are listed; the selected view drives overlays and links.
+      const captureList = (surface?.captures ?? []).map(c => ({ id: c.id, imageLocation: c.imageLocation }));
+      this.captures.set(captureList);
+      this.captureIndex.set(0);
+      this.imageLink.set(captureList[0]?.imageLocation ?? '');
     });
   }
 

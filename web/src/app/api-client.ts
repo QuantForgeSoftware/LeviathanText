@@ -203,7 +203,7 @@ export interface ProjectPayload {
         baseline: GeometryPoint[];
       }[];
       regions: { id: string; readingOrderIndex: number | null }[];
-      captures: { imageLocation?: string }[];
+      captures: { id: string; imageLocation?: string }[];
     }[];
   }[];
 }
