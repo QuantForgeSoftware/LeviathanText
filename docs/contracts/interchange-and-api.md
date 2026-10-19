@@ -97,6 +97,24 @@ These conventions apply to every contract record on the wire:
 | Acceptance | Accepting a proposal creates an L2 revision with provenance; L1 is untouched. Bulk acceptance requires a dry-run preview first (todo §4). |
 | Malformed responses | Provider responses failing schema validation become failed proposal attempts with the validation reason recorded; they never surface partial text as a proposal. |
 
+### 2.4 Implemented endpoint inventory (pilot)
+
+This is a summary of the implemented surface, not a new contract. Route names are stable
+within the pilot; shapes follow §2.0 and errors use the closed vocabulary.
+
+| Area | Routes |
+| --- | --- |
+| Projects | `GET/POST /projects`, `GET /projects/{id}` |
+| Ingestion | `POST /projects/{id}/import-page`, `…/import-iiif`, `…/import-image`, `…/import-legacy` |
+| Layout | `POST /surfaces/{id}/detect-layout`, `PUT /surfaces/{id}/reading-order`, `PUT /regions/{id}/line-order`, `POST /surfaces/{id}/lines`, `DELETE /lines/{id}`, `PUT /lines/{id}/geometry` |
+| Transcription | `GET/POST /lines/{id}/revisions`, `GET /lines/{id}` (L1 chain plus all-layer `revisions`), `GET/POST /lines/{id}/annotations` |
+| Exports | `GET /projects/{id}/surfaces/{sid}/{diplomatic,tei,alto,hocr}`, `GET /projects/{id}/{training-export,bundle,lines.csv,annotations.csv}` |
+| Search/QA | `GET /projects/{id}/search?q=&mode=literal|base`, `GET /projects/{id}/profile-report` |
+| Models | `GET /models` (packages under a configured directory), `POST /surfaces/{id}/recognize` (name only, verified package) |
+| Jobs | `POST /jobs`, `GET /jobs[?status=]`, `GET /jobs/{id}`, `GET /jobs/{id}/events` (SSE), `POST /jobs/{id}/cancel` |
+| AI | `GET /providers`, `POST /proposals`, `POST /proposals/{id}/accept`, bulk preview/accept |
+| Auth (opt-in) | API key via `Authorization: Bearer`, `X-Api-Key`, or `?api_key=` (SSE); `Auth:ReadOnly` blocks mutations |
+
 ## 3. UI-facing behavior contracts (prose)
 
 | Concern | Contract |
