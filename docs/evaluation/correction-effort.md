@@ -3,6 +3,7 @@
 - Owner: **Instance B (EVAL)**; contract set **C0-0.4-draft**; baseline `main` @ `c3a050d`.
 - Companion: [acceptance-plan.md](acceptance-plan.md) §3 (AI-assisted row) and §5 (correction-effort measurement).
 - Implementation: `src/LeviathanText.Evaluation/CorrectionEffortScorer.cs`; tests: `tests/LeviathanText.Evaluation.Tests/CorrectionEffortTests.cs`.
+- Proposal bridge: `src/LeviathanText.AI/AiEvaluationBridge.cs` maps recorded `AiProposal` task/status into this scorer (`ScoreSession`), so the API can score a reviewed session without a package cycle.
 
 ## What it measures
 
