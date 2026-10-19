@@ -125,7 +125,8 @@ public sealed class CtcTrainer
         int startEpoch = _epoch;
         int sinceImprovement = 0;
         var history = new List<EpochRecord>();
-        var bestPath = string.Empty;
+        var bestPath = CheckpointStore.ModelPath(_config.CheckpointDirectory, _config.ModelName, ".best");
+        if (!File.Exists(bestPath)) bestPath = string.Empty; // resumed run with no new epoch yet
 
         for (int e = _epoch; e < _config.Epochs; e++)
         {
