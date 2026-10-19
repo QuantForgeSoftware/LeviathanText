@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | Corpus/version, object counts, evaluated lines/signs, unresolved spans, split hashes | M02a v1.0 (Stavronikita 53, CC BY 4.0): zip md5 verified, 111 files; page-level split **571 train / 131 dev / 179 page-holdout test lines**. M01 v1.0: 120/120 image+XML pairs, **2,272 TextLines**; used as an independent cross-witness evaluation sample (568 lines, deterministic 1-in-4). Book-level split; no line-level randomization of the publisher's splits | recorded |
 | Transcription profile, Unicode/scoring version, whitespace & uncertainty rules | contract **C0-0.4-draft**, NFC canonical-equivalent scalar CER; grapheme label set; overbarred nomina-sacra composites present (129 classes for M02a); canonical-equivalence only | recorded; **specialist adjudication pending (DATA-03)** |
-| Raw-model results | M02a page-holdout: **CER 0.811** (150 epochs, no M01 data/tuning). Cross-witness M02a→M01: **CER 0.838** on 568 sampled lines; perfect-line rate 0 | measured, pilot-scale |
+| Raw-model results | M02a page-holdout: **CER 0.811** (150 epochs, no M01 data/tuning). Cross-witness M02a→M01: **CER 0.838** on 568 sampled lines; perfect-line rate 0. **Measured before the `0c6c768` crop fix; re-measure before accepting.** | measured, pilot-scale, pre-fix extraction |
 | Language-assisted results | none implemented | not started |
 | AI-assisted results | none; no provider call was run on this track | pending Phase 2 |
 | Manual vs automatic layout | imported PAGE geometry only; automatic layout was not evaluated for manuscripts | imported recorded; automatic not started |
