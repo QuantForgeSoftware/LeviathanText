@@ -160,3 +160,12 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 2. Whether inscriptions may proceed to acceptance with **I02-only** imagery if I01 imagery stays unresolved (recommend: yes, disclosed as a narrow profile).
 3. Damage/orientation vocabulary for the transcription profile — A's `greek-transcription.md` §5 covers `unclear`/`illegible`/`lost`/`erased`/`added`/`overwritten`; the residual is the inscriptions-specific sign inventory (A's open question to the specialist).
 4. Suggested source-backed replacement for A's invented EX-3/EX-6: a real I01/I02 stoichedon or worn-stone line once INS-02 creates it.
+
+## 10. INS-01 execution record (2026-10-19, single-instance mode: Instance A absorbed all packages)
+
+- **Acquisition:** the full ISicily EpiDoc repo (master snapshot 2026-10-18) downloaded to `.artifacts/datasets/i01/` — **5,136 inscription records**.
+- **Comment-aware audit (inspected, green test):** **3,135 Greek records; 448 with ACTIVE `<graphic>`; 2,656 with graphics only inside XML comments; 2,001 non-Greek.** Important correction: a naive regex count (3,104) matched graphics inside comments and overstated image availability — the audit strips comments first. This is exactly the "not every linked image is usable" risk from the register.
+- **Image service resolved + smoke:** IIIF Image API 3 at `cantaloupe.classics.ox.ac.uk` (identifier `ISicily!{file}_tiled.tif`); per-record Presentation 3 manifests at `iiif.csad.ox.ac.uk/manifests/ISicily/{id}.json` carrying per-manifest rights/credit statements. Smoke image ISic001151 fetched at bounded 800px, decoded, checksummed (green test).
+- **Real EpiDoc through the bounded TEI profile (green tests):** ISic001151 and ISic003785 import without throwing; outside-profile elements are reported, not flattened; no literal brackets leak into produced text.
+- **No paired lines yet (honest):** `paired_line_counts: 0` — line geometry and visible-text labels are future expert/annotation construction work; the published edition text is preserved separately from any future visual label (register warning kept).
+- **Corpus status:** intersection counted, image path proven; representative pilot selection (from the 448 subset, with date/material distribution) and label construction remain pending. No release claim.

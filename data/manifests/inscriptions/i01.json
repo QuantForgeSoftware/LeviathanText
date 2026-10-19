@@ -1,0 +1,57 @@
+{
+  "schema": "leviathantext.corpus-manifest",
+  "schemaContractVersion": "C0-0.4-draft",
+  "manifestVersion": "manifest-v1",
+  "changeLog": [
+    {
+      "date": "2026-10-19",
+      "change": "I01 repo (master snapshot) downloaded; comment-aware audit: 5136 records, 3135 Greek, 448 with active image graphics, 2001 non-Greek; smoke image fetched bounded; real EpiDoc imports through the bounded TEI profile green.",
+      "evidence": ["https://github.com/ISicily/ISicily (pinned: master snapshot 2026-10-18)"]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "I01",
+      "source_version": "pin:master-snapshot-2026-10-18",
+      "url_doi": "https://github.com/ISicily/ISicily",
+      "retrieval_date": "2026-10-18",
+      "content_checksums": "tarball isicily-master.tar.gz sha256 not recorded at download (record before distribution)",
+      "material_track": "inscription",
+      "language_period": "Greek (3135 records) + other languages (2001 records); ancient Sicily",
+      "witness_dating": { "range": "varies per record (per-record TEI dating)", "basis": "inspected sample" },
+      "units_evidence": {
+        "counts": { "epidoc_records": 5136, "greek_records": 3135, "greek_with_active_graphic": 448, "greek_graphics_commented_out": 2656, "non_greek": 2001 },
+        "provenance": "inspected (comment-aware; first regex count of 3104 was WRONG because commented graphics matched)"
+      },
+      "paired_line_counts": 0,
+      "paired_char_counts": 0,
+      "license_image": "cc-by-4.0",
+      "license_text": "cc-by-4.0",
+      "license_annotation": "cc-by-4.0",
+      "license_code": "unverified",
+      "license_weights": "unverified",
+      "license_evidence": "repo licence.txt + project lead's 2024 paper pp.74-76 states all material incl. IIIF imagery CC BY 4.0; per-manifest requiredStatement carries photo credits (e.g. 'Photo J. Prag, courtesy Museo civico di Termini Imerese')",
+      "attribution": "I.Sicily / Crossreads (A. Prag et al.), with per-image credits retained",
+      "conditions_exceptions": [
+        "image service: https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily!{identifier}_tiled.tif (IIIF Image API 3, level2)",
+        "IIIF Presentation 3 manifests: https://iiif.csad.ox.ac.uk/manifests/ISicily/{id}.json"
+      ],
+      "allowed_intended_use": "construct",
+      "unresolved_questions": [
+        "why 2656 Greek records have commented-out graphics (image rights per object? processing backlog?) — sample-check before bulk download",
+        "line geometry does not exist: diplomatic line labels + pixel-aligned polygons are future expert/annotation work (register: EpiDoc line breaks alone are not pixel alignment)",
+        "date/material distribution of the 448 subset for representative pilot selection"
+      ],
+      "artifacts": {
+        "store_prefix": ".artifacts/datasets/i01/",
+        "files": "repo snapshot + smoke/",
+        "checksum_algorithm": "pending",
+        "verified": true
+      },
+      "splits": { "assignment": "pending construction work; propose site/monument holdouts", "split_hash": null },
+      "notes": [
+        "first usable image smoke: ISic001151 (Funerary block, Termini Imerese, 101-300 CE) fetched at 800px width, decoded 800px wide, sha256 recorded"
+      ]
+    }
+  ]
+}
