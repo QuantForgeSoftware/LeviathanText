@@ -45,15 +45,16 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         summary.AppendLine("P01 v0.9 training-augmentation A/B, dev split (pilot-scale, non-adjudicated labels)");
         summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 16 vs 32, width downsample 4 (post IMG padding fix), greedy decoding");
         summary.AppendLine();
-        summary.AppendLine("| Input height | Training | Greedy CER | Beam-8 CER | Best dev CER during fit | Perfect lines | s/line |");
-        summary.AppendLine("| --- | --- | --- | --- | --- | --- | --- |");
-        summary.AppendLine($"| 16 | plain | {baseline.Cer:0.####} | {baseline.BeamCer:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
-        summary.AppendLine($"| 16 | augmented | {augmented.Cer:0.####} | {augmented.BeamCer:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
-        summary.AppendLine($"| 32 | augmented | {augmented32.Cer:0.####} | {augmented32.BeamCer:0.####} | {augmented32.BestValidationCer:0.####} | {augmented32.Perfect}/{augmented32.Lines} | {augmented32.SecondsPerLine:0.0000} |");
+        summary.AppendLine("| Input height | Training | Greedy CER | Beam-8 CER | Calibration ECE | AURC | Best dev CER during fit | Perfect lines | s/line |");
+        summary.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+        summary.AppendLine($"| 16 | plain | {baseline.Cer:0.####} | {baseline.BeamCer:0.####} | {baseline.Ece:0.####} | {baseline.Aurc:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 16 | augmented | {augmented.Cer:0.####} | {augmented.BeamCer:0.####} | {augmented.Ece:0.####} | {augmented.Aurc:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 32 | augmented | {augmented32.Cer:0.####} | {augmented32.BeamCer:0.####} | {augmented32.Ece:0.####} | {augmented32.Aurc:0.####} | {augmented32.BestValidationCer:0.####} | {augmented32.Perfect}/{augmented32.Lines} | {augmented32.SecondsPerLine:0.0000} |");
         summary.AppendLine();
         summary.AppendLine("Augmentation = stretch ±10%, vertical shift ±1 px, 1% salt/pepper, training only.");
         summary.AppendLine();
         summary.AppendLine($"Packaged candidate: `{Path.Combine(artifactDir, "model-p01-h16-aug")}` (weights, metadata, manifest, model card).");
+        summary.AppendLine($"Candidate confidence (augmented, height 16): ECE {augmented.Ece:0.###}, AURC {augmented.Aurc:0.###} — still not calibrated enough for a certainty claim.");
         summary.AppendLine();
         summary.AppendLine("Augmentation is training-only; validation images are never transformed. The comparison is");
         summary.AppendLine("dev-only, so either direction is a selection input, not a release claim.");
@@ -129,16 +130,32 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         for (var i = 0; i < images.Length; i++)
             beamDistance += RecognitionScorer.Score(snapshot.Dev[i].Text, beam[i].Text).ScalarDistance;
 
+        var graphemeSamples = new List<GraphemeSample>();
+        var selectiveSamples = new List<SelectiveSample>();
+        for (var i = 0; i < images.Length; i++)
+        {
+            var score = RecognitionScorer.Score(snapshot.Dev[i].Text, recognized[i].Text);
+            var spans = recognized[i].Graphemes.Select(g => new GraphemeSpan(g.StartScalar, g.EndScalar, g.Confidence.Value)).ToArray();
+            graphemeSamples.AddRange(GraphemeCalibration.Samples(snapshot.Dev[i].Text, recognized[i].Text, spans));
+            var lineConfidence = recognized[i].Graphemes.Count == 0 ? 0.0 : recognized[i].Graphemes.Min(g => g.Confidence.Value);
+            selectiveSamples.Add(new SelectiveSample(lineConfidence, score.ReferenceScalarLength, score.ScalarDistance));
+        }
+
+        var calibration = SelectivePredictionScorer.Calibration(graphemeSamples);
+        var selective = SelectivePredictionScorer.Selective(selectiveSamples);
+
         return new Result(
             length == 0 ? 1.0 : (double)distance / length,
             length == 0 ? 1.0 : (double)beamDistance / length,
+            calibration.ExpectedCalibrationError,
+            selective.AreaUnderRiskCoverageCurve,
             run.BestValidationCer,
             perfect,
             images.Length,
             clock.Elapsed.TotalSeconds / Math.Max(1, images.Length));
     }
 
-    private sealed record Result(double Cer, double BeamCer, double BestValidationCer, int Perfect, int Lines, double SecondsPerLine);
+    private sealed record Result(double Cer, double BeamCer, double Ece, double Aurc, double BestValidationCer, int Perfect, int Lines, double SecondsPerLine);
 
     private static string FindDataDir()
     {

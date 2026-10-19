@@ -63,8 +63,9 @@ evidence that the crop fix (not a decoder change) addressed the structural failu
 | Full-coverage dev CER | 0.797 |
 
 Calibration improved from ECE 0.237 pre-fix, but is still not good enough to present
-confidence as certainty or to justify abstention claims. Line-level AURC is roughly equal
-to full-coverage CER.
+confidence as certainty or to justify abstention claims. The augmented candidate is a
+little better (dev ECE **0.126**, AURC **0.787** ≈ its CER), but the risk–coverage curve
+remains flat: abstention still buys little.
 
 ## Architecture / augmentation A/B (all post-fix, best checkpoint)
 

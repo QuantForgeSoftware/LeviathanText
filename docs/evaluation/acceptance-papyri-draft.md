@@ -20,7 +20,7 @@
 | Per-profile strata (hand/capture/material) | one documentary hand (Zenon archive); **no unseen-hand/unseen-collection result exists**; unsupported strata must be disclosed, not pooled | single stratum |
 | Leakage check result | witness-level split by file; object/lineage dedup within P01 assumed by the source structure but not separately audited against other papyrus sources (DATA-02 pending); locked split reused twice and disclosed | partial |
 | Independence check | no Kraken, Python or external OCR runtime in the build/test path; TorchSharp + native libtorch only | recorded |
-| Confidence / calibration | raw per-grapheme confidence ECE ≈0.151 / MCE ≈0.552 (dev, post-fix); not calibrated enough to display as certainty or to justify abstention claims | measured; not accepted |
+| Confidence / calibration | raw per-grapheme confidence ECE ≈0.151 / MCE ≈0.552 (default config), ECE ≈0.126 for the augmented candidate; AURC ≈0.79 ≈ CER, so confidence does not justify abstention claims | measured; not accepted |
 
 ## Sign-off (must remain blank until the gates pass)
 
