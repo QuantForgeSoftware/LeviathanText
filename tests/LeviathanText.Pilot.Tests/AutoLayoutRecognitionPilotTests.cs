@@ -106,6 +106,15 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
 
         Assert.Equal(layout.LineCount, outcome.Lines.Count);
         Assert.Empty(outcome.SkippedLines); // auto-detected lines always carry geometry
+
+        // L0 recognition is persisted as raw revisions with model provenance.
+        var reloaded = store.LoadProject(project.Id)!;
+        var l0 = reloaded.Objects[0].Surfaces[0].Revisions
+            .Where(r => r.Layer == TextLayer.L0RawRecognition)
+            .ToList();
+        Assert.Equal(layout.LineCount, l0.Count);
+        Assert.All(l0, r => Assert.True(r.Author.IsModel));
+        Assert.All(l0, r => Assert.Contains(config.ModelName, r.Author.ModelIdentity));
         var stage = Assert.Single(outcome.Stages);
         Assert.Equal(StageName.Recognition, stage.Stage);
         Assert.Equal(config.ModelName, stage.Model!.PackageId);

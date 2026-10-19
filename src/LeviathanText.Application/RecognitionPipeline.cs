@@ -46,7 +46,8 @@ public sealed class RecognitionPipeline
         _imageResolver = imageResolver;
     }
 
-    public SurfaceOutcome Run(NativeProject project, EntityId surfaceId, Options options, CancellationToken cancellation = default)
+    public SurfaceOutcome Run(NativeProject project, EntityId surfaceId, Options options, CancellationToken cancellation = default,
+        bool persistL0 = true)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -111,6 +112,36 @@ public sealed class RecognitionPipeline
         {
             var (lineId, _, cropChecksum) = lineImages[i];
             results.Add(new LineRecognition(lineId, recognition[i].Text, recognition[i].Graphemes, cropChecksum, "crop>resize>otsu"));
+        }
+
+        if (persistL0)
+        {
+            // Raw recognition is kept as L0 revisions with model provenance — never merged
+            // into L1 (greek-transcription.md §1; todo §2 revision separation).
+            var modelAuthor = new AgentRef
+            {
+                Id = $"model:{options.ModelName}",
+                IsModel = true,
+                ModelIdentity = $"{options.ModelName}@{options.ModelVersion}",
+            };
+            var l0Revisions = results.Select((line, index) => new TextRevision
+            {
+                Id = new EntityId(EntityKind.TranscriptionRevision, $"l0-{Guid.NewGuid().ToString("N")[..10]}"),
+                ScopeId = line.LineId,
+                Layer = TextLayer.L0RawRecognition,
+                Author = modelAuthor,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Text = line.L0Text,
+            }).ToList();
+
+            var updatedSurface = surface with { Revisions = [.. surface.Revisions, .. l0Revisions] };
+            var updatedProject = project with
+            {
+                Objects = [.. project.Objects.Select(o => o.Surfaces.Any(s => s.Id == surfaceId)
+                    ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surfaceId ? updatedSurface : s)] }
+                    : o)],
+            };
+            _store.SaveProject(updatedProject);
         }
 
         stages.Add(new StageRun
