@@ -91,6 +91,9 @@ public sealed record NativeLine
 
     /// <summary>Current L1 diplomatic revision for this line, when transcribed.</summary>
     public EntityId? DiplomaticRevisionId { get; init; }
+
+    /// <summary>The TextLine's own Coords polygon (pixel frame); empty when not supplied.</summary>
+    public IReadOnlyList<PointD> Polygon { get; init; } = [];
 }
 
 public readonly record struct PointD(double X, double Y);

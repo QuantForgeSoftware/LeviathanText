@@ -85,8 +85,8 @@ public sealed class P01PilotTests
         var result = PageXml.Import(File.ReadAllText(xmlPath), new EntityId(EntityKind.Capture, "cap"), NoChecksum());
         using var decoded = ImageDecoder.Decode(jpgPath);
 
-        Assert.Equal(decoded.Bitmap.Width, 869); // declared imageWidth in the PAGE file
-        Assert.Equal(decoded.Bitmap.Height, 539);
+        Assert.Equal(869, decoded.Bitmap.Width); // declared imageWidth in the PAGE file
+        Assert.Equal(539, decoded.Bitmap.Height);
 
         var line = result.Lines[0];
         // Crop with imported baseline geometry (rounded to pixel points).

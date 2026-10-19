@@ -82,6 +82,7 @@ public static class PageXml
             {
                 var lineId = RequireId(line, "TextLine");
                 var baseline = ParsePoints(line.Element(Pc + "Baseline")?.Attribute("points")?.Value);
+                var linePolygon = ParsePoints(line.Element(Pc + "Coords")?.Attribute("points")?.Value);
                 var text = line.Elements(Pc + "TextEquiv").FirstOrDefault(e => (string?)e.Attribute("conf") == null)?.Element(Pc + "Unicode")?.Value
                            ?? line.Elements(Pc + "TextEquiv").FirstOrDefault()?.Element(Pc + "Unicode")?.Value;
 
@@ -107,6 +108,7 @@ public static class PageXml
                     RegionId = new EntityId(EntityKind.Region, regionId),
                     FrameRef = frameEntity,
                     Baseline = baseline,
+                    Polygon = linePolygon,
                     DiplomaticRevisionId = revision?.Id,
                 });
 
@@ -137,7 +139,7 @@ public static class PageXml
 
                 return new XElement(Pc + "TextLine",
                     new XAttribute("id", line.Id.Suffix),
-                    new XElement(Pc + "Coords", new XAttribute("points", Points(line.Baseline))),
+                    new XElement(Pc + "Coords", new XAttribute("points", Points(line.Polygon.Count > 0 ? line.Polygon : line.Baseline))),
                     new XElement(Pc + "Baseline", new XAttribute("points", Points(line.Baseline))),
                     textEquiv);
             });
