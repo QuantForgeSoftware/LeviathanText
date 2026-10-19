@@ -34,7 +34,15 @@ public static class RecognitionModelLoader
         var manifest = File.Exists(manifestPath) ? TrainingRunManifestWriter.Read(manifestPath) : null;
         var modelName = manifest?.ModelName ?? FindModelName(packageDirectory);
 
-        var metadata = CheckpointStore.ReadMetadata(packageDirectory, modelName, ".best");
+        CheckpointMetadata metadata;
+        try
+        {
+            metadata = CheckpointStore.ReadMetadata(packageDirectory, modelName, ".best");
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            throw Incompatible(modelName, "checkpoint metadata is missing or its name does not match the manifest");
+        }
         if (metadata.Labels.Count == 0)
             throw Incompatible(modelName, "checkpoint metadata does not contain its label set");
 

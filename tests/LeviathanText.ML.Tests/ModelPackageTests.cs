@@ -140,6 +140,34 @@ public class ModelPackageTests
     }
 
     [Fact]
+    public void Manifest_name_mismatch_is_reported_as_model_incompatible()
+    {
+        var checkpointDir = NewDirectory("mismatch-checkpoints");
+        var labels = new LabelSet(Vocabulary);
+        var train = SyntheticLineDataset.Generate(8, Vocabulary, seed: 31);
+        var config = new TrainingConfig
+        {
+            Epochs = 2,
+            BatchSize = 4,
+            Seed = 2,
+            HiddenSize = 16,
+            ModelName = "mismatch-crnn",
+            CheckpointDirectory = checkpointDir,
+        };
+
+        var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+        var trainer = new CtcTrainer(model, labels, config);
+        var run = trainer.Fit(train, train);
+        var manifest = TrainingRunManifestWriter.Create(model, labels, config, run, train.Count, train.Count, 0, "split");
+        var package = ModelPackageWriter.Write(NewDirectory("mismatch-package"), checkpointDir, config.ModelName, manifest);
+
+        TrainingRunManifestWriter.Write(package.Directory, manifest with { ModelName = "not-in-package" });
+
+        var ex = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(package.Directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
+    }
+
+    [Fact]
     public void Tampered_weights_are_rejected_by_the_manifest_digest()
     {
         var checkpointDir = NewDirectory("tamper-checkpoints");
