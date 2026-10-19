@@ -202,6 +202,26 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, s
         "application/xml");
 });
 
+api.MapPost("projects/{id}/import-image", (ProjectService projects, string id, [FromBody] ImportImageRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    if (!Path.IsPathRooted(request.ImagePath))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.ImagePath,
+            Message = "Image path must be absolute on the server host.",
+        });
+
+    var imported = new InterchangeService(projects).ImportImage(project, request.ImagePath, request.Kind ?? "page");
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceId = imported.Surfaces[0].Id.ToString(),
+        captureId = imported.Surfaces[0].Captures[0].Id.ToString(),
+    });
+});
+
 api.MapPost("projects/{id}/import-legacy", (ProjectService projects, string id, [FromBody] ImportLegacyRequest request) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -533,6 +553,8 @@ public sealed record ImportPageRequest(string PageXmlPath, string? Kind = null);
 public sealed record ImportIiifRequest(string ManifestPath);
 
 public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
+
+public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 

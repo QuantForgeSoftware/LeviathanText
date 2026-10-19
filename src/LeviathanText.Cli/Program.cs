@@ -192,6 +192,15 @@ public static class Program
                 return ok == files.Count ? 0 : 1;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "image":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var kind = rest.Length >= 6 && rest[4] == "--kind" ? rest[5] : "page";
+                var imported = interchange.ImportImage(project, rest[3], kind);
+                Console.WriteLine($"imported object {imported.Id}, surface {imported.Surfaces[0].Id} (no layout; draw or detect lines)");
+                return 0;
+            }
+
             case "import" when rest.Length >= 5 && rest[1] is "alto" or "hocr":
             {
                 // Legacy OCR migration: bounded ALTO/hOCR subset + the page image.

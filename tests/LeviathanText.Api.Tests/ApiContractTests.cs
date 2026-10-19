@@ -325,6 +325,47 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Image_only_import_then_layout_detection_roundtrip()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "image-only-e2e" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var imagePath = Path.Combine(Path.GetTempPath(), $"lt-api-image-{Guid.NewGuid():N}.png");
+        using (var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(200, 120)))
+        {
+            surface.Canvas.Clear(SkiaSharp.SKColors.White);
+            using var paint = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Black };
+            surface.Canvas.DrawRect(new SkiaSharp.SKRect(10, 20, 190, 40), paint);
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            using var stream = File.OpenWrite(imagePath);
+            data.SaveTo(stream);
+        }
+
+        try
+        {
+            var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-image",
+                new { imagePath, kind = "inscription-face" });
+            Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
+            using var importedJson = System.Text.Json.JsonDocument.Parse(await imported.Content.ReadAsStringAsync());
+            var surfaceId = importedJson.RootElement.GetProperty("surfaceId").GetString()!;
+
+            var detected = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/detect-layout", new { });
+            Assert.Equal(HttpStatusCode.OK, detected.StatusCode);
+            Assert.Contains("lineCount", await detected.Content.ReadAsStringAsync());
+
+            // Second detection refuses to overwrite the layout.
+            var second = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/detect-layout", new { });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, second.StatusCode);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
     public async Task Manual_line_can_be_added_then_deleted_but_transcribed_lines_are_protected()
     {
         var client = NewClient();

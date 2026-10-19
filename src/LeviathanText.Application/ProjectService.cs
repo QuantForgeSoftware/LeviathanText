@@ -107,6 +107,44 @@ public sealed class InterchangeService(ProjectService projects)
     }
 
     /// <summary>
+    /// Import a bare image as a capture-only surface (no layout, no text). Used for
+    /// material where no PAGE/ALTO/hOCR exists — e.g. inscription photographs — so layout
+    /// is drawn manually or detected later.
+    /// </summary>
+    public NativeObject ImportImage(NativeProject project, string imagePath, string surfaceKind = "page")
+    {
+        if (!File.Exists(imagePath))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = imagePath,
+                Message = "Image is not readable on this host.",
+            });
+
+        var captureId = NewCaptureId(project);
+        var surface = new NativeSurface
+        {
+            Id = NewId(EntityKind.Surface, project, "surf"),
+            Kind = surfaceKind,
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
+                ImageLocation = Path.GetFullPath(imagePath),
+            }],
+            Regions = [],
+            Lines = [],
+        };
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Surfaces = [surface],
+        };
+        projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
+        return imported;
+    }
+
+    /// <summary>
     /// Import a legacy OCR export (ALTO or hOCR) plus its page image as a new surface.
     /// Bounded subset only; unsupported elements are reported to the caller (never silently
     /// dropped). Text is imported as L1 diplomatic with an explicit importer author.

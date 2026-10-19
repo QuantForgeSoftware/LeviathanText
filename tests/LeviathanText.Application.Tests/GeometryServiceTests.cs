@@ -241,3 +241,45 @@ public sealed class GeometryServiceTests
         Assert.Contains("exactly once", ex.Error.Message);
     }
 }
+
+public sealed class ImportImageTests : IDisposable
+{
+    private readonly string _image = Path.Combine(Path.GetTempPath(), $"lt-import-image-{Guid.NewGuid():N}.png");
+
+    public ImportImageTests() => File.WriteAllBytes(_image, [0x89, 0x50, 0x4E, 0x47]);
+
+    [Fact]
+    public void Image_import_creates_a_capture_only_surface()
+    {
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("image-only");
+
+        var imported = new InterchangeService(projects).ImportImage(project, _image, "inscription-face");
+
+        var surface = imported.Surfaces[0];
+        Assert.Single(surface.Captures);
+        Assert.Empty(surface.Regions);
+        Assert.Empty(surface.Lines);
+        Assert.Equal("inscription-face", surface.Kind);
+        Assert.Equal(Path.GetFullPath(_image), surface.Captures[0].ImageLocation);
+        Assert.True(store.LoadProject(project.Id)!.Objects.Count == 1);
+    }
+
+    [Fact]
+    public void Missing_image_is_rejected()
+    {
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("image-only");
+
+        var ex = Assert.Throws<LeviathanException>(() =>
+            new InterchangeService(projects).ImportImage(project, _image + ".missing"));
+        Assert.Equal(ErrorCode.InputMissing, ex.Error.Code);
+    }
+
+    public void Dispose()
+    {
+        if (File.Exists(_image)) File.Delete(_image);
+    }
+}
