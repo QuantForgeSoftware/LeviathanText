@@ -427,6 +427,12 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
     });
 });
 
+api.MapGet("projects/{id}/stats", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Ok(ProjectStats.Build(project));
+});
+
 api.MapGet("projects/{id}/search", (ProjectService projects, string id, string q, string? mode) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

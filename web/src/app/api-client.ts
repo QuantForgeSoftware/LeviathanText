@@ -184,6 +184,18 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
   }
 
+  stats(projectId: string): Observable<{
+    objects: number; surfaces: number; captures: number; regions: number; lines: number;
+    transcribedLines: number; linesWithL0: number; l0Revisions: number; l2Revisions: number;
+    annotations: number; flaggedLines: number;
+  }> {
+    return this.http.get<{
+      objects: number; surfaces: number; captures: number; regions: number; lines: number;
+      transcribedLines: number; linesWithL0: number; l0Revisions: number; l2Revisions: number;
+      annotations: number; flaggedLines: number;
+    }>(`/api/v1/projects/${projectId}/stats`);
+  }
+
   search(projectId: string, query: string, mode: 'literal' | 'base'): Observable<{
     query: string;
     mode: string;

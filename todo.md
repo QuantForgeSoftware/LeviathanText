@@ -323,7 +323,7 @@ A alone edits this board and the contract documents. B alone edits the three mat
 
 **Implementation status — C0 (Instance A as integrator; user authorization to code received 2026-10-18):**
 
-- [ ] B's review of the contract set (I0 gate) — moot while single-instance; substitute with a self-review of all five contract documents against all packages at the next integration checkpoint (I1).
+- [x] B's review of the contract set (I0 gate) — moot while single-instance; substitute with a self-review of all five contract documents against all packages at the next integration checkpoint (I1). *(done: docs/contracts/self-review-2026-10-19.md — conformance matrix, deviations, open actions)*
 
 **Ownership collision note (2026-10-18, Instance A):** a concurrent worker created `src/LeviathanText.{AI,Evaluation,Recognition,Training}` and their test projects (disjoint packages — acceptable) and also rewrote `tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj` and `src/LeviathanText.Contracts/LeviathanText.Contracts.csproj` into a minimal style while introducing `Directory.Build.props`. Those are C0-owned paths (solution/project setup). The centralization itself is sound; A (integrator) adopted it, restored the missing xunit global using and fixture content in the Core.Tests project, and will keep the central files consistent. Concurrent workers must confine edits to their own packages and route central-file changes through the integrator per todo §6 rules.
 

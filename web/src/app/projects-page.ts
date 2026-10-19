@@ -36,6 +36,12 @@ interface ProjectRow {
       @if (payload(selectedId()!); as payload) {
         <section>
           <h2>{{ payload.name }}</h2>
+          @if (stats(); as s) {
+            <p class="hint">
+              {{ s.surfaces }} surface(s) · {{ s.lines }} line(s), {{ s.transcribedLines }} transcribed ·
+              {{ s.annotations }} annotation(s) · {{ s.flaggedLines }} flagged by profile QA
+            </p>
+          }
           <ul>
             @for (object of payload.objects; track object.id) {
               @for (surface of object.surfaces; track surface.id) {
@@ -97,6 +103,9 @@ export class ProjectsPage {
     this.projects().find(p => p.id === this.selectedId()) ?? null);
   protected readonly payloads = signal<Record<string, ProjectPayload>>({});
   protected readonly openSurfaceId = signal<string | null>(null);
+  protected readonly stats = signal<{
+    surfaces: number; lines: number; transcribedLines: number; annotations: number; flaggedLines: number;
+  } | null>(null);
   protected readonly focusLineId = signal('');
   protected readonly query = signal('');
   protected readonly searchMode = signal<'literal' | 'base'>('literal');
@@ -153,6 +162,11 @@ export class ProjectsPage {
   protected select(id: string): void {
     this.selectedId.set(id);
     this.openSurfaceId.set(null);
+    this.stats.set(null);
+    this.api.stats(id).subscribe({
+      next: counts => this.stats.set(counts),
+      error: () => this.stats.set(null),
+    });
     if (!this.payloads()[id]) {
       this.api.loadProject(id).subscribe(payload =>
         this.payloads.update(map => ({ ...map, [id]: payload })));
