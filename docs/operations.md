@@ -20,6 +20,10 @@ The API and worker must point at the **same** store database to share jobs.
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db project new "Pilot corpus"
 # returns a project id (col-…)
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import page <projectId> page.xml
+# no PAGE? import the image alone and draw/detect lines
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db import image <projectId> photo.jpg --kind inscription-face
+# find text later (literal, or --base to ignore marks/case)
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db search <projectId> νθρωπ --base
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export diplomatic <projectId> <surfaceId>
 ```
 

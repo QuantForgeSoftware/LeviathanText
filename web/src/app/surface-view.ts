@@ -3,7 +3,7 @@
  * with grapheme-aware line rows. Clicking a line shows its scalar span; the display is
  * Unicode-scalar-aware so combining sequences never break (todo Phase 2 gate).
  */
-import { Component, computed, signal, OnInit, input } from '@angular/core';
+import { Component, computed, effect, signal, OnInit, input } from '@angular/core';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
@@ -81,6 +81,7 @@ import { GeometryEditor } from './geometry-editor';
 export class SurfaceView {
   projectId = input.required<string>();
   surfaceId = input.required<string>();
+  focusLineId = input<string>('');
 
   protected readonly exportData = signal<DiplomaticExport | null>(null);
   protected readonly selectedStart = signal(0);
@@ -160,6 +161,11 @@ export class SurfaceView {
 
   constructor(api: ApiClient) {
     this.api = api;
+    // Search hits navigate within the already-open surface: react to focus changes.
+    effect(() => {
+      const focused = this.focusLineId();
+      if (focused) this.editingLineId.set(focused);
+    });
   }
 
   ngOnInit(): void {

@@ -58,7 +58,8 @@ Remote captures (IIIF) are fetched once into a checksummed local cache when an a
 ```bash
 dotnet run --project src/LeviathanText.Api
 # projects: GET/POST /api/v1/projects, GET /projects/{id}
-# ingestion: POST /projects/{id}/import-page | import-iiif | import-legacy (ALTO/hOCR + image)
+# ingestion: POST /projects/{id}/import-page | import-iiif | import-image | import-legacy (ALTO/hOCR + image)
+# search/QA: GET /projects/{id}/search?q=&mode=literal|base; GET /projects/{id}/profile-report
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
 # geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}

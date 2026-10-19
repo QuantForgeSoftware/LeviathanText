@@ -127,7 +127,7 @@ public sealed class RecognizeProjectHandlerTests : IDisposable
 
         var reloaded = store.LoadProject(project.Id)!;
         var surfaces = reloaded.Objects[0].Surfaces;
-        Assert.All(surfaces, s => Assert.Single(s.Revisions.Where(r => r.Layer == TextLayer.L0RawRecognition)));
+        Assert.All(surfaces, s => Assert.Single(s.Revisions, r => r.Layer == TextLayer.L0RawRecognition));
         Assert.All(surfaces, s => Assert.All(
             s.Revisions.Where(r => r.Layer == TextLayer.L0RawRecognition),
             r => Assert.True(r.Author.IsModel)));

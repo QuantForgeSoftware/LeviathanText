@@ -333,6 +333,12 @@ api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
     return Results.File(bytes, "application/zip", $"{project.Id}.zip");
 });
 
+api.MapGet("projects/{id}/search", (ProjectService projects, string id, string q, string? mode) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Ok(SearchService.Search(project, q, mode ?? "literal"));
+});
+
 api.MapGet("projects/{id}/profile-report", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

@@ -421,6 +421,22 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Project_search_supports_literal_and_base_modes()
+    {
+        var client = NewClient();
+        await ImportFixtureAsync(client, "search-e2e");
+        var projectId = await GetProjectIdAsync(client, "search-e2e");
+
+        var literal = await client.GetAsync($"/api/v1/projects/{projectId}/search?q=νθρωπ");
+        Assert.Equal(HttpStatusCode.OK, literal.StatusCode);
+        Assert.Contains("\"totalHits\":1", await literal.Content.ReadAsStringAsync());
+
+        var baseMode = await client.GetAsync($"/api/v1/projects/{projectId}/search?q=ΑΝΘΡ&mode=base");
+        Assert.Equal(HttpStatusCode.OK, baseMode.StatusCode);
+        Assert.Contains("\"totalHits\":1", await baseMode.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Imported_ids_are_scoped_per_project_so_global_line_endpoints_are_unambiguous()
     {
         var client = NewClient();

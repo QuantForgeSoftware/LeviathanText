@@ -183,6 +183,22 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
   }
 
+  search(projectId: string, query: string, mode: 'literal' | 'base'): Observable<{
+    query: string;
+    mode: string;
+    totalHits: number;
+    truncated: boolean;
+    hits: { surfaceId: string; lineId: string; revisionId: string; layer: string; snippet: string; match: { start: number; end: number } }[];
+  }> {
+    return this.http.get<{
+      query: string;
+      mode: string;
+      totalHits: number;
+      truncated: boolean;
+      hits: { surfaceId: string; lineId: string; revisionId: string; layer: string; snippet: string; match: { start: number; end: number } }[];
+    }>(`/api/v1/projects/${projectId}/search`, { params: { q: query, mode } });
+  }
+
   profileReport(projectId: string): Observable<{
     profile: string;
     version: string;

@@ -281,6 +281,17 @@ public static class Program
                 return 0;
             }
 
+            case "search" when rest.Length >= 3:
+            {
+                var project = projects.Load(EntityId.Parse(rest[1], EntityKind.Collection));
+                var mode = rest.Contains("--base") ? "base" : "literal";
+                var result = SearchService.Search(project, rest[2], mode);
+                foreach (var hit in result.Hits)
+                    Console.WriteLine($"{hit.SurfaceId}\t{hit.LineId}\t{hit.Layer}\t{hit.Match.Start}..{hit.Match.End}\t{hit.Snippet}");
+                Console.Error.WriteLine($"{result.TotalHits} hit(s){(result.Truncated ? " (truncated)" : "")} mode={result.Mode}");
+                return 0;
+            }
+
             case "validate" when rest.Length >= 3 && rest[1] == "text":
             {
                 // Greek transcription-profile inspection (no rewriting): unknown scalars,
