@@ -33,14 +33,18 @@ public sealed record SuggestionAudit(
     string SourceText,
     ScalarRange? Target = null);
 
-/// <summary>Per-suggestion addition/substitution accounting.</summary>
+/// <summary>
+/// Per-suggestion accounting on NFD scalars: added scalars are those beyond the source
+/// multiset; substitutions pair a removed source scalar with an added one.
+/// </summary>
 public sealed record SuggestionFinding(
     SuggestionKind Kind,
     SuggestionDisposition Disposition,
     int AddedScalars,
-    int UnsupportedAddedScalars,
-    int SuppliedAddedScalars,
     int SubstitutedScalars,
+    int UnsupportedAddedScalars,
+    int UnsupportedSubstitutedScalars,
+    int SuppliedAddedScalars,
     bool OverwritesCorrectWitnessReading);
 
 /// <summary>
@@ -54,34 +58,40 @@ public sealed record CorrectionTime(TimeSpan Baseline, TimeSpan Assisted)
 
 /// <summary>
 /// Correction-effort and AI-assistance score for one line (acceptance-plan.md §5).
-/// Raw and final outputs are scored separately against the reference, and the effort
-/// to turn raw into final is compared with the effort raw→reference would have taken.
+/// Raw and reviewed output are scored separately against the reference. Either scalar
+/// edit distance is symmetric when the review corrects the line completely, so the
+/// quality gain is reported as CER improvement and the labor gain as recorded
+/// correction time; the scalars carried by accepted suggestions are reported as the
+/// text volume the model supplied.
 /// </summary>
 public sealed record CorrectionEffortScore(
     int ReferenceScalars,
     int RawScalars,
     int FinalScalars,
-    int BaselineDistance,
-    int AssistedDistance,
+    int ScalarEditsWithoutAssistance,
+    int ScalarEditsWithAssistance,
     double RawCer,
     double FinalCer,
-    double BaselineCorrectionCer,
-    double AssistedCorrectionCer,
-    double EffortReduction,
+    double CerImprovement,
+    double CorrectionCerWithoutAssistance,
+    double CorrectionCerWithAssistance,
     int AcceptedSuggestions,
     int RejectedSuggestions,
     int PendingSuggestions,
-    int UnsupportedAdditions,
+    int AcceptedSuggestionScalars,
+    int UnsupportedAddedScalars,
+    int UnsupportedSubstitutedScalars,
     int SuppliedRestorationScalars,
     int WitnessVariantOverwrites,
     IReadOnlyList<SuggestionFinding> Findings,
     CorrectionTime? Time);
 
 /// <summary>
-/// Scores a raw model line and the human final line, then classifies each reviewed
-/// suggestion. Unsupported additions are accepted scalars with no support in the
-/// diplomatic source span; restorations and expansions are counted as supplied text
-/// instead, exactly as the contract requires them to stay marked.
+/// Scores a raw model line and the human-reviewed final line, then classifies each
+/// reviewed suggestion. Unsupported changes are scalars a task was not allowed to make:
+/// a candidate reading may not add marks the source does not show, word division may add
+/// only separators, and accentuation may add only combining marks. Expansions and
+/// restorations add supplied text and are counted as such, never as unsupported.
 /// </summary>
 public static class CorrectionEffortScorer
 {
@@ -101,32 +111,33 @@ public static class CorrectionEffortScorer
         var rawScalars = CanonicalText.ToScalars(CanonicalText.Nfc(raw));
         var finalScalars = CanonicalText.ToScalars(CanonicalText.Nfc(final));
 
-        var baselineDistance = EditScript.Compute(referenceScalars, rawScalars).Distance;
-        var assistedDistance = EditScript.Compute(rawScalars, finalScalars).Distance;
+        var editsWithoutAssistance = EditScript.Compute(referenceScalars, rawScalars).Distance;
+        var editsWithAssistance = EditScript.Compute(rawScalars, finalScalars).Distance;
 
-        var rawScore = RecognitionScorer.Score(reference, raw);
-        var finalScore = RecognitionScorer.Score(reference, final);
+        var rawCer = RecognitionScorer.Score(reference, raw).ScalarCer;
+        var finalCer = RecognitionScorer.Score(reference, final).ScalarCer;
 
         var findings = audits.Select(audit => Classify(audit, referenceScalars, rawScalars)).ToArray();
-
         var accepted = findings.Where(f => f.Disposition == SuggestionDisposition.Accepted).ToArray();
-        var reduction = baselineDistance == 0 ? 0 : 1 - (double)assistedDistance / baselineDistance;
 
         return new CorrectionEffortScore(
             referenceScalars.Count,
             rawScalars.Count,
             finalScalars.Count,
-            baselineDistance,
-            assistedDistance,
-            rawScore.ScalarCer,
-            finalScore.ScalarCer,
-            Cer(baselineDistance, referenceScalars.Count),
-            Cer(assistedDistance, referenceScalars.Count),
-            reduction,
-            findings.Count(f => f.Disposition == SuggestionDisposition.Accepted),
+            editsWithoutAssistance,
+            editsWithAssistance,
+            rawCer,
+            finalCer,
+            rawCer - finalCer,
+            Cer(editsWithoutAssistance, referenceScalars.Count),
+            Cer(editsWithAssistance, referenceScalars.Count),
+            accepted.Length,
             findings.Count(f => f.Disposition == SuggestionDisposition.Rejected),
             findings.Count(f => f.Disposition is SuggestionDisposition.Proposed or SuggestionDisposition.Expired),
+            audits.Where((_, index) => findings[index].Disposition == SuggestionDisposition.Accepted)
+                .Sum(a => CanonicalText.ToScalars(CanonicalText.Nfc(a.ProposedText)).Count),
             accepted.Sum(f => f.UnsupportedAddedScalars),
+            accepted.Sum(f => f.UnsupportedSubstitutedScalars),
             accepted.Sum(f => f.SuppliedAddedScalars),
             accepted.Count(f => f.OverwritesCorrectWitnessReading),
             findings,
@@ -144,8 +155,10 @@ public static class CorrectionEffortScorer
             throw new ArgumentException("At least one score is required.", nameof(scores));
 
         var referenceScalars = list.Sum(s => s.ReferenceScalars);
-        var baseline = list.Sum(s => s.BaselineDistance);
-        var assisted = list.Sum(s => s.AssistedDistance);
+        var editsWithout = list.Sum(s => s.ScalarEditsWithoutAssistance);
+        var editsWith = list.Sum(s => s.ScalarEditsWithAssistance);
+        var rawCer = Cer(list.Sum(s => (int)Math.Round(s.RawCer * s.ReferenceScalars)), referenceScalars);
+        var finalCer = Cer(list.Sum(s => (int)Math.Round(s.FinalCer * s.ReferenceScalars)), referenceScalars);
 
         var time = list.Any(s => s.Time is not null)
             ? new CorrectionTime(
@@ -157,17 +170,19 @@ public static class CorrectionEffortScorer
             referenceScalars,
             list.Sum(s => s.RawScalars),
             list.Sum(s => s.FinalScalars),
-            baseline,
-            assisted,
-            Cer(list.Sum(s => (int)Math.Round(s.RawCer * s.ReferenceScalars)), referenceScalars),
-            Cer(list.Sum(s => (int)Math.Round(s.FinalCer * s.ReferenceScalars)), referenceScalars),
-            Cer(baseline, referenceScalars),
-            Cer(assisted, referenceScalars),
-            baseline == 0 ? 0 : 1 - (double)assisted / baseline,
+            editsWithout,
+            editsWith,
+            rawCer,
+            finalCer,
+            rawCer - finalCer,
+            Cer(editsWithout, referenceScalars),
+            Cer(editsWith, referenceScalars),
             list.Sum(s => s.AcceptedSuggestions),
             list.Sum(s => s.RejectedSuggestions),
             list.Sum(s => s.PendingSuggestions),
-            list.Sum(s => s.UnsupportedAdditions),
+            list.Sum(s => s.AcceptedSuggestionScalars),
+            list.Sum(s => s.UnsupportedAddedScalars),
+            list.Sum(s => s.UnsupportedSubstitutedScalars),
             list.Sum(s => s.SuppliedRestorationScalars),
             list.Sum(s => s.WitnessVariantOverwrites),
             list.SelectMany(s => s.Findings).ToArray(),
@@ -179,26 +194,33 @@ public static class CorrectionEffortScorer
         IReadOnlyList<int> referenceScalars,
         IReadOnlyList<int> rawScalars)
     {
-        var sourceScalars = CanonicalText.ToScalars(CanonicalText.Nfc(audit.SourceText));
-        var proposedScalars = CanonicalText.ToScalars(CanonicalText.Nfc(audit.ProposedText));
-        var script = EditScript.Compute(sourceScalars, proposedScalars);
+        // Classification uses NFD so a precomposed accented vowel counts as base + mark.
+        var sourceScalars = CanonicalText.ToScalars(CanonicalText.Nfd(audit.SourceText));
+        var proposedScalars = CanonicalText.ToScalars(CanonicalText.Nfd(audit.ProposedText));
 
-        var added = 0;
-        var unsupported = 0;
-        var supplied = 0;
+        var available = new Dictionary<int, int>();
+        foreach (var scalar in sourceScalars)
+            available[scalar] = available.GetValueOrDefault(scalar) + 1;
 
-        foreach (var op in script.Ops)
+        var added = new List<int>();
+        foreach (var scalar in proposedScalars)
         {
-            if (op.Kind != EditKind.Insert) continue;
-            added++;
-            var scalar = proposedScalars[op.HypothesisIndex];
-            if (IsExpectedAddition(audit.Kind, scalar))
-                supplied++;
+            if (available.TryGetValue(scalar, out var count) && count > 0)
+                available[scalar] = count - 1;
             else
-                unsupported++;
+                added.Add(scalar);
         }
 
-        var substitutions = script.Substitutions;
+        var matched = proposedScalars.Count - added.Count;
+        var removed = sourceScalars.Count - matched;
+        var substituted = Math.Min(added.Count, removed);
+
+        var unsupportedAdded = added.Count(scalar => !IsExpectedAddition(audit.Kind, scalar));
+        var suppliedAdded = added.Count - unsupportedAdded;
+        var unsupportedSubstituted = audit.Kind is SuggestionKind.WordDivision or SuggestionKind.Accentuation
+            ? substituted
+            : 0;
+
         var overwrites = audit.Disposition == SuggestionDisposition.Accepted
             && audit.Kind == SuggestionKind.CandidateReading
             && OverwritesCorrectWitnessReading(audit, referenceScalars, rawScalars);
@@ -206,10 +228,11 @@ public static class CorrectionEffortScorer
         return new SuggestionFinding(
             audit.Kind,
             audit.Disposition,
-            added,
-            unsupported,
-            supplied,
-            substitutions,
+            added.Count,
+            substituted,
+            unsupportedAdded,
+            unsupportedSubstituted,
+            suppliedAdded,
             overwrites);
     }
 
