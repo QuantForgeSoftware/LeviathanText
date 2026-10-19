@@ -111,6 +111,23 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         summary.AppendLine($"- Text coverage with CER <= 0.75: {selective.CoverageForCerBelow(0.75):0.###}");
         summary.AppendLine("- Pilot-scale: confidence is a raw model probability, not a scholarly judgment; no threshold is set here.");
 
+        var graphemeSamples = new List<GraphemeSample>();
+        for (var i = 0; i < greedyResults.Count; i++)
+        {
+            var spans = greedyResults[i].Graphemes
+                .Select(g => new GraphemeSpan(g.StartScalar, g.EndScalar, g.Confidence.Value))
+                .ToArray();
+            graphemeSamples.AddRange(GraphemeCalibration.Samples(references[i], greedyResults[i].Text, spans));
+        }
+
+        var calibration = SelectivePredictionScorer.Calibration(graphemeSamples, bins: 10);
+        summary.AppendLine();
+        summary.AppendLine("## Grapheme confidence calibration (greedy, dev)");
+        summary.AppendLine();
+        summary.AppendLine($"- Produced-grapheme samples: {graphemeSamples.Count} (deletions have no produced grapheme and are excluded)");
+        summary.AppendLine($"- Expected calibration error: {calibration.ExpectedCalibrationError:0.####}");
+        summary.AppendLine($"- Maximum calibration error: {calibration.MaximumCalibrationError:0.####}");
+
         var timeSteps = images.Select(image => CrnnModel.TimeStepsFor(image.Width)).ToArray();
         var referenceLengths = references.Select(reference => RecognitionScorer.Score(reference, reference).ReferenceScalarLength).ToArray();
         var impossible = Enumerable.Range(0, references.Length).Count(i => timeSteps[i] < referenceLengths[i]);

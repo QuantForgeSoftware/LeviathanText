@@ -1,63 +1,65 @@
-# Decoding-strategy and selective-prediction measurement — P01 dev split
+# Decoding, confidence and error measurement — P01 dev split
 
-- Owner: **Instance B (ML/EVAL)**; contract set **C0-0.4-draft**; baseline `main` @ `0bccf6b`.
-- Reproduce: `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01DecodingComparisonTests` (skipped when the P01 artifact store is absent). Artifact written to `.artifacts/pilot/p01-decoding-comparison.txt`.
-- Decision input for todo §5: “decoding strategy is chosen by measurement, not assumption”, and acceptance-plan.md §3 (AI-assisted / uncertainty rows).
+- Owner: **Instance B (ML/EVAL)**; contract set **C0-0.4-draft**; baseline `main` @ `0842cec`.
+- Reproduce:
+  - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01DecodingComparisonTests`
+  - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01WidthDownsampleTests`
+  - skipped automatically when the P01 artifact store is absent.
+- Artifacts: `.artifacts/pilot/p01-decoding-comparison.txt`, `.artifacts/pilot/p01-width-downsample.txt`,
+  `.artifacts/pilot/p01-decode-run-manifest.json`.
+- Decision input for todo §5 (“decoding strategy chosen by measurement”) and
+  acceptance-plan.md §3 (uncertainty, AI-assisted rows).
 
-## Measured (2026-10-19, macOS arm64 CPU, pilot machine)
+## Runs and reproducibility
 
-Training: P01 v0.9, train 176 / dev 50, 300 epochs, seed 42, train loss 0.084 → 0,
-best dev CER 0.835, label vocabulary 45. **The locked test split was not used.**
+Config: P01 v0.9, train 176 / dev 50 / **test 95 locked (not used here)**, 300 epochs,
+seed 42, hidden 64, vocabulary 45. The run manifest records architecture
+(`widthDownsampleFactor`), config hash, label-set hash, split hash, best-checkpoint
+SHA-256 and the full 300-epoch learning curve. Its split hash
+`f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6` equals the one-shot
+[pilot-p01-report.md](pilot-p01-report.md), so both records refer to the same split.
 
-The run also writes `.artifacts/pilot/p01-decode-run-manifest.json`
-(`TrainingRunManifest`): architecture (`widthDownsampleFactor`), config hash, label-set
-hash, split hash, best-checkpoint SHA-256 and the full learning curve. Its split hash
-`f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6` matches the one-shot
-[pilot-p01-report.md](pilot-p01-report.md), so the two records refer to the same split.
+**Run-to-run variation is about ±0.02 dev CER** (this configuration has measured greedy
+0.8367–0.8536 across runs). Conclusions below are limited to effects larger than that.
 
-Latest run:
+## Decoding (representative run)
 
 | Decoder | Dev scalar CER | Perfect lines | Seconds/line |
 | --- | --- | --- | --- |
-| greedy (default) | 0.8406 | 0/50 | 0.0001 |
-| beam-2 | 0.8406 | 0/50 | 0.0007 |
-| beam-4 | 0.8396 | 0/50 | 0.0007 |
-| **beam-8** | **0.8386** | 0/50 | 0.0012 |
+| greedy (default) | 0.8536 | 0/50 | 0.0001 |
+| beam-2 | 0.8536 | 0/50 | 0.0007 |
+| beam-4 | 0.8576 | 0/50 | 0.0007 |
+| beam-8 | 0.8576 | 0/50 | 0.0012 |
 
-**Run-to-run variation is about ±0.01 CER** (three runs of this configuration measured
-greedy 0.8466 / 0.8367 / 0.8406 and beam-4 0.8446 / 0.8337 / 0.8396). Beam width does not
-vary systematically; the gain is at or below run-to-run variation.
+Beam width does not move dev CER beyond run-to-run variation, at ~7–12× decode cost.
 
-### Error analysis (greedy, dev, top 5)
-
-| Class | Count | of which marks |
-| --- | --- | --- |
-| Substitutions | 140 | 0 |
-| Insertions | 0 | 0 |
-| Deletions | 706 | 2 |
-
-Top substitutions: `α→ι` ×5, `ϲ→ι` ×5, `α→ο` ×4, `ε→α` ×4, `κ→χ` ×4.
-Top deletions: `α` ×63, `ο` ×60, `ε` ×57, `ν` ×55, `τ` ×51.
-
-The model **systematically drops characters** (706 deletions, 0 insertions) rather than
-hallucinating: an under-trained CRNN collapses frames. That is a training/decoding-volume
-failure mode, not an accent-handling failure (only 2 mark deletions, 0 mark substitutions).
-
-### Selective prediction (greedy, min per-grapheme line confidence)
+## Confidence is not calibrated (representative run)
 
 | Entry | Value |
 | --- | --- |
-| Full-coverage dev CER | 0.8406 |
-| Area under the risk–coverage curve (rectangle rule; lower is better) | 0.8632 |
+| Produced-grapheme samples | 261 (deleted reference graphemes have no produced value and are excluded) |
+| Expected calibration error (10 bins) | 0.237 |
+| Maximum calibration error | 0.737 |
+| AURC (line risk–coverage, rectangle rule) | 0.875 |
+| Full-coverage dev CER | 0.854 |
 | Text coverage with CER ≤ 0.80 | 0 |
-| Text coverage with CER ≤ 0.75 | 0 |
 
-AURC is slightly **above** full-coverage CER: at this data scale the raw per-grapheme
-confidence barely orders lines by correctness, so abstaining on low confidence buys
-almost no CER reduction. This is a reason to keep uncertainty as an explicit annotation
-concept rather than trusting model confidence.
+Raw per-grapheme confidence is **badly miscalibrated**: ECE ≈ 0.24 and the worst bin is
+off by ≈ 0.74. Line-level risk–coverage is flat/negative, so abstaining on low confidence
+buys almost nothing. Confidence must not be presented as scholarly certainty or used as a
+quality claim.
 
-### Sequence-length headroom (greedy)
+## Error analysis (representative run)
+
+| Class | Count | of which marks |
+| --- | --- | --- |
+| Substitutions | 114 | 0 |
+| Insertions | 0 | 0 |
+| Deletions | 745 | 2 |
+
+Top deletions: `α` ×71, `ο` ×70, `ε` ×62, `ν` ×61, `τ` ×52.
+
+## Root cause: sequence-length headroom
 
 | Entry | Value |
 | --- | --- |
@@ -67,42 +69,32 @@ concept rather than trusting model confidence.
 | Resized line-image width | min 16 px, median 35 px |
 | Unreachable lines if the width downsample were 2 | 20/50 |
 
-Every dev line has fewer CTC frames than reference scalars, so the decoder is
-**structurally unable** to emit the full line; the deletion-dominated error class follows
-directly. A 35 px median width for a line with 18 scalars means the line *crops* are
-near-square rather than long and thin: the aspect-preserving resize to model height 16
-then yields too few columns. The likely root cause is line-region geometry/extraction
-(imaging package), not the CTC decoder; reducing the CRNN width downsample from 4 to 2
-would remove the structural limit on 30/50 lines and is the ML-side fallback.
+Every dev line has fewer CTC frames than reference scalars: the decoder is structurally
+unable to emit the full line, which is exactly the deletion-dominated profile above. A
+35 px median width for an 18-scalar line means the *crops* are near-square; the likely
+root cause is line-region geometry/extraction (imaging package), not the CTC decoder.
 
-## Width-downsample A/B (ML fallback, measured)
+## ML fallback: width-downsample A/B (measured)
 
-Reproduce: `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01WidthDownsampleTests`.
-Artifact: `.artifacts/pilot/p01-width-downsample.txt`. Same train/dev config, greedy decode,
-dev-only.
+| Width downsample | Dev scalar CER | Reachable lines (T ≥ scalars) | Min T | Median T | Seconds/line |
+| --- | --- | --- | --- | --- | --- |
+| 4 (default) | 0.8496 | 0/50 | 4 | 8 | 0.0001 |
+| **2 (candidate)** | **0.8257** | **30/50** | 8 | 17 | 0.0002 |
 
-| Width downsample | Dev scalar CER | Reachable lines (T ≥ scalars) | Min T | Median T | Median scalars | Seconds/line |
-| --- | --- | --- | --- | --- | --- | --- |
-| 4 (default) | 0.8496 | 0/50 | 4 | 8 | 18 | 0.0001 |
-| **2 (candidate)** | **0.8257** | **30/50** | 8 | 17 | 18 | 0.0002 |
-
-Reducing the width downsample removes the structural limit on 30/50 dev lines and
-improves dev CER by ~0.024 absolute at ~2× decode cost. The architecture is now
-configurable (`CrnnModel(numClasses, hiddenSize, widthDownsampleFactor)` with 1/2/4);
-the **default stays 4** so existing checkpoints and the one-shot locked-test pilot report
-remain valid. Factor 2 is the recommended configuration for the next frozen candidate,
-which must use fresh held-out witnesses (acceptance-plan.md §2 reuse rule).
+Factor 2 removes the structural limit on 30/50 dev lines and improves dev CER by ≈0.024
+absolute. The architecture is configurable (`CrnnModel(numClasses, hiddenSize,
+widthDownsampleFactor)` with 1/2/4). The **default stays 4** so existing checkpoints and
+the one-shot locked-test report remain valid; factor 2 is recommended for the next frozen
+candidate, which must use fresh held-out witnesses (acceptance-plan.md §2 reuse rule).
 
 ## Decision (pilot-scale, reversible)
 
-- **Keep greedy as the default decoder.** Beam mode stays available and tested
-  (`CtcDecodeMode.PrefixBeam`); re-run after the annotation-volume gate and on the other
-  two tracks before any change.
-- **Report the sequence-length limit to IMG as a blocker** before any accuracy claim;
-  fix crop geometry first, then re-measure. A model-shape change (width downsample 4 → 2)
-  is the ML fallback and is being measured separately.
-- Do **not** ship confidence-based abstention as a quality claim. Use it only as a
-  review-ordering hint until calibration is demonstrated on adjudicated data.
+- Keep **greedy** as the default decoder; beam mode stays available and tested
+  (`CtcDecodeMode.PrefixBeam`). Re-run after the annotation-volume gate and on the other
+  two tracks before changing.
+- Do **not** ship confidence-based abstention or a calibration claim from this data.
+- **Report the sequence-length limit to IMG as a blocker**: fix P01 crop geometry first,
+  then re-measure; the factor-2 model shape is the ML fallback.
 - Per-grapheme confidence under beam mode uses a forced best alignment
   (`CtcBeamDecoder.BestAlignment`), so values remain real per-label probabilities.
 
@@ -110,10 +102,7 @@ which must use fresh held-out witnesses (acceptance-plan.md §2 reuse rule).
 
 - Labels are Transkribus-prepared and **not expert-adjudicated** (DATA-03 pending).
 - One documentary hand; nothing here generalizes to manuscripts or inscriptions.
-- 0.83–0.85 dev CER is a **baseline** from a data-limited model that has memorized its
-  training set (train loss 0). No release claim follows.
-- The comparison is dev-only; the one-shot locked-test result in
-  [pilot-p01-report.md](pilot-p01-report.md) is unaffected and its reuse rules stand.
-- Calibration/ECE scoring is implemented and unit-tested
-  (`SelectivePredictionScorer.Calibration`) but not yet run on adjudicated per-grapheme
-  labels.
+- The model has memorized its small training set (train loss 0); 0.82–0.85 dev CER is a
+  **baseline**, not a threshold, and no release claim follows.
+- The comparison is dev-only; the locked-test reuse rules in
+  [pilot-p01-report.md](pilot-p01-report.md) stand unchanged.
