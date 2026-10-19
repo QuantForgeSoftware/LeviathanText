@@ -188,6 +188,11 @@ and overwrote the disclosure on the third run, so **B edited that A-owned test t
 emit the correct status on every future run; A should review that text-only change. No
 metric or test behavior changed.
 
+**A-PLAN reconciliation needed:** A-PLAN rev 8 states the locked split “was NOT re-run”
+and records two uses. The workspace now contains runs 2 and 3 (13:32Z/0.828 and
+14:22Z/0.825), so those lines should be updated to “three uses” when A next edits its own
+handoff. B did not edit `A-PLAN.md`.
+
 **Test execution note:** the ML suite is serialized (`CollectionBehavior(DisableTestParallelization = true)`)
 because parallel native-libtorch training caused a test-host crash once the P01 experiment
 matrix grew. With the P01 artifact store present the suite trains several models and takes
