@@ -7,6 +7,7 @@ import { Component, computed, signal, OnInit, input } from '@angular/core';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
+import { GeometryEditor } from './geometry-editor';
 
 @Component({
   selector: 'app-surface-view',
@@ -25,6 +26,11 @@ import { DualPane } from './dual-pane';
         @if (editingLineId()) {
           <app-line-editor [lineId]="editingLineId()!" [authorId]="'workspace-editor'" />
           <app-dual-pane [lineId]="editingLineId()!" [imageLink]="imageLink()" />
+        }
+
+        <p><button type="button" (click)="toggleGeometry()">Geometry / reading order</button></p>
+        @if (showGeometry() && imageLink()) {
+          <app-geometry-editor [projectId]="projectId()" [surfaceId]="surfaceId()" [imageUrl]="imageLink()" />
         }
 
         <h3>Loss report <code>{{ data.lossReport.format }}</code></h3>
@@ -46,7 +52,7 @@ import { DualPane } from './dual-pane';
     .greek { font-size: 1.3rem; cursor: pointer; }
     .lines { line-height: 2; }
   `],
-  imports: [LineEditor, DualPane],
+  imports: [LineEditor, DualPane, GeometryEditor],
 })
 export class SurfaceView {
   projectId = input.required<string>();
@@ -58,7 +64,12 @@ export class SurfaceView {
   protected readonly totalScalars = signal(0);
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly imageLink = signal('');
+  protected readonly showGeometry = signal(false);
   private readonly lineIdsByIndex = signal<string[]>([]);
+
+  protected toggleGeometry(): void {
+    this.showGeometry.update(v => !v);
+  }
 
   protected readonly lines = computed(() => (this.exportData()?.text ?? '').split('\n'));
 

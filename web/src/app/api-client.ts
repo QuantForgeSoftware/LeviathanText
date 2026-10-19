@@ -48,6 +48,23 @@ export interface LinePayload {
   history: RevisionPayload[];
 }
 
+export interface GeometryPoint {
+  x: number;
+  y: number;
+}
+
+export interface GeometryLine {
+  id: string;
+  regionId: string;
+  polygon: GeometryPoint[];
+  baseline: GeometryPoint[];
+}
+
+export interface GeometryRegion {
+  id: string;
+  readingOrderIndex: number | null;
+}
+
 export interface RevisionPayload {
   id: string;
   layer: string;
@@ -102,6 +119,14 @@ export class ApiClient {
     return `/api/v1/jobs/${jobId}/events`;
   }
 
+  updateLineGeometry(lineId: string, polygon: GeometryPoint[], baseline: GeometryPoint[]): Observable<unknown> {
+    return this.http.put(`/api/v1/lines/${lineId}/geometry`, { polygon, baseline });
+  }
+
+  updateReadingOrder(surfaceId: string, regionIds: string[]): Observable<unknown> {
+    return this.http.put(`/api/v1/surfaces/${surfaceId}/reading-order`, { regionIds });
+  }
+
   appendRevision(lineId: string, layer: string, text: string, authorId: string, parentRevisionId?: string): Observable<{ revisionId: string }> {
     return this.http.post<{ revisionId: string }>(`/api/v1/lines/${lineId}/revisions`,
       { layer, text, authorId, parentRevisionId: parentRevisionId ?? null });
@@ -122,7 +147,13 @@ export interface ProjectPayload {
     surfaces: {
       id: string;
       kind: string;
-      lines: { id: string }[];
+      lines: {
+        id: string;
+        regionId: string;
+        polygon: GeometryPoint[];
+        baseline: GeometryPoint[];
+      }[];
+      regions: { id: string; readingOrderIndex: number | null }[];
       captures: { imageLocation?: string }[];
     }[];
   }[];
