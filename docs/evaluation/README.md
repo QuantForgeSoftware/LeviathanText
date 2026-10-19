@@ -21,6 +21,9 @@
   held-out pages (density filter: precision up, recall unchanged; now the detector default).
 - [throughput.md](throughput.md) — measured import/training/recognition throughput on the
   pilot machine (what is and is not measured).
+- [end-to-end-page-cer.md](end-to-end-page-cer.md) — page-level CER for the image-only
+  workflow (layout + recognition), with a PAGE-box control that separates recognition from
+  layout losses.
 - [../handoffs/B-CODE.md](../handoffs/B-CODE.md) — implementation handoff and review notes.
 
 All numbers are pilot-scale baselines unless a sheet explicitly says otherwise. No sheet is

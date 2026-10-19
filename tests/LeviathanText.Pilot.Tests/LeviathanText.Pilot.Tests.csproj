@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\src\LeviathanText.Application\LeviathanText.Application.csproj" />
     <ProjectReference Include="..\..\src\LeviathanText.Cli\LeviathanText.Cli.csproj" />
     <ProjectReference Include="..\..\src\LeviathanText.Layout\LeviathanText.Layout.csproj" />
+    <ProjectReference Include="..\..\src\LeviathanText.Evaluation\LeviathanText.Evaluation.csproj" />
   </ItemGroup>
 
 </Project>
