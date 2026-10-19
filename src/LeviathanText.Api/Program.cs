@@ -328,11 +328,18 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 // with the job resource remaining authoritative.
 api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) =>
 {
-    // Jobs may carry one input artifact; layout.detect uses the surface entity as input.
+    // Jobs may carry one input artifact: the target surface. Recognition jobs also name
+    // the model package (the worker verifies it before loading; no path is trusted).
     IReadOnlyList<StageArtifact>? inputs = string.IsNullOrEmpty(request.SurfaceId)
         ? null
         : [new StageArtifact(EntityId.Parse(request.SurfaceId, EntityKind.Surface),
-            new Checksum { Algorithm = "surface", Digest = "" })];
+            new Checksum
+            {
+                Algorithm = request.Type == "recognize.surface" ? "model-package" : "surface",
+                Digest = request.Type == "recognize.surface" && !string.IsNullOrEmpty(request.ModelPackagePath)
+                    ? "pkg:" + request.ModelPackagePath
+                    : "",
+            })];
 
     var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
         inputs: inputs, idempotencyKey: request.IdempotencyKey);
@@ -387,7 +394,7 @@ app.Run();
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath, string? Kind = null);
 public sealed record ImportIiifRequest(string ManifestPath);
-public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null);
+public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public sealed record AddAnnotationRequest(
