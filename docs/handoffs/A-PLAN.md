@@ -250,8 +250,14 @@ Blockers recorded so far:
   detection recall is stable at 0.556. Batch recognition 27 surfaces / 321 lines in ~1.3 s;
   peak RSS ~200 MB single page / ~244 MB batch (CLI). Projection layout precision improved
   0.386 → 0.433 (content-bounds cropping) at equal recall.
+- **Search/QA/review:** project search (literal + mark/case-folded base; scalar ranges and
+  snippets; UI opens the hit across surfaces), profile-report CLI/API/bundle + QA badge,
+  annotation and line CSV exports, mark-span rendering in the editor (unclear/lost/supplied/
+  alternative/erased), L1/L2 prefix/suffix diff, model-package discovery and inline
+  recognition (name-only, verified packages), confidence-aware review queue (CLI CSV +
+  top-20 in the API response + workspace list), L0-copy-in-editor that never auto-saves.
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
-  throughput + evaluation index updates.
+  throughput + evaluation index updates, implemented endpoint inventory in the API contract.
 - **Verification:** full Release build and suite counts recorded in the board after the closing
   run; no open cross-package requests. B remains quiet since its morning handoff; licensing
   files still belong to their author.
