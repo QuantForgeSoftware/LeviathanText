@@ -147,7 +147,9 @@ public sealed class RecognizeSurfaceHandlerTests : IDisposable
         Assert.Equal(lineId, revision.ScopeId);
         Assert.True(revision.Author.IsModel);
         Assert.Contains("tiny", revision.Author.ModelIdentity);
-        Assert.False(revision.Confidence.IsNone); // mean confidence persisted
+        // Non-empty output implies graphemes and therefore a persisted mean confidence;
+        // an empty (blank-only) decode has no confidence and must stay None.
+        Assert.Equal(string.IsNullOrEmpty(revision.Text), revision.Confidence.IsNone);
 
         // Same job id = same run id: a retry must not append duplicate L0 revisions.
         new RecognizeSurfaceHandler(store).Execute(finished, CancellationToken.None);

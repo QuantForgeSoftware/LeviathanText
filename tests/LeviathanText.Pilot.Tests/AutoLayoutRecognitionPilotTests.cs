@@ -116,7 +116,8 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
         Assert.Equal(layout.LineCount, l0.Count);
         Assert.All(l0, r => Assert.True(r.Author.IsModel));
         Assert.All(l0, r => Assert.Contains(config.ModelName, r.Author.ModelIdentity));
-        Assert.All(l0, r => Assert.False(r.Confidence.IsNone)); // mean raw confidence persisted
+        // Mean raw confidence is persisted for every non-empty output; empty decodes stay None.
+        Assert.All(l0.Where(r => !string.IsNullOrEmpty(r.Text)), r => Assert.False(r.Confidence.IsNone));
 
         // Re-running the same run id (job retry) must not duplicate L0 revisions.
         pipeline.Run(reloaded, surface.Id, new RecognitionPipeline.Options
