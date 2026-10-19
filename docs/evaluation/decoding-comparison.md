@@ -82,11 +82,23 @@ salt-and-pepper) improved dev CER in three independent pre/post-fix runs; the po
 is 0.805 → 0.783. Extra time resolution (height 32 or width 2) is **worse** at this data
 volume: it does not fix the remaining errors once crop geometry is sane.
 
+## Regularization A/B (height 16, width 4, augmentation on)
+
+| Weight decay | Dev scalar CER |
+| --- | --- |
+| **0 (default)** | **0.7908** |
+| 1e-4 | 0.8018 |
+| 1e-3 | 0.8227 |
+
+Weight decay hurts monotonically at this data volume; keep it **0**. The knob exists
+(`TrainingConfig.WeightDecay`) and is recorded in the run manifest for future data scales.
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
   existing runs/checkpoints remain comparable.
-- Best measured next-candidate configuration: **height 16, width 4, augmentation on**.
+- Best measured next-candidate configuration: **height 16, width 4, augmentation on,
+  weight decay 0**.
   A future frozen candidate must use fresh held-out witnesses (acceptance-plan.md §2).
 - Do **not** claim calibrated confidence or use confidence-based abstention from this data.
 - The earlier height-32 recommendation is withdrawn for now; re-test it after the
