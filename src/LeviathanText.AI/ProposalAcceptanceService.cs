@@ -17,7 +17,7 @@ public sealed class ProposalAcceptanceService(RevisionChain chain)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
-                Scope = proposal.Id,
+                Scope = proposal.Id.ToString(),
                 Message = $"Proposal {proposal.Id} is {proposal.Status}; only Proposed proposals can be accepted.",
             });
 
@@ -25,7 +25,7 @@ public sealed class ProposalAcceptanceService(RevisionChain chain)
             ?? throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StaleAnnotationAnchor,
-                Scope = proposal.Id,
+                Scope = proposal.Id.ToString(),
                 RemedyHint = RemedyHint.RebaseRevision,
                 Message = $"Unknown target revision {proposal.Request.TargetRevisionId}.",
             });
@@ -35,7 +35,7 @@ public sealed class ProposalAcceptanceService(RevisionChain chain)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StaleAnnotationAnchor,
-                Scope = proposal.Id,
+                Scope = proposal.Id.ToString(),
                 Details = new Dictionary<string, string> { ["currentRevision"] = current?.Id.ToString() ?? "none" },
                 RemedyHint = RemedyHint.RebaseRevision,
                 Message = "Proposal targets a superseded revision; rebase before accepting.",

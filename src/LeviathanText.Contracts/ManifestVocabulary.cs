@@ -43,6 +43,21 @@ public enum AnnotationCompleteness
     Unknown,
 }
 
+/// <summary>What kind of file/unit an asset is (corpus-manifest.md §4; B-CCR-6 accepted).</summary>
+public enum AssetKind
+{
+    Photograph,
+    Scan,
+    TranscriptionXml,
+    EditionText,
+    AnnotationLayer,
+    DerivedCrop,
+    DerivedImage,
+    ModelGlyphSet,
+    /// <summary>Text-only catalog/metadata records with no image and no line labels (e.g. P02 preservation tags).</summary>
+    CatalogMetadataText,
+}
+
 /// <summary>Reference to the versioned transcription profile a label set follows (greek-transcription.md §6).</summary>
 public sealed record TranscriptionProfileRef
 {

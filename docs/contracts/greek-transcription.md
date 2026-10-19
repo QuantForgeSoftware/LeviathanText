@@ -1,6 +1,6 @@
 # Greek transcription contract
 
-Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**; Greek-specialist adjudication pending (BLK-A-2). Revision history: 0.1 (initial) → 0.3 (no semantic change to this document; set-level version bump recorded in corpus-manifest.md).
+Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**; Greek-specialist adjudication pending (BLK-A-2). Revision history: 0.1 (initial) → 0.3 (no semantic change to this document; set-level version bump recorded in corpus-manifest.md).
 
 Source requirements: todo Section 3 ("Greek transcription contract"), Section 4 (domain model), Section 7 (scoring semantics). This document proposes the versioned transcription profile, text-layer separation, Unicode handling and uncertainty vocabulary. It proposes conventions; it does not adjudicate them.
 

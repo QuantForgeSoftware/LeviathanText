@@ -11,7 +11,7 @@ public class GreekFixtureTests
     [Fact]
     public void Fixture_declares_its_contract_version_and_invented_status()
     {
-        Assert.Equal("C0-0.3-draft", Fixture.ContractVersion);
+        Assert.Equal("C0-0.4-draft", Fixture.ContractVersion);
         Assert.Contains("INVENTED", Fixture.Note);
         Assert.Equal(4, Fixture.Lines.Count);
         // every required material is covered

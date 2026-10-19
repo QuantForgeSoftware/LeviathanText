@@ -1,6 +1,6 @@
 # Interchange and API contract
 
-Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (native JSON serialization conventions §2.0 added; conventions implemented in `LeviathanText.Contracts.Serialization.ContractJson`). Depends on the transcription contract (greek-transcription.md) and domain-and-pipeline.md.
+Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (native JSON serialization conventions §2.0 added; conventions implemented in `LeviathanText.Contracts.Serialization.ContractJson`). Depends on the transcription contract (greek-transcription.md) and domain-and-pipeline.md.
 
 Source requirements: todo Section 3 (scholarly interchange, bounded TEI/EpiDoc profile), Section 4 (web workspace, AI integration), Section 6 (FMT/UI/AI package inputs), Section 7 (formats, AI, UI verification). This document is **prose and tables only**; it defines no OpenAPI file, no generated client, no schemas.
 

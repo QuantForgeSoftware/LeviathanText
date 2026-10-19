@@ -1,6 +1,6 @@
 # Corpus manifest contract
 
-Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review** by Instance B and the project owner; Greek-specialist adjudication pending. Revision history: 0.1 (initial) → 0.2 (added domain/pipeline, interchange, examples; no change to 0.1 documents) → 0.3 (StageRun I/O artifacts became `StageArtifact` records; native JSON serialization conventions added to interchange §2.0; no semantic change to manifest/transcription rules).
+Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review** by Instance B and the project owner; Greek-specialist adjudication pending. Revision history: 0.1 (initial) → 0.2 (added domain/pipeline, interchange, examples; no change to 0.1 documents) → 0.3 (StageRun I/O artifacts became `StageArtifact` records; native JSON serialization conventions added to interchange §2.0) → 0.4 (**B-CCR-6 accepted**: `catalog/metadata-text` asset kind + `preservation_tags` field; **B-CCR-7 accepted**: `Proposal` entity kind, prefix `prop`).
 
 Source requirements: todo Section 5 (`DATA-01`, `DATA-02`, `DATA-03`, intake backlog), Section 6 (C0, dataset-worker ownership, artifact-store prefixes), Section 7 (split hashes, leakage checks). This document defines the **field dictionary and conventions** for human-readable corpus manifests. It defines no file formats, code, or schemas; when implementation is authorized, a machine-readable serialization of exactly these fields will be derived from this revision.
 
@@ -59,7 +59,8 @@ Every record carries `record_status`; a record with missing mandatory evidence i
 | --- | --- | --- |
 | `asset_id` | req | Stable ID. |
 | `item_id` | req | Owning witness. |
-| `asset_kind` | req | `photograph` \| `scan` \| `transcription-xml` \| `edition-text` \| `annotation-layer` \| `derived-crop` \| `derived-image` \| `model/glyph-set` |
+| `asset_kind` | req | `photograph` \| `scan` \| `transcription-xml` \| `edition-text` \| `annotation-layer` \| `derived-crop` \| `derived-image` \| `model/glyph-set` \| `catalog/metadata-text` (B-CCR-6 accepted) |
+| `preservation_tags` | opt | tag + evidence per tag | Per-item preservation/condition tags a source supplies without images or line labels (e.g. P02's tags, I03 damage states); such assets are `catalog/metadata-text` with `label_granularity: none` and never count as recognition data. |
 | `file_checksum` / `size` | req once retrieved | SHA-256 + bytes; `not-retrieved` until then. |
 | `parent_image_lineage` | req for derived assets | Full chain: derived crop → capture → original photograph. Derived assets never break the chain to the original. |
 | `coordinate_frame` | req for geometry-bearing assets | Which image the geometry is expressed against (todo §4: every annotation identifies its capture and frame). `none` for text-only editions. |

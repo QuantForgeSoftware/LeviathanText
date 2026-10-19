@@ -1,6 +1,6 @@
 # Domain and pipeline contract
 
-Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (StageRun input/output lists use `StageArtifact` records; JSON conventions §2.0 added). Depends on the transcription contract (greek-transcription.md) and corpus-manifest.md, which it extends rather than repeats.
+Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (StageRun input/output lists use `StageArtifact` records; JSON conventions §2.0 added) → 0.4 (Proposal entity kind added to the identity hierarchy, B-CCR-7). Depends on the transcription contract (greek-transcription.md) and corpus-manifest.md, which it extends rather than repeats.
 
 Source requirements: todo Section 4 (architecture, pipeline and domain model, storage and jobs), Section 6 (C0 ownership list, stage contracts, versioning), Section 7 (training/reload parity, idempotency evidence). All names here are **design placeholders** pending implementation assignment; nothing in this document authorizes code.
 
@@ -20,6 +20,7 @@ Collection
                       └─ GraphemeSpan  (character-level annotation anchor)
             └─ TranscriptionRevision  (per layer L1/L2; see greek-transcription.md)
                  └─ Annotation (anchored to a revision by scalar offsets)
+            └─ Proposal      (AI assistance record; accepted → L2 revision, provenance kept)
 ```
 
 ### 1.2 Identifier rules

@@ -1,6 +1,6 @@
 # Examples and scoring semantics
 
-Contract: **C0-0.3-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (no change to this document; set-level version bump recorded in corpus-manifest.md).
+Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (no change to this document; set-level version bump recorded in corpus-manifest.md).
 
 Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scoring) and the brief's step 5. **All examples below are invented illustrations, labeled as such. They are not ground truth, derive from no real item, and are excluded from corpus counts.** B should propose source-backed replacements from real corpus material; structure, not the specific strings, is the contract.
 

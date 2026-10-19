@@ -7,5 +7,5 @@ namespace LeviathanText.Contracts;
 /// </summary>
 public static class ContractVersion
 {
-    public const string Current = "C0-0.3-draft";
+    public const string Current = "C0-0.4-draft";
 }

@@ -41,13 +41,12 @@ public sealed record AiProposalRequest
 }
 
 /// <summary>
-/// A single proposal with full provenance. The proposal id is a string because the C0
-/// identity hierarchy has no Proposal entity kind; a dedicated kind is requested
-/// (B-CCR-7).
+/// A single proposal with full provenance. Identified as a first-class Proposal entity
+/// (B-CCR-7 accepted: EntityKind.Proposal, prefix "prop").
 /// </summary>
 public sealed record AiProposal
 {
-    public required string Id { get; init; }
+    public required EntityId Id { get; init; }
     public required AiProposalRequest Request { get; init; }
     public required string ProposedText { get; init; }
     public required string ProviderId { get; init; }

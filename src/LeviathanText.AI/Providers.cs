@@ -61,7 +61,7 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
 
         return ProposalOutcome.Ok(new AiProposal
         {
-            Id = $"prop-{Guid.NewGuid():N}",
+            Id = ProposalIds.New(),
             Request = request,
             ProposedText = raw!,
             ProviderId = inner.ProviderId,
@@ -90,6 +90,12 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
     }
 }
 
+/// <summary>Mints proposal identifiers from the accepted Proposal entity kind (B-CCR-7).</summary>
+public static class ProposalIds
+{
+    public static EntityId New() => new(EntityKind.Proposal, Guid.NewGuid().ToString("N"));
+}
+
 /// <summary>
 /// Deterministic in-process test double. Used to exercise proposal handling without a
 /// network call; its identity clearly marks it as not a real model.
@@ -104,7 +110,7 @@ public sealed class ScriptedAiProvider(string providerId, string modelId, Func<A
         var text = generator(request);
         return Task.FromResult(ProposalOutcome.Ok(new AiProposal
         {
-            Id = $"prop-{Guid.NewGuid():N}",
+            Id = ProposalIds.New(),
             Request = request,
             ProposedText = text,
             ProviderId = providerId,
@@ -114,4 +120,5 @@ public sealed class ScriptedAiProvider(string providerId, string modelId, Func<A
             CreatedAt = DateTimeOffset.UtcNow,
         }));
     }
+
 }

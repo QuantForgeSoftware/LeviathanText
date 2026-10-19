@@ -97,6 +97,6 @@ public class ContractVersionTests
     [Fact]
     public void Compiled_types_target_the_published_draft()
     {
-        Assert.Equal("C0-0.3-draft", ContractVersion.Current);
+        Assert.Equal("C0-0.4-draft", ContractVersion.Current);
     }
 }
