@@ -35,6 +35,12 @@ export interface DiplomaticExport {
   lossReport: LossReport;
 }
 
+export interface SurfaceSummary {
+  id: string;
+  kind: string;
+  lineCount: number;
+}
+
 export class ApiClient {
   constructor(private readonly http: HttpClient) {}
 
@@ -50,12 +56,27 @@ export class ApiClient {
     return this.http.post<ProjectSummary>('/api/v1/projects', { name });
   }
 
-  loadProject(id: string): Observable<unknown> {
-    return this.http.get<unknown>(`/api/v1/projects/${id}`);
+  loadProject(id: string): Observable<ProjectPayload> {
+    return this.http.get<ProjectPayload>(`/api/v1/projects/${id}`);
   }
 
   diplomaticExport(projectId: string, surfaceId: string): Observable<DiplomaticExport> {
     return this.http.get<DiplomaticExport>(
       `/api/v1/projects/${projectId}/surfaces/${surfaceId}/diplomatic`);
   }
+}
+
+/** Minimal projection of the native project payload needed by the workspace. */
+export interface ProjectPayload {
+  id: string;
+  name: string;
+  objects: {
+    id: string;
+    name?: string;
+    surfaces: {
+      id: string;
+      kind: string;
+      lines: unknown[];
+    }[];
+  }[];
 }
