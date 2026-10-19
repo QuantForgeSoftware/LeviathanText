@@ -520,4 +520,58 @@ Review results:
 - [x] Independent source/plan reviews checked manuscript, papyrus and inscription facts; identified ownership gaps were corrected.
 - [x] No application code was written; this work changes only planning documents.
 - [ ] Execution readiness: select real collections and hardware, secure usable image/label pairs and reviewers, prove the C# pipeline, and freeze measured acceptance thresholds.
-- [ ] Implementation remains unstarted pending a separate user instruction.
+- [x] Implementation has started (superseded the original "unstarted" status; see Section 6 implementation records and the handoffs). This line is kept for history.
+
+## 11. Remaining-effort estimate — 2026-10-19
+
+Estimate basis: measured output of the completed engineering (14 C# packages + Angular workspace, 359 tests), the three real-data pilots, and the pilot training runs. Units are **dev-days** (one engineer or agent-equivalent working day) and **specialist-days** (Greek/papyrology/epigraphy expert time). Ranges are deliberately wide where the plan says "measure first"; no date claim is made.
+
+### A. Engineering (C#/Angular), remaining
+
+| Work | Estimate (dev-days) | Depends on |
+| --- | --- | --- |
+| Editor completion: geometry/reading-order editing UI, source-linked alternatives, correction layers, crash recovery, keyboard/accessibility pass | 8–14 | contract stability (done) |
+| Trainable layout module (annotation source: PAGE boxes already audited for ~1,700 pages) | 5–9 | adjudicated box GT sample |
+| Recognition scale-up experiments (capacity, augmentation, decoding, per-hand tuning) | 8–15 | adjudicated lines (volume is the limiter, not code) |
+| ONNX export feasibility spike | 2–3 | — |
+| Formats expansion: TIFF/PDF ingestion, ALTO/hOCR/ABBYY adapters | 10–18 | only for later parity |
+| Auth + shared multi-user server | 5–9 | Phase 3 |
+| Packaging/release engineering (installers, migrations, profiling, rollback) | 5–7 | release candidate |
+| Evaluation tooling completion (acceptance sheets automation, leakage audit, correction-time capture) | 3–5 | frozen labels |
+| **Engineering total** | **46–80** | |
+
+### B. Specialist (scholarly) time, remaining
+
+| Work | Estimate (specialist-days) |
+| --- | --- |
+| Adjudicate the transcription profile's open decisions (lunate sigma, epichoric table, numerals, underdots, word division) | 2–3 |
+| M02a/M01 label-policy review (expansion-lite, diaeresis, spaces, nomina sacra/overbars) | 1–2 |
+| Expert-audited pilot labels, dev + locked, per track (~300–500 lines) | 3–6 |
+| Inscription line construction (~100–200 lines with geometry, from I01's 448-image subset) | 4–8 |
+| Acceptance sheet, per-track thresholds and sign-off | 1–2 |
+| Correction-time studies (manual + AI-assisted) | 1–2 |
+| **Specialist total** | **12–23** |
+
+### C. Data/rights (mostly parallel to A/B)
+
+| Work | Estimate |
+| --- | --- |
+| Remaining acquisitions/audits: M02b/M02c, M03 decision, P02/P03 subset ledger, P05/P06 join, I02 inventory | 5–8 dev-days + 3–5 owner/legal days (elapsed, decisions) |
+| Dedup, split assignment, manifest completion (DATA-02/03) | 2–3 dev-days |
+
+### Critical path and phase gates (calendar, 1 engineer + ~10–20% specialist)
+
+| Milestone | Remaining duration | Why |
+| --- | --- | --- |
+| **Phase 0 complete** (all three tracks: real data, annotation contract, adjudicated pilot, proven C# route, measured acceptance sheet) | **4–6 weeks** | dominated by specialist adjudication + inscription labels; engineering support is small |
+| **First usable Greek release** (Phases 1–2 gates: engine, editor, AI, per-track thresholds) | **+6–10 weeks** → **10–16 weeks total** | editor completion + recognition scale-up + fresh held-out evaluation |
+| **Phase 3** (generalization, active learning, shared workspaces) | +8–12 weeks | requires data volume first |
+| **Phase 4** (wider Kraken parity: RTL/vertical, formats, PDF) | +10–16 weeks | independent of Greek release gates |
+
+### Confidence and drivers
+
+- **Engineering**: ±30% (high confidence in scope; low risk of hidden architectural work).
+- **Specialist**: ±50% — the largest single uncertainty; scales directly with available expert hours.
+- **Recognition quality**: **not estimable** — measured CER is 0.78–0.87 at 176–571 training lines; reaching release-quality needs adjudicated volume (thousands of lines per hand) and is a research outcome, not a schedule item.
+- **What compresses the estimate**: (1) named specialist with regular hours; (2) a decision allowing NC corpora for research-only tracks (removes per-image rights friction); (3) accepting a narrow documented profile (e.g., two supported hands) instead of broad generalization; (4) combining the dev/acceptance label audits into one instrumented pass.
+- **What expands it**: any track whose labels cannot be adjudicated; a requirement for fully automatic layout from day one; per-image institutional permissions for P02/P03.
