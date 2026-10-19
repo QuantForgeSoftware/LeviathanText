@@ -200,6 +200,14 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
   }
 
+  reviewQueue(projectId: string, surfaceId: string): Observable<{
+    lineId: string; revisionId: string; meanConfidence: number | null; emptyOutput: boolean; text: string;
+  }[]> {
+    return this.http.get<{
+      lineId: string; revisionId: string; meanConfidence: number | null; emptyOutput: boolean; text: string;
+    }[]>(`/api/v1/projects/${projectId}/review-queue`, { params: { surfaceId } });
+  }
+
   stats(projectId: string): Observable<{
     objects: number; surfaces: number; captures: number; regions: number; lines: number;
     transcribedLines: number; linesWithL0: number; l0Revisions: number; l2Revisions: number;

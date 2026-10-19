@@ -66,6 +66,12 @@ Checks the declared schema, contract version, change log and the required per-so
 not verify rights — it verifies the ledger says what it must. Warnings flag `unverified`
 license values.
 
+## Review queue
+
+`GET /api/v1/projects/{id}/review-queue[?surfaceId=…]` orders lines by stored L0 confidence
+(empty outputs first, then lowest mean confidence, then no-confidence) — reproducible across
+restarts. The workspace shows the queue after recognition and on reload.
+
 ## Models
 
 `LeviathanText:Models:Directory` (default `~/.leviathantext/models`) is scanned by

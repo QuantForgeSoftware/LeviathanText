@@ -243,6 +243,16 @@ export class SurfaceView {
         error: () => this.exportData.set({ text: '', lossReport: { format: 'unavailable', contractVersion: '-', entries: [] } }),
       });
 
+    this.api.reviewQueue(this.projectId(), this.surfaceId()).subscribe({
+      next: (queue) => {
+        if (queue.length > 0)
+          this.reviewQueue.set(queue.map(e => ({
+            lineId: e.lineId, meanConfidence: e.meanConfidence, emptyOutput: e.emptyOutput,
+          })));
+      },
+      error: () => { /* no persisted queue yet */ },
+    });
+
     this.api.models().subscribe({
       next: (list) => {
         this.models.set(list);

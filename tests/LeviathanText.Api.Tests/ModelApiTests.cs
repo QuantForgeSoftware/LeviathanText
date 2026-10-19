@@ -114,6 +114,9 @@ public sealed class ModelApiTests : IDisposable
         Assert.Contains("L0RawRecognition", revisions);
         Assert.Contains("model:tiny", revisions);
 
+        var queue = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/review-queue");
+        Assert.Contains(lineId, queue);
+
         // Path traversal and unknown packages are refused.
         var traversal = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/recognize", new { model = "../tiny" });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, traversal.StatusCode);

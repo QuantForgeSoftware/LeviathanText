@@ -477,6 +477,13 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
     });
 });
 
+api.MapGet("projects/{id}/review-queue", (ProjectService projects, string id, string? surfaceId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var wanted = string.IsNullOrEmpty(surfaceId) ? (EntityId?)null : EntityId.Parse(surfaceId, EntityKind.Surface);
+    return Results.Ok(PersistedReviewQueue.Build(project, wanted));
+});
+
 api.MapGet("projects/{id}/stats", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
