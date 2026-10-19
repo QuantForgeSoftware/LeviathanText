@@ -276,6 +276,16 @@ api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, Geome
     });
 });
 
+api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var path = Path.Combine(Path.GetTempPath(), $"leviathantext-{project.Id}.zip");
+    ProjectBundle.Export(project, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/zip", $"{project.Id}.zip");
+});
+
 api.MapGet("projects/{id}/training-export", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

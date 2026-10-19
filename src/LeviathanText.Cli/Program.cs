@@ -226,6 +226,15 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 3 && rest[1] == "bundle":
+            {
+                if (rest.Length < 4) { Console.Error.WriteLine("usage: export bundle <projectId> <out.zip>"); return 1; }
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var result = ProjectBundle.Export(project, rest[3]);
+                Console.WriteLine($"bundle: {result.Path} ({result.FileCount} files, {result.SizeBytes} bytes)");
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "alto":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
