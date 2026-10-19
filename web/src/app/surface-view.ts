@@ -4,7 +4,8 @@
  * Unicode-scalar-aware so combining sequences never break (todo Phase 2 gate).
  */
 import { Component, computed, signal, OnInit, input } from '@angular/core';
-import { ApiClient, DiplomaticExport } from './api-client';
+import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
+import { LineEditor } from './line-editor';
 
 @Component({
   selector: 'app-surface-view',
@@ -19,6 +20,10 @@ import { ApiClient, DiplomaticExport } from './api-client';
           }
         </ol>
         <p>Selected scalar span: {{ selectedStart() }}–{{ selectedEnd() }} (of {{ totalScalars() }})</p>
+
+        @if (editingLineId()) {
+          <app-line-editor [lineId]="editingLineId()!" [authorId]="'workspace-editor'" />
+        }
 
         <h3>Loss report <code>{{ data.lossReport.format }}</code></h3>
         @if (data.lossReport.entries.length === 0) {
@@ -39,6 +44,7 @@ import { ApiClient, DiplomaticExport } from './api-client';
     .greek { font-size: 1.3rem; cursor: pointer; }
     .lines { line-height: 2; }
   `],
+  imports: [LineEditor],
 })
 export class SurfaceView {
   projectId = input.required<string>();
@@ -48,6 +54,8 @@ export class SurfaceView {
   protected readonly selectedStart = signal(0);
   protected readonly selectedEnd = signal(0);
   protected readonly totalScalars = signal(0);
+  protected readonly editingLineId = signal<string | null>(null);
+  private readonly lineIdsByIndex = signal<string[]>([]);
 
   protected readonly lines = computed(() => (this.exportData()?.text ?? '').split('\n'));
 
@@ -66,6 +74,14 @@ export class SurfaceView {
         },
         error: () => this.exportData.set({ text: '', lossReport: { format: 'unavailable', contractVersion: '-', entries: [] } }),
       });
+
+    // Line ids (in stored order) so clicking a rendered line opens its editor.
+    this.api.loadProject(this.projectId()).subscribe(payload => {
+      const surface = payload.objects
+        .flatMap(o => o.surfaces)
+        .find(s => s.id === this.surfaceId());
+      this.lineIdsByIndex.set(surface?.lines.map((l: unknown) => (l as { id: string }).id) ?? []);
+    });
   }
 
   protected select(lineIndex: number): void {
@@ -74,6 +90,7 @@ export class SurfaceView {
     for (let i = 0; i < lineIndex; i++) start += scalarCount(lines[i]) + 1; // +1 for the newline
     this.selectedStart.set(start);
     this.selectedEnd.set(start + scalarCount(lines[lineIndex]));
+    this.editingLineId.set(this.lineIdsByIndex()[lineIndex] ?? null);
   }
 }
 

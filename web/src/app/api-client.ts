@@ -41,6 +41,25 @@ export interface SurfaceSummary {
   lineCount: number;
 }
 
+export interface LinePayload {
+  line: string;
+  diplomatic: string | null;
+  history: RevisionPayload[];
+}
+
+export interface RevisionPayload {
+  id: string;
+  layer: string;
+  text: string;
+  author: string;
+  at: string;
+}
+
+export interface AnnotationPayload {
+  id: string;
+  anchoredRevisionId: string;
+}
+
 export class ApiClient {
   constructor(private readonly http: HttpClient) {}
 
@@ -63,6 +82,19 @@ export class ApiClient {
   diplomaticExport(projectId: string, surfaceId: string): Observable<DiplomaticExport> {
     return this.http.get<DiplomaticExport>(
       `/api/v1/projects/${projectId}/surfaces/${surfaceId}/diplomatic`);
+  }
+
+  line(lineId: string): Observable<LinePayload> {
+    return this.http.get<LinePayload>(`/api/v1/lines/${lineId}`);
+  }
+
+  appendRevision(lineId: string, layer: string, text: string, authorId: string, parentRevisionId?: string): Observable<{ revisionId: string }> {
+    return this.http.post<{ revisionId: string }>(`/api/v1/lines/${lineId}/revisions`,
+      { layer, text, authorId, parentRevisionId: parentRevisionId ?? null });
+  }
+
+  addAnnotation(lineId: string, annotation: unknown): Observable<AnnotationPayload> {
+    return this.http.post<AnnotationPayload>(`/api/v1/lines/${lineId}/annotations`, annotation);
   }
 }
 
