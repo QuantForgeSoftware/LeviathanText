@@ -87,8 +87,8 @@ Greedy vs beam-8 on each configuration (beam is not selected anywhere below):
 | height 32, width 4 + augmentation | 0.801 | 50/50 | 0.0005 |
 
 Augmentation (training-only: horizontal stretch ±10%, vertical shift ±1 px, 1%
-salt-and-pepper) improved dev CER in three independent pre/post-fix runs; the post-fix gain
-is 0.805 → 0.783. Extra time resolution (height 32 or width 2) is **worse** at this data
+salt-and-pepper) improved dev CER in three independent pre/post-fix runs; post-fix plain
+runs measured 0.796–0.811 and the augmented run 0.783. Extra time resolution (height 32 or width 2) is **worse** at this data
 volume: it does not fix the remaining errors once crop geometry is sane.
 
 ## Regularization A/B (height 16, width 4, augmentation on)
