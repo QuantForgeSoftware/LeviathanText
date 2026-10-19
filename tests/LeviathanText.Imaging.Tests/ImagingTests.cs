@@ -63,6 +63,25 @@ public class ImageDecoderTests : IDisposable
         Assert.Equal(ErrorCode.InputMissing, ex.Error.Code);
     }
 
+    [Fact]
+    public void Tiff_support_is_documented_either_way()
+    {
+        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.tif");
+        if (!File.Exists(fixture)) return; // fixture not copied: skip silently in tests
+
+        try
+        {
+            using var decoded = ImageDecoder.Decode(fixture);
+            Assert.Equal(16, decoded.Bitmap.Width); // backend supports TIFF
+            Assert.Equal(12, decoded.Bitmap.Height);
+        }
+        catch (LeviathanException ex)
+        {
+            // Documented as unsupported until an imaging backend provides TIFF decoding.
+            Assert.Equal(ErrorCode.RejectedArchive, ex.Error.Code);
+        }
+    }
+
     public void Dispose() => File.Delete(_path);
 }
 

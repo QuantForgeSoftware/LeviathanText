@@ -48,7 +48,23 @@ public static class ImageDecoder
             });
 
         var checksum = ChecksumOf(bytes);
-        var bitmap = SKBitmap.Decode(bytes);
+        SKBitmap? bitmap;
+        try
+        {
+            bitmap = SKBitmap.Decode(bytes);
+        }
+        catch (Exception ex)
+        {
+            // Some codecs are missing in a given SkiaSharp build (e.g. TIFF: Decode throws
+            // ArgumentNullException 'codec'). Surface that as a contract error, not a crash.
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format", ["exception"] = ex.GetType().Name },
+                Message = "Image format is not supported by the current imaging backend.",
+            });
+        }
         if (bitmap is null)
             throw new LeviathanException(new LeviathanError
             {
