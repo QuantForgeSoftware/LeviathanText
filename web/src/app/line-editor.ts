@@ -42,6 +42,31 @@ interface UndoStack {
           @if (dirty()) {<span>unsaved</span>}
         </div>
 
+        <fieldset class="annotation-form">
+          <legend>Add annotation</legend>
+          <label>Kind
+            <select [value]="formKind()" (change)="onKind($event)">
+              @for (kind of annotationKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
+            </select>
+          </label>
+          <label>Start <input type="number" min="0" [value]="formStart()" (input)="onStart($event)" /></label>
+          <label>End <input type="number" min="0" [value]="formEnd()" (input)="onEnd($event)" /></label>
+          @if (formKind() === 'Lost') {
+            <label>Extent
+              <select [value]="formGapExtent()" (change)="onGapExtent($event)">
+                <option value="Unknown">Unknown</option>
+                <option value="Known">Known</option>
+                <option value="Estimated">Estimated</option>
+              </select>
+            </label>
+          }
+          @if (formKind() === 'AlternativeReading') {
+            <label>Alternative <input [value]="formAlternative()" (input)="onAlternative($event)" /></label>
+          }
+          <label>Note <input [value]="formDescription()" (input)="onDescription($event)" /></label>
+          <button type="button" (click)="addAnnotation()" [disabled]="!canAnnotate()">Add</button>
+        </fieldset>
+
         <details>
           <summary>History ({{ history().length }})</summary>
           <ul>
@@ -89,7 +114,6 @@ export class LineEditor {
   lineId = input.required<string>();
   authorId = input.required<string>();
 
-  private readonly api: ApiClient;
   protected readonly payload = signal<LinePayload | null>(null);
   protected readonly text = signal('');
   protected readonly caret = signal(0);
@@ -120,6 +144,67 @@ export class LineEditor {
   }
 
   protected readonly draftRestored = signal(false);
+
+  protected readonly annotationKinds = [
+    'Unclear', 'Illegible', 'Lost', 'SuppliedEditorial', 'AlternativeReading',
+    'Erased', 'Added', 'Overwritten', 'DifferentHand', 'GlyphForm', 'Sign',
+    'UnidentifiedMark', 'UnannotatedRegion',
+  ];
+  protected readonly formKind = signal('Unclear');
+  protected readonly formStart = signal(0);
+  protected readonly formEnd = signal(0);
+  protected readonly formDescription = signal('');
+  protected readonly formAlternative = signal('');
+  protected readonly formGapExtent = signal('Unknown');
+
+  protected readonly canAnnotate = computed(() =>
+    this.formStart() >= 0 && this.formEnd() >= this.formStart() && this.formEnd() <= this.scalarTotal());
+
+  private readonly api: ApiClient;
+
+  protected onKind(event: Event): void {
+    this.formKind.set((event.target as HTMLSelectElement).value);
+  }
+
+  protected onStart(event: Event): void {
+    this.formStart.set(Number((event.target as HTMLInputElement).value));
+  }
+
+  protected onEnd(event: Event): void {
+    this.formEnd.set(Number((event.target as HTMLInputElement).value));
+  }
+
+  protected onDescription(event: Event): void {
+    this.formDescription.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onAlternative(event: Event): void {
+    this.formAlternative.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onGapExtent(event: Event): void {
+    this.formGapExtent.set((event.target as HTMLSelectElement).value);
+  }
+
+  protected addAnnotation(): void {
+    if (!this.canAnnotate()) return;
+    const kind = this.formKind();
+    this.api.addAnnotation(this.lineId(), {
+      kind,
+      anchoredRevisionId: null,
+      range: { start: this.formStart(), end: this.formEnd() },
+      description: this.formDescription() || null,
+      alternativeText: kind === 'AlternativeReading' ? this.formAlternative() || null : null,
+      gapExtent: kind === 'Lost' ? this.formGapExtent() : null,
+    }).subscribe({
+      next: () => {
+        this.formDescription.set('');
+        this.formAlternative.set('');
+        this.loadAnnotations();
+      },
+      error: () => { /* surfaced by the API; state kept */ },
+    });
+  }
 
   protected readonly currentRevision = computed(() => {
     const history = this.history();

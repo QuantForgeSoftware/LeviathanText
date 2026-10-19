@@ -36,6 +36,7 @@ import { GeometryEditor } from './geometry-editor';
         <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
+          <button type="button" (click)="detectLayout()">Detect layout</button>
           <span class="hint">{{ exportStatus() }}</span>
         </p>
 
@@ -95,6 +96,19 @@ export class SurfaceView {
         this.exportStatus.set('training export downloaded');
       },
       error: () => this.exportStatus.set('training export failed'),
+    });
+  }
+
+  protected detectLayout(): void {
+    this.api.detectLayout(this.surfaceId()).subscribe({
+      next: (result: { lineCount: number; method: string }) => {
+        this.exportStatus.set(`detected ${result.lineCount} lines (${result.method})`);
+        this.api.diplomaticExport(this.projectId(), this.surfaceId()).subscribe(data => {
+          this.exportData.set(data);
+          this.totalScalars.set(scalarCount(data.text));
+        });
+      },
+      error: () => this.exportStatus.set('layout detection refused (existing layout is never overwritten)'),
     });
   }
 

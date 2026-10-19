@@ -142,6 +142,10 @@ export class ApiClient {
     return this.http.put(`/api/v1/regions/${regionId}/line-order`, { lineIds });
   }
 
+  detectLayout(surfaceId: string): Observable<{ lineCount: number; method: string }> {
+    return this.http.post<{ lineCount: number; method: string }>(`/api/v1/surfaces/${surfaceId}/detect-layout`, {});
+  }
+
   appendRevision(lineId: string, layer: string, text: string, authorId: string, parentRevisionId?: string): Observable<{ revisionId: string }> {
     return this.http.post<{ revisionId: string }>(`/api/v1/lines/${lineId}/revisions`,
       { layer, text, authorId, parentRevisionId: parentRevisionId ?? null });
