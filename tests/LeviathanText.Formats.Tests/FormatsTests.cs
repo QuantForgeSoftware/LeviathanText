@@ -163,7 +163,7 @@ public class TeiXmlTests
         Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.Unclear);
         Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.Lost && a.GapExtent == GapExtent.Unknown);
         Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.SuppliedEditorial);
-        var alt = Assert.Single(result.Annotations.Where(a => a.Kind == AnnotationKind.AlternativeReading));
+        var alt = Assert.Single(result.Annotations, a => a.Kind == AnnotationKind.AlternativeReading);
         Assert.Equal("ω", alt.AlternativeText);
     }
 
@@ -185,7 +185,7 @@ public class TeiXmlTests
             Assert.Contains(reparsed.Annotations, a => a.Kind == kind);
 
         // Alternative reading content preserved.
-        Assert.Equal("ω", Assert.Single(reparsed.Annotations.Where(a => a.Kind == AnnotationKind.AlternativeReading)).AlternativeText);
+        Assert.Equal("ω", Assert.Single(reparsed.Annotations, a => a.Kind == AnnotationKind.AlternativeReading).AlternativeText);
     }
 
     [Fact]

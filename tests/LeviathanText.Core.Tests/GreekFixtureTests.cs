@@ -57,8 +57,7 @@ public class GreekFixtureTests
             {
                 var mapped = mapping.MapRange(annotation.Range);
                 var anchorScalarLength = ScalarText.ScalarLength(
-                    line.Text[ScalarText.ScalarToUtf16Index(line.Text, annotation.Range.Start)..
-                              ScalarText.ScalarToUtf16Index(line.Text, annotation.Range.End)]);
+                    ScalarText.Slice(line.Text, annotation.Range.Start, annotation.Range.End));
                 Assert.True(anchorScalarLength > 0);
             }
         }

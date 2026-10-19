@@ -69,8 +69,8 @@ public class RevisionChainTests
         var chain = new RevisionChain();
         chain.Append(Scope, TextLayer.L1Diplomatic, "Κϲ", Agent);
         chain.Append(Scope, TextLayer.L2Editorial, "Κυρίου", Agent);
-        Assert.Equal(1, chain.History(Scope, TextLayer.L1Diplomatic).Count);
-        Assert.Equal(1, chain.History(Scope, TextLayer.L2Editorial).Count);
+        Assert.Single(chain.History(Scope, TextLayer.L1Diplomatic));
+        Assert.Single(chain.History(Scope, TextLayer.L2Editorial));
     }
 
     [Fact]
