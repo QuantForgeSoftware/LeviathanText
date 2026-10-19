@@ -12,6 +12,8 @@ interface DragState {
   startX: number;
   startY: number;
   original: GeometryLine;
+  mode: 'move' | 'resize';
+  corner: number; // 0=TL, 1=TR, 2=BR, 3=BL
 }
 
 @Component({
@@ -38,6 +40,16 @@ interface DragState {
                 (pointerdown)="onDown($event, line)" />
               @if (line.baseline.length > 1) {
                 <polyline [attr.points]="baselinePoints(line)" class="baseline" />
+              }
+              @if (line.id === selectedId()) {
+                @for (corner of bboxCorners(line); track $index) {
+                  <circle
+                    [attr.cx]="corner.x"
+                    [attr.cy]="corner.y"
+                    r="5"
+                    class="handle"
+                    (pointerdown)="onResizeDown($event, line, $index)" />
+                }
               }
             </g>
           }
@@ -84,6 +96,7 @@ interface DragState {
     polygon { fill: rgba(40, 120, 220, 0.15); stroke: #2878dc; stroke-width: 2; cursor: move; }
     polygon.sel { fill: rgba(220, 120, 40, 0.25); stroke: #dc7828; }
     .baseline { fill: none; stroke: #dc3c28; stroke-width: 2; pointer-events: none; }
+    .handle { fill: #fff; stroke: #dc7828; stroke-width: 2; cursor: nwse-resize; }
     .tools { margin-top: 0.5rem; display: flex; gap: 0.75rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
@@ -158,11 +171,40 @@ export class GeometryEditor implements OnInit {
   protected onDown(event: PointerEvent, line: GeometryLine): void {
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
+    this.drag = { ...this.dragFor(event), lineId: line.id, original: this.clone(line), mode: 'move', corner: -1 };
+  }
+
+  protected onResizeDown(event: PointerEvent, line: GeometryLine, corner: number): void {
+    event.stopPropagation();
+    (event.target as Element).setPointerCapture?.(event.pointerId);
+    this.selectedId.set(line.id);
+    this.drag = { ...this.dragFor(event), lineId: line.id, original: this.clone(line), mode: 'resize', corner };
+  }
+
+  protected bboxCorners(line: GeometryLine): GeometryPoint[] {
+    const b = this.bbox(line);
+    return [
+      { x: b.left, y: b.top }, { x: b.right, y: b.top },
+      { x: b.right, y: b.bottom }, { x: b.left, y: b.bottom },
+    ];
+  }
+
+  private bbox(line: GeometryLine): { left: number; top: number; right: number; bottom: number } {
+    const xs = line.polygon.map(p => p.x), ys = line.polygon.map(p => p.y);
+    return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+  }
+
+  private clone(line: GeometryLine): GeometryLine {
+    return { ...line, polygon: line.polygon.map(p => ({ ...p })), baseline: line.baseline.map(p => ({ ...p })) };
+  }
+
+  private dragFor(event: PointerEvent): { startX: number; startY: number } {
     const svg = (event.target as Element).closest('svg')!;
     const rect = svg.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * this.width();
-    const y = ((event.clientY - rect.top) / rect.height) * this.height();
-    this.drag = { lineId: line.id, startX: x, startY: y, original: { ...line, polygon: line.polygon.map(p => ({ ...p })), baseline: line.baseline.map(p => ({ ...p })) } };
+    return {
+      startX: ((event.clientX - rect.left) / rect.width) * this.width(),
+      startY: ((event.clientY - rect.top) / rect.height) * this.height(),
+    };
   }
 
   protected onMove(event: PointerEvent): void {
@@ -175,13 +217,37 @@ export class GeometryEditor implements OnInit {
     const dx = x - this.drag.startX;
     const dy = y - this.drag.startY;
 
-    this.lines.update(lines => lines.map(l => l.id === this.drag!.lineId
-      ? {
+    this.lines.update(lines => lines.map(l => {
+      if (l.id !== this.drag!.lineId) return l;
+      if (this.drag!.mode === 'move')
+      {
+        return {
           ...l,
           polygon: this.drag!.original.polygon.map(p => ({ x: p.x + dx, y: p.y + dy })),
           baseline: this.drag!.original.baseline.map(p => ({ x: p.x + dx, y: p.y + dy })),
-        }
-      : l));
+        };
+      }
+
+      // Resize: drag one corner; the opposite corner stays fixed.
+      const b = this.bbox(this.drag!.original);
+      const opposite = [
+        { x: b.right, y: b.bottom }, { x: b.left, y: b.bottom },
+        { x: b.left, y: b.top }, { x: b.left, y: b.top },
+      ][this.drag!.corner];
+      const moving = this.bboxCorners(this.drag!.original)[this.drag!.corner];
+      const nx = Math.min(Math.max(moving.x + dx, opposite.x + 4), this.width() - 1);
+      const ny = Math.min(Math.max(moving.y + dy, opposite.y + 4), this.height() - 1);
+      const left = Math.min(opposite.x, nx), right = Math.max(opposite.x, nx);
+      const top = Math.min(opposite.y, ny), bottom = Math.max(opposite.y, ny);
+      return {
+        ...l,
+        polygon: [
+          { x: left, y: top }, { x: right, y: top },
+          { x: right, y: bottom }, { x: left, y: bottom },
+        ],
+        baseline: [{ x: left, y: bottom }, { x: right, y: bottom }],
+      };
+    }));
     this.dirty.set(true);
   }
 
