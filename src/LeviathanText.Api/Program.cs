@@ -39,6 +39,7 @@ builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
 builder.Services.AddSingleton<TranscriptionService>();
 builder.Services.AddSingleton<GeometryService>();
+builder.Services.AddSingleton<LayoutService>();
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
@@ -205,6 +206,21 @@ api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometrySe
     {
         regionId = regionId,
         order = surface.Lines.Where(l => l.RegionId == regionEntityId).Select(l => l.Id.ToString()),
+    });
+});
+
+api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, string surfaceId) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+
+    var outcome = layout.Detect(project, surfaceEntityId);
+    return Results.Ok(new
+    {
+        surfaceId = outcome.Surface.Id.ToString(),
+        lineCount = outcome.LineCount,
+        method = outcome.Method,
     });
 });
 

@@ -115,6 +115,16 @@ public static class Program
                 return 0;
             }
 
+            case "layout" when rest.Length >= 4 && rest[1] == "detect":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
+                var layout = new LayoutService(store);
+                var outcome = layout.Detect(project, surfaceId);
+                Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
+                return 0;
+            }
+
             case "recognize" when rest.Length >= 4 && rest[1] == "surface":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -170,6 +180,7 @@ public static class Program
               leviathan [--store <path>] project list
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
+              leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] export tei <projectId> <surfaceId>

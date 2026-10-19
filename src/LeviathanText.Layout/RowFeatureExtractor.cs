@@ -12,9 +12,11 @@ public static class RowFeatureExtractor
         float[] RowDensity,
         int Width,
         int Height,
-        float InkThreshold);
+        float InkThreshold,
+        int[] InkRuns = null!,
+        int[] MaxRun = null!);
 
-    public const int FeatureCount = 10;
+    public const int FeatureCount = 13;
 
     /// <summary>
     /// Bounding box of the bright page area (parchment/paper), excluding the dark
@@ -94,20 +96,35 @@ public static class RowFeatureExtractor
         float inkThreshold = paperRelative;
 
         var density = new float[height];
+        var runs = new int[height];
+        var maxRun = new int[height];
         for (int y = top; y < bottom; y++)
         {
             int ink = 0;
+            int run = 0;
             for (int x = left; x < right; x++)
             {
                 int b = (y * width + x) * info.BytesPerPixel;
                 byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
                 float l = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                if (l < inkThreshold) ink++;
+                bool isInk = l < inkThreshold;
+                if (isInk)
+                {
+                    ink++;
+                    run++;
+                    if (run > maxRun[y]) maxRun[y] = run;
+                }
+                else
+                {
+                    if (run > 0) runs[y]++;
+                    run = 0;
+                }
             }
+            if (run > 0) runs[y]++;
             density[y] = (float)ink / Math.Max(1, right - left);
         }
 
-        return new PageProfile(density, width, height, inkThreshold);
+        return new PageProfile(density, width, height, inkThreshold, runs, maxRun);
     }
 
     /// <summary>Luminance percentile from a 256-bin histogram (bin center / 255).</summary>
@@ -169,6 +186,19 @@ public static class RowFeatureExtractor
             return min == float.MaxValue ? 0f : min;
         }
 
+        float runMean = 0;
+        if (profile.InkRuns is not null)
+        {
+            double sum = 0;
+            int count = 0;
+            for (int i = Math.Max(0, row - bandWidth); i <= Math.Min(n - 1, row + bandWidth); i++)
+            {
+                sum += profile.InkRuns[i];
+                count++;
+            }
+            runMean = (float)(sum / Math.Max(1, count));
+        }
+
         return
         [
             At(0),
@@ -179,6 +209,11 @@ public static class RowFeatureExtractor
             maxWindow(context),
             minWindow(context),
             At(0) - meanWindow(wide), // contrast to the local background
+            // Column texture (stroke structure): many short runs inside letter rows,
+            // few long runs in gaps. Normalized by page width to be scale-free.
+            profile.InkRuns is null ? 0f : profile.InkRuns[row] * 1000f / Math.Max(1, profile.Width),
+            profile.MaxRun is null ? 0f : profile.MaxRun[row] / (float)Math.Max(1, profile.Width),
+            runMean * 1000f / Math.Max(1, profile.Width),
         ];
     }
 
