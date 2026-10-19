@@ -1,6 +1,6 @@
 # Automatic vs imported layout comparison (pilot)
 
-- Date: 2026-10-19T12:16:37.5878210+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T13:17:51.3327360+00:00; contract C0-0.4-draft
 - Automatic: ProjectionProfileLayout (single-column projection profile; multi-column/curved unsupported and recorded, not silently mis-segmented)
 - Matching: vertical-band IoU ≥ 0.5 (disclosed tolerance)
 - Confidence semantics: None (heuristic module has no probability claim)

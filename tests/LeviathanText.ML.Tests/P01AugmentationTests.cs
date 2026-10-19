@@ -22,7 +22,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping augmentation A/B.");
 
-        var snapshot = P01LineDataset.Load(dataDir, targetHeight: 32);
+        var snapshot = P01LineDataset.Load(dataDir, targetHeight: 16);
         var vocabulary = snapshot.Train.Concat(snapshot.Dev)
             .SelectMany(l => Graphemes.Enumerate(l.Text).Select(g => g.Text))
             .Distinct(StringComparer.Ordinal)
@@ -34,7 +34,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
 
         var summary = new StringBuilder();
         summary.AppendLine("P01 v0.9 training-augmentation A/B, dev split (pilot-scale, non-adjudicated labels)");
-        summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 32, width downsample 4, greedy decoding");
+        summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 16, width downsample 4 (post IMG padding fix), greedy decoding");
         summary.AppendLine();
         summary.AppendLine("| Training | Dev scalar CER | Best dev CER during fit | Perfect lines | s/line |");
         summary.AppendLine("| --- | --- | --- | --- | --- |");
@@ -65,7 +65,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             Seed = 42,
             EarlyStoppingPatience = 300,
             HiddenSize = 64,
-            ModelName = augment ? "h32-aug" : "h32-plain",
+            ModelName = augment ? "h16-aug" : "h16-plain",
             CheckpointDirectory = checkpointDir,
             AugmentTraining = augment,
             MaxHorizontalStretch = 0.1,
