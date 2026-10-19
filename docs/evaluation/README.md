@@ -9,6 +9,7 @@
 - [decoding-comparison.md](decoding-comparison.md) — post-extraction-fix P01 dev
   measurements: greedy vs beam, calibration/risk–coverage, error analysis, and the
   architecture/augmentation/regularization/learning-rate/batch-size matrix.
+- [model-card-p01-h16-aug.md](model-card-p01-h16-aug.md) — tracked card for the best measured P01 dev candidate (package is in the artifact store).
 - [correction-effort.md](correction-effort.md) — AI-assisted review metric and its limits.
 - [layout-comparison.md](layout-comparison.md) — automatic-layout comparison and the
   negative pilot finding.
