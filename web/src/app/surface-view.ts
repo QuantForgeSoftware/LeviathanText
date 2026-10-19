@@ -4,6 +4,7 @@
  * Unicode-scalar-aware so combining sequences never break (todo Phase 2 gate).
  */
 import { Component, computed, effect, signal, OnInit, input } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
@@ -63,6 +64,20 @@ import { GeometryEditor } from './geometry-editor';
           }
         </p>
 
+        @if (reviewQueue().length > 0) {
+          <p class="hint">Review queue (lowest confidence first):</p>
+          <ul class="queue">
+            @for (entry of reviewQueue().slice(0, 10); track entry.lineId) {
+              <li>
+                <button type="button" class="link" (click)="editingLineId.set(entry.lineId)">{{ entry.lineId }}</button>
+                @if (entry.emptyOutput) { <span class="hint">empty output</span> }
+                @else if (entry.meanConfidence !== null) { <span class="hint">conf {{ entry.meanConfidence | number:'1.2-2' }}</span> }
+                @else { <span class="hint">no confidence</span> }
+              </li>
+            }
+          </ul>
+        }
+
         <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
@@ -90,7 +105,7 @@ import { GeometryEditor } from './geometry-editor';
     .greek { font-size: 1.3rem; cursor: pointer; }
     .lines { line-height: 2; }
   `],
-  imports: [LineEditor, DualPane, GeometryEditor],
+  imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe],
 })
 export class SurfaceView {
   projectId = input.required<string>();
@@ -114,6 +129,7 @@ export class SurfaceView {
   protected readonly selectedModel = signal('');
   protected readonly recognizeStatus = signal('');
   protected readonly recognizeBusy = signal(false);
+  protected readonly reviewQueue = signal<{ lineId: string; meanConfidence: number | null; emptyOutput: boolean }[]>([]);
 
   protected onModel(event: Event): void {
     this.selectedModel.set((event.target as HTMLSelectElement).value);
@@ -127,6 +143,7 @@ export class SurfaceView {
     this.api.recognizeSurface(this.surfaceId(), model).subscribe({
       next: (result) => {
         this.recognizeBusy.set(false);
+        this.reviewQueue.set(result.reviewQueue ?? []);
         this.recognizeStatus.set(`${result.lines} line(s) recognized${result.skipped ? `, ${result.skipped} skipped` : ''} (L0)`);
       },
       error: () => {

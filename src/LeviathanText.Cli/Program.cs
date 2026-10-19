@@ -440,6 +440,7 @@ public static class Program
                 var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
                 var pipeline = new RecognitionPipeline(store, new ImageResolver(store, imageCache));
                 int surfaces = 0, lines = 0, failed = 0;
+                var reviewEntries = new List<RecognitionPipeline.LineRecognition>();
                 foreach (var surface in project.Objects.SelectMany(o => o.Surfaces).ToList())
                 {
                     if (surface.Lines.Count == 0) continue;
@@ -461,6 +462,7 @@ public static class Program
                         });
                         surfaces++;
                         lines += outcome.Lines.Count;
+                        reviewEntries.AddRange(outcome.Lines);
                         Console.WriteLine($"{surface.Id}\t{outcome.Lines.Count} lines");
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
@@ -470,6 +472,14 @@ public static class Program
                     }
                 }
                 Console.Error.WriteLine($"surfaces={surfaces};lines={lines};failed={failed}");
+                var queueIndex = Array.IndexOf(rest, "--review-queue");
+                if (queueIndex >= 0 && queueIndex + 1 < rest.Length)
+                {
+                    var queue = ReviewQueue.Build(reviewEntries);
+                    File.WriteAllText(rest[queueIndex + 1], ReviewQueue.ToCsv(queue));
+                    Console.Error.WriteLine($"review queue: {queue.Count} lines -> {rest[queueIndex + 1]} " +
+                                            $"(first: {string.Join(", ", queue.Take(3).Select(e => e.LineId))})");
+                }
                 return surfaces > 0 ? 0 : 1;
             }
 
@@ -496,6 +506,13 @@ public static class Program
 
                 foreach (var line in outcome.Lines)
                     Console.WriteLine($"{line.LineId}\t{line.L0Text}");
+                var surfaceQueueIndex = Array.IndexOf(rest, "--review-queue");
+                if (surfaceQueueIndex >= 0 && surfaceQueueIndex + 1 < rest.Length)
+                {
+                    var queue = ReviewQueue.Build(outcome.Lines);
+                    File.WriteAllText(rest[surfaceQueueIndex + 1], ReviewQueue.ToCsv(queue));
+                    Console.Error.WriteLine($"review queue: {queue.Count} lines -> {rest[surfaceQueueIndex + 1]}");
+                }
                 if (outcome.SkippedLines.Count > 0)
                     Console.Error.WriteLine($"skipped {outcome.SkippedLines.Count} line(s) without geometry: {string.Join(", ", outcome.SkippedLines)}");
                 foreach (var stage in outcome.Stages)

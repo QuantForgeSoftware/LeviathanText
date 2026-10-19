@@ -418,6 +418,12 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
         model = request.Model,
         lines = outcome.Lines.Count,
         skipped = outcome.SkippedLines.Count,
+        reviewQueue = ReviewQueue.Build(outcome.Lines).Take(20).Select(e => new
+        {
+            lineId = e.LineId.ToString(),
+            meanConfidence = e.MeanConfidence,
+            emptyOutput = e.EmptyOutput,
+        }),
     });
 });
 

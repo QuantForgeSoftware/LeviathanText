@@ -220,9 +220,20 @@ export class ApiClient {
     return this.http.get<{ name: string; modifiedAt: string; hasManifest: boolean }[]>('/api/v1/models');
   }
 
-  recognizeSurface(surfaceId: string, model: string): Observable<{ surfaceId: string; model: string; lines: number; skipped: number }> {
-    return this.http.post<{ surfaceId: string; model: string; lines: number; skipped: number }>(
-      `/api/v1/surfaces/${surfaceId}/recognize`, { model });
+  recognizeSurface(surfaceId: string, model: string): Observable<{
+    surfaceId: string;
+    model: string;
+    lines: number;
+    skipped: number;
+    reviewQueue: { lineId: string; meanConfidence: number | null; emptyOutput: boolean }[];
+  }> {
+    return this.http.post<{
+      surfaceId: string;
+      model: string;
+      lines: number;
+      skipped: number;
+      reviewQueue: { lineId: string; meanConfidence: number | null; emptyOutput: boolean }[];
+    }>(`/api/v1/surfaces/${surfaceId}/recognize`, { model });
   }
 
   providers(): Observable<{ providers: { configRef: string; settings: { modelId: string } }[] }> {
