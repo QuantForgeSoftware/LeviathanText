@@ -80,23 +80,24 @@ dotnet test  tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj   # trai
 - Planned increments: (1) real local/hosted HTTP provider adapters with capability discovery, retries, bounded responses, credential isolation and spend caps; (2) evaluation of AI-assisted correction effort / unsupported additions; (3) ML decoder or confidence refinement if the first two land cleanly.
 - Each increment is committed separately after `dotnet build -c Release` + the relevant test project pass; A can merge/cherry-pick or leave B's commits in place.
 
-### Cross-package finding for IMG (2026-10-19, ML/EVAL)
+### Cross-package outcome: IMG crop fix (2026-10-19)
 
-The measured P01 decoding comparison (`docs/evaluation/decoding-comparison.md`, artifact
-`.artifacts/pilot/p01-decoding-comparison.txt`) found that **50/50 dev lines have fewer CTC
-time steps than reference scalars** (median T=8 vs median 18 scalars; resized crop width
-median 35 px). The P01 line *crops* are therefore near-square, not long and thin, and the
-decoder is structurally unable to emit a full line; that is why the error profile is
-deletion-dominated (706–800 deletions vs 0 insertions).
+B's measured sequence-length blocker (50/50 dev lines had fewer CTC frames than reference
+scalars, deletion-dominated errors) traced to the mandatory vertical padding doubling crop
+height. **A fixed extraction in `0c6c768`** (padding 0.25, capped at 12 px). Post-fix
+measurements (dev-only, best checkpoint):
 
-B recommends IMG review P01 line-region geometry/deskew extraction before any accuracy
-claim. Root cause measured: the mandatory vertical padding doubles crop height, so
-resizing to input height 16 leaves an ~8 px text band and halves the CTC frames. The
-ML-side A/B (`P01InputHeightTests`) finds **input height 32 / width downsample 4** best
-(dev CER 0.8297 vs 0.8576, reachable 29/50 vs 0/50); height 16 / width 2 measured 0.8257
-in a separate run and height 32 / width 2 was worse (0.8675, over-resolved for 176 lines).
-Defaults stay 16/4 so existing checkpoints/report remain valid; height 32 is the next
-frozen-candidate configuration. No IMG-owned file was touched.
+- defaults (height 16, width 4): dev CER **0.797–0.805**; errors now balanced
+  (397 substitutions / 398 deletions / 7 insertions) instead of deletion-dominated;
+  confidence ECE improved 0.237 → 0.151.
+- height 32 or width 2 are now **worse** (0.827 / 0.838): extra time resolution does not
+  help once crops are sane. B withdrawn the earlier h32 recommendation.
+- training augmentation (training-only geometry/noise) improves dev CER **0.805 → 0.783**;
+  it is opt-in (`AugmentTraining`, default off).
+
+Best measured next-candidate configuration: **height 16, width 4, augmentation on**.
+Full data and caveats: `docs/evaluation/decoding-comparison.md`; artifacts under
+`.artifacts/pilot/`.
 
 ### B progress log (2026-10-19, two-instance session)
 
@@ -118,6 +119,15 @@ frozen-candidate configuration. No IMG-owned file was touched.
 | `414d9b0` | AI | `AiProviderRegistry`: opaque config ref → local/hosted adapter (schema-validating default), provider switching without code changes. |
 | `28945ef` | ML | Checkpoint load rejects a mismatched label-set hash (same class count is not enough). |
 | `4b8f728` | EVAL | Per-track/profile aggregation with no pooled cross-track API. |
+| `c6af6c0` | ML | Configurable input height (default 16), manifest records it; measured h32 workaround pre-IMG-fix. |
+| `0c6c768` | IMG (A) | A's extraction fix (padding 0.25, 12 px cap) driven by B's measured finding — post-fix baseline improved to ~0.80. |
+| `51eb654` | AI/APP (A, swept) | A wired B's registry/proposal/bulk services into the API; this commit also swept in B's in-flight augmentation code (`LineAugmenter`, `TrainingConfig.AugmentTraining`, `P01AugmentationTests`, `RestoreBest` usage) because both instances shared one worktree. Content is B-authored; attribution is per commit only. |
+| (this commit) | ML/EVAL/Docs | Measured post-fix augmentation A/B (0.805 → 0.783) and rewrote the P01 measurement record; `lessons.md` added after the deadline-time correction. |
+
+**Coordination note:** the shared worktree caused A's `51eb654` to include B's uncommitted
+augmentation files. Nothing was lost or overwritten, but future two-instance runs should
+prefer separate worktrees or stage explicit paths (B's `lessons.md` records the deadline
+lesson; this note records the staging lesson).
 
 All of the above are green in `LeviathanText.AI.Tests`, `LeviathanText.Evaluation.Tests`,
 `LeviathanText.ML.Tests`; the solution builds in Release. B did not edit `todo.md`,
