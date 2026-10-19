@@ -64,6 +64,41 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
             l.InkDensity >= 0.5 * medianDensity &&
             l.Height >= 0.5 * medianHeight && l.Height <= 2.5 * medianHeight)];
 
+    /// <summary>Merge vertically adjacent bands whose gap is small relative to line height.</summary>
+    private static Func<IReadOnlyList<DetectedLine>, double, double, IReadOnlyList<DetectedLine>> MergeSplit(double fraction)
+    {
+        return (lines, _, medianHeight) =>
+        {
+            if (lines.Count < 2) return lines;
+            var sorted = lines.OrderBy(l => l.Top).ToList();
+            var merged = new List<DetectedLine>();
+            foreach (var line in sorted)
+            {
+                if (merged.Count > 0)
+                {
+                    var previous = merged[^1];
+                    int gap = line.Top - previous.Bottom;
+                    int minHeight = Math.Min(previous.Height, line.Height);
+                    if (gap >= 0 && gap <= fraction * Math.Max(minHeight, medianHeight))
+                    {
+                        double weightPrev = previous.Height, weightNext = line.Height;
+                        double total = weightPrev + weightNext;
+                        merged[^1] = previous with
+                        {
+                            Bottom = line.Bottom,
+                            Left = Math.Min(previous.Left, line.Left),
+                            Right = Math.Max(previous.Right, line.Right),
+                            InkDensity = (previous.InkDensity * weightPrev + line.InkDensity * weightNext) / total,
+                        };
+                        continue;
+                    }
+                }
+                merged.Add(line);
+            }
+            return [.. merged.Select((l, index) => l with { OrderIndex = index })];
+        };
+    }
+
     [SkippableFact]
     public void Dev_selected_postfilter_is_reported_on_held_out_pages()
     {
@@ -113,12 +148,27 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
         try
         {
             // 1) Select the filter on dev pages only.
+            var merge15 = MergeSplit(0.15);
+            var merge30 = MergeSplit(0.30);
+            var merge50 = MergeSplit(0.50);
+
+            IReadOnlyList<DetectedLine> MergeThenDensity(IReadOnlyList<DetectedLine> lines, double d, double h)
+            {
+                var merged = merge30(lines, d, h);
+                var median = Median(merged.Select(l => l.InkDensity));
+                return [.. merged.Where(l => l.InkDensity >= 0.5 * median)];
+            }
+
             var candidates = new (string Name, Func<IReadOnlyList<DetectedLine>, double, double, IReadOnlyList<DetectedLine>> Filter)[]
             {
                 ("none", FilterNone),
                 ("density<0.5x median", FilterDensity),
                 ("height outside 0.5-2.5x median", FilterHeight),
                 ("density+height", FilterBoth),
+                ("merge gap<=0.15x height", merge15),
+                ("merge gap<=0.30x height", merge30),
+                ("merge gap<=0.50x height", merge50),
+                ("merge 0.30 + density", MergeThenDensity),
             };
 
             var devScores = new List<(string Name, double Precision, double Recall, double F1)>();
@@ -159,6 +209,11 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
             var baseline = LayoutComparison.Compare(Rows(FilterNone));
             var selected = LayoutComparison.Compare(Rows(chosen));
 
+            var m02aBaseline = LayoutComparison.Compare(Rows(FilterNone).Where(r => r.Witness.StartsWith("m02a:")));
+            var m02aSelected = LayoutComparison.Compare(Rows(chosen).Where(r => r.Witness.StartsWith("m02a:")));
+            var p01Baseline = LayoutComparison.Compare(Rows(FilterNone).Where(r => r.Witness.StartsWith("p01:")));
+            var p01Selected = LayoutComparison.Compare(Rows(chosen).Where(r => r.Witness.StartsWith("p01:")));
+
             var markdown = $"""
                 # Layout post-filter: dev-selected, held-out report
 
@@ -183,17 +238,37 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
                 | Detector only | {baseline.MeanPrecision:0.###} | {baseline.MeanRecall:0.###} |
                 | Detector + selected filter | {selected.MeanPrecision:0.###} | {selected.MeanRecall:0.###} |
 
+                Split by domain (M02a is in-domain; P01 is out-of-domain for this detector):
+
+                | Subset | Variant | Precision | Recall |
+                | --- | --- | --- | --- |
+                | M02a held-out | detector only | {m02aBaseline.MeanPrecision:0.###} | {m02aBaseline.MeanRecall:0.###} |
+                | M02a held-out | + selected filter | {m02aSelected.MeanPrecision:0.###} | {m02aSelected.MeanRecall:0.###} |
+                | P01 (out-of-domain) | detector only | {p01Baseline.MeanPrecision:0.###} | {p01Baseline.MeanRecall:0.###} |
+                | P01 (out-of-domain) | + selected filter | {p01Selected.MeanPrecision:0.###} | {p01Selected.MeanRecall:0.###} |
+
                 Per-page (filtered):
 
                 | Page | GT | Detected | Matches | Precision | Recall |
                 | --- | --- | --- | --- | --- | --- |
                 {string.Join("\n", selected.PerWitness.Select(r => $"| {r.Witness} | {r.GroundTruthLines} | {r.DetectedLines} | {r.Matches} | {r.Precision:0.###} | {r.Recall:0.###} |"))}
 
+                ## Decision
+
+                **The dev-selected rule was NOT adopted.** Its combined held-out scores regress
+                ({selected.MeanPrecision:0.###}/{selected.MeanRecall:0.###} vs {baseline.MeanPrecision:0.###}/{baseline.MeanRecall:0.###}):
+                the dev set (8 M02a pages) is not representative of the out-of-domain P01 pages,
+                where the merge rule collapses most detected bands (zero matches: P=0, R=0)
+                and destroys valid short lines. The simpler density filter
+                from the first experiment remains the default (`Options.FilterImplausibleLines`;
+                disable to reproduce the unfiltered baseline).
+
+                This is a recorded methodological result: single-corpus dev selection can
+                overfit; held-out reporting across domains caught it.
+
                 ## Status
 
-                The density filter selected here is now the detector default (disable with
-                `Options.FilterImplausibleLines = false`); this record keeps the unfiltered
-                baseline explicit. A filter that only looks at the page's own line statistics can trade precision
+                A filter that only looks at the page's own line statistics can trade precision
                 for recall but cannot recover missed lines. Multi-column, curved and rotated
                 layouts remain unsupported; the next iteration is patch-level learning.
                 """;
