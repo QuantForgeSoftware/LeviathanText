@@ -124,7 +124,8 @@ weight decay 0, dropout 0** (dev CER 0.783, packaged under
 | `0c6c768` | IMG (A) | A's extraction fix (padding 0.25, 12 px cap) driven by B's measured finding — post-fix baseline improved to ~0.80. |
 | `51eb654` | AI/APP (A, swept) | A wired B's registry/proposal/bulk services into the API; this commit also swept in B's in-flight augmentation code (`LineAugmenter`, `TrainingConfig.AugmentTraining`, `P01AugmentationTests`, `RestoreBest` usage) because both instances shared one worktree. Content is B-authored; attribution is per commit only. |
 | (this commit) | ML/EVAL/Docs | Measured post-fix augmentation A/B (0.805 → 0.783) and rewrote the P01 measurement record; `lessons.md` added after the deadline-time correction. |
-| `1fd7201`…`(this commit)` | ML | Regularization matrix (weight decay and dropout hurt; keep 0), learning-rate confirmation (3e-3 best), model packaging (`ModelPackageWriter` + model card + reload test). |
+| `1fd7201`…`(this commit)` | ML | Regularization matrix (weight decay and dropout hurt; keep 0), learning-rate/batch/hidden-size confirmations, model packaging (`ModelPackageWriter` + model card + reload test). |
+| (this commit) | ML | **Fixed `CtcTrainer.Fit` `BestCheckpointPath`**: it could point at the last non-best epoch, so manifests hashed the wrong weights. Only the `.best` save updates the path now; manifest digest is asserted against `.best.model`, and `RecognitionModelLoader` verifies package digest before loading. |
 
 **Coordination note:** the shared worktree caused A's `51eb654` to include B's uncommitted
 augmentation files. Nothing was lost or overwritten, but future two-instance runs should
@@ -190,8 +191,8 @@ because parallel native-libtorch training caused a test-host crash once the P01 
 matrix grew. With the P01 artifact store present the suite trains several models and takes
 ~15 minutes; without artifacts every dataset-backed test skips and the suite is fast.
 
-**Final verification (2026-10-19):** Release build succeeded; **AI 43/43, EVAL 39/39,
-ML 39/39**; non-B suites also green — Contracts 41, Core 72, Application 15, API 11,
+**Final verification (2026-10-19):** Release build succeeded; **AI 57/57, EVAL 39/39,
+ML 41/41**; non-B suites also green — Contracts 41, Core 72, Application 15, API 11,
 Formats 13, Imaging 10, Infrastructure 5, Worker 8, Layout 6. B's packages build with no
 warnings; the remaining warnings are pre-existing xUnit analyzer notes in A-owned tests. B did not edit `todo.md`,
 contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
@@ -208,7 +209,7 @@ contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 | `AiHttpProvider` / `AiHttpModelCatalog` | OpenAI-compatible and Ollama-native adapters; credentials only by environment-variable reference; retries, timeouts, response cap, spend cap. |
 | `CorrectionEffortScorer`, `SelectivePredictionScorer`, `GraphemeCalibration`, `ErrorAnalysis`, `TrackScoring` (`src/LeviathanText.Evaluation/`) | Acceptance-report metrics (AI-assisted effort, calibration, risk–coverage, confusions, per-track grouping). |
 | `AiEvaluationBridge` (`src/LeviathanText.AI/`) | Maps recorded `AiProposal` task/status to EVAL suggestion kinds and scores a reviewed session (`ScoreSession`); no package cycle (AI→Evaluation). |
-| `TrainingRunManifestWriter`, `ModelPackageWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints; package the selected checkpoint with weights, optimizer state, metadata/label set, manifest and model card. |
+| `TrainingRunManifestWriter`, `ModelPackageWriter`, `RecognitionModelLoader` (`src/LeviathanText.Training/`) | Write/read a run manifest; package the selected checkpoint with weights, optimizer state, metadata/label set, manifest and model card; load a package into a ready `TorchLineRecognizer` (verifies label hash and manifest digest). |
 
 Not done by B: external provider calls (no credentials/endpoints were configured). The
 HTTP path is proven end-to-end over **loopback sockets** (`LoopbackProviderTests`), not

@@ -108,6 +108,10 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             ModelPackageWriter.Write(
                 packageDirectory, checkpointDir, config.ModelName, manifest,
                 "Best measured P01 dev configuration (height 16, width 4, augmentation on). Pilot-scale; labels not adjudicated; not a release model.");
+
+            var loaded = RecognitionModelLoader.Load(packageDirectory);
+            Assert.Equal(config.HiddenSize, loaded.Metadata.HiddenSize);
+            Assert.Equal(labels.Labels.Count + 1, loaded.Labels.NumClasses);
         }
 
         var images = snapshot.Dev.Select(l => l.Image).ToArray();

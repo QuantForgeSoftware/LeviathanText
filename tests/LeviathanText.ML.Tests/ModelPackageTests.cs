@@ -1,3 +1,4 @@
+using LeviathanText.Contracts;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using Xunit;
@@ -72,6 +73,38 @@ public class ModelPackageTests
         var originalText = new TorchLineRecognizer(model, labels).Recognize([dev[0].Image])[0].Text;
         var packagedText = new TorchLineRecognizer(reloadedModel, labels).Recognize([dev[0].Image])[0].Text;
         Assert.Equal(originalText, packagedText);
+
+        var loaded = RecognitionModelLoader.Load(package.Directory);
+        Assert.Equal(config.HiddenSize, loaded.Metadata.HiddenSize);
+        Assert.Equal(metadata.LabelSetHash, CheckpointStore.LabelSetHash(loaded.Labels));
+        Assert.Equal(originalText, loaded.CreateRecognizer().Recognize([dev[0].Image])[0].Text);
+    }
+
+    [Fact]
+    public void Tampered_weights_are_rejected_by_the_manifest_digest()
+    {
+        var checkpointDir = NewDirectory("tamper-checkpoints");
+        var labels = new LabelSet(Vocabulary);
+        var train = SyntheticLineDataset.Generate(8, Vocabulary, seed: 12);
+        var config = new TrainingConfig
+        {
+            Epochs = 2,
+            BatchSize = 4,
+            Seed = 9,
+            HiddenSize = 16,
+            ModelName = "tampered-crnn",
+            CheckpointDirectory = checkpointDir,
+        };
+
+        var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+        var run = new CtcTrainer(model, labels, config).Fit(train, train);
+        var manifest = TrainingRunManifestWriter.Create(model, labels, config, run, train.Count, train.Count, 0, "split");
+        var package = ModelPackageWriter.Write(NewDirectory("tampered-package"), checkpointDir, config.ModelName, manifest);
+
+        File.WriteAllBytes(package.ModelPath, [1, 2, 3, 4]);
+
+        var ex = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(package.Directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
     }
 
     [Fact]

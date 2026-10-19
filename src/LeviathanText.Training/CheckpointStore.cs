@@ -20,6 +20,9 @@ public sealed record CheckpointMetadata
 
     public required string ConfigHash { get; init; }
 
+    /// <summary>LSTM hidden size of the saved architecture.</summary>
+    public long HiddenSize { get; init; } = 64;
+
     /// <summary>Input raster height expected by the model; defaults are the original pilot values.</summary>
     public int InputHeightPixels { get; init; } = CrnnModel.InputHeight;
 

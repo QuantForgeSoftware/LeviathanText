@@ -146,7 +146,8 @@ public sealed class CtcTrainer
                 sinceImprovement++;
             }
 
-            bestPath = SaveCheckpoint(isBest: improved);
+            var savedPath = SaveCheckpoint(isBest: improved);
+            if (improved) bestPath = savedPath; // only the ".best" artifact is the selected model
 
             if (sinceImprovement >= _config.EarlyStoppingPatience) break;
         }
@@ -182,6 +183,7 @@ public sealed class CtcTrainer
             LabelSetHash = CheckpointStore.LabelSetHash(_labels),
             Labels = _labels.Labels,
             ConfigHash = _config.ComputeHash(),
+            HiddenSize = _model.HiddenSize,
             InputHeightPixels = _model.InputHeightPixels,
             WidthDownsampleFactor = _model.WidthDownsampleFactor,
             Dropout = _model.Dropout,

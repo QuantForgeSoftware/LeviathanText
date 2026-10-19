@@ -62,6 +62,9 @@ public class TrainingRunManifestTests
         Assert.Equal(splitHash, manifest.SplitHash);
         Assert.Equal(CheckpointStore.LabelSetHash(labels), manifest.LabelSetHash);
         Assert.Equal(64, manifest.CheckpointDigest.Length);
+        Assert.EndsWith(".best.model", run.BestCheckpointPath);
+        Assert.Equal(manifest.CheckpointDigest,
+            TrainingRunManifestWriter.FileDigest(CheckpointStore.ModelPath(dir, config.ModelName, ".best")));
         Assert.Equal(run.History.Count, manifest.History.Count);
 
         var path = TrainingRunManifestWriter.Write(dir, manifest);
