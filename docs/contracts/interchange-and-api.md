@@ -15,7 +15,7 @@ Source requirements: todo Section 3 (scholarly interchange, bounded TEI/EpiDoc p
 | TEI P5 / EpiDoc (bounded profile) | both | See §1.2 | Unsupported markup → attachment + report |
 | PAGE XML (supported subset) | both | Regions/lines, polygons, baselines, text | Unsupported elements → report |
 | IIIF Presentation 3.0 | import (bounded) | Canvas/image references into workspace | No IIIF hosting; caching rules in §1.3 |
-| ALTO / hOCR / ABBYY XML / PDF | — | **Not in the Greek release** (later parity work, todo §3) | Recorded as unsupported if offered input |
+| ALTO (v4 subset) / hOCR (XHTML subset) | both (pilot) | Line boxes + line text; polygons/bbox and baselines; unsupported elements → report; no word segmentation is synthesized | ABBYY XML and PDF remain unsupported (recorded if offered input) |
 
 ### 1.2 TEI/EpiDoc bounded profile
 
