@@ -54,6 +54,7 @@ dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface
 dotnet run --project src/LeviathanText.Api
 # GET  /api/v1/projects, POST /api/v1/projects
 # POST /api/v1/projects/{id}/import-page, GET .../diplomatic, GET .../tei
+# POST /api/v1/projects/{id}/import-iiif  (bounded Presentation 3 manifest import)
 # POST /api/v1/jobs (idempotency key), GET /api/v1/jobs/{id}/events (SSE with cursor replay)
 ```
 
