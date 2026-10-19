@@ -70,6 +70,9 @@ public sealed record AiProviderSettings
     /// <summary>Hard cap on a response body; larger bodies become a recorded failure.</summary>
     public int MaxResponseBytes { get; init; } = 1_048_576;
 
+    /// <summary>Hard cap on the combined system + user prompt characters.</summary>
+    public int MaxPromptCharacters { get; init; } = 20_000;
+
     /// <summary>Total attempts, including the first request (1 = no retries).</summary>
     public int MaxAttempts { get; init; } = 3;
 
@@ -90,6 +93,7 @@ public sealed record AiProviderSettings
         if (Timeout <= TimeSpan.Zero || Timeout > TimeSpan.FromMinutes(10)) Invalid("timeout must be between 0 and 10 minutes.");
         if (MaxOutputTokens is < 1 or > 131_072) Invalid("maxOutputTokens must be between 1 and 131072.");
         if (MaxResponseBytes is < 1024 or > 64 * 1024 * 1024) Invalid("maxResponseBytes must be between 1 KiB and 64 MiB.");
+        if (MaxPromptCharacters is < 256 or > 1_000_000) Invalid("maxPromptCharacters must be between 256 and 1000000.");
         if (MaxAttempts is < 1 or > 5) Invalid("maxAttempts must be between 1 and 5.");
         if (BaseRetryDelay < TimeSpan.Zero || BaseRetryDelay > TimeSpan.FromSeconds(30)) Invalid("baseRetryDelay must be between 0 and 30 seconds.");
         if (MaxSpendUsd is { } spend)
@@ -118,6 +122,7 @@ public static class AiFailureReasons
     public const string ResponseTooLarge = "response-too-large";
     public const string MalformedResponse = "malformed-response";
     public const string SpendBudgetExceeded = "spend-budget-exceeded";
+    public const string PromptTooLarge = "prompt-too-large";
 }
 
 /// <summary>

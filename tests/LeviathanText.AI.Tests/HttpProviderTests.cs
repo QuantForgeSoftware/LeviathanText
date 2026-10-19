@@ -211,6 +211,20 @@ public class HttpProviderTests
     }
 
     [Fact]
+    public async Task Oversized_prompt_is_refused_before_the_request()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Json("""{"choices":[{"message":{"content":"x"}}]}""")));
+        var settings = OpenAiSettings() with { MaxPromptCharacters = 256 };
+        var provider = new AiHttpProvider(settings, new HttpClient(handler), Credentials(), NoDelay);
+
+        var outcome = await new SchemaValidatingAiProvider(provider).ProposeAsync(Request(source: new string('κ', 600)));
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureReasons.PromptTooLarge, outcome.Failure!.Reason);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
     public async Task Spend_cap_prevents_the_request_before_it_leaves_the_process()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json("""{"choices":[{"message":{"content":"x"}}]}""")));

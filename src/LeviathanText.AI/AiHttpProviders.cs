@@ -45,7 +45,13 @@ public sealed class AiHttpProvider : IRawAiProvider
         CancellationToken cancellationToken = default)
     {
         var prompt = AiPromptBuilder.Build(request);
-        _transport.EnsureBudget(prompt.System.Length + prompt.User.Length);
+        var promptCharacters = prompt.System.Length + prompt.User.Length;
+        if (promptCharacters > _settings.MaxPromptCharacters)
+            throw new AiProviderException(
+                AiFailureReasons.PromptTooLarge,
+                detail: $"Prompt is {promptCharacters} characters; the configured limit is {_settings.MaxPromptCharacters}.");
+
+        _transport.EnsureBudget(promptCharacters);
 
         var uri = _settings.Protocol == AiWireProtocol.OpenAiChatCompletions
             ? AiHttpTransport.Combine(_settings.Endpoint, "chat/completions")
@@ -59,7 +65,7 @@ public sealed class AiHttpProvider : IRawAiProvider
             }, cancellationToken)
             .ConfigureAwait(false);
 
-        var (content, inputTokens, outputTokens) = Parse(body, prompt.System.Length + prompt.User.Length);
+        var (content, inputTokens, outputTokens) = Parse(body, promptCharacters);
         _transport.Charge(inputTokens, outputTokens);
         return content;
     }
