@@ -16,11 +16,11 @@ builder.Services.AddSingleton<IProjectStore>(sp => new LocalStore(builder.Config
 builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectStore>());
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
+builder.Services.AddSingleton<TranscriptionService>();
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
 builder.Services.AddSingleton<JobEnqueuer>();
-builder.Services.AddSingleton<RevisionChain>();
 builder.Services.AddSingleton<RevisionChain>();
 
 var app = builder.Build();
@@ -71,6 +71,68 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, s
     return Results.Text(
         new InterchangeService(projects).ExportTei(project, EntityId.Parse(surfaceId, EntityKind.Surface), $"LeviathanText export {surfaceId}"),
         "application/xml");
+});
+
+// Transcription writes (Phase 2): layer-respecting revisions with revision-based undo,
+// and scholarly annotations with stale-anchor rejection.
+api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService transcription, string lineId) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    var history = transcription.RevisionHistory(project, lineEntityId, TextLayer.L1Diplomatic);
+    return Results.Ok(new
+    {
+        line = lineId,
+        diplomatic = history.LastOrDefault()?.Text,
+        history = history.Select(r => new { id = r.Id.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt }),
+    });
+});
+
+api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AppendRevisionRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var (_, surface, revision) = transcription.AppendLineRevision(project, lineEntityId, request.Layer,
+        request.Text,
+        new AgentRef { Id = request.AuthorId, IsModel = false },
+        string.IsNullOrEmpty(request.ParentRevisionId) ? null : EntityId.Parse(request.ParentRevisionId, EntityKind.TranscriptionRevision));
+
+    return Results.Ok(new
+    {
+        revisionId = revision.Id.ToString(),
+        surfaceId = surface.Id.ToString(),
+        layer = revision.Layer.ToString(),
+    });
+});
+
+api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionService transcription, string lineId, string? layer) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    var history = transcription.RevisionHistory(project, lineEntityId,
+        layer is null ? TextLayer.L1Diplomatic : Enum.Parse<TextLayer>(layer));
+    return Results.Ok(history.Select(r => new
+    {
+        id = r.Id.ToString(), layer = r.Layer.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt,
+    }));
+});
+
+api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] Annotation annotation) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var (_, _, anchored) = transcription.AddAnnotation(project, lineEntityId, annotation);
+    return Results.Ok(new
+    {
+        annotationId = anchored.Id.ToString(),
+        anchoredRevisionId = anchored.AnchoredRevisionId.ToString(),
+    });
 });
 
 // Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
@@ -130,5 +192,6 @@ app.Run();
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
+public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public partial class Program;

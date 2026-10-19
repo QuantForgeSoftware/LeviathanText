@@ -37,6 +37,11 @@ public sealed class ProjectService(IProjectStore store)
 
     public IReadOnlyList<(EntityId Id, string Name)> List() => store.ListProjects();
 
+    /// <summary>Scan all projects for one containing a line (editor endpoints address lines directly).</summary>
+    public NativeProject? LoadProjectForLine(EntityId lineId) =>
+        List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
+            p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Lines.Any(l => l.Id == lineId)));
+
     public void Save(NativeProject project) => store.SaveProject(project);
 }
 
