@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
 /**
@@ -60,6 +61,7 @@ export interface AnnotationPayload {
   anchoredRevisionId: string;
 }
 
+@Injectable({ providedIn: 'root' })
 export class ApiClient {
   constructor(private readonly http: HttpClient) {}
 
@@ -90,6 +92,14 @@ export class ApiClient {
 
   lineLayerHistory(lineId: string, layer: string): Observable<RevisionPayload[]> {
     return this.http.get<RevisionPayload[]>(`/api/v1/lines/${lineId}/revisions?layer=${layer}`);
+  }
+
+  createJob(type: string, ownerId: string, idempotencyKey?: string): Observable<{ id: string }> {
+    return this.http.post<{ id: string }>('/api/v1/jobs', { type, ownerId, idempotencyKey: idempotencyKey ?? null });
+  }
+
+  jobEventsUrl(jobId: string): string {
+    return `/api/v1/jobs/${jobId}/events`;
   }
 
   appendRevision(lineId: string, layer: string, text: string, authorId: string, parentRevisionId?: string): Observable<{ revisionId: string }> {
