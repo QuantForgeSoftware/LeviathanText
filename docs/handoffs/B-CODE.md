@@ -94,3 +94,25 @@ claim. The ML-side fallback (CRNN width downsample 4 → 2) removes the limit on
 and improves dev CER 0.8496 → 0.8257 (measured, `P01WidthDownsampleTests`); the default
 stays 4 so existing checkpoints remain valid, and factor 2 is the recommended next-candidate
 configuration. No IMG-owned file was touched.
+
+### B progress log (2026-10-19, two-instance session)
+
+| Commit | Package | Increment |
+| --- | --- | --- |
+| `c3a050d` | AI | Real local/hosted HTTP adapters: OpenAI-compatible + Ollama chat, capability discovery, retries/Retry-After, per-request timeout, bounded bodies, credential isolation (env-var ref only), spend caps. 20 tests. |
+| `071bb3c` | EVAL | Correction-effort scorer + method note: raw vs reviewed CER, accepted-suggestion volume, unsupported additions/restorations, witness-overwrite flag, measured time. 19 tests (with `674767c`). |
+| `ac6479d` | ML | CTC prefix beam search + forced-alignment confidence; opt-in recognizer mode (greedy default). |
+| `0bccf6b` | ML/EVAL | Measured greedy-vs-beam on P01 dev; greedy stays default. |
+| `674767c` | EVAL | Calibration (ECE/MCE) + risk–coverage selective prediction; measured AURC 0.85 > CER 0.84 on P01 dev (confidence barely orders). |
+| `98789fd` | AI | Server-side proposal service: resolves source span from the target revision; rejects client-supplied evidence and out-of-range spans. |
+| `b70879c` | EVAL | Ranked confusion/error analysis with separate mark counts; measured deletion-dominated P01 failure. |
+| `08197d3` | ML | Configurable CRNN width downsample (1/2/4); measured A/B (factor 2: 30/50 reachable, CER 0.8257). |
+| `4341277` | AI | Proposal reject/expire + mandated bulk-acceptance dry run (pure preview, batch conflict reporting). |
+| `9024d2e` | ML | Training run manifest (architecture/config/label/split hashes, checkpoint digest, learning curve); P01 split hash matches the pilot report. |
+| `0842cec` | ML | Adopted the concurrent integrator's Otsu interior-threshold fix into the ML-owned preprocessing file so P01 measurements are reproducible from HEAD. |
+
+All of the above are green in `LeviathanText.AI.Tests`, `LeviathanText.Evaluation.Tests`,
+`LeviathanText.ML.Tests`; the solution builds in Release. B did not edit `todo.md`,
+contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
+`src/LeviathanText.{Application,Infrastructure,Api,Worker,Cli,Formats,Imaging}/`,
+`tests/LeviathanText.Pilot.Tests/`, or `web/`.
