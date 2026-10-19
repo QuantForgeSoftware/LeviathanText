@@ -172,6 +172,7 @@ contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 | `BulkProposalAcceptanceService` / `ProposalLifecycle` | `Preview` before bulk acceptance (pure), apply acceptable items, report blocked ones; reject/expire transitions. |
 | `AiHttpProvider` / `AiHttpModelCatalog` | OpenAI-compatible and Ollama-native adapters; credentials only by environment-variable reference; retries, timeouts, response cap, spend cap. |
 | `CorrectionEffortScorer`, `SelectivePredictionScorer`, `GraphemeCalibration`, `ErrorAnalysis`, `TrackScoring` (`src/LeviathanText.Evaluation/`) | Acceptance-report metrics (AI-assisted effort, calibration, risk–coverage, confusions, per-track grouping). |
+| `AiEvaluationBridge` (`src/LeviathanText.AI/`) | Maps recorded `AiProposal` task/status to EVAL suggestion kinds and scores a reviewed session (`ScoreSession`); no package cycle (AI→Evaluation). |
 | `TrainingRunManifestWriter`, `ModelPackageWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints; package the selected checkpoint with weights, optimizer state, metadata/label set, manifest and model card. |
 
 Not done by B: external provider calls (no credentials/endpoints were configured). The

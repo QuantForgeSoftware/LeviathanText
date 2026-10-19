@@ -37,7 +37,9 @@ public class ModelPackageTests
         };
 
         var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
-        var run = new CtcTrainer(model, labels, config).Fit(train, dev);
+        var trainer = new CtcTrainer(model, labels, config);
+        var run = trainer.Fit(train, dev);
+        trainer.RestoreBest();
         var manifest = TrainingRunManifestWriter.Create(
             model, labels, config, run,
             trainLines: train.Count, devLines: dev.Count, testLockedLines: 0,
@@ -67,8 +69,9 @@ public class ModelPackageTests
         var metadata = reloaded.LoadCheckpoint(".best");
         Assert.Equal(manifest.LabelSetHash, metadata.LabelSetHash);
 
-        var result = new TorchLineRecognizer(reloadedModel, labels).Recognize([dev[0].Image]);
-        Assert.Single(result);
+        var originalText = new TorchLineRecognizer(model, labels).Recognize([dev[0].Image])[0].Text;
+        var packagedText = new TorchLineRecognizer(reloadedModel, labels).Recognize([dev[0].Image])[0].Text;
+        Assert.Equal(originalText, packagedText);
     }
 
     [Fact]
