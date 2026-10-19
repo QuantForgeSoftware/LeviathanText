@@ -71,3 +71,11 @@ dotnet test  tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj   # trai
 - **`A-REV-EVAL-1` fixed (A's finding, B's file).** `Evaluation.CanonicalText.ToScalars`/`FromScalars` now route scalar segmentation through `Core.Unicode.ScalarText`, so a dangling surrogate half is its own scalar exactly as Core treats it; a regression test covers both a dangling surrogate and a valid astral pair. `Evaluation.Tests` = 8/8.
 - Contract requests from the code: `B-CCR-6` (preservation tags / catalogue `asset_kind`) and `B-CCR-7` (`Proposal` entity kind) remain **open**; `B-CCR-8` withdrawn (satisfied by `domain-and-pipeline.md` §3). See [B-PLAN.md](B-PLAN.md) for the full review and dispositions.
 - Note for the serializer contract: B's `AiProposal.Request` carries `ProviderConfigRef` (opaque) and never credentials, consistent with `interchange-and-api.md` §2.3.
+
+## Two-instance resumption (2026-10-19 06:55, Instance B)
+
+- Baseline: `main` @ `23eb349`, contract set **`C0-0.4-draft`**. Working mode: two instances in one worktree with disjoint write paths (A = integrator/C0/APP/FMT/IMG/UI; B = ML/AI/EVAL).
+- **Claimed packages:** **AI** (`src/LeviathanText.AI/`, `tests/LeviathanText.AI.Tests/`), **EVAL** (`src/LeviathanText.Evaluation/`, `tests/LeviathanText.Evaluation.Tests/`, new `docs/evaluation/` records), then **ML** (`src/LeviathanText.Recognition/`, `src/LeviathanText.Training/`, `tests/LeviathanText.ML.Tests/`) as time permits.
+- B will not edit `todo.md`, `docs/contracts/`, `docs/handoffs/A-PLAN.md`, solution/project central files, `src/LeviathanText.{Application,Infrastructure,Api,Worker,Cli,Formats,Imaging}/`, or `web/`.
+- Planned increments: (1) real local/hosted HTTP provider adapters with capability discovery, retries, bounded responses, credential isolation and spend caps; (2) evaluation of AI-assisted correction effort / unsupported additions; (3) ML decoder or confidence refinement if the first two land cleanly.
+- Each increment is committed separately after `dotnet build -c Release` + the relevant test project pass; A can merge/cherry-pick or leave B's commits in place.
