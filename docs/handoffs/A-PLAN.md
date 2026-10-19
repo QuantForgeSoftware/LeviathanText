@@ -218,3 +218,37 @@ Blockers recorded so far:
   - **Measured limitations recorded:** TIFF unsupported by the current codec (now rejected cleanly, no crash); geometry edits still update the native document directly (no geometry revision history; client undo + backups — disclosed gap).
 - **Verification:** full suite green (counts in the board record); 12 web specs; Release build 0 warnings.
 - **Still open (unchanged):** Phase 0 specialist adjudication/annotation volume; inscription labels; shared-server auth; TIFF/backend selection; Kraken comparator; frozen acceptance sheet; hosted provider calls.
+
+### Handoff revision 12 — 2026-10-19 (cycle 4; A only)
+
+- **Interchange:** bounded ALTO v4 and hOCR adapters (export + import, unsupported-element
+  reports, DTD refusal); legacy import (`document + image → surface`); PAGE export now records
+  image dimensions and is tested for reading-order-preserving output.
+- **Data integrity (important fix):** imported PAGE/ALTO/hOCR ids are namespaced per capture.
+  Document-local ids (`ln1`) previously repeated across projects, letting globally addressed
+  endpoints (`/lines/{id}`) act on another project's line. Regression test covers
+  project-A/project-B isolation.
+- **QA:** shared Greek transcription-profile report (CLI `validate text`, HTTP
+  `profile-report`, included in export bundles) flags Latin letters, unknown scalars and
+  unpaired marks without rewriting text; `train lines --profile-strict` excludes
+  out-of-profile labels and reports counts. Label-hygiene measurement recorded (single seed:
+  0.813 → 0.807 dev CER; direction, not proof).
+- **Layout:** dev-selected merge rule **rejected** after held-out regression (P01 → zero
+  matches). The density post-filter from the earlier experiment remains the detector default.
+  Report now splits in-domain M02a from out-of-domain P01 so this cannot hide again.
+- **Workflow:** image-only import (`import image`) unlocks manual layout for inscription
+  photographs; manual line add/delete with transcribed-line protection; geometry edit undo;
+  alternative reading → composed L2 revision (scalar-safe, speced); QA indicator in the
+  workspace.
+- **Jobs/ops:** durable `recognize.surface`, `recognize.project`, `import.dir`; API job listing
+  with status filter; cooperative cancellation between batch items (Cancelled is preserved, not
+  resurrected); backup/restore with image-checksum verification before writing; opt-in API-key
+  + read-only guard for shared deployments (explicitly **not** a user system).
+- **Measurements:** end-to-end page CER (layout + recognition) **0.938** with layout misses vs
+  **0.881** PAGE-box control on 6 held-out M02a pages; batch recognition 27 surfaces / 321
+  lines in ~1.3 s; peak RSS ~200 MB single page / ~244 MB batch (CLI).
+- **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
+  throughput + evaluation index updates.
+- **Verification:** full Release build and suite counts recorded in the board after the closing
+  run; no open cross-package requests. B remains quiet since its morning handoff; licensing
+  files still belong to their author.

@@ -1,6 +1,6 @@
 # Automatic layout: learned vs projection (pilot)
 
-- Date: 2026-10-19T19:22:18.7044080+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T19:43:33.6385400+00:00; contract C0-0.4-draft
 - Learned: `row-logit-v2` (per-row logistic regression; 13 ink-profile features; deterministic training)
 - Baseline: projection profile (Otsu, trim, adaptive valleys)
 - Training: M02a train pages (35); threshold tuned on M02a dev pages (8); evaluation: held-out M02a pages + P01 pages (19 pages)
