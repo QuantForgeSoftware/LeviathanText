@@ -127,6 +127,9 @@ key: use it locally, or add a client-side key holder before exposing a UI.
   addressed endpoints cannot act on another project's line with the same document-local id.
 - `leviathan validate text <projectId>` (or `GET /projects/{id}/profile-report`) flags Latin
   letters, unknown scalars and unpaired combining marks without rewriting text.
+- Lines can be split at a y position or merged with the next line **only while untranscribed**;
+  once a line carries diplomatic text, both operations are refused (409) rather than detaching
+  text from geometry.
 - Annotation ranges are checked against the anchored revision: spans beyond the text, empty
   spans (except lost markers, which may be a position) and estimated gaps without a count are
   rejected. A lost marker without an extent defaults to `Unknown`.

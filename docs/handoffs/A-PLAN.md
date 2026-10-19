@@ -250,6 +250,10 @@ Blockers recorded so far:
   detection recall is stable at 0.556. Batch recognition 27 surfaces / 321 lines in ~1.3 s;
   peak RSS ~200 MB single page / ~244 MB batch (CLI). Projection layout precision improved
   0.386 → 0.433 (content-bounds cropping) at equal recall.
+- **Manual layout completion:** split merged detections and merge over-split ones (untranscribed
+  lines only — transcribed evidence is refused), append-only geometry audit, editable/view-only
+  page overlay with click-to-open and zoom, project deletion with a forced flag, project stats,
+  manifest audit CLI.
 - **Search/QA/review:** project search (literal + mark/case-folded base; scalar ranges and
   snippets; UI opens the hit across surfaces), profile-report CLI/API/bundle + QA badge,
   annotation and line CSV exports, mark-span rendering in the editor (unclear/lost/supplied/

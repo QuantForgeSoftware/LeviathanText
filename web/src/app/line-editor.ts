@@ -65,6 +65,11 @@ interface UndoStack {
                 <option value="Estimated">Estimated</option>
               </select>
             </label>
+            @if (formGapExtent() === 'Estimated') {
+              <label>Estimated scalars
+                <input type="number" min="1" [value]="formEstimatedCount()" (input)="onEstimatedCount($event)" />
+              </label>
+            }
           }
           @if (formKind() === 'AlternativeReading') {
             <label>Alternative <input [value]="formAlternative()" (input)="onAlternative($event)" /></label>
@@ -171,6 +176,7 @@ export class LineEditor {
   protected readonly formDescription = signal('');
   protected readonly formAlternative = signal('');
   protected readonly formGapExtent = signal('Unknown');
+  protected readonly formEstimatedCount = signal(1);
 
   protected readonly canAnnotate = computed(() =>
     this.formStart() >= 0 && this.formEnd() >= this.formStart() && this.formEnd() <= this.scalarTotal());
@@ -201,6 +207,10 @@ export class LineEditor {
     this.formGapExtent.set((event.target as HTMLSelectElement).value);
   }
 
+  protected onEstimatedCount(event: Event): void {
+    this.formEstimatedCount.set(Math.max(1, Number((event.target as HTMLInputElement).value) || 1));
+  }
+
   /** Compose an L2 editorial revision from the current L1 text and an alternative span. */
   protected acceptAlternative(annotation: AnnotationView): void {
     const alternative = annotation.alternativeText;
@@ -224,6 +234,7 @@ export class LineEditor {
       description: this.formDescription() || null,
       alternativeText: kind === 'AlternativeReading' ? this.formAlternative() || null : null,
       gapExtent: kind === 'Lost' ? this.formGapExtent() : null,
+      estimatedScalarCount: kind === 'Lost' && this.formGapExtent() === 'Estimated' ? this.formEstimatedCount() : null,
     }).subscribe({
       next: () => {
         this.formDescription.set('');

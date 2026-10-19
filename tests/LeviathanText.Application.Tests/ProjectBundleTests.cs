@@ -24,6 +24,9 @@ public sealed class ProjectBundleTests
             Assert.Contains("manifest.json", names);
             Assert.Contains("project.json", names);
             Assert.Contains("training-export.json", names);
+            Assert.Contains("profile-report.json", names);
+            Assert.Contains("lines.csv", names);
+            Assert.Contains("annotations.csv", names);
             var surface = project.Objects[0].Surfaces[0];
             Assert.Contains($"surfaces/{surface.Id}/diplomatic.txt", names);
             Assert.Contains($"surfaces/{surface.Id}/tei.xml", names);

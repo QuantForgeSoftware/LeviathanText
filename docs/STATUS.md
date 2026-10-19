@@ -12,7 +12,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import | 24 format tests; roundtrip smokes |
 | Plain-text export with mandatory loss report | export tests |
 | Automatic layout (projection) | measured P 0.386 / R 0.506 on real pages; refuses overwrite |
-| Manual correction (move/resize/order) | API + overlay editor, client undo |
+| Manual correction (move/resize/draw/delete/split/merge/order) | API + overlay editor (view + edit), client undo, surface audit |
 | Recognition pipeline (C# CTC, CPU) | line-crop CER ~0.88 measured on M02a; L0 persisted with provenance |
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |
 | End-to-end page CER (layout+recognition) | **0.944 mean** vs 0.905 PAGE-box control across 3 seeds on 6 held-out M02a pages (control range 0.878–0.953: layout effect not separable from training variance at this scale) |
