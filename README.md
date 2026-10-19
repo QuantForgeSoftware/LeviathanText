@@ -1,7 +1,13 @@
-<!-- Copyright (c) 2026 QuantForgeSoftware. All rights reserved. -->
+<!-- Copyright (c) 2026 John Baima. SPDX-License-Identifier: Apache-2.0 -->
 # LeviathanText
 
-An independent Greek recognition and scholarly transcription platform — focused first on **Koine and Classical Greek manuscripts, papyri, and inscriptions**. C# backend, CLI, and training; TypeScript/Angular browser workspace. No Kraken, no Python, no forks: interoperability is defined through documented public file formats (PAGE XML, TEI P5/EpiDoc, IIIF) only.
+An independent Greek recognition and scholarly transcription platform — focused first on **Koine and Classical Greek manuscripts, papyri, and inscriptions**. C# backend, CLI, and training; TypeScript/Angular browser workspace. It is not a fork of Kraken and has no Kraken or Python runtime dependency. Interoperability is defined through documented public file formats (PAGE XML, TEI P5/EpiDoc, IIIF) only.
+
+## License and contributions
+
+Original project software and accompanying project documentation are licensed under the [Apache License, Version 2.0](LICENSE), unless a file or directory identifies separate terms. See [NOTICE](NOTICE) for attribution and scope. Third-party dependencies and assets retain their own licenses. Dataset images, transcriptions, annotations and model weights require separately recorded rights; this software license does not grant blanket rights to them. User documents and outputs are not relicensed by using LeviathanText. Copyright notices, including historical “all rights reserved” wording, do not override the Apache grant for covered original project material.
+
+John Baima leads the official project under [GOVERNANCE.md](GOVERNANCE.md). Code contributions require reproducible evidence of a bug correction, performance improvement or broader text support, with regression checks protecting existing functions, accuracy and performance. Read [CONTRIBUTING.md](CONTRIBUTING.md), certify the [DCO](DCO) with commit sign-offs, and use the [pull-request template](.github/pull_request_template.md). AI-assisted work is welcome under the same requirements. These contribution rules govern the official project and add no restrictions to the software license or independent forks.
 
 ## Architecture
 
@@ -39,7 +45,7 @@ dotnet run --project src/LeviathanText.Cli -- --store pilot.db project new "Pilo
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import page <projectId> page.xml
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export diplomatic <projectId> <surfaceId>   # loss report on stderr
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export tei <projectId> <surfaceId>
-dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface <projectId> <surfaceId> --model <dir> --name <model>
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface <projectId> <surfaceId> --package <model-package-dir>
 ```
 
 ## HTTP API

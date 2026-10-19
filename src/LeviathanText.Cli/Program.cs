@@ -98,17 +98,20 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
-                var modelDir = rest.Length >= 6 && rest[4] == "--model" ? rest[5] : null;
-                var modelDirectory = modelDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models");
-                var modelName = rest.Length >= 8 && rest[6] == "--name" ? rest[7] : "p01-pilot-crnn";
+                var packageDir = rest.Length >= 6 && rest[4] == "--package" ? rest[5] : null;
+                packageDir ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "p01-pilot");
+
+                // Load the packaged model (manifest + label hash + weights verified by the loader);
+                // a package that cannot prove its identity fails with ModelIncompatible.
+                var loaded = RecognitionModelLoader.Load(packageDir);
 
                 var pipeline = new RecognitionPipeline(store);
                 var outcome = pipeline.Run(project, surfaceId, new RecognitionPipeline.Options
                 {
-                    ModelDirectory = modelDirectory,
-                    ModelName = modelName,
-                    ModelFactory = () => LoadModel(modelDirectory, modelName),
-                    LabelSetFactory = () => LoadLabelSet(modelDirectory, modelName),
+                    ModelDirectory = packageDir,
+                    ModelName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDir)),
+                    ModelFactory = () => loaded.Model,
+                    LabelSetFactory = () => loaded.Labels,
                 });
 
                 foreach (var line in outcome.Lines)
@@ -137,34 +140,6 @@ public static class Program
         return (storePath, [.. rest]);
     }
 
-    private static CrnnModel LoadModel(string directory, string modelName)
-    {
-        var labels = LoadLabelSet(directory, modelName);
-        var model = new CrnnModel(labels.NumClasses);
-        model.load(CheckpointStore.ModelPath(directory, modelName, ".best"));
-        return model;
-    }
-
-    private static LabelSet LoadLabelSet(string directory, string modelName)
-    {
-        var metadata = CheckpointStore.ReadMetadata(directory, modelName, ".best");
-        if (metadata.Labels.Count == 0)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.ModelIncompatible,
-                Scope = modelName,
-                Message = "Checkpoint metadata carries no label list; re-save the checkpoint with this version.",
-            });
-        if (CheckpointStore.HashOf(string.Join('\u001f', metadata.Labels)) != metadata.LabelSetHash)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.ChecksumMismatch,
-                Scope = modelName,
-                Message = "Persisted label list does not match the recorded label-set hash.",
-            });
-        return new LabelSet(metadata.Labels);
-    }
-
     private static int Help()
     {
         Console.WriteLine("""
@@ -176,8 +151,10 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] export tei <projectId> <surfaceId>
+              leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]
 
             Lossy exports print a loss report to stderr; nothing is silently flattened.
+            Model packages are self-verifying (manifest + label hash + weights).
             """);
         return 0;
     }
