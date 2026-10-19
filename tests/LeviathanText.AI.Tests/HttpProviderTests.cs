@@ -101,6 +101,21 @@ public class HttpProviderTests
     }
 
     [Fact]
+    public async Task OpenAi_adapter_can_use_the_newer_token_limit_field()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Json("""{"choices":[{"message":{"content":"κυρίου"}}]}""")));
+        var settings = OpenAiSettings() with { UseMaxCompletionTokens = true };
+        var provider = new AiHttpProvider(settings, new HttpClient(handler), Credentials(), NoDelay);
+
+        var outcome = await new SchemaValidatingAiProvider(provider).ProposeAsync(Request());
+
+        Assert.True(outcome.Succeeded);
+        var body = Assert.Single(handler.Bodies);
+        Assert.Contains("\"max_completion_tokens\":128", body);
+        Assert.DoesNotContain("\"max_tokens\"", body);
+    }
+
+    [Fact]
     public async Task Ollama_adapter_uses_native_chat_shape_without_a_key()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json("""

@@ -66,27 +66,25 @@ public sealed class AiHttpProvider : IRawAiProvider
 
     private string BuildPayload(AiPrompt prompt)
     {
+        var messages = new object[]
+        {
+            new { role = "system", content = prompt.System },
+            new { role = "user", content = prompt.User },
+        };
+
         object payload = _settings.Protocol == AiWireProtocol.OpenAiChatCompletions
-            ? new
+            ? new Dictionary<string, object?>
             {
-                model = _settings.ModelId,
-                messages = new object[]
-                {
-                    new { role = "system", content = prompt.System },
-                    new { role = "user", content = prompt.User },
-                },
-                max_tokens = _settings.MaxOutputTokens,
-                temperature = 0,
-                stream = false,
+                ["model"] = _settings.ModelId,
+                ["messages"] = messages,
+                [_settings.UseMaxCompletionTokens ? "max_completion_tokens" : "max_tokens"] = _settings.MaxOutputTokens,
+                ["temperature"] = 0,
+                ["stream"] = false,
             }
             : new
             {
                 model = _settings.ModelId,
-                messages = new object[]
-                {
-                    new { role = "system", content = prompt.System },
-                    new { role = "user", content = prompt.User },
-                },
+                messages,
                 stream = false,
                 options = new
                 {

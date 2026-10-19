@@ -60,6 +60,13 @@ public sealed record AiProviderSettings
     /// <summary>Upper bound sent to the model and reserved by the spend cap.</summary>
     public int MaxOutputTokens { get; init; } = 512;
 
+    /// <summary>
+    /// OpenAI-compatible endpoints differ: older/local servers accept <c>max_tokens</c>,
+    /// newer hosted models require <c>max_completion_tokens</c>. Default keeps the
+    /// broadly compatible field.
+    /// </summary>
+    public bool UseMaxCompletionTokens { get; init; }
+
     /// <summary>Hard cap on a response body; larger bodies become a recorded failure.</summary>
     public int MaxResponseBytes { get; init; } = 1_048_576;
 
