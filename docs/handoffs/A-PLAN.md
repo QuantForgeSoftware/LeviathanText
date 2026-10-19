@@ -272,7 +272,7 @@ Blockers recorded so far:
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
   throughput + evaluation index updates, implemented endpoint inventory in the API contract.
 - **Verification:** closing run **470 tests (469 passed + 1 opt-in skipped, 0 failed) across
-  13 suites; Release build 0 warnings/0 errors**; 25 web specs green; `scripts/pilot-demo.sh`
+  13 suites; Release build 0 warnings/0 errors**; 26 web specs green; `scripts/pilot-demo.sh`
   end-to-end PASS. Two self-review integrity actions were resolved in-cycle (mean L0
   confidence persisted; run-id idempotency for retries) and geometry/order edits now have a
   surface-level audit. B remains quiet since its morning handoff; licensing files still belong

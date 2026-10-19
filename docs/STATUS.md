@@ -28,7 +28,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 ## Verification
 
 - 470 tests (469 passed + 1 opt-in skip), 0 failed, 13 suites; Release build 0 warnings/0 errors.
-- 25 Angular specs; production build clean; `scripts/pilot-demo.sh` PASS.
+- 26 Angular specs; production build clean; `scripts/pilot-demo.sh` PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
 ## Measured numbers (pilot scale)
