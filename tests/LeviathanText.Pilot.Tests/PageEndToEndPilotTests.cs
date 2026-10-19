@@ -71,39 +71,48 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
         var outcome = new RecognitionPipeline(new InMemoryStore()).Run(detected, surface.Id, options, persistL0: false);
         var surfaceAfter = detected.Objects[0].Surfaces[0];
 
+        // One-to-one greedy matching: a merged detection must not supply text to two GT lines.
+        var candidates = new List<(int Gt, int Det, double Iou)>();
+        for (int g = 0; g < truth.Count; g++)
+        {
+            for (int d = 0; d < surfaceAfter.Lines.Count; d++)
+            {
+                if (outcome.Lines.All(r => r.LineId != surfaceAfter.Lines[d].Id)) continue;
+                int top = (int)Math.Round(surfaceAfter.Lines[d].Polygon.Min(p => p.Y));
+                int bottom = (int)Math.Round(surfaceAfter.Lines[d].Polygon.Max(p => p.Y));
+                int overlap = Math.Max(0, Math.Min(truth[g].Bottom, bottom) - Math.Max(truth[g].Top, top));
+                int union = Math.Max(truth[g].Bottom, bottom) - Math.Min(truth[g].Top, top);
+                double iou = union <= 0 ? 0 : (double)overlap / union;
+                if (iou >= 0.5) candidates.Add((g, d, iou));
+            }
+        }
+
+        var usedGt = new bool[truth.Count];
+        var usedDet = new bool[surfaceAfter.Lines.Count];
         int matched = 0, gtScalars = 0, edits = 0;
         double matchedEdits = 0, matchedGtScalars = 0;
-
-        foreach (var line in truth)
+        foreach (var (g, d, _) in candidates.OrderByDescending(c => c.Iou).ThenBy(c => c.Gt).ThenBy(c => c.Det))
         {
-            int length = ScalarText.ScalarLength(line.Text);
-            gtScalars += length;
-            var best = surfaceAfter.Lines
-                .Select(l =>
-                {
-                    int top = (int)Math.Round(l.Polygon.Min(p => p.Y));
-                    int bottom = (int)Math.Round(l.Polygon.Max(p => p.Y));
-                    int overlap = Math.Max(0, Math.Min(line.Bottom, bottom) - Math.Max(line.Top, top));
-                    int union = Math.Max(line.Bottom, bottom) - Math.Min(line.Top, top);
-                    double iou = union <= 0 ? 0 : (double)overlap / union;
-                    return (l.Id, Iou: iou, Recognized: outcome.Lines.FirstOrDefault(o => o.LineId == l.Id));
-                })
-                .Where(c => c.Recognized is not null && c.Iou >= 0.5)
-                .OrderByDescending(c => c.Iou)
-                .FirstOrDefault();
-
-            if (best.Recognized is null)
-            {
-                edits += length;
-                continue;
-            }
-
+            if (usedGt[g] || usedDet[d]) continue;
+            usedGt[g] = true;
+            usedDet[d] = true;
             matched++;
-            var score = RecognitionScorer.Score(line.Text, best.Recognized.L0Text);
+
+            var recognized = outcome.Lines.First(r => r.LineId == surfaceAfter.Lines[d].Id);
+            var score = RecognitionScorer.Score(truth[g].Text, recognized.L0Text);
             edits += score.ScalarDistance;
             matchedEdits += score.ScalarDistance;
             matchedGtScalars += score.ReferenceScalarLength;
         }
+
+        // Unmatched GT lines count as full deletions (layout misses).
+        foreach (var line in truth)
+        {
+            int length = ScalarText.ScalarLength(line.Text);
+            gtScalars += length;
+        }
+        for (int g = 0; g < truth.Count; g++)
+            if (!usedGt[g]) edits += ScalarText.ScalarLength(truth[g].Text);
 
         // Control: the same model on PAGE boxes (perfect layout).
         var controlSurface = BuildControlSurface(surface, truth, imagePath);

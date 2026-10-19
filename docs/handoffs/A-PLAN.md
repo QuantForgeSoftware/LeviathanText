@@ -277,3 +277,26 @@ Blockers recorded so far:
   confidence persisted; run-id idempotency for retries) and geometry/order edits now have a
   surface-level audit. B remains quiet since its morning handoff; licensing files still belong
   to their author.
+
+### Handoff revision 13 — 2026-10-19 (trainable layout module)
+
+- **New module:** `PatchLayoutModel` (`patch-row-cnn-v2`) in `LeviathanText.Layout`: aspect-
+  preserving page preprocessing (content crop → height 256, aspect-preserving width), a small
+  fully convolutional CNN (width collapsed deliberately; 1D row head), weighted BCE training,
+  package save/load with architecture/metadata checks, threshold-tuned band decoding, and
+  expansion of core predictions back to line boxes.
+- **Measured (one-to-one matching):** M02a held-out P **0.965** / R **0.987** vs projection
+  0.523/0.545; overall held-out P 0.734/R 0.686. Projection page-workflow baseline under
+  the corrected matcher: 0.973 mean CER vs 0.943 PAGE-box control (3 seeds). Out-of-domain P01 stays weak for the M02a
+  model; a P01-trained model improves aggregate P01 metrics (0.444/0.324 vs 0.337/0.176) but
+  fails on dense pages and is **not adopted**. Page workflow (same recognizer): CER **0.971 →
+  0.942**, detection recall ~0.54 → ~0.996.
+- **Metric bug fixed:** layout comparison and page-CER matching were not one-to-one (one merged
+  detection could match several GT lines, precision > 1). Matching is now greedy one-to-one;
+  all layout/e2e reports were regenerated under the corrected metric.
+- **Integration:** opt-in per-material selection — CLI `layout train` / `layout detect --model`,
+  API configuration `LeviathanText:Layout:Models:<kind>`, and an Application-level detector
+  parameter; projection remains the default. Model packages are validated (architecture match,
+  weights present) before use.
+- **Not claimed:** multi-column/rotated layout, papyrus layout production use, or broader
+  manuscript generalization from one codex; the P01 split remains spent.

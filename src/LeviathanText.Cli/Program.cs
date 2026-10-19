@@ -2,6 +2,8 @@
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Formats;
+using LeviathanText.Imaging;
+using LeviathanText.Layout;
 using LeviathanText.Infrastructure;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -364,6 +366,100 @@ public static class Program
                 return 0;
             }
 
+            case "layout" when rest.Length >= 4 && rest[1] == "train":
+            {
+                // Page-level split (same convention as all pilots): every 5th page test,
+                // every 6th dev; training never sees test pages. Threshold is selected on dev.
+                var dataDir = rest[2];
+                var outDir = rest.Length >= 6 && rest[3] == "--out" ? rest[4] : Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "layout-patch");
+                var imageExt = rest.Length >= 8 && rest[5] == "--image-ext" ? rest[6] : null;
+                var epochs = rest.Length >= 10 && rest[7] == "--epochs" ? int.Parse(rest[8]) : 100;
+                var seed = rest.Length >= 12 && rest[9] == "--seed" ? int.Parse(rest[10]) : 31;
+
+                var xmlFiles = Directory.GetFiles(dataDir, "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
+                if (xmlFiles.Count == 0) { Console.Error.WriteLine("no PAGE XML files found"); return 1; }
+
+                string? ResolveImage(string xml) => new[]
+                {
+                    imageExt,
+                    ".png", ".jpg", ".jpeg", ".tif", ".tiff",
+                }.Where(e => e is not null)
+                 .Select(e => Path.Combine(dataDir, Path.GetFileNameWithoutExtension(xml) + e))
+                 .FirstOrDefault(File.Exists);
+
+                var train = new List<LeviathanText.Layout.LayoutTrainingPage>();
+                var dev = new List<LeviathanText.Layout.LayoutTrainingPage>();
+                int testPages = 0;
+                for (int i = 0; i < xmlFiles.Count; i++)
+                {
+                    var image = ResolveImage(xmlFiles[i]);
+                    if (image is null) continue;
+                    var imported = PageXml.Import(File.ReadAllText(xmlFiles[i]),
+                        new EntityId(EntityKind.Capture, "cap"),
+                        new Checksum { Algorithm = "unavailable", Digest = "pending" });
+                    var bands = imported.Lines
+                        .Select(l => l.Polygon.Count >= 3 ? l.Polygon : l.Baseline)
+                        .Where(g => g.Count >= 2)
+                        .Select(g =>
+                        {
+                            int top = (int)g.Min(p => p.Y);
+                            int bottom = (int)g.Max(p => p.Y);
+                            return (top, Math.Max(bottom, top + 1));
+                        }).ToList();
+                    if (bands.Count == 0) continue;
+
+                    var page = new LeviathanText.Layout.LayoutTrainingPage(
+                        Path.GetFileNameWithoutExtension(xmlFiles[i]), image, bands);
+                    if (i % 5 == 0) testPages++;
+                    else if (i % 6 == 1) dev.Add(page);
+                    else train.Add(page);
+                }
+
+                if (train.Count == 0 || dev.Count == 0)
+                {
+                    Console.Error.WriteLine($"need train and dev pages (train={train.Count}, dev={dev.Count})");
+                    return 1;
+                }
+
+                var options = new LeviathanText.Layout.PatchLayoutOptions { Epochs = epochs, Seed = seed };
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                var model = LeviathanText.Layout.PatchLayoutModel.Train(train, options,
+                    message => Console.Error.WriteLine(message));
+                watch.Stop();
+
+                // Threshold on dev pages only.
+                var devBitmaps = dev.Select(page => (page.Name, Bitmap: ImageDecoder.Decode(page.ImagePath).Bitmap, page.Bands)).ToList();
+                try
+                {
+                    var probabilities = devBitmaps.ToDictionary(
+                        page => page.Name, page => model.PredictRowProbabilities(page.Bitmap));
+                    float bestThreshold = 0.5f;
+                    double bestF1 = -1, bestP = 0, bestR = 0;
+                    for (float threshold = 0.15f; threshold <= 0.851f; threshold += 0.05f)
+                    {
+                        var rows = devBitmaps.Select(page =>
+                            (Witness: page.Name,
+                                Detected: model.DetectFromProbabilities(page.Bitmap, probabilities[page.Name], threshold).Lines,
+                                GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Bands)).ToList();
+                        var summary = LayoutComparison.Compare(rows);
+                        double f1 = summary.MeanPrecision + summary.MeanRecall == 0 ? 0
+                            : 2 * summary.MeanPrecision * summary.MeanRecall / (summary.MeanPrecision + summary.MeanRecall);
+                        if (f1 > bestF1) { bestF1 = f1; bestThreshold = threshold; bestP = summary.MeanPrecision; bestR = summary.MeanRecall; }
+                    }
+                    var tuned = model.WithThreshold(bestThreshold);
+                    tuned.Save(outDir);
+                    Console.WriteLine($"trained patch layout: train={train.Count} dev={dev.Count} test(held out)={testPages} " +
+                                      $"epochs={epochs} time={watch.Elapsed.TotalSeconds:0.0}s");
+                    Console.WriteLine($"threshold {bestThreshold:0.00}: dev P={bestP:0.###} R={bestR:0.###}; package: {outDir}");
+                    return 0;
+                }
+                finally
+                {
+                    foreach (var page in devBitmaps) page.Bitmap.Dispose();
+                }
+            }
+
             case "layout" when rest.Length >= 4 && rest[1] == "detect":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -372,7 +468,11 @@ public static class Program
                 var layout = new LayoutService(store, new ImageResolver(store, cache));
                 var maxIndex = Array.IndexOf(rest, "--max-pixels");
                 var maxPixels = maxIndex >= 0 && maxIndex + 1 < rest.Length ? long.Parse(rest[maxIndex + 1]) : 12_000_000;
-                var outcome = layout.Detect(project, surfaceId, maxPixels);
+                var modelIndex = Array.IndexOf(rest, "--model");
+                PatchLayoutModel? patchModel = modelIndex >= 0 && modelIndex + 1 < rest.Length
+                    ? PatchLayoutModel.Load(rest[modelIndex + 1])
+                    : null;
+                var outcome = layout.Detect(project, surfaceId, maxPixels, patchModel);
                 Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
                 return 0;
             }

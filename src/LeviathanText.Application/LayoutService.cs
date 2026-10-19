@@ -18,7 +18,8 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
 {
     public sealed record Outcome(NativeProject Project, NativeSurface Surface, int LineCount, string Method);
 
-    public Outcome Detect(NativeProject project, EntityId surfaceId, long maxPixels = 12_000_000)
+    public Outcome Detect(NativeProject project, EntityId surfaceId, long maxPixels = 12_000_000,
+        PatchLayoutModel? model = null)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -66,7 +67,11 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
         // coordinates are mapped back to the original frame. Recognition still requires
         // full-resolution pixels for crops (tiled region decode is a known open item).
         using var decoded = ImageDecoder.DecodeBounded(capture.ImageLocation, maxPixels);
-        var result = ProjectionProfileLayout.Detect(decoded.Bitmap);
+        // Learned models are opt-in per material; they were trained on a page-level split and
+        // are not a general layout claim (see docs/evaluation/layout-patch-learning.md).
+        var result = model is null
+            ? ProjectionProfileLayout.Detect(decoded.Bitmap)
+            : model.Detect(decoded.Bitmap);
         double scaleX = decoded.ScaleX, scaleY = decoded.ScaleY;
         int originalWidth = decoded.OriginalWidth, originalHeight = decoded.OriginalHeight;
 

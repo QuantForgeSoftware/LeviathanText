@@ -72,6 +72,20 @@ license values.
 (empty outputs first, then lowest mean confidence, then no-confidence) — reproducible across
 restarts. The workspace shows the queue after recognition and on reload.
 
+## Layout models
+
+```bash
+# train a per-material layout package (page-level split; threshold tuned on dev pages)
+leviathan layout train /abs/page-xml-dir --out ./packages/layout-codex --image-ext .png --epochs 100
+# detect with the learned model (otherwise projection is used)
+leviathan --store pilot.db layout detect <projectId> <surfaceId> --model ./packages/layout-codex
+```
+
+The API selects learned models per surface kind from configuration:
+`LeviathanText:Layout:Models:codex-page=/abs/packages/layout-codex` (and optionally `*` as a
+default). Unknown kinds fall back to projection. Learned layout is opt-in and single-column
+only; the P01-trained variant is measured but not enabled (per-page failures).
+
 ## Models
 
 `LeviathanText:Models:Directory` (default `~/.leviathantext/models`) is scanned by

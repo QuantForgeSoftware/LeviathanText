@@ -1,6 +1,6 @@
 # Layout post-filter: dev-selected, held-out report
 
-- Date: 2026-10-19T21:29:13.2646250+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T22:10:54.2893000+00:00; contract C0-0.4-draft
 - Detector: projection profile (unchanged); filter applied to detected bands
 - Selection set: M02a dev pages only (8 pages)
 - Reporting set: held-out M02a pages + P01 pages (19 pages); P01 is out-of-domain
@@ -25,7 +25,7 @@ Held-out comparison:
 
 | Variant | Mean precision | Mean recall |
 | --- | --- | --- |
-| Detector only | 0.358 | 0.483 |
+| Detector only | 0.341 | 0.46 |
 | Detector + selected filter | 0.337 | 0.3 |
 
 Split by domain (M02a is in-domain; P01 is out-of-domain for this detector):
@@ -34,7 +34,7 @@ Split by domain (M02a is in-domain; P01 is out-of-domain for this detector):
 | --- | --- | --- | --- |
 | M02a held-out | detector only | 0.424 | 0.545 |
 | M02a held-out | + selected filter | 0.582 | 0.518 |
-| P01 (out-of-domain) | detector only | 0.268 | 0.398 |
+| P01 (out-of-domain) | detector only | 0.227 | 0.343 |
 | P01 (out-of-domain) | + selected filter | 0 | 0 |
 
 Per-page (filtered):
@@ -64,7 +64,7 @@ Per-page (filtered):
 ## Decision
 
 **The dev-selected rule was NOT adopted.** Its combined held-out scores regress
-(0.337/0.3 vs 0.358/0.483):
+(0.337/0.3 vs 0.341/0.46):
 the dev set (8 M02a pages) is not representative of the out-of-domain P01 pages,
 where the merge rule collapses most detected bands (zero matches: P=0, R=0)
 and destroys valid short lines. The simpler density filter

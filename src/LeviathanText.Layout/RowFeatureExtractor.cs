@@ -127,6 +127,40 @@ public static class RowFeatureExtractor
         return new PageProfile(density, width, height, inkThreshold, runs, maxRun);
     }
 
+    /// <summary>
+    /// Ink bounds and density for a horizontal band, restricted to [minX, maxX). Uses the
+    /// given ink threshold (paper-relative) so callers can reuse one page calibration.
+    /// </summary>
+    public static (int Left, int Right, double Density) InkBounds(
+        SKBitmap page, int top, int bottom, float inkThreshold, int minX, int maxX)
+    {
+        int width = page.Width;
+        var info = page.Info;
+        var bytes = page.Bytes;
+        int left = maxX, right = minX;
+        long inkPixels = 0;
+
+        for (int row = Math.Max(0, top); row < Math.Min(page.Height, bottom); row++)
+        {
+            for (int col = Math.Max(0, minX); col < Math.Min(width, maxX); col++)
+            {
+                int b = (row * width + col) * info.BytesPerPixel;
+                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                if (luminance < inkThreshold)
+                {
+                    if (col < left) left = col;
+                    if (col > right) right = col;
+                    inkPixels++;
+                }
+            }
+        }
+
+        double density = (double)inkPixels / Math.Max(1, (bottom - top) * Math.Max(1, maxX - minX));
+        if (right < left) return (minX, maxX, density);
+        return (left, right, density);
+    }
+
     /// <summary>Luminance percentile from a 256-bin histogram (bin center / 255).</summary>
     public static float Percentile(int[] histogram, int total, double percentile)
     {

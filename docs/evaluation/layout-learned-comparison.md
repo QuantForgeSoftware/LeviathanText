@@ -1,6 +1,6 @@
 # Automatic layout: learned vs projection (pilot)
 
-- Date: 2026-10-19T21:29:22.8288390+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T22:11:48.5157380+00:00; contract C0-0.4-draft
 - Learned: `row-logit-v2` (per-row logistic regression; 13 ink-profile features; deterministic training)
 - Baseline: projection profile (Otsu, trim, adaptive valleys)
 - Training: M02a train pages (35); threshold tuned on M02a dev pages (8); evaluation: held-out M02a pages + P01 pages (19 pages)
@@ -9,7 +9,7 @@
 | Detector | Mean precision | Mean recall |
 | --- | --- | --- |
 | Learned (`row-logit-v2`) | 0.101 | 0.04 |
-| Projection baseline | 0.44 | 0.483 |
+| Projection baseline | 0.416 | 0.46 |
 
 Per-page learned results:
 
@@ -38,7 +38,7 @@ Per-page learned results:
 ## Status
 
 **Measured outcome: the learned row model does NOT beat the corrected projection
-baseline on this corpus** (0.04 vs 0.483 mean recall).
+baseline on this corpus** (0.04 vs 0.46 mean recall).
 Diagnosis: a linear model over whole-row ink statistics cannot reliably separate
 faint letter rows from parchment texture at the windows that fit within one line;
 the projection detector with background-relative splitting is the stronger baseline

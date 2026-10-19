@@ -48,6 +48,7 @@ builder.Services.AddSingleton(sp =>
     return new ImageResolver(sp.GetRequiredService<IProjectStore>(), cache);
 });
 builder.Services.AddSingleton(sp => new LayoutService(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
+builder.Services.AddSingleton<LayoutModelRegistry>();
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
@@ -523,13 +524,14 @@ api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometrySe
     });
 });
 
-api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, string surfaceId) =>
+api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, LayoutModelRegistry models, string surfaceId) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
-    var outcome = layout.Detect(project, surfaceEntityId);
+    var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == surfaceEntityId);
+    var outcome = layout.Detect(project, surfaceEntityId, model: models.Resolve(surface.Kind));
     return Results.Ok(new
     {
         surfaceId = outcome.Surface.Id.ToString(),

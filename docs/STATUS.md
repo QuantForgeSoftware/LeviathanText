@@ -11,7 +11,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | Native project model, revisions (L0/L1/L2), annotations | contract + service/HTTP tests |
 | PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import | 24 format tests; roundtrip smokes |
 | Plain-text export with mandatory loss report | export tests |
-| Automatic layout (projection) | measured P 0.386 / R 0.506 on real pages; refuses overwrite |
+| Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN strong on M02a (P 0.965 / R 0.987) and improves page CER 0.971→0.942 |
 | Manual correction (move/resize/draw/delete/split/merge/order) | API + overlay editor (view + edit), client undo, surface audit |
 | Recognition pipeline (C# CTC, CPU) | line-crop CER ~0.88 measured on M02a; L0 persisted with provenance |
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |
@@ -34,7 +34,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 ## Measured numbers (pilot scale)
 
 - Recognition: P01 locked split spent; M02a dev CER ~0.84–0.88 depending on configuration.
-- Page workflow: 0.944 mean CER including layout misses; control 0.905 (3 seeds; wide spread).
+- Page workflow (projection layout): 0.973 mean CER including layout misses; control 0.943 (3 seeds; wide spread). With the opt-in learned layout: 0.942 vs 0.971 on the same recognizer/page set.
 - Layout: density post-filter adopted (held-out precision 0.335→0.381, recall unchanged);
   merge-rule candidate **rejected** after out-of-domain regression (recorded).
 - Throughput: 113 pages/min CLI import; 45 pages/s in-process bulk; layout job ~4 s incl. fetch.

@@ -2,9 +2,10 @@ namespace LeviathanText.Layout;
 
 /// <summary>
 /// Automatic-vs-imported layout comparison (Phase 0 gate: compare automatic and
-/// manually supplied layout; todo §7 layout metrics). Lines match when their vertical
-/// bands overlap by at least the disclosed IoU threshold; reading-order agreement is
-/// the Spearman-style rank agreement of matched pairs.
+/// manually supplied layout; todo §7 layout metrics). Matching is **one-to-one greedy by
+/// IoU** at the disclosed threshold: one detected band can account for at most one GT line
+/// (a merged detection must not inflate both precision and recall). Reading-order agreement
+/// is reported separately.
 /// </summary>
 public static class LayoutComparison
 {
@@ -26,22 +27,26 @@ public static class LayoutComparison
         var perWitness = new List<Record>();
         foreach (var (witness, detected, groundTruth) in witnesses)
         {
+            // Candidate pairs at/above the threshold, greedily consumed by descending IoU.
+            var candidates = new List<(int Gt, int Det, double Iou)>();
+            for (int g = 0; g < groundTruth.Count; g++)
+                for (int d = 0; d < detected.Count; d++)
+                {
+                    double iou = VerticalIou(groundTruth[g], detected[d]);
+                    if (iou >= iouThreshold) candidates.Add((g, d, iou));
+                }
+
+            var usedGt = new bool[groundTruth.Count];
+            var usedDet = new bool[detected.Count];
             int matches = 0;
             double iouSum = 0;
-            foreach (var gt in groundTruth)
+            foreach (var (g, d, iou) in candidates.OrderByDescending(c => c.Iou).ThenBy(c => c.Gt).ThenBy(c => c.Det))
             {
-                DetectedLine? best = null;
-                double bestIou = 0;
-                foreach (var det in detected)
-                {
-                    double iou = VerticalIou(gt, det);
-                    if (iou > bestIou) { bestIou = iou; best = det; }
-                }
-                if (bestIou >= iouThreshold && best is not null)
-                {
-                    matches++;
-                    iouSum += bestIou;
-                }
+                if (usedGt[g] || usedDet[d]) continue;
+                usedGt[g] = true;
+                usedDet[d] = true;
+                matches++;
+                iouSum += iou;
             }
 
             double precision = detected.Count == 0 ? 0 : (double)matches / detected.Count;
