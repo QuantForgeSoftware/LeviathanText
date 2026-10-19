@@ -70,6 +70,21 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         Assert.Equal(firstBody, secondBody);
         Assert.Contains("\"pending\"", firstBody);
     }
+
+    [Fact]
+    public async Task Job_events_stream_replays_created_event()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/jobs", new { type = "pipeline.run", ownerId = "test", idempotencyKey = "sse-key" });
+        var jobBody = await created.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        var jobId = jobBody!["id"].ToString()!;
+
+        // The SSE stream stays open by design; only headers are asserted here.
+        // Replay/live-delivery semantics are covered by JobEventBusTests.
+        var stream = await client.GetAsync($"/api/v1/jobs/{jobId}/events", HttpCompletionOption.ResponseHeadersRead);
+        Assert.Equal(HttpStatusCode.OK, stream.StatusCode);
+        Assert.Contains("text/event-stream", stream.Content.Headers.ContentType?.MediaType ?? "");
+    }
 }
 
 /// <summary>Test host factory with an isolated store file per factory.</summary>

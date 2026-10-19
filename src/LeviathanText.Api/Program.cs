@@ -1,18 +1,24 @@
+using LeviathanText.Api;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Contracts.Serialization;
 using LeviathanText.Core.Jobs;
 using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.ServerSentEvents;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddSingleton<IProjectStore>(sp => new LocalStore(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db"));
+builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectStore>());
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
 builder.Services.AddSingleton<JobTable>();
+builder.Services.AddSingleton<JobEventBus>();
+builder.Services.AddSingleton<JobEnqueuer>();
 
 var app = builder.Build();
 
@@ -64,20 +70,55 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, s
         "application/xml");
 });
 
-// Jobs: creation with idempotency keys; progress via server-sent events (todo §4),
+// Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
 // with the job resource remaining authoritative.
-api.MapPost("jobs", (JobTable jobs, [FromBody] CreateJobRequest request) =>
+api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) =>
 {
-    var job = jobs.Create(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
+    var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
         idempotencyKey: request.IdempotencyKey);
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
 
-api.MapGet("jobs/{id}", (JobTable jobs, string id) =>
-    Results.Content(ContractJson.ToJson(jobs.Get(EntityId.Parse(id, EntityKind.Job))), "application/json"));
+api.MapGet("jobs/{id}", (LocalStore store, string id) =>
+{
+    var job = store.LoadJob(EntityId.Parse(id, EntityKind.Job))
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "Unknown job." });
+    return Results.Content(ContractJson.ToJson(job), "application/json");
+});
 
-api.MapPost("jobs/{id}/cancel", (JobTable jobs, string id) =>
-    Results.Content(ContractJson.ToJson(jobs.Cancel(EntityId.Parse(id, EntityKind.Job))), "application/json"));
+api.MapPost("jobs/{id}/cancel", (JobEnqueuer enqueuer, string id) =>
+    Results.Content(ContractJson.ToJson(enqueuer.Cancel(EntityId.Parse(id, EntityKind.Job))), "application/json"));
+
+api.MapGet("jobs/{id}/events", (JobEventBus bus, string id) =>
+{
+    var jobId = EntityId.Parse(id, EntityKind.Job);
+    return Results.ServerSentEvents(JobEvents(bus, jobId));
+});
+
+static async IAsyncEnumerable<SseItem<string>> JobEvents(JobEventBus bus, EntityId jobId)
+{
+    // Subscribe first so nothing is missed between replay and live delivery.
+    var channel = System.Threading.Channels.Channel.CreateUnbounded<JobEventBus.JobEvent>();
+    using var subscription = bus.Subscribe(jobId, evt => channel.Writer.TryWrite(evt));
+
+    long cursor = 0;
+    foreach (var evt in bus.Replay(jobId, cursor))
+    {
+        cursor = evt.Sequence;
+        yield return new SseItem<string>(evt.Payload, evt.Kind) { EventId = evt.Sequence.ToString() };
+    }
+
+    var reader = channel.Reader;
+    while (await reader.WaitToReadAsync().ConfigureAwait(false))
+    {
+        while (reader.TryRead(out var evt))
+        {
+            if (evt.Sequence <= cursor) continue;
+            cursor = evt.Sequence;
+            yield return new SseItem<string>(evt.Payload, evt.Kind) { EventId = evt.Sequence.ToString() };
+        }
+    }
+}
 
 app.MapGet("/", () => Results.Ok(new { service = "LeviathanText", contract = ContractVersion.Current }));
 

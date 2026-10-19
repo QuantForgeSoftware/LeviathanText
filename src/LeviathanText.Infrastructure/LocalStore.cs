@@ -149,5 +149,26 @@ public sealed class LocalStore : IDisposable, IProjectStore
         return (cmd.ExecuteScalar() as string) is { } json ? ContractJson.FromJson<JobRecord>(json) : null;
     }
 
+    public JobRecord? FindJobByIdempotencyKey(string key)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT json FROM jobs WHERE idempotency_key = $key";
+        cmd.Parameters.AddWithValue("$key", key);
+        return (cmd.ExecuteScalar() as string) is { } json ? ContractJson.FromJson<JobRecord>(json) : null;
+    }
+
+    /// <summary>All jobs in a given status, oldest first (worker claim queries).</summary>
+    public IReadOnlyList<JobRecord> LoadJobsByStatus(JobStatus status)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT json FROM jobs WHERE status = $status ORDER BY id";
+        cmd.Parameters.AddWithValue("$status", status.ToString());
+        using var reader = cmd.ExecuteReader();
+        var jobs = new List<JobRecord>();
+        while (reader.Read())
+            jobs.Add(ContractJson.FromJson<JobRecord>(reader.GetString(0)));
+        return jobs;
+    }
+
     public void Dispose() => _connection.Dispose();
 }
