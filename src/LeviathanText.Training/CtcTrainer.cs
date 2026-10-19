@@ -1,3 +1,4 @@
+using LeviathanText.Contracts;
 using LeviathanText.Evaluation;
 using LeviathanText.Recognition;
 using TorchSharp;
@@ -178,6 +179,23 @@ public sealed class CtcTrainer
     {
         var name = _config.ModelName;
         var metadata = CheckpointStore.ReadMetadata(_config.CheckpointDirectory, name, suffix);
+
+        // The label set travels with the model (domain-and-pipeline.md §3). A same-size
+        // but different vocabulary would otherwise decode confidently into wrong letters.
+        var expectedLabels = CheckpointStore.LabelSetHash(_labels);
+        if (!string.Equals(metadata.LabelSetHash, expectedLabels, StringComparison.Ordinal))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.ModelIncompatible,
+                Scope = name,
+                Details = new Dictionary<string, string>
+                {
+                    ["checkpointLabels"] = metadata.LabelSetHash,
+                    ["currentLabels"] = expectedLabels,
+                },
+                RemedyHint = RemedyHint.MapUnknownLabel,
+                Message = "Checkpoint label set does not match the label set supplied for loading.",
+            });
 
         _model.load(CheckpointStore.ModelPath(_config.CheckpointDirectory, name, suffix));
         _optimizer.load_state_dict(CheckpointStore.OptimizerPath(_config.CheckpointDirectory, name, suffix));
