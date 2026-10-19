@@ -65,6 +65,7 @@ public sealed class RecognizeSurfaceHandler(IProjectStore store, ImageResolver? 
             ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
             ModelFactory = () => loaded.Model,
             LabelSetFactory = () => loaded.Labels,
+            RunId = job.Id.Suffix,
         }, cancellationToken);
 
         return job with

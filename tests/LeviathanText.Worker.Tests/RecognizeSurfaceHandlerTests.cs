@@ -147,6 +147,13 @@ public sealed class RecognizeSurfaceHandlerTests : IDisposable
         Assert.Equal(lineId, revision.ScopeId);
         Assert.True(revision.Author.IsModel);
         Assert.Contains("tiny", revision.Author.ModelIdentity);
+        Assert.False(revision.Confidence.IsNone); // mean confidence persisted
+
+        // Same job id = same run id: a retry must not append duplicate L0 revisions.
+        new RecognizeSurfaceHandler(store).Execute(finished, CancellationToken.None);
+        var afterRetry = store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Revisions
+            .Count(r => r.Layer == TextLayer.L0RawRecognition);
+        Assert.Equal(1, afterRetry);
     }
 
     [Fact]

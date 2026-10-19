@@ -20,9 +20,9 @@
 | Bounded resource use (§2.3) | Import through bounded pipeline; layout preview decode bounded by pixels; recognition decodes full frames per surface; no tiling for very large images | **partial** (documented) |
 | Model package (§3): architecture, weights, tokenizer, provenance, hashes | `ModelPackageWriter`/`RecognitionModelLoader` verify labels, arch, digest; package from `train lines`; model card | **conforms** |
 | Reject executable payloads / path limits | Loader reads only named files; no script/exec loading; archive/encoded size and dimension limits | **conforms** (checkpoint format is data-only) |
-| Confidence semantics (§4) | Confidence carries scale and source; layout/geometry use `None`; recognition produces raw probabilities | **partial**: per-grapheme confidence is not persisted with L0 revisions (in-memory/API review queue only) |
+| Confidence semantics (§4) | Confidence carries scale and source; layout/geometry use `None`; L0 revisions persist the **mean raw probability** with its scale (per-grapheme detail remains in-memory for review queues) | **conforms** (mean persisted; per-grapheme persistence open) |
 | Jobs (§5): durable, leases, heartbeats, idempotency, cancellation | SQLite-backed jobs, timed leases, API key idempotency, DB pickup, cancellation between batch items | **conforms** (cancellation granularity documented) |
-| At-least-once execution with idempotent output | Recognition retries append another L0 revision set (history noise, no overwrite) | **open gap**: L0 append should dedupe by job/run id |
+| At-least-once execution with idempotent output | Recognition uses a stable run id (job id); re-running the same run appends no duplicate L0 revisions | **conforms** |
 | Error vocabulary (§6) | Closed `ErrorCode` set mapped to HTTP; transport-level auth/read-only errors use separate `code` strings | **documented deviation** (auth is transport, not pipeline) |
 | Greek profile (§1–§6): layers, marks, offsets, uncertainty | Scalar offsets in annotations; no folding in L1; mark rendering; gap extent; alternatives; profile inspector | **conforms** for implemented kinds; **profile definitions await specialist** |
 | Abbreviations / historical correction sequences | Annotations cover erasures/additions/overwritten; no dedicated abbreviation expansion kind or editor for historical correction order | **open gap** |
@@ -36,9 +36,9 @@
 1. **Decide geometry history**: either add a `GeometryRevision` entity (new kind, C0 bump) or
    write the exclusion into the contract explicitly. Today it is a documented implementation
    gap, not a contract statement.
-2. **Persist L0 confidence** with revisions (or a sidecar keyed by revision id) so review
-   queues are reproducible and auditable after the run.
-3. **Idempotent L0 persistence** for retried recognition jobs (dedupe key = job/run id).
+2. **Per-grapheme confidence persistence** if review queues must be reproduced exactly
+   (mean confidence is now stored on L0 revisions; the per-grapheme detail is not).
+3. *(Resolved 2026-10-19: stable run ids make L0 persistence idempotent for retries.)*
 4. **Name the pilot endpoints** (search, profile report, models, recognize, CSVs, bundle) in
    the contract or mark them explicitly as non-contract pilot extensions.
 5. **Abbreviation/expansion representation** with specialist review: reversible links from

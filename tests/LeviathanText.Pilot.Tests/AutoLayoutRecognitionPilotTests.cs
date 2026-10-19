@@ -95,6 +95,7 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
             ModelDirectory = checkpointDir,
             ModelName = config.ModelName,
             ModelVersion = "pilot-e2e",
+            RunId = "pilot-run",
             ModelFactory = () =>
             {
                 var fresh = new CrnnModel(labels.NumClasses);
@@ -115,6 +116,26 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
         Assert.Equal(layout.LineCount, l0.Count);
         Assert.All(l0, r => Assert.True(r.Author.IsModel));
         Assert.All(l0, r => Assert.Contains(config.ModelName, r.Author.ModelIdentity));
+        Assert.All(l0, r => Assert.False(r.Confidence.IsNone)); // mean raw confidence persisted
+
+        // Re-running the same run id (job retry) must not duplicate L0 revisions.
+        pipeline.Run(reloaded, surface.Id, new RecognitionPipeline.Options
+        {
+            ModelDirectory = checkpointDir,
+            ModelName = config.ModelName,
+            ModelVersion = "pilot-e2e",
+            RunId = "pilot-run",
+            ModelFactory = () =>
+            {
+                var fresh = new CrnnModel(labels.NumClasses);
+                fresh.load(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best"));
+                return fresh;
+            },
+            LabelSetFactory = () => labels,
+        });
+        var afterRetry = store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Revisions
+            .Count(r => r.Layer == TextLayer.L0RawRecognition);
+        Assert.Equal(layout.LineCount, afterRetry);
         var stage = Assert.Single(outcome.Stages);
         Assert.Equal(StageName.Recognition, stage.Stage);
         Assert.Equal(config.ModelName, stage.Model!.PackageId);

@@ -71,4 +71,10 @@ public sealed record TextRevision
 
     /// <summary>Normalized (NFC) form, if normalization produced a distinct revision; otherwise null.</summary>
     public string? NormalizedText { get; init; }
+
+    /// <summary>
+    /// Mean confidence for this revision where the producer reports one (L0 recognition);
+    /// <see cref="Confidence.None"/> for human revisions. The scale travels with the value.
+    /// </summary>
+    public Confidence Confidence { get; init; } = Confidence.None;
 }

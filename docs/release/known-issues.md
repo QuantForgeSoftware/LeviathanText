@@ -15,9 +15,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 - CPU-only; the same seed is **not bit-reproducible** across runs (multi-seed measurements in
   `evaluation/end-to-end-page-cer.md` show the spread).
-- Per-grapheme confidence is returned at run time but **not persisted** with L0 revisions, so
-  review queues are not reproducible after the run.
-- Retried recognition jobs append another L0 revision set (no dedupe yet).
+- L0 revisions persist the **mean** raw confidence (with scale); per-grapheme confidence stays
+  in memory, so review-queue ordering is not exactly reproducible later.
+- Retried recognition jobs are idempotent per run id (job id) and do not duplicate L0 sets.
 - Recognition decodes full frames; **no tiled region decode** for very large images.
 
 ## Layout

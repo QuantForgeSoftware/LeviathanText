@@ -422,6 +422,7 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
         ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
         ModelFactory = () => loaded.Model,
         LabelSetFactory = () => loaded.Labels,
+        RunId = Guid.NewGuid().ToString("N")[..10],
     });
 
     return Results.Ok(new
@@ -513,6 +514,7 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
             text = r.Text,
             author = r.Author.Id,
             at = r.CreatedAt,
+            confidence = r.Confidence,
         }),
     });
 });

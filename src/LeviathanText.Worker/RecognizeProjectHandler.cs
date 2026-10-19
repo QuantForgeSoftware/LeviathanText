@@ -98,6 +98,7 @@ public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? 
                         return model;
                     },
                     LabelSetFactory = () => labels,
+                    RunId = $"{job.Id.Suffix}-{surface.Id.Suffix[..Math.Min(8, surface.Id.Suffix.Length)]}",
                 }, cancellationToken, persistL0: true);
 
                 surfacesDone++;

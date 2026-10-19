@@ -23,6 +23,13 @@ public sealed class RecognitionPipeline
         public string ModelVersion { get; init; } = "pilot";
         public required Func<CrnnModel> ModelFactory { get; init; }
         public required Func<LabelSet> LabelSetFactory { get; init; }
+
+        /// <summary>
+        /// Stable id for this recognition run. Re-running with the same id does not append a
+        /// second copy of the same L0 revisions (job retries stay idempotent); null generates
+        /// a fresh id per run.
+        /// </summary>
+        public string? RunId { get; init; }
     }
 
     public sealed record SurfaceOutcome(
@@ -124,24 +131,42 @@ public sealed class RecognitionPipeline
                 IsModel = true,
                 ModelIdentity = $"{options.ModelName}@{options.ModelVersion}",
             };
-            var l0Revisions = results.Select((line, index) => new TextRevision
+            var runId = options.RunId ?? Guid.NewGuid().ToString("N")[..10];
+            var existing = surface.Revisions.Select(r => r.Id).ToHashSet();
+            var l0Revisions = results.Select(line =>
             {
-                Id = new EntityId(EntityKind.TranscriptionRevision, $"l0-{Guid.NewGuid().ToString("N")[..10]}"),
-                ScopeId = line.LineId,
-                Layer = TextLayer.L0RawRecognition,
-                Author = modelAuthor,
-                CreatedAt = DateTimeOffset.UtcNow,
-                Text = line.L0Text,
-            }).ToList();
+                var values = line.Confidence
+                    .Where(c => !c.Confidence.IsNone)
+                    .Select(c => c.Confidence.Value)
+                    .ToList();
+                var confidence = values.Count == 0
+                    ? Confidence.None
+                    : Confidence.Of(values.Average(), ConfidenceScale.RawModelProbability);
 
-            var updatedSurface = surface with { Revisions = [.. surface.Revisions, .. l0Revisions] };
-            var updatedProject = project with
+                var lineSuffix = line.LineId.Suffix.Length > 24 ? line.LineId.Suffix[..24] : line.LineId.Suffix;
+                return new TextRevision
+                {
+                    Id = new EntityId(EntityKind.TranscriptionRevision, $"l0-{runId}-{lineSuffix}"),
+                    ScopeId = line.LineId,
+                    Layer = TextLayer.L0RawRecognition,
+                    Author = modelAuthor,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    Text = line.L0Text,
+                    Confidence = confidence,
+                };
+            }).Where(r => !existing.Contains(r.Id)).ToList();
+
+            if (l0Revisions.Count > 0)
             {
-                Objects = [.. project.Objects.Select(o => o.Surfaces.Any(s => s.Id == surfaceId)
-                    ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surfaceId ? updatedSurface : s)] }
-                    : o)],
-            };
-            _store.SaveProject(updatedProject);
+                var updatedSurface = surface with { Revisions = [.. surface.Revisions, .. l0Revisions] };
+                var updatedProject = project with
+                {
+                    Objects = [.. project.Objects.Select(o => o.Surfaces.Any(s => s.Id == surfaceId)
+                        ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surfaceId ? updatedSurface : s)] }
+                        : o)],
+                };
+                _store.SaveProject(updatedProject);
+            }
         }
 
         stages.Add(new StageRun
