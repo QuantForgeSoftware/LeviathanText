@@ -83,21 +83,41 @@ public static class PageXml
                 var lineId = RequireId(line, "TextLine");
                 var baseline = ParsePoints(line.Element(Pc + "Baseline")?.Attribute("points")?.Value);
                 var linePolygon = ParsePoints(line.Element(Pc + "Coords")?.Attribute("points")?.Value);
-                var text = line.Elements(Pc + "TextEquiv").FirstOrDefault(e => (string?)e.Attribute("conf") == null)?.Element(Pc + "Unicode")?.Value
-                           ?? line.Elements(Pc + "TextEquiv").FirstOrDefault()?.Element(Pc + "Unicode")?.Value;
+
+                // Line text: the line's own TextEquiv when present; otherwise assembled
+                // from the Word elements' TextEquiv values (Transkribus convention, e.g.
+                // M02a). Assembly is recorded in the revision author reference.
+                var lineText = line.Elements(Pc + "TextEquiv").FirstOrDefault(e => (string?)e.Attribute("conf") == null)?.Element(Pc + "Unicode")?.Value
+                               ?? line.Elements(Pc + "TextEquiv").FirstOrDefault()?.Element(Pc + "Unicode")?.Value;
+                string? assemblyNote = null;
+                if (string.IsNullOrEmpty(lineText))
+                {
+                    var words = line.Elements(Pc + "Word")
+                        .Select(w => w.Elements(Pc + "TextEquiv").FirstOrDefault()?.Element(Pc + "Unicode")?.Value)
+                        .Where(v => !string.IsNullOrEmpty(v)).ToList();
+                    if (words.Count > 0)
+                    {
+                        lineText = string.Join(" ", words);
+                        assemblyNote = "assembled-from-words";
+                    }
+                }
 
                 var lineEntityId = new EntityId(EntityKind.Line, lineId);
                 TextRevision? revision = null;
-                if (!string.IsNullOrEmpty(text))
+                if (!string.IsNullOrEmpty(lineText))
                 {
                     revision = new TextRevision
                     {
                         Id = new EntityId(EntityKind.TranscriptionRevision, $"pg-{lineId}"),
                         ScopeId = lineEntityId,
                         Layer = TextLayer.L1Diplomatic,
-                        Author = new AgentRef { Id = "page-import", IsModel = false },
+                        Author = new AgentRef
+                        {
+                            Id = assemblyNote is null ? "page-import" : $"page-import({assemblyNote})",
+                            IsModel = false,
+                        },
                         CreatedAt = DateTimeOffset.UtcNow,
-                        Text = text,
+                        Text = lineText,
                     };
                     revisions.Add(revision);
                 }
@@ -112,8 +132,11 @@ public static class PageXml
                     DiplomaticRevisionId = revision?.Id,
                 });
 
-                foreach (var issue in UnsupportedChildren(line, ["Coords", "Baseline", "TextEquiv"]))
+                foreach (var issue in UnsupportedChildren(line, ["Coords", "Baseline", "TextEquiv", "Word"]))
                     unsupported.Add(issue);
+                foreach (var word in line.Elements(Pc + "Word"))
+                    foreach (var issue in UnsupportedChildren(word, ["Coords", "TextEquiv"]))
+                        unsupported.Add(issue);
             }
         }
 

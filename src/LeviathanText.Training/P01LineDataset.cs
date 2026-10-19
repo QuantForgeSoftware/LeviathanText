@@ -27,7 +27,11 @@ public static class P01LineDataset
         int TotalLines,
         IReadOnlyDictionary<string, string> WitnessSplitMap);
 
-    public static Snapshot Load(string datasetDirectory, int testEveryNth = 5, int devEveryNth = 6)
+    /// <summary>
+    /// Load a PAGE/image corpus directory (works for any track; image extension differs —
+    /// P01 uses .jpg, manuscript scans use .png). The directory/file remains the split unit.
+    /// </summary>
+    public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6)
     {
         if (!Directory.Exists(datasetDirectory))
             throw new LeviathanException(new LeviathanError
@@ -52,15 +56,15 @@ public static class P01LineDataset
         {
             var xmlPath = xmlFiles[i];
             var baseName = Path.GetFileNameWithoutExtension(xmlPath);
-            var jpgPath = Path.Combine(datasetDirectory, baseName + ".jpg");
-            if (!File.Exists(jpgPath))
+            var imagePath = ResolveImagePath(datasetDirectory, baseName, imageExtension);
+            if (imagePath is null)
                 continue; // XML without image: recorded in the manifest, not used here
 
             string split = i % testEveryNth == 0 ? "test" : i % devEveryNth == 1 ? "dev" : "train";
             witnessSplit[baseName] = split;
 
             var imported = PageXml.Import(File.ReadAllText(xmlPath), new EntityId(EntityKind.Capture, "cap"), noChecksum);
-            using var decoded = ImageDecoder.Decode(jpgPath);
+            using var decoded = ImageDecoder.Decode(imagePath);
 
             var revisionById = imported.Revisions.ToDictionary(r => r.Id);
             foreach (var line in imported.Lines)
@@ -89,13 +93,25 @@ public static class P01LineDataset
             }
         }
 
-        var unannotated = Directory.GetFiles(datasetDirectory, "*.jpg")
+        var unannotated = Directory.GetFiles(datasetDirectory, "*" + imageExtension)
             .Select(Path.GetFileNameWithoutExtension)
             .Where(name => !File.Exists(Path.Combine(datasetDirectory, name + ".xml")))
             .ToList();
 
         int total = train.Count + dev.Count + test.Count;
         return new Snapshot(train, dev, test, unannotated, total, witnessSplit);
+    }
+
+    /// <summary>Find the image for a PAGE file: next to the XML, or in a sibling/child images/ directory (Transkribus convention).</summary>
+    private static string? ResolveImagePath(string datasetDirectory, string baseName, string imageExtension)
+    {
+        string[] candidates =
+        [
+            Path.Combine(datasetDirectory, baseName + imageExtension),
+            Path.Combine(datasetDirectory, "images", baseName + imageExtension),
+            Path.Combine(Path.GetDirectoryName(datasetDirectory)!, "images", baseName + imageExtension),
+        ];
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     /// <summary>Crop the page by the recorded crop bounds and produce a normalized LineImage.</summary>
