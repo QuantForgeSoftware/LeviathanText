@@ -13,7 +13,7 @@ namespace LeviathanText.Worker;
 /// persisted with provenance, and the output records surface/line counts. A surface that
 /// fails is reported without stopping the batch.
 /// </summary>
-public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? imageResolver = null) : IJobHandler
+public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? imageResolver = null, IJobStore? jobs = null) : IJobHandler
 {
     public const string JobType = "recognize.project";
 
@@ -77,6 +77,9 @@ public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces).ToList())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Explicit API cancellation between surfaces (same-thread check).
+            if (jobs?.Find(job.Id)?.Status == JobStatus.Cancelled)
+                throw new OperationCanceledException();
             if (surface.Lines.Count == 0) continue;
 
             try

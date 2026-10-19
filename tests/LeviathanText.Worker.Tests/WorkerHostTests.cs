@@ -172,4 +172,39 @@ public class WorkerHostTests
         Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
         Assert.Contains("No handler", ex.Error.Message);
     }
+
+    private sealed class CancelItselfHandler(IJobStore store) : IJobHandler
+    {
+        public string Type => "cancel-self";
+
+        public JobRecord Execute(JobRecord job, CancellationToken cancellationToken)
+        {
+            var current = store.Find(job.Id)!;
+            store.Save(current with { Status = JobStatus.Cancelled });
+            throw new OperationCanceledException();
+        }
+    }
+
+    [Fact]
+    public void Api_cancellation_survives_the_host_catch_and_is_not_resurrected()
+    {
+        var jobs = new MemoryJobStore();
+        var job = new JobRecord
+        {
+            Id = new EntityId(EntityKind.Job, "job-cancel"),
+            Type = "cancel-self",
+            Inputs = [],
+            Owner = new AgentRef { Id = "test", IsModel = false },
+            Status = JobStatus.Pending,
+        };
+        jobs.Save(job);
+        var host = new WorkerHost(jobs, [new CancelItselfHandler(jobs)]);
+
+        var finished = host.RunNext();
+
+        Assert.NotNull(finished);
+        Assert.Equal(JobStatus.Cancelled, finished!.Status);
+        Assert.Null(finished.Lease);
+        Assert.Empty(host.ClaimableJobs()); // never re-executed
+    }
 }

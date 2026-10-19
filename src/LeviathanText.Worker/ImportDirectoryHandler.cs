@@ -12,7 +12,7 @@ namespace LeviathanText.Worker;
 /// appended as new objects, so re-running a batch duplicates rather than destroying work —
 /// the manifest is the record, not the filesystem.
 /// </summary>
-public sealed class ImportDirectoryHandler(IProjectStore store) : IJobHandler
+public sealed class ImportDirectoryHandler(IProjectStore store, IJobStore? jobs = null) : IJobHandler
 {
     public const string JobType = "import.dir";
     public const string DirectoryPrefix = "dir:";
@@ -78,6 +78,10 @@ public sealed class ImportDirectoryHandler(IProjectStore store) : IJobHandler
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Explicit API cancellation: check between files on this thread (no concurrent
+            // connection use); a cancelled job stops without losing already imported files.
+            if (jobs?.Find(job.Id)?.Status == JobStatus.Cancelled)
+                throw new OperationCanceledException();
             try
             {
                 // Reload each iteration: the import appends to the persisted project.

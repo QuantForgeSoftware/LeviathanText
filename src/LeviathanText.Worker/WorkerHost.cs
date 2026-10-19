@@ -90,9 +90,18 @@ public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handl
             }
             catch (OperationCanceledException)
             {
-                // Cooperative cancellation: checkpoints remain valid; job becomes pending again.
-                store.Save(claimed with { Status = JobStatus.Pending, Lease = null });
-                return null;
+                // Cooperative cancellation: handlers check between items. A job explicitly
+                // cancelled through the API stays Cancelled; a worker shutdown leaves it
+                // Pending so another worker can resume from the last completed item.
+                var current = store.Find(claimed.Id);
+                var cancelled = current?.Status == JobStatus.Cancelled;
+                var finalized = claimed with
+                {
+                    Status = cancelled ? JobStatus.Cancelled : JobStatus.Pending,
+                    Lease = null,
+                };
+                store.Save(finalized);
+                return finalized;
             }
             catch (LeviathanException ex)
             {
