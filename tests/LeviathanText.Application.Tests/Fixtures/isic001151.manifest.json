@@ -1,0 +1,409 @@
+{
+  "@context": "http://iiif.io/api/presentation/3/context.json",
+  "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Funerary block, Termini Imerese, 101–300 CE"
+    ]
+  },
+  "metadata": [
+    {
+      "label": {
+        "en": [
+          "I.Sicily identifier"
+        ]
+      },
+      "value": {
+        "en": [
+          "ISic001151"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Trismegistos"
+        ]
+      },
+      "value": {
+        "en": [
+          "492764"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Language"
+        ]
+      },
+      "value": {
+        "en": [
+          "Ancient Greek"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Inscription type"
+        ]
+      },
+      "value": {
+        "en": [
+          "Funerary"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Object type"
+        ]
+      },
+      "value": {
+        "en": [
+          "Block"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Material"
+        ]
+      },
+      "value": {
+        "en": [
+          "Grey"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Material varieties"
+        ]
+      },
+      "value": {
+        "en": [
+          "calcare-lucidabile_grigio_sicilia-occidentale"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Material identified by"
+        ]
+      },
+      "value": {
+        "en": [
+          "Coccato"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Material description"
+        ]
+      },
+      "value": {
+        "en": [
+          "grey compact limestone, likely Western Sicilian grey limestone (sand-grade limestone with orbitolina (?)) (identification based on pXRF)"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Material vocabulary ref"
+        ]
+      },
+      "value": {
+        "en": [
+          "http://www.eagle-network.eu/voc/material/lod/2.html"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Technique"
+        ]
+      },
+      "value": {
+        "en": [
+          "Chiselled"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Dimensions"
+        ]
+      },
+      "value": {
+        "en": [
+          "15.5 cm × 63.5 cm × 13-14.5 (left-right) cm"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Date"
+        ]
+      },
+      "value": {
+        "en": [
+          "101–300 CE"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Ancient location"
+        ]
+      },
+      "value": {
+        "en": [
+          "Thermae Himeraeae"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Modern location"
+        ]
+      },
+      "value": {
+        "en": [
+          "Termini Imerese"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Current location"
+        ]
+      },
+      "value": {
+        "en": [
+          "Museo Civico Baldassare Romano, Termini Imerese, inv. 136"
+        ]
+      }
+    }
+  ],
+  "requiredStatement": {
+    "label": {
+      "en": [
+        "Rights"
+      ]
+    },
+    "value": {
+      "en": [
+        "Photo J. Prag, courtesy Museo civico di Termini Imerese"
+      ]
+    }
+  },
+  "summary": {
+    "en": [
+      "Funerary. ancient greek"
+    ]
+  },
+  "seeAlso": [
+    {
+      "id": "http://sicily.classics.ox.ac.uk/inscription/ISic001151",
+      "type": "Dataset",
+      "label": {
+        "en": [
+          "I.Sicily project record"
+        ]
+      },
+      "format": "text/html"
+    }
+  ],
+  "navPlace": {
+    "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/navplace",
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/navplace/feature",
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            13.69555,
+            37.98365
+          ]
+        }
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/front",
+      "type": "Canvas",
+      "label": {
+        "en": [
+          "Front"
+        ]
+      },
+      "width": 5520,
+      "height": 3680,
+      "items": [
+        {
+          "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/front/page",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/front/annotation",
+              "type": "Annotation",
+              "motivation": "painting",
+              "body": {
+                "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily!ISic001151_tiled.tif/full/max/0/default.jpg",
+                "type": "Image",
+                "format": "image/jpeg",
+                "service": [
+                  {
+                    "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily!ISic001151_tiled.tif",
+                    "type": "ImageService3",
+                    "profile": "level2"
+                  }
+                ],
+                "width": 5520,
+                "height": 3680,
+                "requiredStatement": {
+                  "label": {
+                    "en": [
+                      "Attribution"
+                    ]
+                  },
+                  "value": {
+                    "en": [
+                      "Photo J. Prag, courtesy Museo civico di Termini Imerese"
+                    ]
+                  }
+                }
+              },
+              "target": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/front"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-1",
+      "type": "Canvas",
+      "label": {
+        "en": [
+          "CP 11100 (1)"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-1/page",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-1/annotation",
+              "type": "Annotation",
+              "motivation": "painting",
+              "body": {
+                "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-1_tiled.tif/full/max/0/default.jpg",
+                "type": "Image",
+                "format": "image/jpeg",
+                "service": [
+                  {
+                    "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-1_tiled.tif",
+                    "type": "ImageService3",
+                    "profile": "level2"
+                  }
+                ]
+              },
+              "target": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-2",
+      "type": "Canvas",
+      "label": {
+        "en": [
+          "CP 11100 (2)"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-2/page",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-2/annotation",
+              "type": "Annotation",
+              "motivation": "painting",
+              "body": {
+                "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-2_tiled.tif/full/max/0/default.jpg",
+                "type": "Image",
+                "format": "image/jpeg",
+                "service": [
+                  {
+                    "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-2_tiled.tif",
+                    "type": "ImageService3",
+                    "profile": "level2"
+                  }
+                ]
+              },
+              "target": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-3",
+      "type": "Canvas",
+      "label": {
+        "en": [
+          "CP 11100 (3)"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-3/page",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-3/annotation",
+              "type": "Annotation",
+              "motivation": "painting",
+              "body": {
+                "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-3_tiled.tif/full/max/0/default.jpg",
+                "type": "Image",
+                "format": "image/jpeg",
+                "service": [
+                  {
+                    "id": "https://cantaloupe.classics.ox.ac.uk/iiif/3/ISicily_pet!11100_ISic001151-CP-3_tiled.tif",
+                    "type": "ImageService3",
+                    "profile": "level2"
+                  }
+                ]
+              },
+              "target": "https://iiif.csad.ox.ac.uk/manifests/ISicily/ISic001151/canvas/pet-11100-CP-3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
