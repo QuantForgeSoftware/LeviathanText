@@ -126,6 +126,70 @@ public static class Program
                 return 0;
             }
 
+            case "train" when rest.Length >= 3 && rest[1] == "lines":
+            {
+                // Self-service training: PAGE+image corpus -> checkpoint -> model package.
+                var dataDir = rest[2];
+                var outDir = rest.Length >= 5 && rest[3] == "--out" ? rest[4] : Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "trained");
+                var epochs = rest.Length >= 7 && rest[5] == "--epochs" ? int.Parse(rest[6]) : 120;
+
+                var snapshot = P01LineDataset.Load(dataDir);
+                if (snapshot.Train.Count == 0) throw new ArgumentException("dataset produced no training lines");
+                var vocabulary = snapshot.Train.Concat(snapshot.Dev)
+                    .SelectMany(l => LeviathanText.Core.Unicode.Graphemes.Enumerate(l.Text).Select(g => g.Text))
+                    .Distinct(StringComparer.Ordinal).ToList();
+                var labels = new LabelSet(vocabulary);
+
+                var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-train-cli", Guid.NewGuid().ToString("N"));
+                var config = new TrainingConfig
+                {
+                    Epochs = epochs, BatchSize = 8, LearningRate = 3e-3, Seed = 42,
+                    EarlyStoppingPatience = epochs, HiddenSize = 64,
+                    ModelName = Path.GetFileName(Path.TrimEndingDirectorySeparator(outDir)),
+                    CheckpointDirectory = checkpointDir,
+                };
+                var trainer = new CtcTrainer(new CrnnModel(labels.NumClasses, config.HiddenSize), labels, config);
+                var run = trainer.Fit(snapshot.Train, snapshot.Dev);
+
+                var splitAssignment = string.Join('\n', snapshot.WitnessSplitMap.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+                var splitHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(splitAssignment))).ToLowerInvariant();
+                var bestDigest = File.Exists(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best"))
+                    ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                        File.ReadAllBytes(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best")))).ToLowerInvariant()
+                    : "";
+
+                var manifest = new TrainingRunManifest
+                {
+                    ModelName = config.ModelName,
+                    ConfigHash = config.ComputeHash(),
+                    NumClasses = labels.NumClasses,
+                    HiddenSize = config.HiddenSize,
+                    WidthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor,
+                    InputHeightPixels = CrnnModel.InputHeight,
+                    Dropout = 0,
+                    AugmentTraining = false,
+                    WeightDecay = 0,
+                    TrainLines = snapshot.Train.Count,
+                    DevLines = snapshot.Dev.Count,
+                    TestLockedLines = snapshot.TestLocked.Count,
+                    SplitHash = splitHash,
+                    LabelSetHash = CheckpointStore.LabelSetHash(labels),
+                    CheckpointDigest = bestDigest,
+                    BestValidationCer = run.BestValidationCer,
+                    EpochsCompleted = run.EpochsCompleted,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    History = run.History,
+                };
+                var package = ModelPackageWriter.Write(outDir, checkpointDir, config.ModelName, manifest,
+                    "Pilot model trained from a PAGE/image corpus; labels not expert-adjudicated.");
+
+                Console.WriteLine($"trained {config.ModelName}: best dev CER {run.BestValidationCer:0.###} over {run.EpochsCompleted} epochs");
+                Console.WriteLine($"package: {package.Directory}");
+                return 0;
+            }
+
             case "recognize" when rest.Length >= 4 && rest[1] == "surface":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));

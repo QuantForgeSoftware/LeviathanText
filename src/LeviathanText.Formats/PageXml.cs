@@ -24,7 +24,8 @@ public static class PageXml
         IReadOnlyList<NativeRegion> Regions,
         IReadOnlyList<NativeLine> Lines,
         IReadOnlyList<TextRevision> Revisions,
-        IReadOnlyList<ImportIssue> Unsupported);
+        IReadOnlyList<ImportIssue> Unsupported,
+        string? ImageFilename);
 
     public enum IssueSeverity { Loss, Note }
 
@@ -144,7 +145,7 @@ public static class PageXml
             if (element.Name != Pc + "TextRegion" && element.Name != Pc + "ReadingOrder")
                 unsupported.Add(new ImportIssue(element.Name.LocalName, "unsupported PAGE element is preserved in the source attachment, not flattened"));
 
-        return new PageImportResult(regions, lines, revisions, unsupported);
+        return new PageImportResult(regions, lines, revisions, unsupported, (string?)page.Attribute("imageFilename"));
     }
 
     /// <summary>Export a surface's regions/lines (geometry + text via TextEquiv) as a bounded PAGE document (pinned 2019-07-15).</summary>

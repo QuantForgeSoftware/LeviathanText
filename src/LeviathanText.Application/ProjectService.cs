@@ -68,6 +68,17 @@ public sealed class InterchangeService(ProjectService projects)
         var captureId = NewCaptureId(project);
         var result = PageXml.Import(xml, captureId, UnknownChecksum());
 
+        // Resolve the referenced image next to the PAGE file (name from the document,
+        // falling back to the XML basename with common extensions). Unresolved names are
+        // kept as-is so the manifest still records what the document declared.
+        var directory = Path.GetDirectoryName(Path.GetFullPath(pageXmlPath))!;
+        var imageName = result.ImageFilename ?? Path.GetFileNameWithoutExtension(pageXmlPath) + ".jpg";
+        var imagePath = new[] { imageName, Path.GetFileNameWithoutExtension(pageXmlPath) + ".png",
+                                Path.GetFileNameWithoutExtension(pageXmlPath) + ".jpg",
+                                Path.GetFileNameWithoutExtension(pageXmlPath) + ".tif" }
+            .Select(name => Path.Combine(directory, name))
+            .FirstOrDefault(File.Exists) ?? imageName;
+
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),
@@ -76,7 +87,7 @@ public sealed class InterchangeService(ProjectService projects)
             {
                 Id = captureId,
                 Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
-                ImageLocation = Path.GetFileName(pageXmlPath),
+                ImageLocation = imagePath,
             }],
             Regions = result.Regions,
             Lines = result.Lines,
