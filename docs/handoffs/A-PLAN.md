@@ -258,8 +258,9 @@ Blockers recorded so far:
   snippets; UI opens the hit across surfaces), profile-report CLI/API/bundle + QA badge,
   annotation and line CSV exports, mark-span rendering in the editor (unclear/lost/supplied/
   alternative/erased), L1/L2 prefix/suffix diff, model-package discovery and inline
-  recognition (name-only, verified packages), confidence-aware review queue (CLI CSV +
-  top-20 in the API response + workspace list), L0-copy-in-editor that never auto-saves.
+  recognition (name-only, verified packages), confidence-aware review queue (CLI CSV, top-20 in the API response, persisted
+  `GET /projects/{id}/review-queue` from stored mean L0 confidence, workspace list), model
+  package discovery + inline recognition, L0-copy-in-editor that never auto-saves.
 - **Geometry audit:** every geometry/order/add/delete action now appends a surface-level edit
   record (kind, author, timestamp, before/after snapshot), exposed by
   `GET /surfaces/{id}/geometry-history` and shown in the overlay; the contract's §1.3 records
@@ -270,8 +271,8 @@ Blockers recorded so far:
   self-review recorded (`docs/contracts/self-review-2026-10-19.md`) with open actions.
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
   throughput + evaluation index updates, implemented endpoint inventory in the API contract.
-- **Verification:** closing run **465 tests (464 passed + 1 opt-in skipped, 0 failed) across
-  13 suites; Release build 0 warnings/0 errors**; 21 web specs green; `scripts/pilot-demo.sh`
+- **Verification:** closing run **470 tests (469 passed + 1 opt-in skipped, 0 failed) across
+  13 suites; Release build 0 warnings/0 errors**; 25 web specs green; `scripts/pilot-demo.sh`
   end-to-end PASS. Two self-review integrity actions were resolved in-cycle (mean L0
   confidence persisted; run-id idempotency for retries) and geometry/order edits now have a
   surface-level audit. B remains quiet since its morning handoff; licensing files still belong
