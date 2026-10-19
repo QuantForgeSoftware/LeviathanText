@@ -135,6 +135,13 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 4 && rest[1] == "alto":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                Console.WriteLine(interchange.ExportAlto(project, EntityId.Parse(rest[3], EntityKind.Surface)));
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "tei":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -281,6 +288,7 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] export tei <projectId> <surfaceId>
+              leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]
 
             Lossy exports print a loss report to stderr; nothing is silently flattened.

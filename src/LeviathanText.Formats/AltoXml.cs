@@ -1,0 +1,162 @@
+using System.Xml.Linq;
+using LeviathanText.Contracts;
+
+namespace LeviathanText.Formats;
+
+/// <summary>
+/// Bounded ALTO XML adapter (todo Phase 4: ALTO among later format adapters; also a
+/// migration path for legacy OCR exports).
+///
+/// Supported subset: Layout/Page, PrintSpace/TextBlock, TextLine, Shape/Polygon and
+/// String@CONTENT. We do not synthesize word segmentation: a line without word boxes is
+/// exported as one String carrying the line text (round-trips exactly), and imports
+/// concatenate String contents. Unsupported elements are reported, never flattened
+/// silently. External entities/DTDs are refused.
+/// </summary>
+public static class AltoXml
+{
+    private static readonly XNamespace Alto = "http://www.loc.gov/standards/alto/ns-v4#";
+
+    public sealed record AltoImportResult(
+        IReadOnlyList<NativeRegion> Regions,
+        IReadOnlyList<NativeLine> Lines,
+        IReadOnlyList<TextRevision> Revisions,
+        IReadOnlyList<PageXml.ImportIssue> Unsupported);
+
+    public static string Export(NativeSurface surface, NativeCapture capture, IReadOnlyList<TextRevision> revisions)
+    {
+        ArgumentNullException.ThrowIfNull(surface);
+        ArgumentNullException.ThrowIfNull(capture);
+
+        var revisionById = revisions.ToDictionary(r => r.Id);
+
+        XElement LineElement(NativeLine line)
+        {
+            XElement? text = null;
+            if (line.DiplomaticRevisionId is { } rid && revisionById.TryGetValue(rid, out var revision))
+            {
+                var first = line.Baseline.Count > 0 ? line.Baseline[0] : new PointD(0, 0);
+                text = new XElement(Alto + "String",
+                    new XAttribute("ID", line.Id.Suffix + "-s1"),
+                    new XAttribute("CONTENT", revision.Text),
+                    new XAttribute("HPOS", first.X),
+                    new XAttribute("VPOS", first.Y));
+            }
+
+            var polygon = new XElement(Alto + "Polygon",
+                new XAttribute("POINTS", string.Join(" ", line.Polygon.Select(p => $"{p.X:0.#},{p.Y:0.#}"))));
+
+            return new XElement(Alto + "TextLine",
+                new XAttribute("ID", line.Id.Suffix),
+                new XElement(Alto + "Shape", polygon),
+                text);
+        }
+
+        var blocks = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(region =>
+            new XElement(Alto + "TextBlock",
+                new XAttribute("ID", region.Id.Suffix),
+                surface.Lines.Where(l => l.RegionId == region.Id).Select(LineElement)));
+
+        var page = new XElement(Alto + "Page",
+            new XAttribute("ID", surface.Id.Suffix),
+            new XAttribute("WIDTH", capture.WidthPx ?? 0),
+            new XAttribute("HEIGHT", capture.HeightPx ?? 0),
+            new XElement(Alto + "PrintSpace", blocks));
+
+        var alto = new XElement(Alto + "alto",
+            new XAttribute(XNamespace.Xmlns + "xsi", "http://www.w3.org/2001/XMLSchema-instance"),
+            new XElement(Alto + "Description",
+                new XElement(Alto + "MeasurementUnit", "pixel")),
+            new XElement(Alto + "Layout", page));
+
+        return new XDocument(new XDeclaration("1.0", "UTF-8", null), alto).ToString();
+    }
+
+    public static AltoImportResult Import(string xml, EntityId frameEntity, Checksum frameChecksum)
+    {
+        var doc = XDocument.Parse(xml, LoadOptions.None);
+        if (doc.DocumentType is not null)
+            throw new InvalidDataException("DOCTYPE/external entities are not accepted in ALTO imports.");
+
+        var root = doc.Root ?? throw new InvalidDataException("Missing ALTO root.");
+        if (root.Name.LocalName != "alto")
+            throw new InvalidDataException($"Unexpected root {root.Name.LocalName}; expected ALTO.");
+        if (root.Name.Namespace.NamespaceName != Alto.NamespaceName)
+            throw new InvalidDataException($"ALTO namespace {root.Name.Namespace} is not the pinned v4 namespace.");
+
+        var unsupported = new List<PageXml.ImportIssue>();
+        var regions = new List<NativeRegion>();
+        var lines = new List<NativeLine>();
+        var revisions = new List<TextRevision>();
+        int regionOrder = 0;
+
+        foreach (var block in root.Descendants(Alto + "TextBlock"))
+        {
+            var blockId = (string?)block.Attribute("ID") ?? $"altoregion{regionOrder}";
+            regions.Add(new NativeRegion
+            {
+                Id = new EntityId(EntityKind.Region, blockId),
+                FrameRef = frameEntity,
+                LayoutSource = LayoutSource.Imported,
+                ReadingOrderIndex = regionOrder,
+            });
+            regionOrder++;
+
+            foreach (var line in block.Elements(Alto + "TextLine"))
+            {
+                var lineId = (string?)line.Attribute("ID") ?? $"altoline{lines.Count}";
+                var polygon = ParsePolygon((string?)line.Element(Alto + "Shape")?.Element(Alto + "Polygon")?.Attribute("POINTS"));
+                var text = string.Concat(line.Elements(Alto + "String")
+                    .Select(s => (string?)s.Attribute("CONTENT") ?? ""));
+
+                var lineEntityId = new EntityId(EntityKind.Line, lineId);
+                TextRevision? revision = null;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    revision = new TextRevision
+                    {
+                        Id = new EntityId(EntityKind.TranscriptionRevision, $"alto-{lineId}"),
+                        ScopeId = lineEntityId,
+                        Layer = TextLayer.L1Diplomatic,
+                        Author = new AgentRef { Id = "alto-import", IsModel = false },
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Text = text,
+                    };
+                    revisions.Add(revision);
+                }
+
+                lines.Add(new NativeLine
+                {
+                    Id = lineEntityId,
+                    RegionId = new EntityId(EntityKind.Region, blockId),
+                    FrameRef = frameEntity,
+                    Polygon = polygon,
+                    Baseline = polygon.Count >= 2 ? [polygon[^1], polygon[^2]] : [],
+                    DiplomaticRevisionId = revision?.Id,
+                });
+
+                foreach (var child in line.Elements())
+                    if (child.Name != Alto + "Shape" && child.Name != Alto + "String")
+                        unsupported.Add(new PageXml.ImportIssue(child.Name.LocalName,
+                            "ALTO element outside the bounded subset (word/hyphenation/attributes not mapped)"));
+            }
+        }
+
+        return new AltoImportResult(regions, lines, revisions, unsupported);
+    }
+
+    private static List<PointD> ParsePolygon(string? points)
+    {
+        if (string.IsNullOrWhiteSpace(points)) return [];
+        var result = new List<PointD>();
+        foreach (var pair in points.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split(',');
+            if (parts.Length != 2) continue;
+            if (double.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var x)
+                && double.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var y))
+                result.Add(new PointD(x, y));
+        }
+        return result;
+    }
+}

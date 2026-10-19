@@ -135,6 +135,14 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/diplomatic", (ProjectService proj
     return Results.Ok(new { text, lossReport = report });
 });
 
+api.MapGet("projects/{id}/surfaces/{surfaceId}/alto", (ProjectService projects, string id, string surfaceId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(
+        new InterchangeService(projects).ExportAlto(project, EntityId.Parse(surfaceId, EntityKind.Surface)),
+        "application/xml");
+});
+
 api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, string id, string surfaceId) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

@@ -176,6 +176,12 @@ public sealed class InterchangeService(ProjectService projects)
         return PageXml.Export(surface, surface.Captures[0], surface.Revisions);
     }
 
+    public string ExportAlto(NativeProject project, EntityId surfaceId)
+    {
+        var surface = FindSurface(project, surfaceId);
+        return AltoXml.Export(surface, surface.Captures[0], surface.Revisions);
+    }
+
     public string ExportTei(NativeProject project, EntityId surfaceId, string title)
     {
         var surface = FindSurface(project, surfaceId);
