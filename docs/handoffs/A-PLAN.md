@@ -174,6 +174,12 @@ Blockers recorded so far:
 - Remaining before Phase 0 can be called *complete* (all pending, honestly): expert adjudication (DATA-03), corpus scale-up beyond 321 lines, all three tracks (manuscripts/inscriptions not yet acquired), locked-test evaluation, acceptance sheet with measured thresholds.
 
 
+### Handoff revision 9 — 2026-10-19 10:10 (session close; two-instance mode)
+
+- **Final state:** 13 suites, **340 tests**, 0 failures; Release build **0 warnings / 0 errors**. Two-instance collaboration closed with all boundary crossings reviewed (B's two Core repairs from the first session; B's text-only disclosure-template edit) and A's integration items delivered (API write surface hardened by live smoke: contract JSON on minimal APIs, annotation DTO with bind-to-current anchor, closed-code→HTTP middleware; transcription endpoints; editor/dual-pane/jobs UI; streaming pipeline; model-package CLI loading).
+- **Open gates (unchanged, honestly unchecked):** expert adjudication (DATA-03), corpus scale-up, trainable layout (negative finding recorded), inscription labels, TIFF handling, Kraken comparator, frozen acceptance sheet, external hosted-provider calls.
+- **Records:** B's progress and evidence in [B-CODE.md](B-CODE.md); evaluation records indexed in [docs/evaluation/README.md](../evaluation/README.md); locked-set reuse disclosed in [locked-set-reuse.md](../evaluation/locked-set-reuse.md).
+
 ### Handoff revision 8 — 2026-10-19 morning (two-instance resumption; A review of B)
 
 - Action: two-instance mode restored. A = integrator, owns C0/APP/FMT/IMG/UI (`74387e4`); B claimed AI/EVAL/ML (`94e6a10`) and delivered 17 green commits (beam search + alignment confidence, calibration ECE/MCE + risk–coverage, correction-effort scorer, error analysis, per-track aggregation, provider registry + OpenAI-compatible/Ollama adapters, proposal service with server-side evidence resolution, bulk-acceptance dry-run mandate, training-run manifests, checkpoint label-hash rejection, ML A/B measurements on input height/width).
