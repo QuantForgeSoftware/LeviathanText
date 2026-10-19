@@ -5,14 +5,30 @@ using static TorchSharp.torch;
 namespace LeviathanText.Recognition;
 
 /// <summary>
-/// Runs a <see cref="CrnnModel"/> and greedily decodes CTC output into L0 text with
-/// per-grapheme confidence. Confidence scale is raw model probability and is never
-/// presented as scholarly certainty.
+/// Runs a <see cref="CrnnModel"/> and decodes CTC output into L0 text with per-grapheme
+/// confidence. Greedy decoding is the default; prefix beam search is opt-in
+/// (<see cref="CtcDecodeMode.PrefixBeam"/>) because its benefit is a measurement, not an
+/// assumption. Confidence values are raw model probabilities interpreted along the chosen
+/// alignment and are never presented as scholarly certainty.
 /// </summary>
-public sealed class TorchLineRecognizer(CrnnModel model, LabelSet labels) : ICtcRecognizer
+public sealed class TorchLineRecognizer : ICtcRecognizer
 {
-    public CrnnModel Model { get; } = model;
-    public LabelSet Labels { get; } = labels;
+    public TorchLineRecognizer(CrnnModel model, LabelSet labels, CtcDecodeMode mode = CtcDecodeMode.Greedy, int beamWidth = 8)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(labels);
+        if (beamWidth < 1) throw new ArgumentOutOfRangeException(nameof(beamWidth), "Beam width must be at least 1.");
+
+        Model = model;
+        Labels = labels;
+        Mode = mode;
+        BeamWidth = beamWidth;
+    }
+
+    public CrnnModel Model { get; }
+    public LabelSet Labels { get; }
+    public CtcDecodeMode Mode { get; }
+    public int BeamWidth { get; }
 
     public IReadOnlyList<RecognitionResult> Recognize(IReadOnlyList<LineImage> lines)
     {
@@ -47,22 +63,44 @@ public sealed class TorchLineRecognizer(CrnnModel model, LabelSet labels) : ICtc
 
         var probabilities = logProbs.exp().cpu().data<float>().ToArray();
         var argmax = logProbs.argmax(2).cpu().data<long>().ToArray(); // row-major (T, N)
+        var classCount = (int)classes;
 
         var results = new List<RecognitionResult>(lines.Count);
         for (int n = 0; n < lines.Count; n++)
         {
-            var indices = new List<int>();
-            var stepConfidence = new List<double>();
-            int previous = -1;
-            for (int t = 0; t < lengths[n]; t++)
+            int[] indices;
+            List<double> stepConfidence;
+
+            if (Mode == CtcDecodeMode.Greedy)
             {
-                int index = (int)argmax[t * batch + n];
-                if (index != previous && index != LabelSet.BlankIndex)
+                var greedy = new List<int>();
+                stepConfidence = new List<double>();
+                int previous = -1;
+                for (int t = 0; t < lengths[n]; t++)
                 {
-                    indices.Add(index);
-                    stepConfidence.Add(probabilities[(t * batch + n) * classes + index]);
+                    int index = (int)argmax[t * batch + n];
+                    if (index != previous && index != LabelSet.BlankIndex)
+                    {
+                        greedy.Add(index);
+                        stepConfidence.Add(probabilities[(t * batch + n) * classes + index]);
+                    }
+                    previous = index;
                 }
-                previous = index;
+                indices = [.. greedy];
+            }
+            else
+            {
+                var matrix = new double[lengths[n]][];
+                for (int t = 0; t < lengths[n]; t++)
+                {
+                    var row = new double[classCount];
+                    for (int c = 0; c < classCount; c++)
+                        row[c] = probabilities[(t * batch + n) * classes + c];
+                    matrix[t] = row;
+                }
+
+                indices = CtcBeamDecoder.PrefixBeamSearch(matrix, BeamWidth);
+                stepConfidence = CtcBeamDecoder.BestAlignment(matrix, indices).Select(a => a.Probability).ToList();
             }
 
             var text = Labels.Decode(indices);
