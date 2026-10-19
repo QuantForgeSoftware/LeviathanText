@@ -25,6 +25,14 @@ public static class AiPromptBuilder
             ? "(source text not supplied; do not guess)"
             : request.SourceText;
 
+        // The prompt fences the evidence with triple quotes. A source span containing that
+        // delimiter could close the fence and inject instructions; refuse instead of
+        // silently altering the evidence.
+        if (source.Contains("\"\"\"", StringComparison.Ordinal))
+            throw new AiProviderException(
+                AiFailureReasons.RequestInvalid,
+                detail: "Source text contains the prompt delimiter; refusing to build an ambiguous prompt.");
+
         var task = TaskRule(request.Task);
         var instruction = string.IsNullOrWhiteSpace(request.Instruction)
             ? string.Empty
