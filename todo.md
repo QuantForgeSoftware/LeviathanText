@@ -473,11 +473,20 @@ Acceptance invariants that can be specified now: original assets/revisions remai
 | Inscription/fragment recognition difficulty | Separate models/benchmarks; manual layout permitted but disclosed | Phase 0 evidence; research risk remains |
 | TEI/EpiDoc interoperability scope | Bounded versioned profile with explicit loss reporting | Phase 0 contract, Phase 1–2 verification |
 | AI restriction claim | Treat absence of project-imposed AI bans as a requirement; source of claimed Kraken restriction is unverified | Clarify only if policy comparison becomes necessary |
-| Project license and contribution policy | Choose a permissive license and explicit AI-friendly contribution policy | Before public release |
+| Project license and contribution policy | **Approved 2026-10-19:** Apache-2.0, maintainer-led governance, DCO sign-off, reproducible improvement evidence and regression gates | Write policy files now; hosting enforcement remains pending repository configuration |
 | Standalone vs shared service priority | CLI/local first; shared server follows | Before Phase 1 implementation |
 | Staffing, dates and compute costs | Re-estimate from actual annotation/model work; earlier week estimates withdrawn | Phase 0 completion |
 
 ## 10. Sources and planning review
+
+### Licensing and contribution policy — 2026-10-19
+
+- [ ] Install the unmodified Apache-2.0 license and DCO 1.1 text, plus project attribution and license-scope notices.
+- [ ] Write governance, contribution requirements and a pull-request evidence template reflecting the owner's approval.
+- [ ] Link the policy documents from the README and verify text integrity, links and consistency without changing application code.
+- [ ] Configure required maintainer review, trusted status checks, DCO validation and protected release/default branches on the hosting service. No Git remote is currently configured; writing local policy files does not enable these controls.
+
+Review result: pending document verification. Existing unrelated work must remain untouched.
 
 Local reference material inspected:
 
