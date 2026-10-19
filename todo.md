@@ -287,6 +287,8 @@ Dataset workers publish immutable, versioned development images/crops and annota
 
 **Status correction (night session 2026-10-18/19, single-instance mode):** "every implementation package unstarted" is superseded — the user authorized coding and made Instance A the only instance; current state is the board above. Acquisition/adjudication gates remain pending.
 
+**Two-instance mode restored (2026-10-19 06:54):** Instance A resumes as **integrator** and owns `docs/contracts/`, `docs/handoffs/A-PLAN.md`, `todo.md`, and the implementation packages **C0/APP/FMT/IMG/UI**. ML/AI/EVAL code exists from the single-instance session; A holds it until B claims it (B's natural packages: ML/AI/EVAL refinement or D-M/D-P/D-I data work — B records its claim in its own handoff; A will reflect it on this board). Ready inputs for B: contract set `C0-0.4-draft`, per-track audited manifests (`data/manifests/*`), pilot reports, and the trained-model/checkpoint conventions.
+
 **Starting assignment:** C0 and D-M/D-P/D-I are ready for further documentation/intake planning; every implementation package is unstarted and awaits a user instruction permitting code. Data/license research is complete only to the extent recorded in Section 5; acquisition, pairing and expert annotation remain pending. Give each new instance a package brief containing its ID, allowed action scope, base revision, owned paths, contract version, dependency inputs, acceptance criteria and handoff path `docs/handoffs/<package-id>.md`. A brief must carry the no-code constraint whenever it is still in effect. This lets a fresh instance resume without relying on another chat's memory.
 
 ### Issued two-instance planning briefs
