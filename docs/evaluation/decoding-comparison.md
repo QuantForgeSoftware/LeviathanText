@@ -9,6 +9,12 @@
 Training: P01 v0.9, train 176 / dev 50, 300 epochs, seed 42, train loss 0.084 → 0,
 best dev CER 0.835, label vocabulary 45. **The locked test split was not used.**
 
+The run also writes `.artifacts/pilot/p01-decode-run-manifest.json`
+(`TrainingRunManifest`): architecture (`widthDownsampleFactor`), config hash, label-set
+hash, split hash, best-checkpoint SHA-256 and the full learning curve. Its split hash
+`f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6` matches the one-shot
+[pilot-p01-report.md](pilot-p01-report.md), so the two records refer to the same split.
+
 Latest run:
 
 | Decoder | Dev scalar CER | Perfect lines | Seconds/line |

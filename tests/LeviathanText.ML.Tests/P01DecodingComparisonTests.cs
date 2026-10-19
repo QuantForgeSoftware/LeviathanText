@@ -51,6 +51,18 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         var trainer = new CtcTrainer(model, labels, config);
         var run = trainer.Fit(snapshot.Train, snapshot.Dev);
 
+        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        Directory.CreateDirectory(artifactDir);
+        var splitHash = TrainingRunManifestWriter.SplitHash(
+            snapshot.WitnessSplitMap.Select(kv => $"{kv.Key}={kv.Value}"));
+        var manifest = TrainingRunManifestWriter.Create(
+            model, labels, config, run,
+            trainLines: snapshot.Train.Count,
+            devLines: snapshot.Dev.Count,
+            testLockedLines: snapshot.TestLocked.Count,
+            splitHash: splitHash);
+        TrainingRunManifestWriter.Write(artifactDir, manifest, "p01-decode-run-manifest.json");
+
         var images = snapshot.Dev.Select(l => l.Image).ToArray();
         var references = snapshot.Dev.Select(l => l.Text).ToArray();
 
@@ -65,6 +77,7 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         var summary = new StringBuilder();
         summary.AppendLine("P01 v0.9 decoding comparison, dev split (pilot-scale, non-adjudicated labels)");
         summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; trainLoss {run.History[0].TrainLoss:0.###}->{run.History[^1].TrainLoss:0.###}; best dev CER={run.BestValidationCer:0.###}; vocab={vocabulary.Count}");
+        summary.AppendLine($"run manifest: config {manifest.ConfigHash[..12]}…, split {splitHash[..12]}…, best-checkpoint sha256 {manifest.CheckpointDigest[..12]}… (p01-decode-run-manifest.json)");
         summary.AppendLine();
         summary.AppendLine("| Decoder | Dev scalar CER | Perfect lines | s/line |");
         summary.AppendLine("| --- | --- | --- | --- |");
@@ -98,12 +111,23 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         summary.AppendLine($"- Text coverage with CER <= 0.75: {selective.CoverageForCerBelow(0.75):0.###}");
         summary.AppendLine("- Pilot-scale: confidence is a raw model probability, not a scholarly judgment; no threshold is set here.");
 
+        var timeSteps = images.Select(image => CrnnModel.TimeStepsFor(image.Width)).ToArray();
+        var referenceLengths = references.Select(reference => RecognitionScorer.Score(reference, reference).ReferenceScalarLength).ToArray();
+        var impossible = Enumerable.Range(0, references.Length).Count(i => timeSteps[i] < referenceLengths[i]);
+        summary.AppendLine();
+        summary.AppendLine("## Sequence-length headroom (greedy)");
+        summary.AppendLine();
+        summary.AppendLine($"- CTC time steps: min {timeSteps.Min()}, median {Median(timeSteps)}; reference scalars: min {referenceLengths.Min()}, median {Median(referenceLengths)}");
+        summary.AppendLine($"- Lines where time steps < reference scalars (a full label sequence is unreachable): {impossible}/{references.Length}");
+        var timeStepsAtDoubleWidth = images.Select(image => Math.Max(1, image.Width / 2)).ToArray();
+        var impossibleAtDouble = Enumerable.Range(0, references.Length).Count(i => timeStepsAtDoubleWidth[i] < referenceLengths[i]);
+        summary.AppendLine($"- Image widths: min {images.Min(i => i.Width)}, median {Median(images.Select(i => i.Width).ToArray())}; with a width/2 downsample, unreachable lines would be {impossibleAtDouble}/{references.Length}");
+
         var errorReport = ErrorAnalysis.Aggregate(
             references.Select((reference, i) => ErrorAnalysis.Analyze(reference, greedyResults[i].Text)),
             top: 5);
         summary.AppendLine();
-        summary.AppendLine("## Error analysis (greedy, dev, top 5)");
-        summary.AppendLine();
+        summary.AppendLine("## Error analysis (greedy, dev, top 5)");        summary.AppendLine();
         summary.AppendLine($"- Substitutions {errorReport.TotalSubstitutions} (mark {errorReport.MarkSubstitutions}); insertions {errorReport.TotalInsertions} (mark {errorReport.MarkInsertions}); deletions {errorReport.TotalDeletions} (mark {errorReport.MarkDeletions})");
         foreach (var pair in errorReport.TopSubstitutions)
             summary.AppendLine($"  - sub {Describe(pair.Expected)} -> {Describe(pair.Produced)} x{pair.Count}");
@@ -115,8 +139,6 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
-        Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-decoding-comparison.txt"), text);
 
         Assert.All(results, r => Assert.True(r.Cer < 1.0, $"{r.Mode} CER {r.Cer:0.###} must beat the empty baseline"));
@@ -144,6 +166,12 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
 
         var cer = length == 0 ? 1.0 : (double)distance / length;
         return (mode, cer, clock.Elapsed.TotalSeconds / Math.Max(1, images.Length), perfect);
+    }
+
+    private static int Median(int[] values)
+    {
+        var ordered = values.OrderBy(v => v).ToArray();
+        return ordered[ordered.Length / 2];
     }
 
     private static string Describe(string scalar)
