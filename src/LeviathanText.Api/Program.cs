@@ -336,42 +336,7 @@ api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
 api.MapGet("projects/{id}/profile-report", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    var surfaces = project.Objects.SelectMany(o => o.Surfaces).Select(surface =>
-    {
-        var revisions = surface.Revisions.ToDictionary(r => r.Id);
-        int lines = 0, flagged = 0;
-        var issues = new List<object>();
-        foreach (var line in surface.Lines)
-        {
-            if (line.DiplomaticRevisionId is not { } rid || !revisions.TryGetValue(rid, out var revision)) continue;
-            lines++;
-            var report = GreekTextProfile.Inspect(revision.Text);
-            if (report.IsClean) continue;
-            flagged++;
-            foreach (var issue in report.Issues.Take(20))
-                issues.Add(new
-                {
-                    lineId = line.Id.ToString(),
-                    scalarOffset = issue.ScalarOffset,
-                    category = issue.Category.ToString(),
-                    scalar = issue.Scalar,
-                });
-        }
-        return new
-        {
-            surfaceId = surface.Id.ToString(),
-            lines,
-            flagged,
-            issues,
-        };
-    }).ToList();
-
-    return Results.Ok(new
-    {
-        profile = GreekTextProfile.ProfileId,
-        version = GreekTextProfile.Version,
-        surfaces,
-    });
+    return Results.Ok(ProfileReport.Build(project));
 });
 
 api.MapGet("projects/{id}/training-export", (ProjectService projects, string id) =>

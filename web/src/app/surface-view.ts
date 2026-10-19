@@ -42,6 +42,13 @@ import { GeometryEditor } from './geometry-editor';
           <app-geometry-editor [projectId]="projectId()" [surfaceId]="surfaceId()" [imageUrl]="imageLink()" />
         }
 
+        <p class="hint">
+          QA profile {{ qaProfile() }}: {{ qaFlagged() }} flagged line(s)
+          @for (issue of qaIssues().slice(0, 3); track $index) {
+            · {{ issue.lineId }} [{{ issue.scalarOffset }}] {{ issue.category }}
+          }
+        </p>
+
         <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
@@ -85,6 +92,9 @@ export class SurfaceView {
   protected readonly captureIndex = signal(0);
   protected readonly showGeometry = signal(false);
   protected readonly exportStatus = signal('');
+  protected readonly qaProfile = signal('');
+  protected readonly qaFlagged = signal(0);
+  protected readonly qaIssues = signal<{ lineId: string; scalarOffset: number; category: string; scalar: string }[]>([]);
   private readonly lineIdsByIndex = signal<string[]>([]);
 
   protected onCapture(event: Event): void {
@@ -161,6 +171,16 @@ export class SurfaceView {
         },
         error: () => this.exportData.set({ text: '', lossReport: { format: 'unavailable', contractVersion: '-', entries: [] } }),
       });
+
+    this.api.profileReport(this.projectId()).subscribe({
+      next: (report) => {
+        const surface = report.surfaces.find(s => s.surfaceId === this.surfaceId());
+        this.qaProfile.set(`${report.profile}@${report.version}`);
+        this.qaFlagged.set(surface?.flagged ?? 0);
+        this.qaIssues.set(surface?.issues ?? []);
+      },
+      error: () => this.qaProfile.set('unavailable'),
+    });
 
     // Line ids (in stored order) so clicking a rendered line opens its editor.
     this.api.loadProject(this.projectId()).subscribe(payload => {

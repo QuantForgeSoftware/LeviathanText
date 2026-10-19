@@ -183,6 +183,18 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
   }
 
+  profileReport(projectId: string): Observable<{
+    profile: string;
+    version: string;
+    surfaces: { surfaceId: string; lines: number; flagged: number; issues: { lineId: string; scalarOffset: number; category: string; scalar: string }[] }[];
+  }> {
+    return this.http.get<{
+      profile: string;
+      version: string;
+      surfaces: { surfaceId: string; lines: number; flagged: number; issues: { lineId: string; scalarOffset: number; category: string; scalar: string }[] }[];
+    }>(`/api/v1/projects/${projectId}/profile-report`);
+  }
+
   trainingExport(projectId: string): Observable<unknown> {
     return this.http.get<unknown>(`/api/v1/projects/${projectId}/training-export`);
   }

@@ -287,31 +287,15 @@ public static class Program
                 // Latin letters and unpaired combining marks are reported per surface.
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var strict = rest.Contains("--strict");
-                int lines = 0, flagged = 0;
-                foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+                var report = ProfileReport.Build(project);
+                foreach (var surface in report.Surfaces)
                 {
-                    var revisions = surface.Revisions.ToDictionary(r => r.Id);
-                    int surfaceLines = 0, surfaceIssues = 0;
-                    var shown = 0;
-                    foreach (var line in surface.Lines)
-                    {
-                        if (line.DiplomaticRevisionId is not { } rid || !revisions.TryGetValue(rid, out var revision)) continue;
-                        surfaceLines++;
-                        var report = GreekTextProfile.Inspect(revision.Text);
-                        if (report.IsClean) continue;
-                        surfaceIssues++;
-                        foreach (var issue in report.Issues)
-                        {
-                            if (shown++ >= 5) break;
-                            Console.Error.WriteLine($"  {line.Id} scalar {issue.ScalarOffset}: {issue.Category} {issue.Scalar}");
-                        }
-                    }
-                    lines += surfaceLines;
-                    flagged += surfaceIssues;
-                    Console.WriteLine($"{surface.Id}\tlines={surfaceLines}\tflagged={surfaceIssues}\tprofile={GreekTextProfile.ProfileId}@{GreekTextProfile.Version}");
+                    foreach (var issue in surface.Issues)
+                        Console.Error.WriteLine($"  {issue.LineId} scalar {issue.ScalarOffset}: {issue.Category} {issue.Scalar}");
+                    Console.WriteLine($"{surface.SurfaceId}\tlines={surface.Lines}\tflagged={surface.Flagged}\tprofile={report.Profile}@{report.Version}");
                 }
-                Console.Error.WriteLine($"checked {lines} transcribed lines; flagged {flagged}");
-                return strict && flagged > 0 ? 1 : 0;
+                Console.Error.WriteLine($"flagged {report.FlaggedTotal} line(s) across {report.Surfaces.Count} surface(s)");
+                return strict && report.FlaggedTotal > 0 ? 1 : 0;
             }
 
             case "jobs" when rest.Length >= 2 && rest[1] == "list":
