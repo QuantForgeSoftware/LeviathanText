@@ -320,8 +320,14 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 // with the job resource remaining authoritative.
 api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) =>
 {
+    // Jobs may carry one input artifact; layout.detect uses the surface entity as input.
+    IReadOnlyList<StageArtifact>? inputs = string.IsNullOrEmpty(request.SurfaceId)
+        ? null
+        : [new StageArtifact(EntityId.Parse(request.SurfaceId, EntityKind.Surface),
+            new Checksum { Algorithm = "surface", Digest = "" })];
+
     var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
-        idempotencyKey: request.IdempotencyKey);
+        inputs: inputs, idempotencyKey: request.IdempotencyKey);
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
 
@@ -373,7 +379,7 @@ app.Run();
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath, string? Kind = null);
 public sealed record ImportIiifRequest(string ManifestPath);
-public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
+public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public sealed record AddAnnotationRequest(

@@ -22,7 +22,7 @@ public static class Program
         }
 
         using var store = new LocalStore(storePath);
-        var host = new WorkerHost(new LocalStoreJobStore(store), [new NoOpHandler()]);
+        var host = new WorkerHost(new LocalStoreJobStore(store), [new NoOpHandler(), new LayoutDetectHandler(store)]);
         var workerId = host.WorkerId.ToString();
 
         Console.WriteLine($"worker {workerId} polling {storePath}");
