@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- INVENTED ILLUSTRATIVE FIXTURE (docs/contracts/examples.md): not ground truth, derived from no real item. -->
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+  <Page imageFilename="fixture-papyrus-01.jpg">
+    <TextRegion id="reg1">
+      <Coords points="10,10 200,10 200,60 10,60"/>
+      <TextLine id="ln1">
+        <Coords points="10,20 200,20 200,40 10,40"/>
+        <Baseline points="10,38 200,36"/>
+        <TextEquiv>
+          <Unicode>α̅λ̅α̅νθρωπ</Unicode>
+        </TextEquiv>
+      </TextLine>
+      <TextLine id="ln2">
+        <Coords points="10,45 200,45 200,58 10,58"/>
+        <TextEquiv>
+          <Unicode>ἐν αρχῇ</Unicode>
+        </TextEquiv>
+      </TextLine>
+    </TextRegion>
+    <GraphicRegion id="fig1">
+      <Coords points="210,10 290,10 290,90 210,90"/>
+    </GraphicRegion>
+  </Page>
+</PcGts>

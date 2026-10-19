@@ -4,6 +4,7 @@
     <Project Path="src/LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
     <Project Path="src/LeviathanText.Core/LeviathanText.Core.csproj" />
     <Project Path="src/LeviathanText.Evaluation/LeviathanText.Evaluation.csproj" />
+    <Project Path="src/LeviathanText.Formats/LeviathanText.Formats.csproj" />
     <Project Path="src/LeviathanText.Recognition/LeviathanText.Recognition.csproj" />
     <Project Path="src/LeviathanText.Training/LeviathanText.Training.csproj" />
   </Folder>
@@ -12,6 +13,7 @@
     <Project Path="tests/LeviathanText.Contracts.Tests/LeviathanText.Contracts.Tests.csproj" />
     <Project Path="tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj" />
     <Project Path="tests/LeviathanText.Evaluation.Tests/LeviathanText.Evaluation.Tests.csproj" />
+    <Project Path="tests/LeviathanText.Formats.Tests/LeviathanText.Formats.Tests.csproj" />
     <Project Path="tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj" />
   </Folder>
 </Solution>

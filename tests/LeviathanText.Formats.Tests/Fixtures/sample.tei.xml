@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- INVENTED ILLUSTRATIVE FIXTURE (docs/contracts/examples.md): not ground truth. -->
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt><title>Fixture inscription line</title></titleStmt>
+      <publicationStmt><p>fixture</p></publicationStmt>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div type="edition">
+        <ab><lb/>εα<unclear reason="unclear">ν</unclear>τι<gap reason="lost" extent="unknown"/>ϲαλλ<app><lem>ο</lem><rdg type="alternative">ω</rdg></app>γρα<supplied reason="editorial">φ</supplied>η</ab>
+      </div>
+    </body>
+  </text>
+</TEI>
