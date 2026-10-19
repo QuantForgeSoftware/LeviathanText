@@ -81,6 +81,65 @@ public class ModelPackageTests
     }
 
     [Fact]
+    public void Package_without_manifest_uses_the_single_best_metadata()
+    {
+        var checkpointDir = NewDirectory("nomanifest-checkpoints");
+        var labels = new LabelSet(Vocabulary);
+        var train = SyntheticLineDataset.Generate(8, Vocabulary, seed: 21);
+        var config = new TrainingConfig
+        {
+            Epochs = 2,
+            BatchSize = 4,
+            Seed = 2,
+            HiddenSize = 16,
+            ModelName = "nomanifest-crnn",
+            CheckpointDirectory = checkpointDir,
+        };
+
+        var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+        var trainer = new CtcTrainer(model, labels, config);
+        var run = trainer.Fit(train, train);
+        trainer.RestoreBest();
+        var manifest = TrainingRunManifestWriter.Create(model, labels, config, run, train.Count, train.Count, 0, "split");
+        var package = ModelPackageWriter.Write(NewDirectory("nomanifest-package"), checkpointDir, config.ModelName, manifest);
+
+        File.Delete(package.ManifestPath);
+
+        var loaded = RecognitionModelLoader.Load(package.Directory);
+        Assert.Null(loaded.Manifest);
+        Assert.Equal(labels.NumClasses, loaded.Labels.NumClasses);
+    }
+
+    [Fact]
+    public void Missing_labels_in_metadata_are_rejected()
+    {
+        var checkpointDir = NewDirectory("nolabels-checkpoints");
+        var labels = new LabelSet(Vocabulary);
+        var train = SyntheticLineDataset.Generate(8, Vocabulary, seed: 22);
+        var config = new TrainingConfig
+        {
+            Epochs = 2,
+            BatchSize = 4,
+            Seed = 2,
+            HiddenSize = 16,
+            ModelName = "nolabels-crnn",
+            CheckpointDirectory = checkpointDir,
+        };
+
+        var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+        var trainer = new CtcTrainer(model, labels, config);
+        var run = trainer.Fit(train, train);
+        var manifest = TrainingRunManifestWriter.Create(model, labels, config, run, train.Count, train.Count, 0, "split");
+        var package = ModelPackageWriter.Write(NewDirectory("nolabels-package"), checkpointDir, config.ModelName, manifest);
+
+        var metadata = CheckpointStore.ReadMetadata(package.Directory, config.ModelName, ".best");
+        CheckpointStore.WriteMetadata(package.Directory, config.ModelName, metadata with { Labels = [] }, ".best");
+
+        var ex = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(package.Directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
+    }
+
+    [Fact]
     public void Tampered_weights_are_rejected_by_the_manifest_digest()
     {
         var checkpointDir = NewDirectory("tamper-checkpoints");
