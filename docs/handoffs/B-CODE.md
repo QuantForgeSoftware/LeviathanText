@@ -146,6 +146,21 @@ Positive: the provider listing nulls `CredentialEnvironmentVariable` before retu
 settings, so the browser never receives credential names; B verified this matches
 `interchange-and-api.md` §2.3.
 
+### B review of A's `StreamingPipeline` (`fcee469`) — no blocking defect
+
+Read-only review; Application suite is green (15 tests, including 5000-item backpressure).
+
+- Bounded channel + `FullMode.Wait` genuinely applies backpressure; per-item exceptions are
+  isolated and returned in completion order (documented).
+- Cancellation is cooperative, but **cancelled items are omitted** from the result list.
+  Consider a distinct `Cancelled` item status (or document the omission in the API/job
+  contract) so callers can distinguish "not processed" from "processed successfully".
+- Producer enumeration exceptions surface through `ReadAllAsync` and make `RunAsync` throw,
+  discarding partial results. That is defensible, but it should be documented because the
+  per-item failure isolation does not cover a producer failure.
+- `ItemResult.Error` carries `exception.Message`; ensure future work callbacks never embed
+  credentials or other secrets in exception text.
+
 ### Locked-set disclosure (B, EVAL)
 
 The P01 locked split was scored twice (0.885 pre-fix, 0.828 post-fix). The public
