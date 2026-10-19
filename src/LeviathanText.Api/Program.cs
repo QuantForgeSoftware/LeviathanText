@@ -85,6 +85,18 @@ app.Use(async (context, next) =>
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(ContractJson.ToJson(ex.Error));
     }
+    catch (FormatException)
+    {
+        // Malformed ids are a client error, not a server fault.
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(ContractJson.ToJson(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = context.Request.Path,
+            Message = "Malformed identifier or value in the request.",
+        }));
+    }
 });
 // Pilot shared-deployment guard (opt-in). With an API key configured, every /api/v1
 // request must present it (Bearer or X-Api-Key) and ReadOnly blocks non-GET methods.

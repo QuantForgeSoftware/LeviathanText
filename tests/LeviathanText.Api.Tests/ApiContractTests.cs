@@ -53,6 +53,14 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Malformed_identifier_is_a_client_error_not_a_server_fault()
+    {
+        var response = await NewClient().GetAsync("/api/v1/projects/not-an-entity-id");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("stageContractViolation", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Unknown_project_returns_closed_vocabulary_error()
     {
         var client = NewClient();

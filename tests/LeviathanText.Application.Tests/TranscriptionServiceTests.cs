@@ -167,4 +167,56 @@ public sealed class TranscriptionServiceTests
         Assert.Equal(importedCount + 2, history.Count);
         Assert.Equal("αβ", history[^1].Text);
     }
+
+    [Fact]
+    public void Annotation_ranges_are_validated_against_the_anchored_revision()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+
+        var beyond = Assert.Throws<LeviathanException>(() => service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a-beyond"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 999),
+        }));
+        Assert.Equal(ErrorCode.StageContractViolation, beyond.Error.Code);
+
+        var emptyUnclear = Assert.Throws<LeviathanException>(() => service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a-empty"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(2, 2),
+        }));
+        Assert.Contains("empty range", emptyUnclear.Error.Message);
+
+        // A lost marker may be a position; its extent defaults to Unknown.
+        var (withLost, _, lost) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a-lost"),
+            Kind = AnnotationKind.Lost,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(3, 3),
+        });
+        Assert.Equal(GapExtent.Unknown, lost.GapExtent);
+
+        // Estimated gaps must carry a count; alternatives must carry text.
+        Assert.Throws<LeviathanException>(() => service.AddAnnotation(withLost, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a-est"),
+            Kind = AnnotationKind.Lost,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(4, 5),
+            GapExtent = GapExtent.Estimated,
+        }));
+        Assert.Throws<LeviathanException>(() => service.AddAnnotation(withLost, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a-alt"),
+            Kind = AnnotationKind.AlternativeReading,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 2),
+        }));
+    }
 }

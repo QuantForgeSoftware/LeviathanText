@@ -109,6 +109,52 @@ public sealed class TranscriptionService(IProjectStore store)
                 });
         }
 
+        // Range and payload validation against the anchored revision (scalar offsets).
+        var revision = surface.Revisions.Single(r => r.Id == annotation.AnchoredRevisionId);
+        int length = LeviathanText.Core.Unicode.ScalarText.ScalarLength(revision.Text);
+        if (annotation.Range.Start < 0 || annotation.Range.End < annotation.Range.Start || annotation.Range.End > length)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Details = new Dictionary<string, string>
+                {
+                    ["range"] = $"{annotation.Range.Start}..{annotation.Range.End}",
+                    ["length"] = length.ToString(),
+                },
+                Message = "Annotation range falls outside the anchored revision.",
+            });
+
+        if (annotation.Kind != AnnotationKind.Lost && annotation.Range.IsEmpty)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Message = "Only a lost-text marker may have an empty range (a position); other annotations need a span.",
+            });
+
+        if (annotation.Kind == AnnotationKind.Lost)
+        {
+            annotation = annotation.GapExtent is null
+                ? annotation with { GapExtent = GapExtent.Unknown }
+                : annotation;
+            if (annotation.GapExtent == GapExtent.Estimated && annotation.EstimatedScalarCount is null)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = annotation.Id.ToString(),
+                    Message = "An estimated gap must carry EstimatedScalarCount.",
+                });
+        }
+
+        if (annotation.Kind == AnnotationKind.AlternativeReading && string.IsNullOrWhiteSpace(annotation.AlternativeText))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Message = "An alternative reading must carry AlternativeText.",
+            });
+
         surface = surface with { Annotations = [.. surface.Annotations.Append(annotation)] };
         foundProject = WithSurface(foundProject, surface);
         store.SaveProject(foundProject);

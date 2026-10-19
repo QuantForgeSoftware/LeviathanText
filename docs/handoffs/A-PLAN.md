@@ -256,6 +256,10 @@ Blockers recorded so far:
   alternative/erased), L1/L2 prefix/suffix diff, model-package discovery and inline
   recognition (name-only, verified packages), confidence-aware review queue (CLI CSV +
   top-20 in the API response + workspace list), L0-copy-in-editor that never auto-saves.
+- **Server hardening:** annotation ranges validated against the anchored revision (empty
+  spans only for lost markers; estimated gaps need a count; alternatives need text); malformed
+  identifiers return a client error instead of a 500; project stats endpoint; contract
+  self-review recorded (`docs/contracts/self-review-2026-10-19.md`) with open actions.
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
   throughput + evaluation index updates, implemented endpoint inventory in the API contract.
 - **Verification:** full Release build and suite counts recorded in the board after the closing
