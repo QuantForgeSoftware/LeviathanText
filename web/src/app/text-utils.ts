@@ -96,3 +96,37 @@ function markClass(kind: string): string {
     default: return '';
   }
 }
+
+export interface ScalarDiff {
+  equal: boolean;
+  prefix: string;
+  aMiddle: string;
+  bMiddle: string;
+  suffix: string;
+}
+
+/**
+ * Longest common prefix/suffix on scalars. This is a display aid: it shows the changed
+ * middle, not a word-level or edit-distance alignment (documented limitation).
+ */
+export function scalarDiff(a: string, b: string): ScalarDiff {
+  const left = Array.from(a);
+  const right = Array.from(b);
+  let prefix = 0;
+  while (prefix < left.length && prefix < right.length && left[prefix] === right[prefix]) prefix++;
+  let suffix = 0;
+  while (
+    suffix < left.length - prefix &&
+    suffix < right.length - prefix &&
+    left[left.length - 1 - suffix] === right[right.length - 1 - suffix]
+  ) suffix++;
+
+  const equal = prefix === left.length && prefix === right.length;
+  return {
+    equal,
+    prefix: left.slice(0, prefix).join(''),
+    aMiddle: left.slice(prefix, left.length - suffix).join(''),
+    bMiddle: right.slice(prefix, right.length - suffix).join(''),
+    suffix: suffix === 0 ? '' : left.slice(left.length - suffix).join(''),
+  };
+}

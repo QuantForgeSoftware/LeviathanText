@@ -4,8 +4,9 @@
  * placeholder when no editorial reading exists). Scalar totals are shown per pane so
  * wire-level combining-sequence breakage is visible immediately.
  */
-import { Component, input, signal, OnInit } from '@angular/core';
-import { ApiClient, RevisionPayload } from './api-client';
+import { Component, computed, input, signal, OnInit } from '@angular/core';
+import { ApiClient } from './api-client';
+import { scalarCount, scalarDiff } from './text-utils';
 
 @Component({
   selector: 'app-dual-pane',
@@ -16,13 +17,24 @@ import { ApiClient, RevisionPayload } from './api-client';
       <div class="panes">
         <div class="pane">
           <h4>Diplomatic (L1)</h4>
-          <p class="greek">{{ diplomatic() }}</p>
+          @if (hasEditorial() && !diff().equal) {
+            <p class="greek">{{ diff().prefix }}<span class="changed">{{ diff().aMiddle }}</span>{{ diff().suffix }}</p>
+          } @else {
+            <p class="greek">{{ diplomatic() }}</p>
+          }
           <p class="hint">{{ scalarCountOf(diplomatic()) }} scalars</p>
         </div>
         <div class="pane">
           <h4>Editorial (L2)</h4>
-          <p class="greek">{{ editorial() }}</p>
-          <p class="hint">{{ editorial() === '—' ? 'no editorial reading yet' : scalarCountOf(editorial()) + ' scalars' }}</p>
+          @if (hasEditorial() && !diff().equal) {
+            <p class="greek">{{ diff().prefix }}<span class="changed">{{ diff().bMiddle }}</span>{{ diff().suffix }}</p>
+          } @else {
+            <p class="greek">{{ editorial() }}</p>
+          }
+          <p class="hint">
+            {{ hasEditorial() ? scalarCountOf(editorial()) + ' scalars' : 'no editorial reading yet' }}
+            @if (hasEditorial() && !diff().equal) { · prefix/suffix diff, not word alignment }
+          </p>
         </div>
       </div>
       <a [href]="imageLink()" target="_blank" rel="noopener">original image</a>
@@ -33,6 +45,7 @@ import { ApiClient, RevisionPayload } from './api-client';
     .pane { flex: 1; }
     .greek { font-size: 1.4rem; margin: 0; }
     .hint { color: #667; font-size: 0.85rem; }
+    .changed { background: rgba(255, 200, 0, 0.28); border-bottom: 1px solid #c90; }
   `],
 })
 export class DualPane {
@@ -41,6 +54,8 @@ export class DualPane {
 
   protected readonly diplomatic = signal('—');
   protected readonly editorial = signal('—');
+  protected readonly hasEditorial = signal(false);
+  protected readonly diff = computed(() => scalarDiff(this.diplomatic(), this.editorial()));
 
   private readonly api: ApiClient;
 
@@ -53,7 +68,9 @@ export class DualPane {
       this.diplomatic.set(data.diplomatic ?? '—');
     });
     this.api.lineLayerHistory(this.lineId(), 'L2Editorial').subscribe(history => {
-      this.editorial.set(history.length > 0 ? history[history.length - 1].text : '—');
+      const latest = history.length > 0 ? history[history.length - 1].text : null;
+      this.hasEditorial.set(latest !== null);
+      this.editorial.set(latest ?? '—');
     });
   }
 

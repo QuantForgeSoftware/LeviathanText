@@ -1,4 +1,4 @@
-import { applyScalarEdit, markSegments, scalarCount, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
+import { applyScalarEdit, markSegments, scalarCount, scalarDiff, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
 
 describe('text-utils (scalar offsets)', () => {
   const decomposed = '\u03B1\u0301\u03BD\u03B8\u03C1\u03C9\u03C0\u03BF\u03C2'; // α + acute + 7 letters
@@ -64,5 +64,22 @@ describe('markSegments', () => {
       { text: 'a', kind: '' },
       { text: '\uD835\uDD38b', kind: 'supplied' },
     ]);
+  });
+});
+
+describe('scalarDiff', () => {
+  it('reports the changed middle and common edges', () => {
+    expect(scalarDiff('αβγδ', 'αβXδ')).toEqual({
+      equal: false, prefix: 'αβ', aMiddle: 'γ', bMiddle: 'X', suffix: 'δ',
+    });
+  });
+
+  it('handles equality, insertion and astral scalars', () => {
+    expect(scalarDiff('abc', 'abc').equal).toBe(true);
+    expect(scalarDiff('ac', 'abc')).toEqual({ equal: false, prefix: 'a', aMiddle: '', bMiddle: 'b', suffix: 'c' });
+    const astral = '\uD835\uDD38';
+    expect(scalarDiff('a' + astral, 'a' + astral + 'b')).toEqual({
+      equal: false, prefix: 'a' + astral, aMiddle: '', bMiddle: 'b', suffix: '',
+    });
   });
 });
