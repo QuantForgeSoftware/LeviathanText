@@ -170,6 +170,7 @@ contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 | `CorrectionEffortScorer`, `SelectivePredictionScorer`, `GraphemeCalibration`, `ErrorAnalysis`, `TrackScoring` (`src/LeviathanText.Evaluation/`) | Acceptance-report metrics (AI-assisted effort, calibration, risk–coverage, confusions, per-track grouping). |
 | `TrainingRunManifestWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints for reproducible reports. |
 
-Not done by B: live provider calls (no keys/endpoints were configured and none were
-tested against a real server), API/UI wiring, corpus acquisition, expert adjudication,
-and any accuracy threshold. All AI adapter tests use an in-process HTTP stub.
+Not done by B: external provider calls (no credentials/endpoints were configured). The
+HTTP path is proven end-to-end over **loopback sockets** (`LoopbackProviderTests`), not
+against a third-party service; API/UI wiring was done by A, and corpus acquisition,
+expert adjudication and thresholds remain pending.
