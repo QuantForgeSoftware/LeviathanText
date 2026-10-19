@@ -13,21 +13,37 @@ Latest run:
 
 | Decoder | Dev scalar CER | Perfect lines | Seconds/line |
 | --- | --- | --- | --- |
-| greedy (default) | 0.8367 | 0/50 | 0.0001 |
-| beam-2 | 0.8367 | 0/50 | 0.0007 |
-| **beam-4** | **0.8337** | 0/50 | 0.0008 |
-| beam-8 | 0.8367 | 0/50 | 0.0014 |
+| greedy (default) | 0.8406 | 0/50 | 0.0001 |
+| beam-2 | 0.8406 | 0/50 | 0.0007 |
+| beam-4 | 0.8396 | 0/50 | 0.0007 |
+| **beam-8** | **0.8386** | 0/50 | 0.0012 |
 
-**Run-to-run variation is about ±0.01 CER** (an earlier run of the same configuration
-measured greedy 0.8466 / beam-4 0.8446). The beam gain is at or below that variation.
+**Run-to-run variation is about ±0.01 CER** (three runs of this configuration measured
+greedy 0.8466 / 0.8367 / 0.8406 and beam-4 0.8446 / 0.8337 / 0.8396). Beam width does not
+vary systematically; the gain is at or below run-to-run variation.
+
+### Error analysis (greedy, dev, top 5)
+
+| Class | Count | of which marks |
+| --- | --- | --- |
+| Substitutions | 140 | 0 |
+| Insertions | 0 | 0 |
+| Deletions | 706 | 2 |
+
+Top substitutions: `α→ι` ×5, `ϲ→ι` ×5, `α→ο` ×4, `ε→α` ×4, `κ→χ` ×4.
+Top deletions: `α` ×63, `ο` ×60, `ε` ×57, `ν` ×55, `τ` ×51.
+
+The model **systematically drops characters** (706 deletions, 0 insertions) rather than
+hallucinating: an under-trained CRNN collapses frames. That is a training/decoding-volume
+failure mode, not an accent-handling failure (only 2 mark deletions, 0 mark substitutions).
 
 ### Selective prediction (greedy, min per-grapheme line confidence)
 
 | Entry | Value |
 | --- | --- |
-| Full-coverage dev CER | 0.8367 |
-| Area under the risk–coverage curve (rectangle rule; lower is better) | 0.8497 |
-| Text coverage with CER ≤ 0.80 | 0.032 |
+| Full-coverage dev CER | 0.8406 |
+| Area under the risk–coverage curve (rectangle rule; lower is better) | 0.8632 |
+| Text coverage with CER ≤ 0.80 | 0 |
 | Text coverage with CER ≤ 0.75 | 0 |
 
 AURC is slightly **above** full-coverage CER: at this data scale the raw per-grapheme

@@ -98,6 +98,20 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         summary.AppendLine($"- Text coverage with CER <= 0.75: {selective.CoverageForCerBelow(0.75):0.###}");
         summary.AppendLine("- Pilot-scale: confidence is a raw model probability, not a scholarly judgment; no threshold is set here.");
 
+        var errorReport = ErrorAnalysis.Aggregate(
+            references.Select((reference, i) => ErrorAnalysis.Analyze(reference, greedyResults[i].Text)),
+            top: 5);
+        summary.AppendLine();
+        summary.AppendLine("## Error analysis (greedy, dev, top 5)");
+        summary.AppendLine();
+        summary.AppendLine($"- Substitutions {errorReport.TotalSubstitutions} (mark {errorReport.MarkSubstitutions}); insertions {errorReport.TotalInsertions} (mark {errorReport.MarkInsertions}); deletions {errorReport.TotalDeletions} (mark {errorReport.MarkDeletions})");
+        foreach (var pair in errorReport.TopSubstitutions)
+            summary.AppendLine($"  - sub {Describe(pair.Expected)} -> {Describe(pair.Produced)} x{pair.Count}");
+        foreach (var pair in errorReport.TopInsertions)
+            summary.AppendLine($"  - ins {Describe(pair.Produced)} x{pair.Count}");
+        foreach (var pair in errorReport.TopDeletions)
+            summary.AppendLine($"  - del {Describe(pair.Expected)} x{pair.Count}");
+
         var text = summary.ToString();
         output.WriteLine(text);
 
@@ -130,6 +144,14 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
 
         var cer = length == 0 ? 1.0 : (double)distance / length;
         return (mode, cer, clock.Elapsed.TotalSeconds / Math.Max(1, images.Length), perfect);
+    }
+
+    private static string Describe(string scalar)
+    {
+        if (scalar.Length == 0) return "(none)";
+        return char.IsControl(scalar, 0) || char.IsSurrogate(scalar, 0) || scalar[0] <= '\u007f'
+            ? $"U+{(int)char.ConvertToUtf32(scalar, 0):X4}"
+            : scalar;
     }
 
     private static string FindDataDir()
