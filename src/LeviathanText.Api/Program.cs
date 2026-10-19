@@ -39,7 +39,13 @@ builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
 builder.Services.AddSingleton<TranscriptionService>();
 builder.Services.AddSingleton<GeometryService>();
-builder.Services.AddSingleton<LayoutService>();
+builder.Services.AddSingleton(sp =>
+{
+    var cache = builder.Configuration["LeviathanText:ImageCache"]
+        ?? Path.Combine(Path.GetDirectoryName(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db")!, "images");
+    return new ImageResolver(sp.GetRequiredService<IProjectStore>(), cache);
+});
+builder.Services.AddSingleton(sp => new LayoutService(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();

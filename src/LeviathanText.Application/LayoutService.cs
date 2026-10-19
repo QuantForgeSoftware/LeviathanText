@@ -14,7 +14,7 @@ namespace LeviathanText.Application;
 /// Refuses to overwrite existing layout: detection appends only to a surface without
 /// regions, so manual work is never silently replaced.
 /// </summary>
-public sealed class LayoutService(IProjectStore store)
+public sealed class LayoutService(IProjectStore store, ImageResolver? imageResolver = null)
 {
     public sealed record Outcome(NativeProject Project, NativeSurface Surface, int LineCount, string Method);
 
@@ -44,6 +44,15 @@ public sealed class LayoutService(IProjectStore store)
                 Scope = surfaceId.ToString(),
                 Message = "Surface has no capture to detect layout against.",
             });
+
+        // Remote captures (e.g. IIIF imports) are fetched once into the checksummed cache.
+        if (!File.Exists(capture.ImageLocation) && imageResolver is not null)
+        {
+            var resolved = imageResolver.EnsureLocal(project, surfaceId);
+            project = resolved.Project;
+            surface = resolved.Surface;
+            capture = resolved.Capture;
+        }
 
         if (!File.Exists(capture.ImageLocation))
             throw new LeviathanException(new LeviathanError

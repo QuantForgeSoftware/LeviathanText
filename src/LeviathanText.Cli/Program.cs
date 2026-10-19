@@ -119,7 +119,8 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
-                var layout = new LayoutService(store);
+                var cache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+                var layout = new LayoutService(store, new ImageResolver(store, cache));
                 var outcome = layout.Detect(project, surfaceId);
                 Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
                 return 0;
