@@ -2,21 +2,16 @@
 
 ## Status and owner
 
-- Package: **B-CODE**, owner **Instance B**, 2026-10-18. Status: **review** (builds and tests green; awaiting A/integrator review of boundary crossings and contract requests).
+- Package: **B-CODE**, owner **Instance B**, 2026-10-18; two-instance session closed 2026-10-19 11:00 CDT. Status: **reviewed** — A recorded dispositions in `A-PLAN.md` rev 8/9 (extraction finding accepted, API wiring done, boundary crossings reviewed); all B suites green.
 - Scope: implement Instance B's coding ownership from todo Section 6 — **ML** (`Recognition`, `Training`), plus **Evaluation** and **AI** scaffolding — as a C# stack that builds and passes tests. No Python, no Kraken.
 - Companion planning documents: [B-PLAN.md](B-PLAN.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../data/](../data).
 
 ## Verified result
 
-```
-dotnet build LeviathanText.slnx -c Release   -> Build succeeded. 0 Errors, 0 Warnings
-dotnet test  LeviathanText.slnx              -> 136 passed, 0 failed
-    Contracts.Tests  41   (A)
-    Core.Tests       72   (A + B integration tests)
-    Evaluation.Tests  8   (B)
-    AI.Tests          6   (B)
-    ML.Tests          9   (B)
-```
+Current session totals (2026-10-19 close): Release build clean; **AI 73/73** (+1 opt-in
+live test skipped by default), **EVAL 39/39**, **ML 45/45**; non-B suites 183/183
+(Contracts 41, Core 72, Formats 13, Imaging 10, Infrastructure 5, Worker 8, API 13,
+Application 15, Layout 6). The historical single-instance counts are kept below.
 
 The ML suite proves the Phase 0 C# feasibility path end to end on **synthetic** data: variable-width CTC training → best-checkpoint selection → checkpoint reload into a fresh model → greedy decode → exact match, plus optimizer-state resume that continues the schedule. Synthetic fixtures are not corpus counts and make no accuracy claim about real Greek.
 
