@@ -79,3 +79,16 @@ dotnet test  tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj   # trai
 - B will not edit `todo.md`, `docs/contracts/`, `docs/handoffs/A-PLAN.md`, solution/project central files, `src/LeviathanText.{Application,Infrastructure,Api,Worker,Cli,Formats,Imaging}/`, or `web/`.
 - Planned increments: (1) real local/hosted HTTP provider adapters with capability discovery, retries, bounded responses, credential isolation and spend caps; (2) evaluation of AI-assisted correction effort / unsupported additions; (3) ML decoder or confidence refinement if the first two land cleanly.
 - Each increment is committed separately after `dotnet build -c Release` + the relevant test project pass; A can merge/cherry-pick or leave B's commits in place.
+
+### Cross-package finding for IMG (2026-10-19, ML/EVAL)
+
+The measured P01 decoding comparison (`docs/evaluation/decoding-comparison.md`, artifact
+`.artifacts/pilot/p01-decoding-comparison.txt`) found that **50/50 dev lines have fewer CTC
+time steps than reference scalars** (median T=8 vs median 18 scalars; resized crop width
+median 35 px). The P01 line *crops* are therefore near-square, not long and thin, and the
+decoder is structurally unable to emit a full line; that is why the error profile is
+deletion-dominated (706–800 deletions vs 0 insertions).
+
+B recommends IMG review P01 line-region geometry/deskew extraction before any accuracy
+claim. The ML-side fallback (CRNN width downsample 4 → 2) removes the limit on 30/50 lines
+and is being measured next. No IMG-owned file was touched.

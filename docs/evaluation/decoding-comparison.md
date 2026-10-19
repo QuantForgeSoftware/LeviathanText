@@ -51,11 +51,32 @@ confidence barely orders lines by correctness, so abstaining on low confidence b
 almost no CER reduction. This is a reason to keep uncertainty as an explicit annotation
 concept rather than trusting model confidence.
 
+### Sequence-length headroom (greedy)
+
+| Entry | Value |
+| --- | --- |
+| CTC time steps (T = width/4) | min 4, median 8 |
+| Reference scalars per dev line | min 7, median 18 |
+| Lines where T < reference scalars (full label sequence unreachable) | **50/50** |
+| Resized line-image width | min 16 px, median 35 px |
+| Unreachable lines if the width downsample were 2 | 20/50 |
+
+Every dev line has fewer CTC frames than reference scalars, so the decoder is
+**structurally unable** to emit the full line; the deletion-dominated error class follows
+directly. A 35 px median width for a line with 18 scalars means the line *crops* are
+near-square rather than long and thin: the aspect-preserving resize to model height 16
+then yields too few columns. The likely root cause is line-region geometry/extraction
+(imaging package), not the CTC decoder; reducing the CRNN width downsample from 4 to 2
+would remove the structural limit on 30/50 lines and is the ML-side fallback.
+
 ## Decision (pilot-scale, reversible)
 
 - **Keep greedy as the default decoder.** Beam mode stays available and tested
   (`CtcDecodeMode.PrefixBeam`); re-run after the annotation-volume gate and on the other
   two tracks before any change.
+- **Report the sequence-length limit to IMG as a blocker** before any accuracy claim;
+  fix crop geometry first, then re-measure. A model-shape change (width downsample 4 → 2)
+  is the ML fallback and is being measured separately.
 - Do **not** ship confidence-based abstention as a quality claim. Use it only as a
   review-ordering hint until calibration is demonstrated on adjudicated data.
 - Per-grapheme confidence under beam mode uses a forced best alignment
