@@ -354,6 +354,55 @@ public static class Program
                 return 0;
             }
 
+            case "recognize" when rest.Length >= 4 && rest[1] == "project":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var packageDir = rest.Length >= 5 && rest[3] == "--package" ? rest[4] : null;
+                packageDir ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "p01-pilot");
+                var loaded = RecognitionModelLoader.Load(packageDir);
+                var modelName = loaded.Manifest?.ModelName
+                    ?? (Directory.GetFiles(packageDir, "*.best.json") is [var only]
+                        ? Path.GetFileName(only).Replace(".best.json", string.Empty, StringComparison.Ordinal)
+                        : Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDir)));
+                var modelPath = CheckpointStore.ModelPath(packageDir, modelName, ".best");
+                var metadata = loaded.Metadata;
+
+                var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+                var pipeline = new RecognitionPipeline(store, new ImageResolver(store, imageCache));
+                int surfaces = 0, lines = 0, failed = 0;
+                foreach (var surface in project.Objects.SelectMany(o => o.Surfaces).ToList())
+                {
+                    if (surface.Lines.Count == 0) continue;
+                    try
+                    {
+                        var current = projects.Load(project.Id);
+                        var outcome = pipeline.Run(current, surface.Id, new RecognitionPipeline.Options
+                        {
+                            ModelDirectory = packageDir,
+                            ModelName = modelName,
+                            ModelFactory = () =>
+                            {
+                                var model = new CrnnModel(loaded.Labels.NumClasses, metadata.HiddenSize,
+                                    metadata.WidthDownsampleFactor, metadata.InputHeightPixels, metadata.Dropout);
+                                model.load(modelPath);
+                                return model;
+                            },
+                            LabelSetFactory = () => loaded.Labels,
+                        });
+                        surfaces++;
+                        lines += outcome.Lines.Count;
+                        Console.WriteLine($"{surface.Id}\t{outcome.Lines.Count} lines");
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        failed++;
+                        Console.Error.WriteLine($"{surface.Id}: {ex.Message}");
+                    }
+                }
+                Console.Error.WriteLine($"surfaces={surfaces};lines={lines};failed={failed}");
+                return surfaces > 0 ? 0 : 1;
+            }
+
             case "recognize" when rest.Length >= 4 && rest[1] == "surface":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
