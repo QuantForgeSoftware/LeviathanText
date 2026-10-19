@@ -182,6 +182,9 @@ public sealed class CtcTrainer
             LabelSetHash = CheckpointStore.LabelSetHash(_labels),
             Labels = _labels.Labels,
             ConfigHash = _config.ComputeHash(),
+            InputHeightPixels = _model.InputHeightPixels,
+            WidthDownsampleFactor = _model.WidthDownsampleFactor,
+            Dropout = _model.Dropout,
             TorchVersion = torch.__version__,
             CreatedAt = DateTimeOffset.UtcNow,
         }, suffix);
@@ -211,6 +214,23 @@ public sealed class CtcTrainer
                 },
                 RemedyHint = RemedyHint.MapUnknownLabel,
                 Message = "Checkpoint label set does not match the label set supplied for loading.",
+            });
+
+        if (metadata.InputHeightPixels != _model.InputHeightPixels
+            || metadata.WidthDownsampleFactor != _model.WidthDownsampleFactor)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.ModelIncompatible,
+                Scope = name,
+                Details = new Dictionary<string, string>
+                {
+                    ["checkpointInputHeight"] = metadata.InputHeightPixels.ToString(),
+                    ["modelInputHeight"] = _model.InputHeightPixels.ToString(),
+                    ["checkpointWidthDownsample"] = metadata.WidthDownsampleFactor.ToString(),
+                    ["modelWidthDownsample"] = _model.WidthDownsampleFactor.ToString(),
+                },
+                RemedyHint = RemedyHint.ReRunStage,
+                Message = "Checkpoint architecture does not match the model supplied for loading.",
             });
 
         _model.load(CheckpointStore.ModelPath(_config.CheckpointDirectory, name, suffix));

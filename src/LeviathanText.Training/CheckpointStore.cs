@@ -19,6 +19,15 @@ public sealed record CheckpointMetadata
     public IReadOnlyList<string> Labels { get; init; } = [];
 
     public required string ConfigHash { get; init; }
+
+    /// <summary>Input raster height expected by the model; defaults are the original pilot values.</summary>
+    public int InputHeightPixels { get; init; } = CrnnModel.InputHeight;
+
+    /// <summary>Width reduction factor of the saved architecture.</summary>
+    public int WidthDownsampleFactor { get; init; } = CrnnModel.DefaultWidthDownsampleFactor;
+
+    public double Dropout { get; init; }
+
     public required string TorchVersion { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
 }

@@ -34,6 +34,8 @@ public class CheckpointIntegrityTests
         var sameLabels = new CtcTrainer(new CrnnModel(labels.NumClasses, config.HiddenSize), new LabelSet(vocabulary), config);
         var metadata = sameLabels.LoadCheckpoint(".best");
         Assert.Equal(CheckpointStore.LabelSetHash(labels), metadata.LabelSetHash);
+        Assert.Equal(16, metadata.InputHeightPixels);
+        Assert.Equal(4, metadata.WidthDownsampleFactor);
 
         var otherLabels = new LabelSet(new[] { "α", "γ" }); // same class count, different meaning
         var mismatched = new CtcTrainer(new CrnnModel(otherLabels.NumClasses, config.HiddenSize), otherLabels, config);
@@ -41,5 +43,11 @@ public class CheckpointIntegrityTests
         var ex = Assert.Throws<LeviathanException>(() => mismatched.LoadCheckpoint(".best"));
         Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
         Assert.Equal(RemedyHint.MapUnknownLabel, ex.Error.RemedyHint);
+
+        var wrongArchitecture = new CtcTrainer(
+            new CrnnModel(labels.NumClasses, config.HiddenSize, widthDownsampleFactor: 2),
+            labels, config);
+        var archEx = Assert.Throws<LeviathanException>(() => wrongArchitecture.LoadCheckpoint(".best"));
+        Assert.Equal(ErrorCode.ModelIncompatible, archEx.Error.Code);
     }
 }
