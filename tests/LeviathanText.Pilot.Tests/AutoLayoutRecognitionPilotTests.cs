@@ -105,6 +105,7 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
         });
 
         Assert.Equal(layout.LineCount, outcome.Lines.Count);
+        Assert.Empty(outcome.SkippedLines); // auto-detected lines always carry geometry
         var stage = Assert.Single(outcome.Stages);
         Assert.Equal(StageName.Recognition, stage.Stage);
         Assert.Equal(config.ModelName, stage.Model!.PackageId);

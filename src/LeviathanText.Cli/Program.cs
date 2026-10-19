@@ -149,6 +149,8 @@ public static class Program
 
                 foreach (var line in outcome.Lines)
                     Console.WriteLine($"{line.LineId}\t{line.L0Text}");
+                if (outcome.SkippedLines.Count > 0)
+                    Console.Error.WriteLine($"skipped {outcome.SkippedLines.Count} line(s) without geometry: {string.Join(", ", outcome.SkippedLines)}");
                 foreach (var stage in outcome.Stages)
                     Console.Error.WriteLine(stage);
                 return 0;

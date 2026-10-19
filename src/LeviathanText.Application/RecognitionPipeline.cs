@@ -27,7 +27,8 @@ public sealed class RecognitionPipeline
 
     public sealed record SurfaceOutcome(
         IReadOnlyList<LineRecognition> Lines,
-        IReadOnlyList<StageRun> Stages);
+        IReadOnlyList<StageRun> Stages,
+        IReadOnlyList<EntityId> SkippedLines);
 
     public sealed record LineRecognition(
         EntityId LineId,
@@ -88,12 +89,17 @@ public sealed class RecognitionPipeline
         var results = new List<LineRecognition>();
         var linesById = surface.Lines.ToDictionary(l => l.Id);
         var lineImages = new List<(EntityId Id, LineImage Image, Checksum CropChecksum)>();
+        var skippedLines = new List<EntityId>();
 
         foreach (var line in surface.Lines)
         {
             cancellation.ThrowIfCancellationRequested();
             var geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
-            if (geometry.Count < 2) continue; // absent geometry: explicit skip, recorded below
+            if (geometry.Count < 2)
+            {
+                skippedLines.Add(line.Id); // absent geometry: explicit skip, never silent
+                continue;
+            }
 
             var points = geometry.Select(p => new SKPoint((float)p.X, (float)p.Y)).ToList();
             var extracted = LineCropper.Extract(decoded.Bitmap, points);
@@ -120,7 +126,7 @@ public sealed class RecognitionPipeline
             LayoutSourceUsed = LayoutSource.Imported,
         });
 
-        return new SurfaceOutcome(results, stages);
+        return new SurfaceOutcome(results, stages, skippedLines);
     }
 
     /// <summary>Stable label-set identity for model provenance (same convention as CheckpointStore).</summary>
