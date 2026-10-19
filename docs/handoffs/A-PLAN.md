@@ -174,6 +174,18 @@ Blockers recorded so far:
 - Remaining before Phase 0 can be called *complete* (all pending, honestly): expert adjudication (DATA-03), corpus scale-up beyond 321 lines, all three tracks (manuscripts/inscriptions not yet acquired), locked-test evaluation, acceptance sheet with measured thresholds.
 
 
+### Handoff revision 10 — 2026-10-19 midday (cycle 2; A only, 4-hour window)
+
+- **Scope delivered (A's packages):**
+  - **Geometry/order correction:** `GeometryService` (validated polygon/baseline updates, region reading-order with set equality), `PUT /lines/{id}/geometry`, `PUT /surfaces/{id}/reading-order`, Angular overlay editor (image-frame drag + region up/down), 6 service + 2 HTTP tests. Known gap: geometry edits update the native document directly (no geometry revision history); client undo + project backups are the current recovery path — recorded, not hidden.
+  - **Training-data export:** `TrainingDataExport` — L1-only labels, editorial-supply lines excluded outright, uncertainty spans with exact-span complements; CLI (`export training`) + API + workspace download; 8 tests + smoke.
+  - **Editor completion:** annotation listing (service/API/UI), crash-recovery draft autosave/restore, Cmd/Ctrl+S/Z, tested scalar↔UTF-16 utils (12 web specs), TEI/training export actions, AI-assistance panel (propose → opt-in L2 acceptance; server-resolved evidence).
+  - **Formats/API:** IIIF import via CLI + API (4-view smoke), contract JSON on minimal APIs, closed-code→HTTP middleware (404/409/422), annotation request DTO with bind-to-current anchor.
+  - **Release evidence:** publish outputs verified (CLI runs from publish dir), independence checks documented in [docs/release/packaging.md](../release/packaging.md).
+- **Layout iteration (meaningful result):** fixed three real-corpus preprocessing defects (faint-letter threshold, dark-surround crop, peak-only banding) — projection baseline precision 0.087→0.345, recall 0.096→0.506. The learned row-logit detector **underperforms** the corrected baseline; recorded as a negative result with diagnosis ([layout-learned-comparison.md](../evaluation/layout-learned-comparison.md)). Next iteration: patch-level CNN.
+- **Verification:** full suite green after the final run (counts in the board record); web: 12/12 Chrome specs, production build clean.
+- **Collaboration:** B's files untouched; B quiet during this window after its morning increments. Boundary state unchanged; no new contract requests raised. The licensing-policy files remain untracked (another worker's assignment).
+
 ### Handoff revision 9 — 2026-10-19 10:10 (session close; two-instance mode)
 - **Final state:** 13 suites, **340 tests**, 0 failures; Release build **0 warnings / 0 errors**. Two-instance collaboration closed with all boundary crossings reviewed (B's two Core repairs from the first session; B's text-only disclosure-template edit) and A's integration items delivered (API write surface hardened by live smoke: contract JSON on minimal APIs, annotation DTO with bind-to-current anchor, closed-code→HTTP middleware; transcription endpoints; editor/dual-pane/jobs UI; streaming pipeline; model-package CLI loading).
 - **Open gates (unchanged, honestly unchecked):** expert adjudication (DATA-03), corpus scale-up, trainable layout (negative finding recorded), inscription labels, TIFF handling, Kraken comparator, frozen acceptance sheet, external hosted-provider calls.
