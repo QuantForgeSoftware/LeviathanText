@@ -8,20 +8,21 @@ using LeviathanText.Recognition;
 using LeviathanText.Training;
 using SkiaSharp;
 using Xunit;
+using ScalarText = LeviathanText.Core.Unicode.ScalarText;
 using Xunit.Abstractions;
 
 namespace LeviathanText.Pilot.Tests;
 
 /// <summary>
-/// End-to-end page measurement: image-only page -> automatic layout -> recognition.
-/// Detected lines are matched to PAGE ground-truth lines by vertical IoU (≥ 0.5); missed
-/// GT lines count as full deletions, so the reported page CER includes layout losses
-/// (unlike line-crop CER, which silently assumes perfect detection). Training pages are
-/// excluded; the evaluation pages are held out (same books, so this is not a
-/// generalization claim — it measures the workflow).
+/// End-to-end page measurement: image-only page -> automatic layout -> recognition, with a
+/// PAGE-box control. Detected lines are matched to PAGE lines by vertical IoU (>= 0.5);
+/// missed GT lines count as full deletions. CPU training is not bit-reproducible across
+/// runs, so this reports several seeds and the spread rather than one lucky number.
 /// </summary>
 public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
 {
+    private static readonly int[] Seeds = [23, 24, 25];
+
     private static string? FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -41,29 +42,132 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
     }
 
     private sealed record PageTruth(string Name, string ImagePath, string XmlPath);
+    private sealed record TruthLine(int Left, int Top, int Right, int Bottom, string Text);
 
-    private static List<(int Left, int Top, int Right, int Bottom, string Text)> Truth(string xmlPath)
+    private static List<TruthLine> Truth(string xmlPath)
     {
         var imported = PageXml.Import(File.ReadAllText(xmlPath), new EntityId(EntityKind.Capture, "cap"),
             new Checksum { Algorithm = "unavailable", Digest = "pending" });
         var texts = imported.Revisions.ToDictionary(r => r.Id, r => r.Text);
-        var lines = new List<(int, int, int, int, string)>();
+        var lines = new List<TruthLine>();
         foreach (var line in imported.Lines)
         {
             var geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
             if (geometry.Count < 2) continue;
-            int left = (int)geometry.Min(p => p.X);
-            int right = (int)geometry.Max(p => p.X);
-            int top = (int)geometry.Min(p => p.Y);
-            int bottom = (int)geometry.Max(p => p.Y);
             var text = line.DiplomaticRevisionId is { } id && texts.TryGetValue(id, out var t) ? t : "";
-            lines.Add((left, top, Math.Max(right, left + 1), Math.Max(bottom, top + 1), text));
+            lines.Add(new TruthLine(
+                (int)geometry.Min(p => p.X), (int)geometry.Min(p => p.Y),
+                (int)geometry.Max(p => p.X), (int)geometry.Max(p => p.Y), text));
         }
         return lines;
     }
 
+    private sealed record PageEvaluation(int Gt, int Detected, int Matched, double MatchedCer, double PageCer, double BoxCer);
+
+    private static PageEvaluation Evaluate(
+        NativeProject detected, NativeSurface surface, IReadOnlyList<TruthLine> truth,
+        string imagePath, RecognitionPipeline.Options options)
+    {
+        var outcome = new RecognitionPipeline(new InMemoryStore()).Run(detected, surface.Id, options, persistL0: false);
+        var surfaceAfter = detected.Objects[0].Surfaces[0];
+
+        int matched = 0, gtScalars = 0, edits = 0;
+        double matchedEdits = 0, matchedGtScalars = 0;
+
+        foreach (var line in truth)
+        {
+            int length = ScalarText.ScalarLength(line.Text);
+            gtScalars += length;
+            var best = surfaceAfter.Lines
+                .Select(l =>
+                {
+                    int top = (int)Math.Round(l.Polygon.Min(p => p.Y));
+                    int bottom = (int)Math.Round(l.Polygon.Max(p => p.Y));
+                    int overlap = Math.Max(0, Math.Min(line.Bottom, bottom) - Math.Max(line.Top, top));
+                    int union = Math.Max(line.Bottom, bottom) - Math.Min(line.Top, top);
+                    double iou = union <= 0 ? 0 : (double)overlap / union;
+                    return (l.Id, Iou: iou, Recognized: outcome.Lines.FirstOrDefault(o => o.LineId == l.Id));
+                })
+                .Where(c => c.Recognized is not null && c.Iou >= 0.5)
+                .OrderByDescending(c => c.Iou)
+                .FirstOrDefault();
+
+            if (best.Recognized is null)
+            {
+                edits += length;
+                continue;
+            }
+
+            matched++;
+            var score = RecognitionScorer.Score(line.Text, best.Recognized.L0Text);
+            edits += score.ScalarDistance;
+            matchedEdits += score.ScalarDistance;
+            matchedGtScalars += score.ReferenceScalarLength;
+        }
+
+        // Control: the same model on PAGE boxes (perfect layout).
+        var controlSurface = BuildControlSurface(surface, truth, imagePath);
+        var controlProject = new NativeProject
+        {
+            Id = new EntityId(EntityKind.Collection, "col-control"),
+            Name = "control",
+            Objects = [new NativeObject { Id = new EntityId(EntityKind.PhysicalObject, "obj-control"), Surfaces = [controlSurface] }],
+        };
+        var controlOutcome = new RecognitionPipeline(new InMemoryStore()).Run(controlProject, controlSurface.Id, options, persistL0: false);
+        double boxEdits = 0, boxScalars = 0;
+        for (int i = 0; i < truth.Count; i++)
+        {
+            var recognized = controlOutcome.Lines.FirstOrDefault(l => l.LineId == new EntityId(EntityKind.Line, $"gt-{i}"));
+            if (recognized is null) continue;
+            var score = RecognitionScorer.Score(truth[i].Text, recognized.L0Text);
+            boxEdits += score.ScalarDistance;
+            boxScalars += score.ReferenceScalarLength;
+        }
+
+        return new PageEvaluation(
+            truth.Count,
+            surfaceAfter.Lines.Count,
+            matched,
+            matchedGtScalars == 0 ? 0 : matchedEdits / matchedGtScalars,
+            gtScalars == 0 ? 0 : edits / (double)gtScalars,
+            boxScalars == 0 ? 0 : boxEdits / boxScalars);
+    }
+
+    private static NativeSurface BuildControlSurface(NativeSurface source, IReadOnlyList<TruthLine> truth, string imagePath)
+    {
+        var captureId = new EntityId(EntityKind.Capture, "cap-control");
+        var regionId = new EntityId(EntityKind.Region, "reg-control");
+        return new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "surf-control"),
+            Kind = source.Kind,
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = new Checksum { Algorithm = "unavailable", Digest = "pending" } },
+                ImageLocation = imagePath,
+            }],
+            Regions = [new NativeRegion
+            {
+                Id = regionId,
+                FrameRef = captureId,
+                Polygon = [new(0, 0), new(1000, 0), new(1000, 1000), new(0, 1000)],
+                LayoutSource = LayoutSource.Imported,
+                ReadingOrderIndex = 0,
+            }],
+            Lines = truth.Select((t, index) => new NativeLine
+            {
+                Id = new EntityId(EntityKind.Line, $"gt-{index}"),
+                RegionId = regionId,
+                FrameRef = captureId,
+                Polygon = [new(t.Left, t.Top), new(t.Right, t.Top), new(t.Right, t.Bottom), new(t.Left, t.Bottom)],
+                Baseline = [new(t.Left, t.Bottom), new(t.Right, t.Bottom)],
+            }).ToList(),
+        };
+    }
+
     [SkippableFact]
-    public void Page_cer_includes_layout_misses_on_held_out_pages()
+    public void Page_cer_includes_layout_misses_across_seeds()
     {
         var root = FindRepoRoot();
         Skip.IfNot(root is not null, "repo root not found");
@@ -78,16 +182,7 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
             .SelectMany(l => Graphemes.Enumerate(l.Text).Select(g => g.Text))
             .Distinct(StringComparer.Ordinal).ToList();
         var labels = new LabelSet(vocabulary);
-        var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-e2e-page", Guid.NewGuid().ToString("N"));
-        var config = new TrainingConfig
-        {
-            Epochs = 80, BatchSize = 8, LearningRate = 3e-3, Seed = 23,
-            EarlyStoppingPatience = 80, HiddenSize = 64,
-            ModelName = "e2e-page-crnn", CheckpointDirectory = checkpointDir,
-        };
-        new CtcTrainer(new CrnnModel(labels.NumClasses, config.HiddenSize), labels, config).Fit(train, dev);
 
-        // Held-out pages (file split is the same rule used elsewhere).
         var xmlFiles = Directory.GetFiles(Path.Combine(m02a, "xml"), "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
         var pages = new List<PageTruth>();
         for (int i = 0; i < xmlFiles.Count && pages.Count < 6; i++)
@@ -99,17 +194,9 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
         }
         Skip.IfNot(pages.Count > 0, "no held-out pages with images");
 
-        CrnnModel LoadModel()
-        {
-            var model = new CrnnModel(labels.NumClasses);
-            model.load(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best"));
-            return model;
-        }
-
+        // Detect layout once (independent of the seed), then evaluate several trained models.
         var store = new InMemoryStore();
-        var rows = new List<(string Page, int Gt, int Detected, int Matched, double DetRecall, double MatchedCer, double PageCer, double BoxCer)>();
-        long totalGtScalars = 0, totalEdits = 0, totalBoxScalars = 0, totalBoxEdits = 0;
-
+        var prepared = new List<(PageTruth Page, NativeProject Project, NativeSurface Surface, List<TruthLine> Truth)>();
         foreach (var page in pages)
         {
             var captureId = new EntityId(EntityKind.Capture, "cap");
@@ -133,171 +220,95 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
                 Objects = [new NativeObject { Id = new EntityId(EntityKind.PhysicalObject, "obj"), Surfaces = [surface] }],
             };
             store.SaveProject(project);
-
             var layout = new LayoutService(store).Detect(project, surface.Id);
             var detected = store.LoadProject(project.Id)!;
-            var outcome = new RecognitionPipeline(store).Run(detected, surface.Id, new RecognitionPipeline.Options
-            {
-                ModelDirectory = checkpointDir,
-                ModelName = config.ModelName,
-                ModelVersion = "e2e-page",
-                ModelFactory = () =>
-                {
-                    var model = new CrnnModel(labels.NumClasses);
-                    model.load(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best"));
-                    return model;
-                },
-                LabelSetFactory = () => labels,
-            }, persistL0: false);
-
-            var truth = Truth(page.XmlPath);
-            var surfaceAfter = detected.Objects[0].Surfaces[0];
-            int matched = 0, gtScalars = 0, edits = 0;
-            double matchedEdits = 0, matchedGtScalars = 0;
-
-            foreach (var (_, top, _, bottom, text) in truth)
-            {
-                int length = Graphemes.Enumerate(text).Sum(g => g.Text.Length); // scalar length
-                gtScalars += length;
-                totalGtScalars += length;
-
-                // Best vertical-IoU detected line that has a recognition result.
-                var best = surfaceAfter.Lines
-                    .Select(l =>
-                    {
-                        int lTop = (int)Math.Round(l.Polygon.Min(p => p.Y));
-                        int lBottom = (int)Math.Round(l.Polygon.Max(p => p.Y));
-                        int overlap = Math.Max(0, Math.Min(bottom, lBottom) - Math.Max(top, lTop));
-                        int union = Math.Max(bottom, lBottom) - Math.Min(top, lTop);
-                        double iou = union <= 0 ? 0 : (double)overlap / union;
-                        var recognition = outcome.Lines.FirstOrDefault(o => o.LineId == l.Id);
-                        return (Line: l, Iou: iou, Recognition: recognition);
-                    })
-                    .Where(c => c.Recognition is not null && c.Iou >= 0.5)
-                    .OrderByDescending(c => c.Iou)
-                    .FirstOrDefault();
-
-                if (best.Line is null)
-                {
-                    edits += length; // detection miss = full deletion in page CER
-                    totalEdits += length;
-                    continue;
-                }
-
-                matched++;
-                var score = RecognitionScorer.Score(text, best.Recognition!.L0Text);
-                edits += score.ScalarDistance;
-                totalEdits += score.ScalarDistance;
-                matchedEdits += score.ScalarDistance;
-                matchedGtScalars += score.ReferenceScalarLength;
-            }
-
-            // Control: the same model on the PAGE boxes (perfect layout). The gap between
-            // this and the page CER is attributable to detection, not recognition.
-            var controlCaptureId = new EntityId(EntityKind.Capture, "cap-control");
-            var controlRegionId = new EntityId(EntityKind.Region, "reg-control");
-            var controlSurface = new NativeSurface
-            {
-                Id = new EntityId(EntityKind.Surface, "surf-control"),
-                Kind = surface.Kind,
-                Captures = [new NativeCapture
-                {
-                    Id = controlCaptureId,
-                    Frame = new CoordinateFrame { ImageRef = controlCaptureId, ImageChecksum = new Checksum { Algorithm = "unavailable", Digest = "pending" } },
-                    ImageLocation = page.ImagePath,
-                }],
-                Regions =
-                [
-                    new NativeRegion
-                    {
-                        Id = controlRegionId,
-                        FrameRef = controlCaptureId,
-                        Polygon = [new(0, 0), new(1000, 0), new(1000, 1000), new(0, 1000)],
-                        LayoutSource = LayoutSource.Imported,
-                        ReadingOrderIndex = 0,
-                    },
-                ],
-                Lines =
-                [
-                    .. truth.Select((t, index) => new NativeLine
-                    {
-                        Id = new EntityId(EntityKind.Line, $"gt-{index}"),
-                        RegionId = controlRegionId,
-                        FrameRef = controlCaptureId,
-                        Polygon =
-                        [
-                            new(t.Left, t.Top), new(t.Right, t.Top),
-                            new(t.Right, t.Bottom), new(t.Left, t.Bottom),
-                        ],
-                        Baseline = [new(t.Left, t.Bottom), new(t.Right, t.Bottom)],
-                    }),
-                ],
-            };
-            var controlProject = new NativeProject
-            {
-                Id = new EntityId(EntityKind.Collection, "col-control"),
-                Name = "control",
-                Objects = [new NativeObject { Id = new EntityId(EntityKind.PhysicalObject, "obj-control"), Surfaces = [controlSurface] }],
-            };
-            var controlOutcome = new RecognitionPipeline(store).Run(controlProject, controlSurface.Id, new RecognitionPipeline.Options
-            {
-                ModelDirectory = checkpointDir,
-                ModelName = config.ModelName,
-                ModelVersion = "control",
-                ModelFactory = LoadModel,
-                LabelSetFactory = () => labels,
-            }, persistL0: false);
-
-            double boxEdits = 0, boxScalars = 0;
-            for (int i = 0; i < truth.Count; i++)
-            {
-                var lineId = new EntityId(EntityKind.Line, $"gt-{i}");
-                var recognized = controlOutcome.Lines.FirstOrDefault(l => l.LineId == lineId);
-                if (recognized is null) continue;
-                var score = RecognitionScorer.Score(truth[i].Text, recognized.L0Text);
-                boxEdits += score.ScalarDistance;
-                boxScalars += score.ReferenceScalarLength;
-            }
-            totalBoxEdits += (long)boxEdits;
-            totalBoxScalars += (long)boxScalars;
-            var boxCer = boxScalars == 0 ? 0 : boxEdits / boxScalars;
-
-            var pageCer = gtScalars == 0 ? 0 : edits / (double)gtScalars;
-            var matchedCer = matchedGtScalars == 0 ? 0 : matchedEdits / matchedGtScalars;
-            var detRecall = truth.Count == 0 ? 0 : matched / (double)truth.Count;
-            rows.Add((page.Name, truth.Count, layout.LineCount, matched, detRecall, matchedCer, pageCer, boxCer));
-            output.WriteLine($"{page.Name}: gt={truth.Count} det={layout.LineCount} matched={matched} " +
-                             $"detRecall={detRecall:0.###} matchedCER={matchedCer:0.###} pageCER={pageCer:0.###} boxCER={boxCer:0.###}");
+            prepared.Add((page, detected, detected.Objects[0].Surfaces[0], Truth(page.XmlPath)));
+            output.WriteLine($"{page.Name}: layout {layout.LineCount} lines");
         }
 
-        var aggregate = totalGtScalars == 0 ? 0 : totalEdits / (double)totalGtScalars;
-        var boxAggregate = totalBoxScalars == 0 ? 0 : totalBoxEdits / (double)totalBoxScalars;
+        var seedResults = new List<(int Seed, double PageCer, double BoxCer, double DetRecall)>();
+        foreach (var seed in Seeds)
+        {
+            var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-e2e-page", Guid.NewGuid().ToString("N"));
+            var config = new TrainingConfig
+            {
+                Epochs = 80, BatchSize = 8, LearningRate = 3e-3, Seed = seed,
+                EarlyStoppingPatience = 80, HiddenSize = 64,
+                ModelName = "e2e-page-crnn", CheckpointDirectory = checkpointDir,
+            };
+            new CtcTrainer(new CrnnModel(labels.NumClasses, config.HiddenSize), labels, config).Fit(train, dev);
+
+            double gtTotal = 0, pageEdits = 0, boxTotal = 0, boxEdits = 0;
+            int gtLines = 0, matched = 0;
+
+            foreach (var (page, project, surface, truth) in prepared)
+            {
+                var evaluation = Evaluate(project, surface, truth, page.ImagePath, new RecognitionPipeline.Options
+                {
+                    ModelDirectory = checkpointDir,
+                    ModelName = config.ModelName,
+                    ModelVersion = $"seed-{seed}",
+                    ModelFactory = () =>
+                    {
+                        var model = new CrnnModel(labels.NumClasses);
+                        model.load(CheckpointStore.ModelPath(checkpointDir, config.ModelName, ".best"));
+                        return model;
+                    },
+                    LabelSetFactory = () => labels,
+                });
+
+                gtLines += evaluation.Gt;
+                matched += evaluation.Matched;
+                gtTotal += evaluation.Gt;
+                pageEdits += evaluation.PageCer * evaluation.Gt;
+                boxTotal += evaluation.Gt;
+                boxEdits += evaluation.BoxCer * evaluation.Gt;
+            }
+
+            var pageCer = gtTotal == 0 ? 0 : pageEdits / gtTotal;
+            var boxCer = boxTotal == 0 ? 0 : boxEdits / boxTotal;
+            var detRecall = gtLines == 0 ? 0 : (double)matched / gtLines;
+            seedResults.Add((seed, pageCer, boxCer, detRecall));
+            output.WriteLine($"seed {seed}: pageCER={pageCer:0.###} boxCER={boxCer:0.###} detRecall={detRecall:0.###}");
+        }
+
+        var meanPage = seedResults.Average(r => r.PageCer);
+        var meanBox = seedResults.Average(r => r.BoxCer);
+        var meanRecall = seedResults.Average(r => r.DetRecall);
+
         var markdown = $"""
             # End-to-end page CER (layout + recognition), held-out manuscript pages
 
             - Date: {DateTimeOffset.UtcNow:O}; contract {ContractVersion.Current}
-            - Model: `{config.ModelName}` (CRNN h=64, {config.Epochs} epochs max, trained on M02a train/dev lines only)
-            - Pipeline: image-only surface → automatic layout → recognition; no imported layout
+            - Pipeline: image-only surface → automatic layout → recognition; control = same model on PAGE boxes
             - Matching: detected↔PAGE line vertical IoU ≥ 0.5; **missed GT lines count as full deletions**
             - Evaluation pages: {pages.Count} held-out M02a pages (file split i%5==0); *same books as training — workflow measurement, not a generalization claim*
-            - Aggregate page CER (layout + recognition, misses as deletions): **{aggregate:0.###}** over {totalGtScalars} scalars
-            - Aggregate control CER (same model, PAGE boxes = perfect layout): **{boxAggregate:0.###}** over {totalBoxScalars} scalars
-            - Layout-induced CER increase: **{aggregate - boxAggregate:+0.###;-0.###;0}** absolute
+            - Seeds: {string.Join(", ", Seeds)} (CPU training is not bit-reproducible across runs; report the spread, not one run)
 
-            | Page | GT lines | Detected | Matched | Detection recall | CER (matched auto boxes) | Page CER (incl. misses) | Control CER (PAGE boxes) |
-            | --- | --- | --- | --- | --- | --- | --- | --- |
-            {string.Join("\n", rows.Select(r => $"| {r.Page} | {r.Gt} | {r.Detected} | {r.Matched} | {r.DetRecall:0.###} | {r.MatchedCer:0.###} | {r.PageCer:0.###} | {r.BoxCer:0.###} |"))}
+            | Seed | Page CER (incl. misses) | Control CER (PAGE boxes) | Detection recall |
+            | --- | --- | --- | --- |
+            {string.Join("\n", seedResults.Select(r => $"| {r.Seed} | {r.PageCer:0.###} | {r.BoxCer:0.###} | {r.DetRecall:0.###} |"))}
+            | **mean** | **{meanPage:0.###}** | **{meanBox:0.###}** | **{meanRecall:0.###}** |
+
+            Single-run variance is material (see the control column, which varies from
+            {seedResults.Min(r => r.BoxCer):0.###} to {seedResults.Max(r => r.BoxCer):0.###} with identical code and data).
+            The earlier single-seed note of 0.938/0.881 was one favorable draw from this
+            distribution and should not be quoted as a stable result.
 
             ## Reading
 
-            Page CER is substantially worse than line-crop CER because layout misses (and false
-            lines) are counted. That is the honest number for the image-only workflow: improving
-            recognition alone cannot fix lost lines. Multi-column/curved layouts remain
-            unsupported; layout quality is the current workflow bottleneck alongside label noise.
+            Page CER includes layout misses and false lines; it is the honest number for the
+            image-only workflow. With this model quality the mean page-vs-control difference
+            ({meanPage - meanBox:+0.###;-0.###;0}) is comparable to the seed spread, so this run **cannot cleanly
+            separate layout cost from training variance**. Detection recall is stable
+            ({meanRecall:0.###}) and caps the achievable page CER regardless of recognition quality:
+            improving recognition alone cannot recover lost lines. A stronger, more stable model
+            and more seeds are required before attributing page-level differences to layout.
+            Multi-column/curved layouts remain unsupported.
             """;
         var path = Path.Combine(root!, "docs", "evaluation", "end-to-end-page-cer.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, markdown);
-        output.WriteLine($"aggregate page CER {aggregate:0.###}; box control CER {boxAggregate:0.###}");
+        output.WriteLine($"mean page CER {meanPage:0.###}; mean box control {meanBox:0.###}");
     }
 }

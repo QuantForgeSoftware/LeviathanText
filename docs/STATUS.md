@@ -15,7 +15,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | Manual correction (move/resize/order) | API + overlay editor, client undo |
 | Recognition pipeline (C# CTC, CPU) | line-crop CER ~0.88 measured on M02a; L0 persisted with provenance |
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |
-| End-to-end page CER (layout+recognition) | **0.938** vs 0.881 PAGE-box control on 6 held-out M02a pages |
+| End-to-end page CER (layout+recognition) | **0.944 mean** vs 0.905 PAGE-box control across 3 seeds on 6 held-out M02a pages (control range 0.878–0.953: layout effect not separable from training variance at this scale) |
 | Training CLI | `train lines` → verified package (manifest + card) |
 | Durable jobs | layout.detect, recognize.surface, recognize.project, import.dir |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
@@ -27,7 +27,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 ## Measured numbers (pilot scale)
 
 - Recognition: P01 locked split spent; M02a dev CER ~0.84–0.88 depending on configuration.
-- Page workflow: 0.938 CER including layout misses; control 0.881.
+- Page workflow: 0.944 mean CER including layout misses; control 0.905 (3 seeds; wide spread).
 - Layout: density post-filter adopted (held-out precision 0.335→0.381, recall unchanged);
   merge-rule candidate **rejected** after out-of-domain regression (recorded).
 - Throughput: 113 pages/min CLI import; 45 pages/s in-process bulk; layout job ~4 s incl. fetch.

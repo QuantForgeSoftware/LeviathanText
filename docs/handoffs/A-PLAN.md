@@ -244,9 +244,12 @@ Blockers recorded so far:
   with status filter; cooperative cancellation between batch items (Cancelled is preserved, not
   resurrected); backup/restore with image-checksum verification before writing; opt-in API-key
   + read-only guard for shared deployments (explicitly **not** a user system).
-- **Measurements:** end-to-end page CER (layout + recognition) **0.938** with layout misses vs
-  **0.881** PAGE-box control on 6 held-out M02a pages; batch recognition 27 surfaces / 321
-  lines in ~1.3 s; peak RSS ~200 MB single page / ~244 MB batch (CLI).
+- **Measurements:** end-to-end page CER (layout + recognition) **0.944 mean** vs **0.905**
+  PAGE-box control across 3 seeds on 6 held-out M02a pages — control range 0.878–0.953 means
+  the layout effect is **not separable from training variance** at this model quality;
+  detection recall is stable at 0.556. Batch recognition 27 surfaces / 321 lines in ~1.3 s;
+  peak RSS ~200 MB single page / ~244 MB batch (CLI). Projection layout precision improved
+  0.386 → 0.433 (content-bounds cropping) at equal recall.
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
   throughput + evaluation index updates.
 - **Verification:** full Release build and suite counts recorded in the board after the closing

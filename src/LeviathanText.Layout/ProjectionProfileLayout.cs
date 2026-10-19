@@ -87,22 +87,26 @@ public static class ProjectionProfileLayout
         float paper = RowFeatureExtractor.Percentile(histogram, (int)sampled, 0.95);
         float inkThreshold = Math.Clamp(paper - 0.12f, 0.05f, 0.90f);
 
-        // 2) Border trim: dark page edges/shadows dominate the projection otherwise.
-        int trimX = (int)(width * 0.02), trimY = (int)(height * 0.02);
+        // 2) Restrict to the bright page area first (photographic scans often have a dark
+        //    surround that produces spurious bands), then trim a small inner border.
+        var (contentLeft, contentTop, contentRight, contentBottom) = RowFeatureExtractor.ContentBounds(page);
+        int trimX = (int)((contentRight - contentLeft) * 0.02), trimY = (int)((contentBottom - contentTop) * 0.02);
+        int areaLeft = contentLeft + trimX, areaRight = contentRight - trimX;
+        int areaTop = contentTop + trimY, areaBottom = contentBottom - trimY;
 
         // 3) Row ink densities inside the trimmed area.
         var rowDensity = new double[height];
-        for (int row = trimY; row < height - trimY; row++)
+        for (int row = areaTop; row < areaBottom; row++)
         {
             int ink = 0;
-            for (int col = trimX; col < width - trimX; col++)
+            for (int col = areaLeft; col < areaRight; col++)
             {
                 int b = (row * width + col) * info.BytesPerPixel;
                 byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
                 float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
                 if (luminance < inkThreshold) ink++;
             }
-            rowDensity[row] = (double)ink / (width - 2 * trimX);
+            rowDensity[row] = (double)ink / Math.Max(1, areaRight - areaLeft);
         }
 
         // 4) Smooth (moving average) to bridge intraline gaps and suppress speck noise.
@@ -116,20 +120,20 @@ public static class ProjectionProfileLayout
         int localWindow = Math.Max(20, height / 12);
         var lines = new List<DetectedLine>();
         int start = -1;
-        for (int row = trimY; row <= height - trimY; row++)
+        for (int row = areaTop; row <= areaBottom; row++)
         {
-            double localPeak = LocalPeak(smoothed, row, localWindow, trimY, height - trimY);
-            double localFloor = LocalFloor(smoothed, row, localWindow, trimY, height - trimY);
+            double localPeak = LocalPeak(smoothed, row, localWindow, areaTop, areaBottom);
+            double localFloor = LocalFloor(smoothed, row, localWindow, areaTop, areaBottom);
             double splitAt = Math.Max(options.MinRowDensity,
                 localFloor + (localPeak - localFloor) * options.ValleyFraction);
-            bool inBand = row < height - trimY && smoothed[row] >= splitAt;
+            bool inBand = row < areaBottom && smoothed[row] >= splitAt;
             if (inBand && start < 0) start = row;
             if (!inBand && start >= 0)
             {
                 int end = row; // exclusive
                 if (end - start >= options.MinLineHeight && localPeak > 0)
                 {
-                    var (left, right, density) = BandExtent(page, start, end, inkThreshold);
+                    var (left, right, density) = BandExtent(page, start, end, inkThreshold, areaLeft, areaRight);
                     if (right > left)
                         lines.Add(new DetectedLine
                         {
@@ -229,17 +233,18 @@ public static class ProjectionProfileLayout
         return floor == double.MaxValue ? 0 : floor;
     }
 
-    private static (int Left, int Right, double Density) BandExtent(SKBitmap page, int top, int bottom, float inkThreshold)
+    private static (int Left, int Right, double Density) BandExtent(
+        SKBitmap page, int top, int bottom, float inkThreshold, int minX, int maxX)
     {
         int width = page.Width;
         var info = page.Info;
         var bytes = page.Bytes;
-        int left = width, right = 0;
+        int left = maxX, right = minX;
         long inkPixels = 0;
 
         for (int row = top; row < bottom; row++)
         {
-            for (int col = 0; col < width; col++)
+            for (int col = minX; col < maxX; col++)
             {
                 int b = (row * width + col) * info.BytesPerPixel;
                 byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
@@ -253,7 +258,7 @@ public static class ProjectionProfileLayout
             }
         }
 
-        double density = (double)inkPixels / Math.Max(1, (bottom - top) * width);
+        double density = (double)inkPixels / Math.Max(1, (bottom - top) * Math.Max(1, maxX - minX));
         if (right < left) return (0, 0, density);
         return (left, right, density);
     }
