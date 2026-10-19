@@ -77,9 +77,10 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
 
         // Publish the report; the locked split is now spent for this pilot and any reuse must be disclosed.
         var report = $"""
-            # P01 pilot evaluation (pilot-scale, one-shot)
+            # P01 pilot evaluation (pilot-scale; locked set used multiple times)
 
             - Date: {DateTimeOffset.UtcNow:O}; contract {LeviathanText.Contracts.ContractVersion.Current}
+            - **Locked-set status:** this split has been scored multiple times (pre-fix and post-fix re-baselines); it is spent for threshold purposes. See `docs/evaluation/locked-set-reuse.md`.
             - Dataset: P01 Zenon Papyri HTR v0.9 (CC BY 4.0), md5-verified, 27 pairs, {snapshot.TotalLines} lines
             - Split: witness-level (file = unit); train {snapshot.Train.Count} / dev {snapshot.Dev.Count} / **test {snapshot.TestLocked.Count} (locked)**
             - Split hash (sha256 of sorted assignment): `{splitHash}`
@@ -110,7 +111,7 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
             ## Status and caveats
 
             - **Pilot-scale**: generalization is data-limited (176 training lines); {cer:0.###} is a measured baseline, not a threshold or a pass/fail result.
-            - The locked split was used once, after training/config freeze; per acceptance-plan §1 any reuse must add fresh held-out witnesses and disclose the reuse.
+            - The locked split has been used multiple times; under acceptance-plan §1 it is spent for threshold purposes and any further claim requires fresh held-out witnesses and disclosure.
             - Missing tracks: manuscripts and inscriptions are not evaluated here; the combined initial scope is not complete (acceptance-plan §9).
             """;
         var reportPath = FindRepoRoot() is { } root ? Path.Combine(root, "docs", "evaluation", "pilot-p01-report.md") : "pilot-p01-report.md";

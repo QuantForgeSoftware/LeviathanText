@@ -11,10 +11,12 @@
 | --- | --- | --- | --- | --- | --- |
 | 1 | 2026-10-19T11:45Z | Original one-shot after training/config freeze (`23eb349`) | vertical padding 0.5 | **0.885** | 0/95 |
 | 2 | 2026-10-19T13:32Z | Re-baseline after the IMG crop fix `0c6c768` (padding 0.25, 12 px cap) | capped padding | **0.828** | 0/95 |
+| 3 | 2026-10-19T14:22Z | Unintentional third run while regenerating reports under the new extraction | capped padding | **0.825** | 0/95 |
 
-Both runs: `eval-pilot-crnn`, CRNN(h=64), 300 epochs, lr 0.003, seed 42, imported PAGE
-layout, non-adjudicated Transkribus labels. Run 2 is also the source of the operating
-limits in [pilot-p01-report.md](pilot-p01-report.md).
+All runs: `eval-pilot-crnn`, CRNN(h=64), 300 epochs, lr 0.003, seed 42, imported PAGE
+layout, non-adjudicated Transkribus labels. Run 3 is the current content of
+[pilot-p01-report.md](pilot-p01-report.md); runs 2–3 share the same configuration. The
+generator template now emits this disclosure so a rerun cannot silently restore “one-shot”.
 
 ## Status and rule
 
@@ -22,6 +24,8 @@ limits in [pilot-p01-report.md](pilot-p01-report.md).
   choice, prompt examples, thresholds or further tuning.
 - Run 2 was justified as a *measurement-integrity re-baseline* after a preprocessing
   defect changed the model's input distribution; it did not select the best configuration.
+  Run 3 was not planned and adds no new evidence; it is recorded because the split was
+  scored again. Do not use any of these numbers for selection.
   Dev-only comparisons (see [decoding-comparison.md](decoding-comparison.md)) were used for
   selection.
 - Any further acceptance claim on P01 requires **fresh held-out witnesses** (new objects,
