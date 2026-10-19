@@ -53,3 +53,37 @@ describe('LineEditor (crash recovery)', () => {
     expect(input.value).toBe('server only');
   });
 });
+
+describe('LineEditor (alternatives)', () => {
+  it('composes an L2 revision from an alternative span without touching L1', () => {
+    const calls: { layer: string; text: string; parent?: string }[] = [];
+    const stub = {
+      line: () => of({ line: 'ln-alt', diplomatic: 'abd', history: [{ id: 'rev-1', author: 'x', text: 'abd' }] }),
+      annotations: () => of([{
+        id: 'ann-1', kind: 'AlternativeReading', anchoredRevisionId: 'rev-1',
+        range: { start: 1, end: 2 }, alternativeText: 'X',
+      }]),
+      appendRevision: (_line: string, layer: string, text: string, _author: string, parent?: string) => {
+        calls.push({ layer, text, parent });
+        return of({ revisionId: 'rev-2' });
+      },
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-alt');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.includes('Accept as L2')) as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+
+    expect(calls).toEqual([{ layer: 'L2Editorial', text: 'aXd', parent: 'rev-1' }]);
+  });
+});

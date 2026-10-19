@@ -6,7 +6,7 @@
  */
 import { Component, computed, input, signal } from '@angular/core';
 import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
-import { scalarCount, scalarOffsetFromUtf16 } from './text-utils';
+import { applyScalarEdit, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 import { ProposalPanel } from './proposal-panel';
 
 interface UndoStack {
@@ -84,7 +84,10 @@ interface UndoStack {
                 <b>{{ annotation.kind }}</b>
                 [{{ annotation.range.start }}, {{ annotation.range.end }})
                 @if (annotation.description) { — {{ annotation.description }} }
-                @if (annotation.alternativeText) { — alt: {{ annotation.alternativeText }} }
+                @if (annotation.alternativeText) {
+                  — alt: {{ annotation.alternativeText }}
+                  <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
+                }
               </li>
             } @empty {
               <li>No annotations on this line.</li>
@@ -184,6 +187,19 @@ export class LineEditor {
 
   protected onGapExtent(event: Event): void {
     this.formGapExtent.set((event.target as HTMLSelectElement).value);
+  }
+
+  /** Compose an L2 editorial revision from the current L1 text and an alternative span. */
+  protected acceptAlternative(annotation: AnnotationView): void {
+    const alternative = annotation.alternativeText;
+    if (!alternative) return;
+    const parent = this.currentRevision()?.id;
+    const composed = applyScalarEdit(this.text(), annotation.range.start, annotation.range.end, alternative);
+    this.api.appendRevision(this.lineId(), 'L2Editorial', composed, this.authorId(), parent)
+      .subscribe({
+        next: () => this.refresh(),
+        error: () => { /* surfaced by the API; state kept */ },
+      });
   }
 
   protected addAnnotation(): void {

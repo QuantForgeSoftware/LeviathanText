@@ -46,6 +46,7 @@ import { GeometryEditor } from './geometry-editor';
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
           <button type="button" (click)="detectLayout()">Detect layout</button>
+          <a [href]="bundleUrl()" download>Download bundle (.zip)</a>
           <span class="hint">{{ exportStatus() }}</span>
         </p>
 
@@ -114,6 +115,10 @@ export class SurfaceView {
       },
       error: () => this.exportStatus.set('training export failed'),
     });
+  }
+
+  protected bundleUrl(): string {
+    return `/api/v1/projects/${this.projectId()}/bundle`;
   }
 
   protected detectLayout(): void {

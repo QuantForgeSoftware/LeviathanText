@@ -29,6 +29,8 @@ interface DragState {
         <svg
           [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
           preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Surface capture with editable line boxes"
           (pointermove)="onMove($event)"
           (pointerup)="onUp()"
           (pointerleave)="onUp()">

@@ -58,13 +58,15 @@ Remote captures (IIIF) are fetched once into a checksummed local cache when an a
 ```bash
 dotnet run --project src/LeviathanText.Api
 # projects: GET/POST /api/v1/projects, GET /projects/{id}
-# ingestion: POST /projects/{id}/import-page | import-iiif
+# ingestion: POST /projects/{id}/import-page | import-iiif | import-legacy (ALTO/hOCR + image)
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
 # geometry: PUT /lines/{id}/geometry
-# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | training-export
+# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | alto | hocr
+#          GET /projects/{id}/training-export | bundle (zip with manifest)
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
-# jobs: POST /jobs (idempotency key; layout.detect / recognize.surface), GET /jobs/{id}/events (SSE with cursor replay)
+# jobs: POST /jobs (idempotency key; layout.detect / recognize.surface / import.dir),
+#       GET /jobs/{id}/events (SSE with cursor replay)
 
 # Shared deployment (opt-in): set LeviathanText:Auth:ApiKey (Bearer or X-Api-Key required
 # under /api/v1); LeviathanText:Auth:ReadOnly=true blocks mutations. Without a key the API

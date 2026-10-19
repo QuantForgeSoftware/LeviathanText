@@ -34,3 +34,14 @@ export function utf16OffsetFromScalar(text: string, scalarOffset: number): numbe
   }
   return i;
 }
+
+/**
+ * Replace a scalar range with new text. Used when an editor accepts a source-linked
+ * alternative reading: the result is an L2 editorial composition, never L1 evidence.
+ */
+export function applyScalarEdit(text: string, start: number, end: number, replacement: string): string {
+  const scalars = Array.from(text);
+  const from = Math.max(0, Math.min(start, scalars.length));
+  const to = Math.max(from, Math.min(end, scalars.length));
+  return scalars.slice(0, from).join('') + replacement + scalars.slice(to).join('');
+}
