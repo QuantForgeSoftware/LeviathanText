@@ -271,7 +271,7 @@ api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionSe
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
     var history = transcription.RevisionHistory(project, lineEntityId,
-        layer is null ? TextLayer.L1Diplomatic : Enum.Parse<TextLayer>(layer));
+        layer is null ? TextLayer.L1Diplomatic : Enum.Parse<TextLayer>(layer, ignoreCase: true));
     return Results.Ok(history.Select(r => new
     {
         id = r.Id.ToString(), layer = r.Layer.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt,

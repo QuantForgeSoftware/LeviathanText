@@ -144,7 +144,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     public async Task Line_geometry_round_trips_through_the_api()
     {
         var client = NewClient();
-        var (projectId, lineId, _) = await ImportFixtureAsync(client);
+        var (projectId, lineId, _) = await ImportFixtureAsync(client, "geometry-e2e");
         Assert.NotNull(projectId);
 
         var response = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
@@ -174,9 +174,10 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     public async Task Line_order_endpoint_validates_and_returns_the_new_order()
     {
         var client = NewClient();
-        await ImportFixtureAsync(client);
+        await ImportFixtureAsync(client, "line-order-e2e");
+        var lineOrderProjectId = await GetProjectIdAsync(client, "line-order-e2e");
         var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>(
-            $"/api/v1/projects/{await GetProjectIdAsync(client)}");
+            $"/api/v1/projects/{lineOrderProjectId}");
         var (regionId, lineIds) = ExtractRegionAndLineIds(projectJson!);
 
         // The full line set (reversed) is a valid order.
@@ -204,17 +205,17 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         return (regionId, lineIds);
     }
 
-    private static async Task<string> GetProjectIdAsync(HttpClient client)
+    private static async Task<string> GetProjectIdAsync(HttpClient client, string name)
     {
         var list = await client.GetFromJsonAsync<Dictionary<string, string>[]>("/api/v1/projects");
-        return list!.Single(p => p["name"] == "geometry-e2e")["id"];
+        return list!.Single(p => p["name"] == name)["id"];
     }
 
     [Fact]
     public async Task Reading_order_update_requires_every_region()
     {
         var client = NewClient();
-        var (_, _, surfaceId) = await ImportFixtureAsync(client);
+        var (_, _, surfaceId) = await ImportFixtureAsync(client, "reading-order-e2e");
         Assert.Contains("surf-", surfaceId);
 
         var response = await client.PutAsJsonAsync($"/api/v1/surfaces/{surfaceId}/reading-order", new
@@ -224,9 +225,9 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
-    private static async Task<(string ProjectId, string LineId, string SurfaceId)> ImportFixtureAsync(HttpClient client)
+    private static async Task<(string ProjectId, string LineId, string SurfaceId)> ImportFixtureAsync(HttpClient client, string projectName)
     {
-        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "geometry-e2e" });
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = projectName });
         var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
         var fixture = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "LeviathanText.Formats.Tests", "Fixtures", "sample.page.xml"));
         var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-page", new { pageXmlPath = fixture });
@@ -236,6 +237,22 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>($"/api/v1/projects/{project["id"]}");
         var lineId = ExtractFirstLineId(projectJson!);
         return (project["id"], lineId, surfaceId);
+    }
+
+    [Fact]
+    public async Task Revision_history_accepts_camel_case_layer_names()
+    {
+        var client = NewClient();
+        await ImportFixtureAsync(client, "revisions-e2e");
+        var revisionsProjectId = await GetProjectIdAsync(client, "revisions-e2e");
+        var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>(
+            $"/api/v1/projects/{revisionsProjectId}");
+        var lineId = ExtractFirstLineId(projectJson!);
+
+        var camel = await client.GetAsync($"/api/v1/lines/{lineId}/revisions?layer=l1Diplomatic");
+        Assert.Equal(HttpStatusCode.OK, camel.StatusCode);
+        var exact = await client.GetAsync($"/api/v1/lines/{lineId}/revisions?layer=L1Diplomatic");
+        Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
     }
 
     [Fact]
