@@ -1,10 +1,13 @@
-# P01 pilot evaluation (pilot-scale, one-shot)
+# P01 pilot evaluation (pilot-scale; locked set used twice)
 
-- Date: 2026-10-19T13:23:30.8273250+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T13:32:28.5748050+00:00; contract C0-0.4-draft
+- **Locked-set status:** this split has been scored twice — the original one-shot and this
+  post-extraction-fix re-baseline. It is spent for threshold purposes; further claims
+  require fresh held-out witnesses. See [locked-set-reuse.md](locked-set-reuse.md).
 - Dataset: P01 Zenon Papyri HTR v0.9 (CC BY 4.0), md5-verified, 27 pairs, 321 lines
 - Split: witness-level (file = unit); train 176 / dev 50 / **test 95 (locked)**
 - Split hash (sha256 of sorted assignment): `f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6`
-- Model: eval-pilot-crnn CRNN(h=64), 300 epochs, lr 0.003, seed 42; train loss 1.083 → 0.012
+- Model: eval-pilot-crnn CRNN(h=64), 300 epochs, lr 0.003, seed 42; train loss 1.07 → 0.01
 - Labels: Transkribus-prepared diplomatic text, grapheme-level label set (45 classes), NOT yet expert-adjudicated (DATA-03 pending)
 - Layout: imported (PAGE geometry) — this is recognition-on-manual-layout, never advertised as fully automatic
 
@@ -12,7 +15,7 @@
 
 | Metric | Value |
 | --- | --- |
-| Scalar CER (canonical-equivalent, case-sensitive) | 0.84 |
+| Scalar CER (canonical-equivalent, case-sensitive) | 0.828 |
 | Perfect lines | 0/95 |
 | Mark insertions (wrongly supplied marks) | 0 |
 | Mark deletions (missing marks) | 5 |
@@ -22,14 +25,14 @@
 
 | Entry | Value |
 | --- | --- |
-| Training wall time | 0.9 min |
-| Training seconds per line | 0.298 s |
-| Peak RAM (process) | unmeasured on macOS (platform limitation); working set at report time 761 MB |
-| Total allocations | 9659 MB |
+| Training wall time | 1.1 min |
+| Training seconds per line | 0.364 s |
+| Peak RAM (process) | unmeasured on macOS (platform limitation); working set at report time 724 MB |
+| Total allocations | 9643 MB |
 | Backend | TorchSharp CPU (libtorch-cpu-osx-arm64 2.10.0) |
 
 ## Status and caveats
 
-- **Pilot-scale**: generalization is data-limited (176 training lines); 0.84 is a measured baseline, not a threshold or a pass/fail result.
-- The locked split was used once, after training/config freeze; per acceptance-plan §1 any reuse must add fresh held-out witnesses and disclose the reuse.
+- **Pilot-scale**: generalization is data-limited (176 training lines); 0.828 is a measured baseline, not a threshold or a pass/fail result.
+- The locked split has been used **twice** (original 0.885 pre-fix; 0.828 here after the extraction fix); per acceptance-plan §1 it is spent for threshold purposes and any further use requires fresh held-out witnesses. See [locked-set-reuse.md](locked-set-reuse.md).
 - Missing tracks: manuscripts and inscriptions are not evaluated here; the combined initial scope is not complete (acceptance-plan §9).
