@@ -47,7 +47,7 @@ public sealed class TorchLineRecognizer : ICtcRecognizer
                 Message = "Model class count does not match the label set.",
             });
 
-        var (images, lengths) = LineBatcher.ToTensor(lines);
+        var (images, lengths) = LineBatcher.ToTensor(lines, Model.WidthDownsampleFactor);
 
         Tensor logProbs;
         using (var _ = no_grad())

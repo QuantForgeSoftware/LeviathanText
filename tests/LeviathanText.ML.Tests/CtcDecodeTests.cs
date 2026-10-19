@@ -89,6 +89,24 @@ public class CtcDecodeTests
         Assert.Throws<ArgumentException>(() => CtcBeamDecoder.PrefixBeamSearch([new[] { 0.5 }]));
     }
 
+    [Theory]
+    [InlineData(4)]
+    [InlineData(2)]
+    [InlineData(1)]
+    public void Model_output_time_steps_match_the_configured_width_downsample(int factor)
+    {
+        var labels = new LabelSet(new[] { "α", "β", "γ" });
+        var model = new CrnnModel(labels.NumClasses, hiddenSize: 64, widthDownsampleFactor: factor);
+        var image = Training.SyntheticGraphemeRenderer.Render("αβγ");
+
+        var (images, lengths) = LineBatcher.ToTensor([image], factor);
+        var logProbs = model.forward(images);
+
+        Assert.Equal(model.TimeSteps(image.Width), (int)logProbs.shape[0]);
+        Assert.Equal(model.TimeSteps(image.Width), lengths[0]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CrnnModel(3, 64, widthDownsampleFactor: 3));
+    }
+
     [Fact]
     public void Recognizer_defaults_to_greedy_and_accepts_beam_mode()
     {

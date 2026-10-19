@@ -69,6 +69,24 @@ then yields too few columns. The likely root cause is line-region geometry/extra
 (imaging package), not the CTC decoder; reducing the CRNN width downsample from 4 to 2
 would remove the structural limit on 30/50 lines and is the ML-side fallback.
 
+## Width-downsample A/B (ML fallback, measured)
+
+Reproduce: `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01WidthDownsampleTests`.
+Artifact: `.artifacts/pilot/p01-width-downsample.txt`. Same train/dev config, greedy decode,
+dev-only.
+
+| Width downsample | Dev scalar CER | Reachable lines (T ≥ scalars) | Min T | Median T | Median scalars | Seconds/line |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 (default) | 0.8496 | 0/50 | 4 | 8 | 18 | 0.0001 |
+| **2 (candidate)** | **0.8257** | **30/50** | 8 | 17 | 18 | 0.0002 |
+
+Reducing the width downsample removes the structural limit on 30/50 dev lines and
+improves dev CER by ~0.024 absolute at ~2× decode cost. The architecture is now
+configurable (`CrnnModel(numClasses, hiddenSize, widthDownsampleFactor)` with 1/2/4);
+the **default stays 4** so existing checkpoints and the one-shot locked-test pilot report
+remain valid. Factor 2 is the recommended configuration for the next frozen candidate,
+which must use fresh held-out witnesses (acceptance-plan.md §2 reuse rule).
+
 ## Decision (pilot-scale, reversible)
 
 - **Keep greedy as the default decoder.** Beam mode stays available and tested

@@ -49,7 +49,7 @@ public sealed class CtcTrainer
         for (int i = 0; i < shuffled.Count; i += _config.BatchSize)
         {
             var batch = shuffled.Skip(i).Take(_config.BatchSize).ToList();
-            var collated = VariableWidthCollator.Collate(batch, _labels);
+            var collated = VariableWidthCollator.Collate(batch, _labels, _model.WidthDownsampleFactor);
 
             _optimizer.zero_grad();
             var logProbs = _model.forward(collated.Images);
@@ -78,7 +78,7 @@ public sealed class CtcTrainer
             for (int i = 0; i < data.Count; i += _config.BatchSize)
             {
                 var batch = data.Skip(i).Take(_config.BatchSize).ToList();
-                var collated = VariableWidthCollator.Collate(batch, _labels);
+                var collated = VariableWidthCollator.Collate(batch, _labels, _model.WidthDownsampleFactor);
                 var logProbs = _model.forward(collated.Images);
                 var loss = TorchSharp.torch.nn.functional.ctc_loss(
                     logProbs, collated.Targets, collated.InputLengths, collated.TargetLengths,

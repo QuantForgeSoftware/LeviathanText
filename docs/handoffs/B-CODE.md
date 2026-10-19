@@ -91,4 +91,6 @@ deletion-dominated (706–800 deletions vs 0 insertions).
 
 B recommends IMG review P01 line-region geometry/deskew extraction before any accuracy
 claim. The ML-side fallback (CRNN width downsample 4 → 2) removes the limit on 30/50 lines
-and is being measured next. No IMG-owned file was touched.
+and improves dev CER 0.8496 → 0.8257 (measured, `P01WidthDownsampleTests`); the default
+stays 4 so existing checkpoints remain valid, and factor 2 is the recommended next-candidate
+configuration. No IMG-owned file was touched.

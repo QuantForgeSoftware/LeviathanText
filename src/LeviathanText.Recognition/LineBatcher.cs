@@ -9,7 +9,9 @@ namespace LeviathanText.Recognition;
 /// </summary>
 public static class LineBatcher
 {
-    public static (Tensor Images, int[] InputLengths) ToTensor(IReadOnlyList<LineImage> lines)
+    public static (Tensor Images, int[] InputLengths) ToTensor(
+        IReadOnlyList<LineImage> lines,
+        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor)
     {
         if (lines.Count == 0) throw new ArgumentException("Cannot build a batch from zero lines.", nameof(lines));
 
@@ -29,7 +31,7 @@ public static class LineBatcher
             int batchOffset = i * height * maxWidth;
             for (int row = 0; row < height; row++)
                 Array.Copy(line.Pixels, row * line.Width, data, batchOffset + row * maxWidth, line.Width);
-            lengths[i] = CrnnModel.TimeStepsFor(line.Width);
+            lengths[i] = CrnnModel.TimeStepsFor(line.Width, widthDownsampleFactor);
         }
 
         var images = tensor(data, new long[] { lines.Count, 1, height, maxWidth });

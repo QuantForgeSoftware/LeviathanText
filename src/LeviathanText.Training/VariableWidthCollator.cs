@@ -24,11 +24,14 @@ public sealed class CtcBatch
 /// <summary>Pads a variable-width batch and encodes each ground-truth text with a label set.</summary>
 public static class VariableWidthCollator
 {
-    public static CtcBatch Collate(IReadOnlyList<LabeledLine> lines, LabelSet labels)
+    public static CtcBatch Collate(
+        IReadOnlyList<LabeledLine> lines,
+        LabelSet labels,
+        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor)
     {
         if (lines.Count == 0) throw new ArgumentException("Cannot collate zero lines.", nameof(lines));
 
-        var (images, inputLengths) = LineBatcher.ToTensor([.. lines.Select(l => l.Image)]);
+        var (images, inputLengths) = LineBatcher.ToTensor([.. lines.Select(l => l.Image)], widthDownsampleFactor);
         var targetIndices = lines.Select(l => labels.EncodeText(l.Text)).ToList();
 
         var flat = targetIndices.SelectMany(s => s).Select(i => (long)i).ToArray();
