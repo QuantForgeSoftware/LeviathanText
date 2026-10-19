@@ -95,7 +95,8 @@ public static class P01LineDataset
 
         var unannotated = Directory.GetFiles(datasetDirectory, "*" + imageExtension)
             .Select(Path.GetFileNameWithoutExtension)
-            .Where(name => !File.Exists(Path.Combine(datasetDirectory, name + ".xml")))
+            .Where(name => name is not null && !File.Exists(Path.Combine(datasetDirectory, name + ".xml")))
+            .Select(name => name!)
             .ToList();
 
         int total = train.Count + dev.Count + test.Count;
