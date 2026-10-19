@@ -242,6 +242,14 @@ api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionSe
     }));
 });
 
+api.MapGet("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    return Results.Ok(transcription.AnnotationsFor(project, lineEntityId));
+});
+
 api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AddAnnotationRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);

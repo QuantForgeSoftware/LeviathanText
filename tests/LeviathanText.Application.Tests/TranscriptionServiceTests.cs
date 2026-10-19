@@ -15,6 +15,55 @@ public sealed class TranscriptionServiceTests
         return (SampleProjectBuilder.Build().Objects[0].Surfaces[0].Lines[0].Id, new TranscriptionService(store), store);
     }
 
+    [Fact]
+    public void AnnotationsFor_returns_only_the_lines_revisions()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+
+        var (one, _, _) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a1"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 2),
+        });
+        var (two, _, _) = service.AddAnnotation(one, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "a2"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(3, 4),
+        });
+
+        // A foreign annotation anchored to an unrelated revision must not appear.
+        var surface = two.Objects[0].Surfaces[0];
+        var withForeign = two with
+        {
+            Objects = [two.Objects[0] with
+            {
+                Surfaces = [surface with
+                {
+                    Annotations =
+                    [
+                        .. surface.Annotations,
+                        new Annotation
+                        {
+                            Id = new EntityId(EntityKind.Annotation, "foreign"),
+                            Kind = AnnotationKind.Unclear,
+                            AnchoredRevisionId = new EntityId(EntityKind.TranscriptionRevision, "rev-other"),
+                            Range = new ScalarRange(0, 1),
+                        },
+                    ],
+                }],
+            }],
+        };
+
+        var annotations = service.AnnotationsFor(withForeign, lineId);
+        Assert.Equal(2, annotations.Count);
+        Assert.DoesNotContain(annotations, a => a.Id.Suffix == "foreign");
+    }
+
     private NativeProject LoadCurrent(InMemoryStore store, EntityId projectId) =>
         store.LoadProject(projectId) ?? throw new InvalidOperationException("project missing in test store");
 

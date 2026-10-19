@@ -5,7 +5,7 @@
  * deleted). The L2 layer is written separately from L1; the surface view shows both.
  */
 import { Component, computed, input, signal } from '@angular/core';
-import { ApiClient, LinePayload, RevisionPayload } from './api-client';
+import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
 import { scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 
 interface UndoStack {
@@ -48,6 +48,22 @@ interface UndoStack {
             }
           </ul>
         </details>
+
+        <details open>
+          <summary>Annotations ({{ annotations().length }})</summary>
+          <ul>
+            @for (annotation of annotations(); track annotation.id) {
+              <li>
+                <b>{{ annotation.kind }}</b>
+                [{{ annotation.range.start }}, {{ annotation.range.end }})
+                @if (annotation.description) { — {{ annotation.description }} }
+                @if (annotation.alternativeText) { — alt: {{ annotation.alternativeText }} }
+              </li>
+            } @empty {
+              <li>No annotations on this line.</li>
+            }
+          </ul>
+        </details>
       </section>
     } @else {
       <p>Editor offline.</p>
@@ -68,6 +84,7 @@ export class LineEditor {
   protected readonly text = signal('');
   protected readonly caret = signal(0);
   protected readonly history = signal<RevisionPayload[]>([]);
+  protected readonly annotations = signal<AnnotationView[]>([]);
   private readonly undoStack = signal<UndoStack[]>([]);
 
   constructor(api: ApiClient) {
@@ -86,6 +103,7 @@ export class LineEditor {
         const serverText = data.diplomatic ?? '';
         this.text.set(draft !== null && draft !== serverText ? draft : serverText);
         this.draftRestored.set(draft !== null && draft !== serverText);
+        this.loadAnnotations();
       },
       error: () => this.payload.set({ line: this.lineId(), diplomatic: null, history: [] }),
     });
@@ -202,6 +220,14 @@ export class LineEditor {
       this.text.set(data.diplomatic ?? '');
       this.history.set([...data.history]);
       this.undoStack.set([]);
+      this.loadAnnotations();
+    });
+  }
+
+  private loadAnnotations(): void {
+    this.api.annotations(this.lineId()).subscribe({
+      next: list => this.annotations.set(list),
+      error: () => this.annotations.set([]),
     });
   }
 }

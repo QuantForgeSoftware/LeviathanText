@@ -9,6 +9,7 @@ describe('LineEditor (crash recovery)', () => {
   function setup(serverText: string) {
     const stub = {
       line: () => of({ line: lineId, diplomatic: serverText, history: [] }),
+      annotations: () => of([]),
       appendRevision: () => of({ revisionId: 'rev-new' }),
       addAnnotation: () => of({ annotationId: 'ann-1' }),
     };

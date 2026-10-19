@@ -78,6 +78,17 @@ export interface AnnotationPayload {
   anchoredRevisionId: string;
 }
 
+export interface AnnotationView {
+  id: string;
+  kind: string;
+  anchoredRevisionId: string;
+  range: { start: number; end: number };
+  gapExtent?: string;
+  alternativeText?: string;
+  handLabel?: string;
+  description?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiClient {
   constructor(private readonly http: HttpClient) {}
@@ -134,6 +145,10 @@ export class ApiClient {
 
   addAnnotation(lineId: string, annotation: unknown): Observable<AnnotationPayload> {
     return this.http.post<AnnotationPayload>(`/api/v1/lines/${lineId}/annotations`, annotation);
+  }
+
+  annotations(lineId: string): Observable<AnnotationView[]> {
+    return this.http.get<AnnotationView[]>(`/api/v1/lines/${lineId}/annotations`);
   }
 }
 

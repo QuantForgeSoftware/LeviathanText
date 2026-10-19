@@ -62,6 +62,14 @@ public sealed class TranscriptionService(IProjectStore store)
             .OrderBy(r => r.CreatedAt)
             .ToList();
 
+    /// <summary>All annotations of a line's revisions (any layer), oldest first.</summary>
+    public IReadOnlyList<Annotation> AnnotationsFor(NativeProject project, EntityId lineId)
+    {
+        var (_, surface, _) = FindLine(project, lineId);
+        var revisionIds = surface.Revisions.Where(r => r.ScopeId == lineId).Select(r => r.Id).ToHashSet();
+        return [.. surface.Annotations.Where(a => revisionIds.Contains(a.AnchoredRevisionId))];
+    }
+
     public (NativeProject Project, NativeSurface Surface, Annotation Annotation) AddAnnotation(
         NativeProject project, EntityId lineId, Annotation annotation)
     {
