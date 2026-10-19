@@ -20,3 +20,20 @@ Corrections from the user, converted into rules for future sessions.
    (tables, registers, decisions, estimates) in `todo.md`. Add a section note where a
    section's items are all archived, refresh `completed.md`'s build date/item count, and
    commit both files together. "Cycle" = a closed work session or assignment handoff.
+
+## 5. Imported document ids are not globally unique
+PAGE/ALTO/hOCR ids (`ln1`, `line_…`) repeat across documents. Namespace them per import
+(`ln1-<capture token>`) or globally addressed endpoints can act on the wrong project. Added
+2026-10-19 after a real cross-project mutation was reproduced in a test.
+
+## 6. CPU training is not bit-reproducible across processes
+Identical seed/config can yield materially different CER (control range 0.878–0.953 for the
+same code). Report seed spreads for end-to-end claims, not a single favorable run.
+
+## 7. Dev-selected rules must be validated on out-of-domain held-out pages
+A merge rule that improved M02a dev collapsed P01 (precision 0). Keep domain-split reporting
+so selection overfitting is visible.
+
+## 8. Treat analyzer warnings as defects
+`dotnet build` warnings (e.g. xUnit2031) count against the release gate; fix at the source
+rather than suppressing, and confirm `0 Warning(s)` before closing a cycle.

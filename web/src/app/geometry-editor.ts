@@ -99,6 +99,17 @@ interface DragState {
         }
       </ol>
       <button type="button" (click)="saveLineOrder()" [disabled]="!lineOrderDirty()">Save line order</button>
+
+      <details>
+        <summary>Edit history ({{ historyEdits().length }})</summary>
+        <ul>
+          @for (edit of historyEdits().slice(-8).reverse(); track edit.id) {
+            <li><b>{{ edit.kind }}</b> · {{ edit.author }} · {{ edit.at }}</li>
+          } @empty {
+            <li>No geometry edits recorded yet.</li>
+          }
+        </ul>
+      </details>
     </section>
   `,
   styles: [`
@@ -130,6 +141,9 @@ export class GeometryEditor implements OnInit {
   protected readonly mode = signal<'move' | 'draw'>('move');
   protected readonly drawRect = signal<{ x: number; y: number; width: number; height: number } | null>(null);
   protected readonly actionStatus = signal('');
+  protected readonly historyEdits = signal<{
+    id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
+  }[]>([]);
   private drawStart: { x: number; y: number } | null = null;
   protected readonly lineOrder = signal<string[]>([]);
   protected readonly history = signal<GeometryLine[][]>([]);
@@ -146,6 +160,13 @@ export class GeometryEditor implements OnInit {
 
   ngOnInit(): void {
     this.api.loadProject(this.projectId()).subscribe(payload => this.loadFrom(payload));
+  }
+
+  private loadHistory(): void {
+    this.api.geometryHistory(this.surfaceId()).subscribe({
+      next: edits => this.historyEdits.set(edits),
+      error: () => this.historyEdits.set([]),
+    });
   }
 
   private loadFrom(payload: ProjectPayload): void {
@@ -171,6 +192,7 @@ export class GeometryEditor implements OnInit {
     this.dirty.set(false);
     this.orderDirty.set(false);
     this.lineOrderDirty.set(false);
+    this.loadHistory();
   }
 
   protected onImage(event: Event): void {

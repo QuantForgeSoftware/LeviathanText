@@ -41,6 +41,7 @@ Collection
 - A `TranscriptionRevision` is per text layer (L0 raw, L1 diplomatic, L2 editorial) and per scope (surface/line). Each revision stores: parent revision, author (human/model ID + model identity/version for proposals), timestamp, and the full text it defines (or a delta — implementation choice, but the *contract* is: any revision can be materialized exactly).
 - Annotations store `[scalar_start, scalar_end)` against a **named revision** (todo §3; see greek-transcription.md §4). Stale annotations reference their originating revision and are never silently re-anchored.
 - Accepted AI proposals are revisions of L2 with provenance; raw L0 output is preserved alongside regardless of acceptance (todo §2).
+- Geometry and reading-order corrections are recorded in an append-only surface-level `GeometryEdits` audit (kind, author, timestamp, bounded before/after snapshots). These are not text revisions; promoting them to revisioned entities is a candidate for a future contract increment.
 
 ## 2. Stage pipeline contracts
 

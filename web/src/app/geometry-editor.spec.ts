@@ -47,6 +47,7 @@ describe('GeometryEditor (undo)', () => {
       updateLineGeometry: () => of({}),
       updateReadingOrder: () => of({}),
       updateLineOrder: () => of({}),
+      geometryHistory: () => of([]),
     };
     TestBed.configureTestingModule({
       imports: [GeometryEditor],

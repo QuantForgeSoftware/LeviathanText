@@ -15,7 +15,7 @@
 | Identity model (§1.1–1.3): typed ids, prefixes, opaque suffixes | `EntityId` validation + prefix table; JSON converter; id-scoping regression tests | **conforms** |
 | Imported local ids stay stable | PAGE/ALTO/hOCR ids are namespaced per capture (`ln1-<token>`) to keep global endpoints unambiguous; source id remains readable as the prefix | **documented deviation** (recorded in the adapter docs and regression tests) |
 | Text revisions are immutable, append-only, layer-separated | `TextRevision` chain; L0/L1/L2 separate; L0 persisted with model provenance; tests | **conforms** |
-| Geometry/order are user-visible mutations | Direct updates with client undo + backups; **no server-side geometry revision history** | **open gap** (disclosed since the geometry increment) |
+| Geometry/order are user-visible mutations | Append-only surface-level `GeometryEdits` audit with author/timestamp and before/after snapshots; editor undo; backups | **conforms (pilot)**; not revisioned entities — candidate contract increment |
 | Stage envelope (§2.1) and manual layout as first-class | `StageRun` records model identity/transform chain; `LayoutSource` manual/automatic/imported; detection refuses overwrite | **conforms** |
 | Bounded resource use (§2.3) | Import through bounded pipeline; layout preview decode bounded by pixels; recognition decodes full frames per surface; no tiling for very large images | **partial** (documented) |
 | Model package (§3): architecture, weights, tokenizer, provenance, hashes | `ModelPackageWriter`/`RecognitionModelLoader` verify labels, arch, digest; package from `train lines`; model card | **conforms** |
@@ -33,9 +33,8 @@
 
 ## Open actions (recommendation for the next contract increment)
 
-1. **Decide geometry history**: either add a `GeometryRevision` entity (new kind, C0 bump) or
-   write the exclusion into the contract explicitly. Today it is a documented implementation
-   gap, not a contract statement.
+1. **Promote geometry history to entities** if the contract should expose it as revisions
+   (today: surface-level audit list, written into domain-and-pipeline §1.3).
 2. **Per-grapheme confidence persistence** if review queues must be reproduced exactly
    (mean confidence is now stored on L0 revisions; the per-grapheme detail is not).
 3. *(Resolved 2026-10-19: stable run ids make L0 persistence idempotent for retries.)*

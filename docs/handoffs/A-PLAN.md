@@ -256,6 +256,10 @@ Blockers recorded so far:
   alternative/erased), L1/L2 prefix/suffix diff, model-package discovery and inline
   recognition (name-only, verified packages), confidence-aware review queue (CLI CSV +
   top-20 in the API response + workspace list), L0-copy-in-editor that never auto-saves.
+- **Geometry audit:** every geometry/order/add/delete action now appends a surface-level edit
+  record (kind, author, timestamp, before/after snapshot), exposed by
+  `GET /surfaces/{id}/geometry-history` and shown in the overlay; the contract's §1.3 records
+  that this is an audit list, not revisioned entities.
 - **Server hardening:** annotation ranges validated against the anchored revision (empty
   spans only for lost markers; estimated gaps need a count; alternatives need text); malformed
   identifiers return a client error instead of a 500; project stats endpoint; contract

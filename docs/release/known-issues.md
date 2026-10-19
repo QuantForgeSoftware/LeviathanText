@@ -25,8 +25,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - Single-column projection detection only (precision 0.433 / recall 0.504 combined pilot);
   multi-column, curved and rotated layouts are unsupported.
 - The learned row model underperforms projection (negative result recorded).
-- Detection never overwrites existing layout; manual line add/delete is available, but geometry
-  edits have **no server-side revision history** (client undo + backups only).
+- Detection never overwrites existing layout; manual line add/delete is available. Geometry
+  and order edits are recorded in a surface-level append-only audit (before/after snapshots),
+  not as revisioned entities; editor undo and backups remain the recovery path.
 
 ## Imaging
 

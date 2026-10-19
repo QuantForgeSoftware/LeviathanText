@@ -30,9 +30,18 @@ public sealed class GeometryServiceTests
 
         Assert.Equal(polygon, line.Polygon);
         Assert.Equal(baseline, line.Baseline);
-        var reloaded = Load(store, updated.Id).Objects[0].Surfaces[0].Lines[0];
+
+        var edit = Assert.Single(updated.Objects[0].Surfaces[0].GeometryEdits);
+        Assert.Equal(GeometryEditKind.LineGeometry, edit.Kind);
+        Assert.Equal("manual-editor", edit.Author);
+        Assert.NotNull(edit.Before);
+        Assert.NotNull(edit.After);
+
+        var reloadedSurface = Load(store, updated.Id).Objects[0].Surfaces[0];
+        var reloaded = reloadedSurface.Lines[0];
         Assert.Equal(4, reloaded.Polygon.Count);
         Assert.Equal(2, reloaded.Baseline.Count);
+        Assert.Single(reloadedSurface.GeometryEdits); // audit survives persistence
     }
 
     [Fact]
@@ -227,6 +236,9 @@ public sealed class GeometryServiceTests
         var (afterDelete, surfaceAfter) = service.DeleteLine(withExtra, added.Id);
         Assert.DoesNotContain(surfaceAfter.Lines, l => l.Id == added.Id);
         Assert.Single(store.LoadProject(afterDelete.Id)!.Objects[0].Surfaces[0].Lines);
+        Assert.Equal(
+            [GeometryEditKind.LineAdded, GeometryEditKind.LineDeleted],
+            surfaceAfter.GeometryEdits.Select(e => e.Kind));
     }
 
     [Fact]

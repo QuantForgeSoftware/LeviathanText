@@ -151,6 +151,14 @@ export class ApiClient {
     return this.http.put(`/api/v1/surfaces/${surfaceId}/reading-order`, { regionIds });
   }
 
+  geometryHistory(surfaceId: string): Observable<{
+    id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
+  }[]> {
+    return this.http.get<{
+      id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
+    }[]>(`/api/v1/surfaces/${surfaceId}/geometry-history`);
+  }
+
   updateLineOrder(regionId: string, lineIds: string[]): Observable<unknown> {
     return this.http.put(`/api/v1/regions/${regionId}/line-order`, { lineIds });
   }

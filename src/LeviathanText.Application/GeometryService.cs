@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 
@@ -17,16 +18,33 @@ public sealed class GeometryService(IProjectStore store)
 {
     public (NativeProject Project, NativeSurface Surface, NativeLine Line) SetLineGeometry(
         NativeProject project, EntityId lineId,
-        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline)
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline,
+        string author = "manual-editor")
     {
         Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
         var (foundProject, surface, line) = FindLine(project, lineId);
 
+        var before = GeometryJson(line.Polygon, line.Baseline);
+        var after = GeometryJson(validatedPolygon, validatedBaseline);
         surface = surface with
         {
             Lines = [.. surface.Lines.Select(l => l.Id == lineId
                 ? l with { Polygon = validatedPolygon, Baseline = validatedBaseline }
                 : l)],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineGeometry,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = lineId,
+                    Before = before,
+                    After = after,
+                },
+            ],
         };
         foundProject = WithSurface(foundProject, surface);
         store.SaveProject(foundProject);
@@ -39,7 +57,8 @@ public sealed class GeometryService(IProjectStore store)
     /// </summary>
     public (NativeProject Project, NativeSurface Surface, NativeLine Line) AddLine(
         NativeProject project, EntityId surfaceId,
-        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline, EntityId? regionId = null)
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline, EntityId? regionId = null,
+        string author = "manual-editor")
     {
         Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
         var (foundProject, surface) = FindSurface(project, surfaceId);
@@ -91,6 +110,20 @@ public sealed class GeometryService(IProjectStore store)
                 ? surface.Regions
                 : [.. surface.Regions, region],
             Lines = [.. surface.Lines, line],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineAdded,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = line.Id,
+                    RegionId = region.Id,
+                    After = GeometryJson(validatedPolygon, validatedBaseline),
+                },
+            ],
         };
         foundProject = WithSurface(foundProject, updated);
         store.SaveProject(foundProject);
@@ -102,7 +135,8 @@ public sealed class GeometryService(IProjectStore store)
     /// refused: removing the scope would orphan reviewed text (delete the revision history
     /// deliberately instead, once a review workflow exists).
     /// </summary>
-    public (NativeProject Project, NativeSurface Surface) DeleteLine(NativeProject project, EntityId lineId)
+    public (NativeProject Project, NativeSurface Surface) DeleteLine(
+        NativeProject project, EntityId lineId, string author = "manual-editor")
     {
         var (foundProject, surface, line) = FindLine(project, lineId);
         if (line.DiplomaticRevisionId is not null)
@@ -114,14 +148,32 @@ public sealed class GeometryService(IProjectStore store)
                 Message = "Line has a diplomatic revision; refusing to delete transcribed evidence.",
             });
 
-        var updated = surface with { Lines = [.. surface.Lines.Where(l => l.Id != lineId)] };
+        var updated = surface with
+        {
+            Lines = [.. surface.Lines.Where(l => l.Id != lineId)],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineDeleted,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = lineId,
+                    RegionId = line.RegionId,
+                    Before = GeometryJson(line.Polygon, line.Baseline),
+                },
+            ],
+        };
         foundProject = WithSurface(foundProject, updated);
         store.SaveProject(foundProject);
         return (foundProject, updated);
     }
 
     public (NativeProject Project, NativeSurface Surface) SetReadingOrder(
-        NativeProject project, EntityId surfaceId, IReadOnlyList<EntityId> orderedRegionIds)
+        NativeProject project, EntityId surfaceId, IReadOnlyList<EntityId> orderedRegionIds,
+        string author = "manual-editor")
     {
         var (foundProject, surface) = FindSurface(project, surfaceId);
 
@@ -141,9 +193,24 @@ public sealed class GeometryService(IProjectStore store)
             });
 
         var index = orderedRegionIds.Select((id, position) => (id, position)).ToDictionary(p => p.id, p => p.position);
+        var beforeOrder = string.Join(',', surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(r => r.Id));
+        var afterOrder = string.Join(',', orderedRegionIds);
         surface = surface with
         {
             Regions = [.. surface.Regions.Select(r => r with { ReadingOrderIndex = index[r.Id] })],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.RegionOrder,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    Before = beforeOrder,
+                    After = afterOrder,
+                },
+            ],
         };
         foundProject = WithSurface(foundProject, surface);
         store.SaveProject(foundProject);
@@ -184,7 +251,8 @@ public sealed class GeometryService(IProjectStore store)
     }
 
     public (NativeProject Project, NativeSurface Surface) SetLineOrder(
-        NativeProject project, EntityId regionId, IReadOnlyList<EntityId> orderedLineIds)
+        NativeProject project, EntityId regionId, IReadOnlyList<EntityId> orderedLineIds,
+        string author = "manual-editor")
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Regions.Any(r => r.Id == regionId))
             ?? throw new LeviathanException(new LeviathanError
@@ -222,11 +290,32 @@ public sealed class GeometryService(IProjectStore store)
             }
         }
 
-        var updated = surface with { Lines = ordered };
+        var beforeOrder = string.Join(',', surface.Lines.Where(l => l.RegionId == regionId).Select(l => l.Id));
+        var updated = surface with
+        {
+            Lines = ordered,
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineOrder,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    RegionId = regionId,
+                    Before = beforeOrder,
+                    After = string.Join(',', orderedLineIds),
+                },
+            ],
+        };
         var foundProject = WithSurface(project, updated);
         store.SaveProject(foundProject);
         return (foundProject, updated);
     }
+
+    private static string GeometryJson(IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline) =>
+        JsonSerializer.Serialize(new { polygon, baseline });
 
     private static (NativeProject Project, NativeSurface Surface) FindSurface(NativeProject project, EntityId surfaceId)
     {

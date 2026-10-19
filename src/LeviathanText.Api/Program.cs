@@ -291,7 +291,8 @@ api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService 
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
-    var (_, _, line) = geometry.SetLineGeometry(project, lineEntityId, request.Polygon, request.Baseline);
+    var (_, _, line) = geometry.SetLineGeometry(project, lineEntityId, request.Polygon, request.Baseline,
+        request.AuthorId ?? "api");
     return Results.Ok(new
     {
         lineId = line.Id.ToString(),
@@ -306,7 +307,8 @@ api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryServ
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
-    var (_, _, line) = geometry.AddLine(project, surfaceEntityId, request.Polygon, request.Baseline, request.RegionId);
+    var (_, _, line) = geometry.AddLine(project, surfaceEntityId, request.Polygon, request.Baseline,
+        request.RegionId, request.AuthorId ?? "api");
     return Results.Created($"/api/v1/lines/{line.Id}", new
     {
         lineId = line.Id.ToString(),
@@ -316,14 +318,23 @@ api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryServ
     });
 });
 
-api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, string lineId) =>
+api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, string lineId, string? author) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
-    geometry.DeleteLine(project, lineEntityId);
+    geometry.DeleteLine(project, lineEntityId, author ?? "api");
     return Results.NoContent();
+});
+
+api.MapGet("surfaces/{surfaceId}/geometry-history", (ProjectService projects, string surfaceId) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == surfaceEntityId);
+    return Results.Ok(surface.GeometryEdits);
 });
 
 api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] ReadingOrderRequest request) =>
@@ -332,7 +343,8 @@ api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, Geome
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
-    var (_, surface) = geometry.SetReadingOrder(project, surfaceEntityId, request.RegionIds);
+    var (_, surface) = geometry.SetReadingOrder(project, surfaceEntityId, request.RegionIds,
+        request.AuthorId ?? "api");
     return Results.Ok(new
     {
         surfaceId = surface.Id.ToString(),
@@ -470,7 +482,8 @@ api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometrySe
     var project = projects.LoadProjectForRegion(regionEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = regionId, Message = "Region not found in any project." });
 
-    var (_, surface) = geometry.SetLineOrder(project, regionEntityId, request.LineIds);
+    var (_, surface) = geometry.SetLineOrder(project, regionEntityId, request.LineIds,
+        request.AuthorId ?? "api");
     return Results.Ok(new
     {
         regionId = regionId,
@@ -711,13 +724,13 @@ public sealed record AddAnnotationRequest(
     string? HandLabel = null,
     string? Description = null);
 
-public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline);
+public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, string? AuthorId = null);
 
-public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds);
+public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds, string? AuthorId = null);
 
-public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds);
+public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds, string? AuthorId = null);
 
-public sealed record AddLineRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, EntityId? RegionId = null);
+public sealed record AddLineRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, EntityId? RegionId = null, string? AuthorId = null);
 
 /// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource

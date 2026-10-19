@@ -49,6 +49,36 @@ public sealed record NativeSurface
 
     /// <summary>Scholarly annotations anchored to revisions (L3).</summary>
     public IReadOnlyList<Annotation> Annotations { get; init; } = [];
+
+    /// <summary>
+    /// Append-only audit of geometry/order edits (manual corrections). Text revisions do not
+    /// cover geometry; this list does, without changing entity identity. Bounded snapshots
+    /// (before/after as compact JSON) are for recovery and review, not for replay.
+    /// </summary>
+    public IReadOnlyList<GeometryEdit> GeometryEdits { get; init; } = [];
+}
+
+public enum GeometryEditKind
+{
+    LineGeometry,
+    LineAdded,
+    LineDeleted,
+    RegionOrder,
+    LineOrder,
+}
+
+public sealed record GeometryEdit
+{
+    /// <summary>Surface-scoped audit id (not an EntityId).</summary>
+    public required string Id { get; init; }
+    public required GeometryEditKind Kind { get; init; }
+    public required DateTimeOffset At { get; init; }
+    public required string Author { get; init; }
+    public EntityId? LineId { get; init; }
+    public EntityId? RegionId { get; init; }
+    public string? Before { get; init; }
+    public string? After { get; init; }
+    public string? Note { get; init; }
 }
 
 public sealed record NativeCapture

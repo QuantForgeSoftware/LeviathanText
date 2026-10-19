@@ -152,7 +152,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     public async Task Line_geometry_round_trips_through_the_api()
     {
         var client = NewClient();
-        var (projectId, lineId, _) = await ImportFixtureAsync(client, "geometry-e2e");
+        var (projectId, lineId, surfaceId) = await ImportFixtureAsync(client, "geometry-e2e");
         Assert.NotNull(projectId);
 
         var response = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
@@ -167,6 +167,10 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"baseline\"", body);
+
+        var history = await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history");
+        Assert.Contains("lineGeometry", history);
+        Assert.Contains("\"author\":\"api\"", history);
 
         // Invalid geometry is rejected with the closed vocabulary.
         var bad = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
