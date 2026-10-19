@@ -157,6 +157,19 @@ public sealed class LocalStore : IDisposable, IProjectStore
         return (cmd.ExecuteScalar() as string) is { } json ? ContractJson.FromJson<JobRecord>(json) : null;
     }
 
+    /// <summary>Most recent jobs first (bounded list for operators and the workspace).</summary>
+    public IReadOnlyList<JobRecord> LoadJobs(int limit = 100)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT json FROM jobs ORDER BY rowid DESC LIMIT $limit";
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
+        using var reader = cmd.ExecuteReader();
+        var jobs = new List<JobRecord>();
+        while (reader.Read())
+            jobs.Add(ContractJson.FromJson<JobRecord>(reader.GetString(0)));
+        return jobs;
+    }
+
     /// <summary>All jobs in a given status, oldest first (worker claim queries).</summary>
     public IReadOnlyList<JobRecord> LoadJobsByStatus(JobStatus status)
     {

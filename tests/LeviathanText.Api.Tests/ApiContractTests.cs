@@ -325,6 +325,34 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Jobs_listing_returns_records_and_filters_by_status()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/jobs", new
+        {
+            type = "noop",
+            ownerId = "listing-test",
+            idempotencyKey = "listing-" + Guid.NewGuid().ToString("N"),
+        });
+        var job = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var all = await client.GetAsync("/api/v1/jobs");
+        Assert.Equal(HttpStatusCode.OK, all.StatusCode);
+        Assert.Contains(job!["id"], await all.Content.ReadAsStringAsync());
+
+        var pending = await client.GetAsync("/api/v1/jobs?status=Pending");
+        Assert.Equal(HttpStatusCode.OK, pending.StatusCode);
+        Assert.Contains(job["id"], await pending.Content.ReadAsStringAsync());
+
+        var camel = await client.GetAsync("/api/v1/jobs?status=pending");
+        Assert.Equal(HttpStatusCode.OK, camel.StatusCode);
+
+        var invalid = await client.GetAsync("/api/v1/jobs?status=Sideways");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, invalid.StatusCode);
+        Assert.Contains("stageContractViolation", await invalid.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Project_bundle_returns_a_zip_with_a_manifest()
     {
         var client = NewClient();

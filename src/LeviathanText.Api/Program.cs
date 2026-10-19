@@ -437,6 +437,21 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) 
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
 
+api.MapGet("jobs", (LocalStore store, string? status) =>
+{
+    if (string.IsNullOrEmpty(status))
+        return Results.Ok(store.LoadJobs());
+
+    if (!Enum.TryParse<JobStatus>(status, ignoreCase: true, out var parsed))
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = status,
+            Message = "Unknown job status filter.",
+        });
+    return Results.Ok(store.LoadJobsByStatus(parsed));
+});
+
 api.MapGet("jobs/{id}", (LocalStore store, string id) =>
 {
     var job = store.LoadJob(EntityId.Parse(id, EntityKind.Job))

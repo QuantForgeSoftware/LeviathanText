@@ -73,6 +73,14 @@ export interface RevisionPayload {
   at: string;
 }
 
+export interface JobSummary {
+  id: string;
+  type: string;
+  status: string;
+  retriesUsed: number;
+  idempotencyKey?: string;
+}
+
 export interface AnnotationPayload {
   id: string;
   anchoredRevisionId: string;
@@ -128,6 +136,10 @@ export class ApiClient {
 
   jobEventsUrl(jobId: string): string {
     return `/api/v1/jobs/${jobId}/events`;
+  }
+
+  jobs(): Observable<JobSummary[]> {
+    return this.http.get<JobSummary[]>('/api/v1/jobs');
   }
 
   updateLineGeometry(lineId: string, polygon: GeometryPoint[], baseline: GeometryPoint[]): Observable<unknown> {
