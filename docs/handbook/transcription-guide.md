@@ -64,3 +64,21 @@ Closed set — choose the closest status; never guess characters:
 4. Per-character underdots vs span-level `Unclear` (or both).
 5. Word-division layer representation for scriptio continua (span-linked token annotations recommended).
 6. M02a/M01 label cautions: expansion-lite forms (`ἰῦ`, `χῦ`), diaeresis forms (`ϊ`), whether label spaces are visible spacing — see `data/manifests/manuscripts/m02a.json`.
+
+## 6. Workflow in the application (pilot form)
+
+1. **Create a project** (`leviathan project new` or the workspace). Import PAGE XML, a IIIF Presentation 3 manifest, or (later) uploaded captures.
+   - IIIF imports keep every view as a separate capture and retain per-manifest attribution. Remote images are fetched once into a checksummed cache when analysis needs them; afterwards work is offline.
+2. **Layout** — either use the imported PAGE geometry or run automatic detection (`layout detect` / "Detect layout"). Automatic detection never overwrites existing layout. Manual correction is done in the geometry overlay (drag a line; reorder regions and lines).
+3. **Transcribe** in the line editor:
+   - The diplomatic field is L1; type exactly what is visible (see §2–§3).
+   - Save creates a revision (⌘/Ctrl+S); undo is revision-based (⌘/Ctrl+Z). Unsaved drafts survive reload.
+   - Add annotations with the form: kind, scalar start/end, extent for gaps, alternative text for competing readings, and a note. The list under the editor shows them in scalar offsets.
+4. **Review** with the dual pane: L1 diplomatic on the left, L2 editorial on the right (both link to the capture).
+5. **AI assistance (optional)**: choose a configured provider and task, propose at the current revision, then accept explicitly. Acceptance creates an L2 revision; L1 is untouched. Provider credentials never reach the browser.
+6. **Export**:
+   - diplomatic plain text (with a mandatory loss report),
+   - TEI/EpiDoc (bounded profile; unsupported fields reported),
+   - training JSON (L1-only labels; editorial-supply lines excluded; uncertainty spans with exact-span complements).
+
+Remember: recognition output (L0) is model text, not an edition; only your accepted L1/L2 work is a transcription.
