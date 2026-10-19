@@ -1,0 +1,60 @@
+{
+  "schema": "leviathantext.corpus-manifest",
+  "schemaContractVersion": "C0-0.4-draft",
+  "manifestVersion": "manifest-v1",
+  "changeLog": [
+    {
+      "date": "2026-10-19",
+      "change": "M02a acquired (242.9 MB zip, md5-verified), unpacked with root-name remap; audited: 54/54 image/XML pairs, 1038 TextLines, Word layer carries text, 157 lines excluded for editorial markup. Pilot training run green.",
+      "evidence": ["https://zenodo.org/api/records/5595669"]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "M02a",
+      "source_version": "1.0",
+      "url_doi": "https://doi.org/10.5281/zenodo.5595669",
+      "retrieval_date": "2026-10-18",
+      "content_checksums": "zip md5 d23306723f387845c319cb817e838571 verified against record",
+      "material_track": "manuscript",
+      "language_period": "Greek, Koine gospel text (Matthew incipit); later minuscule witness",
+      "witness_dating": { "range": "1301-1350", "basis": "publisher record" },
+      "units_evidence": {
+        "counts": { "pages": 54, "xml": 54, "text_lines": 1038, "words_total": "publisher-reported 2776 in sibling repos; not audited" },
+        "provenance": "inspected"
+      },
+      "paired_line_counts": 881,
+      "paired_char_counts": "unverified",
+      "license_image": "cc-by-4.0",
+      "license_text": "cc-by-4.0",
+      "license_annotation": "cc-by-4.0",
+      "license_code": "unverified",
+      "license_weights": "unverified",
+      "license_evidence": "Zenodo rendered license: cc-by-4.0 (https://zenodo.org/api/records/5595669, accessed 2026-10-18)",
+      "attribution": "Stavronikita Monastery / HTR-United catalog contributors; CC BY 4.0",
+      "conditions_exceptions": [],
+      "allowed_intended_use": "dev",
+      "unresolved_questions": [
+        "Greek-specialist review of expansion-lite labels (ἰῦ, χῦ) and diaeresis forms (ϊ) in the labels",
+        "whether overbars are recorded as signs or lost (overbarred nomina sacra composites appear in the label set)",
+        "cross-hand generalization requires M02b/M02c/M01 witnesses (this archive is one codex)"
+      ],
+      "artifacts": {
+        "store_prefix": ".artifacts/datasets/m02a-v1.0/",
+        "files": 111,
+        "checksum_algorithm": "md5 (zip-level)",
+        "verified": true
+      },
+      "splits": { "assignment": "page-level within codex (every 5th page test, every 6th dev); publisher line-level .lst splits NOT used (within-book randomization)", "split_hash": null },
+      "label_policy": {
+        "granularity": "line (assembled from Word layer)",
+        "markup_exclusions": "labels containing <, >, &, [, ] are excluded from all splits (editorial interventions never become visible-text labels)",
+        "scriptio_continua": "word-spaced documentary convention; spaces are visible? — pending specialist check"
+      },
+      "notes": [
+        "zip root folder name is Greek-lettered and non-UTF-8; remapped to m02a/ on extraction",
+        "publisher-reported '1,038 lines' confirmed as real TextLines; the register's '803 lines' style counts for other witnesses need the same audit"
+      ]
+    }
+  ]
+}

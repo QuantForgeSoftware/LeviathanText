@@ -202,6 +202,16 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 | **DATA-02** | Integrator + data workers | All track cards | Cross-source dedup by object ID + image lineage | Overlap report (M01–M03 disjoint books expected) |
 | **DATA-03** | Greek reviewer + workers | Pilots | Locked manuscript acceptance objects | Counts + annotation effort; no invented accuracy |
 
+## 10. MAN-02a execution record (2026-10-19, single-instance mode: Instance A absorbed all packages)
+
+- **Acquisition:** M02a v1.0 downloaded from `https://zenodo.org/api/records/5595669` to `.artifacts/datasets/m02a-v1.0/` (retrieval 2026-10-18). **Zip md5 verified** against the record (`d23306723f387845c319cb817e838571`). 111 files extracted; the Greek-lettered, non-UTF-8 zip root was remapped to `m02a/`.
+- **Pairing audit (inspected):** **54/54 image/PAGE pairs** (PNG images under `images/`, XMLs under `xml/`) — matches the record's description. `imageFilename` attributes confirmed consistent.
+- **Audited line counts:** **1038 real TextLines** (publisher figure confirmed). Text lives in the **Word layer**; the adapter assembles line text from words (assembly recorded in revision provenance). **157 lines excluded** from all splits because their labels contain literal editorial markup (`<+>`-style) — editorial interventions never become visible-text training labels (todo §3 invariant).
+- **Rights:** single record-level **CC BY 4.0**; attribution retained in the ledger.
+- **Pilot training (green test):** page-level split 571 train / 131 dev / 179 page-holdout test; CRNN/CTC 150 epochs; **page-holdout CER 0.811**; label set 129 grapheme classes (overbarred nomen-sacra composites present). The publisher's line-level `.lst` splits were deliberately **not used** (within-book line randomization, todo §5 warning preserved).
+- **Label-policy cautions (pending specialist review):** expansion-lite labels (`ἰῦ`, `χῦ`), diaeresis forms (`ϊ`), and whether label spaces reflect visible spacing are open questions recorded in `data/manifests/manuscripts/m02a.json`.
+- **Corpus status:** M02a is **audited, not training-ready**: specialist adjudication (DATA-03) pending; single-codex coverage; early-majuscule gap remains. No release claim.
+
 ## 9. Open questions handed to A / the owner
 
 1. Count handling — **resolved** by `C0-0.3-draft`: publish both figures in `units_evidence` (`publisher-reported` vs `file-list-derived`) and keep `paired_line_counts` `unverified`.
