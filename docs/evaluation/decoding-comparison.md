@@ -75,6 +75,7 @@ to full-coverage CER.
 | height 32, width 4 | 0.827 | 50/50 | 0.0005 |
 | height 32, width 2 | 0.861 | 50/50 | 0.0007 |
 | **height 16, width 4 + augmentation** | **0.783** | 7/50 | 0.0002 |
+| height 32, width 4 + augmentation | 0.801 | 50/50 | 0.0005 |
 
 Augmentation (training-only: horizontal stretch ±10%, vertical shift ±1 px, 1%
 salt-and-pepper) improved dev CER in three independent pre/post-fix runs; the post-fix gain

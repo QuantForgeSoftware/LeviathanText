@@ -23,6 +23,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping augmentation A/B.");
 
         var snapshot = P01LineDataset.Load(dataDir, targetHeight: 16);
+        var snapshot32 = P01LineDataset.Load(dataDir, targetHeight: 32);
         var vocabulary = snapshot.Train.Concat(snapshot.Dev)
             .SelectMany(l => Graphemes.Enumerate(l.Text).Select(g => g.Text))
             .Distinct(StringComparer.Ordinal)
@@ -31,15 +32,19 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
 
         var baseline = TrainAndEvaluate(snapshot, labels, augment: false);
         var augmented = TrainAndEvaluate(snapshot, labels, augment: true);
+        var augmented32 = TrainAndEvaluate(snapshot32, labels, augment: true);
 
         var summary = new StringBuilder();
         summary.AppendLine("P01 v0.9 training-augmentation A/B, dev split (pilot-scale, non-adjudicated labels)");
-        summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 16, width downsample 4 (post IMG padding fix), greedy decoding");
+        summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 16 vs 32, width downsample 4 (post IMG padding fix), greedy decoding");
         summary.AppendLine();
-        summary.AppendLine("| Training | Dev scalar CER | Best dev CER during fit | Perfect lines | s/line |");
-        summary.AppendLine("| --- | --- | --- | --- | --- |");
-        summary.AppendLine($"| plain | {baseline.Cer:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
-        summary.AppendLine($"| augmented (stretch ±10%, shift ±1 px, 1% salt/pepper) | {augmented.Cer:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
+        summary.AppendLine("| Input height | Training | Dev scalar CER | Best dev CER during fit | Perfect lines | s/line |");
+        summary.AppendLine("| --- | --- | --- | --- | --- | --- |");
+        summary.AppendLine($"| 16 | plain | {baseline.Cer:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 16 | augmented | {augmented.Cer:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 32 | augmented | {augmented32.Cer:0.####} | {augmented32.BestValidationCer:0.####} | {augmented32.Perfect}/{augmented32.Lines} | {augmented32.SecondsPerLine:0.0000} |");
+        summary.AppendLine();
+        summary.AppendLine("Augmentation = stretch ±10%, vertical shift ±1 px, 1% salt/pepper, training only.");
         summary.AppendLine();
         summary.AppendLine("Augmentation is training-only; validation images are never transformed. The comparison is");
         summary.AppendLine("dev-only, so either direction is a selection input, not a release claim.");
@@ -51,7 +56,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-augmentation.txt"), text);
 
-        Assert.True(baseline.Cer < 1.0 && augmented.Cer < 1.0, "both runs must beat the empty baseline");
+        Assert.All(new[] { baseline, augmented, augmented32 }, r => Assert.True(r.Cer < 1.0, "every run must beat the empty baseline"));
     }
 
     private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, bool augment)
@@ -65,7 +70,7 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             Seed = 42,
             EarlyStoppingPatience = 300,
             HiddenSize = 64,
-            ModelName = augment ? "h16-aug" : "h16-plain",
+            ModelName = augment ? $"h{snapshot.Dev[0].Image.Height}-aug" : $"h{snapshot.Dev[0].Image.Height}-plain",
             CheckpointDirectory = checkpointDir,
             AugmentTraining = augment,
             MaxHorizontalStretch = 0.1,
