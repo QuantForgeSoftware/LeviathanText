@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
+    <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
+    <ProjectReference Include="..\LeviathanText.Formats\LeviathanText.Formats.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
