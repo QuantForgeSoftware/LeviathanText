@@ -14,8 +14,16 @@ public static class LineCropper
 {
     public sealed record CropParameters
     {
-        /// <summary>Vertical padding above/below the line band, as a fraction of band height (default 0.5).</summary>
-        public double VerticalPaddingFraction { get; init; } = 0.5;
+        /// <summary>
+        /// Vertical padding above/below the line band, as a fraction of band height.
+        /// Default 0.25 with a hard cap: large padding makes near-square crops that
+        /// starve the CTC decoder of frames (measured: docs/evaluation/decoding-comparison.md —
+        /// 50/50 P01 dev lines had T &lt; reference scalars under 0.5 padding).
+        /// </summary>
+        public double VerticalPaddingFraction { get; init; } = 0.25;
+
+        /// <summary>Hard cap on added padding above+below, in source pixels (default 12).</summary>
+        public int MaxVerticalPaddingPx { get; init; } = 12;
 
         /// <summary>Horizontal margin in pixels (default 8).</summary>
         public int HorizontalMarginPx { get; init; } = 8;
@@ -45,8 +53,11 @@ public static class LineCropper
         float minY = linePoints.Min(p => p.Y), maxY = linePoints.Max(p => p.Y);
         float bandHeight = Math.Max(maxY - minY, 1);
 
-        // Mandatory padding: marks and interlinear additions above/below the text band.
-        float pad = (float)(bandHeight * parameters.VerticalPaddingFraction);
+        // Mandatory padding: marks and interlinear additions above/below the text band,
+        // capped so the crop stays line-shaped (aspect ratio protects the CTC frame budget).
+        float pad = Math.Min(
+            (float)(bandHeight * parameters.VerticalPaddingFraction),
+            parameters.MaxVerticalPaddingPx / 2f);
         int left = Math.Max(0, (int)Math.Floor(minX - parameters.HorizontalMarginPx));
         int top = Math.Max(0, (int)Math.Floor(minY - pad));
         int width = Math.Min(page.Width - left, (int)Math.Ceiling(maxX - minX + 2 * parameters.HorizontalMarginPx));

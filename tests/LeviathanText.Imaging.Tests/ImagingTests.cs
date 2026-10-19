@@ -83,11 +83,11 @@ public class LineCropperTests
     public void Crop_extends_above_and_below_the_line_band()
     {
         using var page = Page();
-        // A tight band y=[90,110] (height 20); padding 0.5 → 10px above and below; margins 8px each side.
+        // A tight band y=[90,110] (height 20); padding 0.25 → 5px above/below (under the 12px cap); margins 8px.
         var extracted = LineCropper.Extract(page, [new SKPoint(50, 90), new SKPoint(200, 110)]);
 
-        Assert.Equal(new ImageTransform.Crop(42, 80, 166, 40), extracted.AppliedCrop);
-        Assert.Equal(40, extracted.Bitmap.Height);
+        Assert.Equal(new ImageTransform.Crop(42, 85, 166, 30), extracted.AppliedCrop);
+        Assert.Equal(30, extracted.Bitmap.Height);
         Assert.Equal("", extracted.Losses);
     }
 
