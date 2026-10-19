@@ -2,7 +2,7 @@
 
 - Package: **B-PLAN v1**, document `docs/data/manuscripts.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [papyri.md](papyri.md), [inscriptions.md](inscriptions.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
-- C0 contract consumed: **`C0-0.2-draft`** (proposal, not accepted). Instance A published all five `docs/contracts/*.md` mid-assignment; B verified their SHA-256 against A's record (see [B-PLAN.md](../handoffs/B-PLAN.md), `B-REV-A-1` now resolved). Field mappings below use A's real field names.
+- C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). Instance A published all five `docs/contracts/*.md` mid-assignment; B verified their SHA-256 against A's record (see [B-PLAN.md](../handoffs/B-PLAN.md), `B-REV-A-1` now resolved). Field mappings below use A's real field names.
 - Scope: todo Section 5 (manuscripts) and Section 3 (transcription contract). No archive was downloaded; no line was labeled. This document plans intake, it does not perform it.
 - Governing todo requirements: MAN-01, DATA-01, DATA-02, DATA-03 (todo Section 5 backlog); Phase 0 gate (todo Section 6); material-specific workflows (todo Section 3).
 
@@ -147,9 +147,9 @@ Do **not** publish a manuscript corpus total until M01 is reconciled. The four d
 | Diacritics | Polytonic present by nature; treatment **unknown** `[unk]` | Whether labels preserve visible marks vs supply accents is unaudited |
 | Genre | Gospels (M02a), liturgical (M03), misc. classical (M01) | Documentary/Christian-letter manuscript gaps; no verse manuscript |
 
-**Abbreviations/nomina sacra** are the highest-risk label-policy area: an expanded abbreviation must never become a visible-text training label (todo Section 3; A's transcription contract `C0-0.2-draft` §1/§2.7).
+**Abbreviations/nomina sacra** are the highest-risk label-policy area: an expanded abbreviation must never become a visible-text training label (todo Section 3; A's transcription contract `C0-0.3-draft` §1/§2.7).
 
-## 7. Manifest field mapping — M01 (against `C0-0.2-draft`)
+## 7. Manifest field mapping — M01 (against `C0-0.3-draft`)
 
 Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab…`. Mapped at the three record levels it defines.
 
@@ -195,7 +195,7 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 
 | Task | Owner (role) | Prerequisite | Output | Completion evidence |
 | --- | --- | --- | --- | --- |
-| **MAN-01** | D-M (manuscript data worker) | Pending nothing from C0; manifest `C0-0.2-draft` available | Reconciled page/line counts for M01–M03; abbreviation/diacritic label audit; witness/hand holdout proposal | Count of `<TextLine>` per dataset; documented label policy; no "ready" claim without it |
+| **MAN-01** | D-M (manuscript data worker) | Pending nothing from C0; manifest `C0-0.3-draft` available | Reconciled page/line counts for M01–M03; abbreviation/diacritic label audit; witness/hand holdout proposal | Count of `<TextLine>` per dataset; documented label policy; no "ready" claim without it |
 | **MAN-02** | D-M | MAN-01 | Convert M01/M02a PAGE annotations to the agreed diplomatic profile (or record the gaps) | Field-by-field mapping; list of unsupported constructs |
 | **MAN-03** | Greek reviewer | MAN-02 | Adjudicate a small development sample; confirm nomina sacra / abbreviation handling | Written adjudication notes; unresolved readings kept |
 | **MAN-04** | D-M | M01 held-out hand boundary | Verify the ff.104r–174v hand split and hand-holdout feasibility | Page-level hand list |
@@ -204,7 +204,7 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 
 ## 9. Open questions handed to A / the owner
 
-1. Count handling — **resolved** by `C0-0.2-draft`: publish both figures in `units_evidence` (`publisher-reported` vs `file-list-derived`) and keep `paired_line_counts` `unverified`.
+1. Count handling — **resolved** by `C0-0.3-draft`: publish both figures in `units_evidence` (`publisher-reported` vs `file-list-derived`) and keep `paired_line_counts` `unverified`.
 2. Visible-vs-expanded abbreviation label policy for the transcription profile — **A's `greek-transcription.md` §1/§2.7 already forbids expansion in L1**; the residual is the Greek specialist's sign-inventory decision (`B-REV-A-3`, now informational, not a change request).
 3. Whether the pilot must include **any** early-majuscule witness before a manuscript acceptance report may be published (recommend: disclose its absence rather than blocking).
 4. Suggested source-backed replacement for A's invented EX-1: a real M01 nomina-sacra/overbar line once MAN-02 converts the labels.

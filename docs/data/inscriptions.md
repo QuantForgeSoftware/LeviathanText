@@ -2,7 +2,7 @@
 
 - Package: **B-PLAN v1**, document `docs/data/inscriptions.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [manuscripts.md](manuscripts.md), [papyri.md](papyri.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
-- C0 contract consumed: **`C0-0.2-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes (`B-REV-A-1` resolved). Field mappings use A's real field names.
+- C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes (`B-REV-A-1` resolved). Field mappings use A's real field names.
 - Scope: todo Section 5 (inscriptions) and Section 3. No archive was downloaded; no label was created.
 - Governing todo requirements: INS-01, DATA-01, DATA-02, DATA-03; Phase 0 gate.
 
@@ -112,7 +112,7 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 
 **No broad, already aligned and audited Classical/Koine inscription photo-to-line corpus was verified** (todo Section 5 conclusion upheld and strengthened).
 
-## 7. Manifest field mapping — I02 (against `C0-0.2-draft`)
+## 7. Manifest field mapping — I02 (against `C0-0.3-draft`)
 
 | Field | I02 value |
 | --- | --- |

@@ -2,7 +2,7 @@
 
 - Package: **B-PLAN v1**, document `docs/evaluation/acceptance-plan.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [../data/manuscripts.md](../data/manuscripts.md), [../data/papyri.md](../data/papyri.md), [../data/inscriptions.md](../data/inscriptions.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
-- C0 contract consumed: **`C0-0.2-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes and aligned scoring to `examples.md` §1 and `interchange-and-api.md` (`B-REV-A-1` resolved).
+- C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes and aligned scoring to `examples.md` §1 and `interchange-and-api.md` (`B-REV-A-1` resolved).
 - Scope: todo Sections 6–7 and 9. **No numeric target is invented here.** Every threshold waits for the measured pilot.
 
 **Core principle:** a pooled accuracy number across manuscripts, papyri and inscriptions is forbidden. Results are reported **per track**, and within a track **per material/hand/capture profile**, with unsupported profiles disclosed as blockers, not omitted.
@@ -105,7 +105,7 @@ One filled sheet per track (manuscript / papyrus / inscription). Fields marked *
 
 New data tracks advance through checkpoint **I1** independently, but the combined initial scope is **not complete until all three material gates pass** (todo Section 6). A track that stays research-only must be **explicitly disclosed**, not silently dropped (todo Section 3).
 
-## 10. Alignment with `C0-0.2-draft` and answers to A's reviewer questions
+## 10. Alignment with `C0-0.3-draft` and answers to A's reviewer questions
 
 A's `examples.md` §1 scoring semantics and `interchange-and-api.md` §1 match this plan; no conflict found. B's answers to A's named open questions:
 
