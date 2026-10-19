@@ -42,6 +42,8 @@ public static class ProjectBundle
         Add("project.json", NativeJson.Save(project));
         Add("training-export.json", TrainingDataExport.ToJson(TrainingDataExport.Export(project)));
         Add("profile-report.json", ContractJson.ToJson(ProfileReport.Build(project)));
+        Add("lines.csv", LineCsv.Export(project));
+        Add("annotations.csv", AnnotationCsv.Export(project));
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {

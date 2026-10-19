@@ -339,7 +339,9 @@ public static class Program
                 var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
                 var cache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
                 var layout = new LayoutService(store, new ImageResolver(store, cache));
-                var outcome = layout.Detect(project, surfaceId);
+                var maxIndex = Array.IndexOf(rest, "--max-pixels");
+                var maxPixels = maxIndex >= 0 && maxIndex + 1 < rest.Length ? long.Parse(rest[maxIndex + 1]) : 12_000_000;
+                var outcome = layout.Detect(project, surfaceId, maxPixels);
                 Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
                 return 0;
             }
