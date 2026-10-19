@@ -334,15 +334,16 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             ownerId = "listing-test",
             idempotencyKey = "listing-" + Guid.NewGuid().ToString("N"),
         });
-        var job = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        using var document = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var jobId = document.RootElement.GetProperty("id").GetString()!;
 
         var all = await client.GetAsync("/api/v1/jobs");
         Assert.Equal(HttpStatusCode.OK, all.StatusCode);
-        Assert.Contains(job!["id"], await all.Content.ReadAsStringAsync());
+        Assert.Contains(jobId, await all.Content.ReadAsStringAsync());
 
         var pending = await client.GetAsync("/api/v1/jobs?status=Pending");
         Assert.Equal(HttpStatusCode.OK, pending.StatusCode);
-        Assert.Contains(job["id"], await pending.Content.ReadAsStringAsync());
+        Assert.Contains(jobId, await pending.Content.ReadAsStringAsync());
 
         var camel = await client.GetAsync("/api/v1/jobs?status=pending");
         Assert.Equal(HttpStatusCode.OK, camel.StatusCode);
