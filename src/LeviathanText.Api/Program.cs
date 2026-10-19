@@ -38,6 +38,7 @@ builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectSt
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
 builder.Services.AddSingleton<TranscriptionService>();
+builder.Services.AddSingleton<GeometryService>();
 builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
@@ -155,6 +156,35 @@ api.MapPost("projects/{id}/import-iiif", (ProjectService projects, string id, [F
         manifestLabel = manifest.ManifestLabel,
         rights = manifest.RightsStatement,
         warnings,
+    });
+});
+
+api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] LineGeometryRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var (_, _, line) = geometry.SetLineGeometry(project, lineEntityId, request.Polygon, request.Baseline);
+    return Results.Ok(new
+    {
+        lineId = line.Id.ToString(),
+        polygon = line.Polygon,
+        baseline = line.Baseline,
+    });
+});
+
+api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] ReadingOrderRequest request) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+
+    var (_, surface) = geometry.SetReadingOrder(project, surfaceEntityId, request.RegionIds);
+    return Results.Ok(new
+    {
+        surfaceId = surface.Id.ToString(),
+        order = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(r => r.Id.ToString()),
     });
 });
 
@@ -305,6 +335,10 @@ public sealed record AddAnnotationRequest(
     string? AlternativeText = null,
     string? HandLabel = null,
     string? Description = null);
+
+public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline);
+
+public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds);
 
 /// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource

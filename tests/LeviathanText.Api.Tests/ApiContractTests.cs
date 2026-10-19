@@ -141,6 +141,64 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Line_geometry_round_trips_through_the_api()
+    {
+        var client = NewClient();
+        var (projectId, lineId, _) = await ImportFixtureAsync(client);
+        Assert.NotNull(projectId);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
+        {
+            polygon = new[]
+            {
+                new { x = 5.0, y = 5.0 }, new { x = 150.0, y = 5.0 },
+                new { x = 150.0, y = 45.0 }, new { x = 5.0, y = 45.0 },
+            },
+            baseline = new[] { new { x = 6.0, y = 40.0 }, new { x = 148.0, y = 38.0 } },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"baseline\"", body);
+
+        // Invalid geometry is rejected with the closed vocabulary.
+        var bad = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
+        {
+            polygon = new[] { new { x = 1.0, y = 1.0 } },
+            baseline = Array.Empty<object>(),
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, bad.StatusCode);
+        Assert.Contains("stageContractViolation", await bad.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Reading_order_update_requires_every_region()
+    {
+        var client = NewClient();
+        var (_, _, surfaceId) = await ImportFixtureAsync(client);
+        Assert.Contains("surf-", surfaceId);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/surfaces/{surfaceId}/reading-order", new
+        {
+            regionIds = new[] { "reg-missing" },
+        });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    private static async Task<(string ProjectId, string LineId, string SurfaceId)> ImportFixtureAsync(HttpClient client)
+    {
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "geometry-e2e" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        var fixture = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "LeviathanText.Formats.Tests", "Fixtures", "sample.page.xml"));
+        var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-page", new { pageXmlPath = fixture });
+        var surface = await imported.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        var surfaceId = surface!["surfaceId"].ToString()!;
+
+        var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>($"/api/v1/projects/{project["id"]}");
+        var lineId = ExtractFirstLineId(projectJson!);
+        return (project["id"], lineId, surfaceId);
+    }
+
+    [Fact]
     public async Task Job_creation_is_idempotent_by_client_key()
     {
         var client = NewClient();

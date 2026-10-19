@@ -42,6 +42,11 @@ public sealed class ProjectService(IProjectStore store)
         List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
             p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Lines.Any(l => l.Id == lineId)));
 
+    /// <summary>Scan all projects for one containing a surface.</summary>
+    public NativeProject? LoadProjectForSurface(EntityId surfaceId) =>
+        List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
+            p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Id == surfaceId));
+
     public void Save(NativeProject project) => store.SaveProject(project);
 }
 

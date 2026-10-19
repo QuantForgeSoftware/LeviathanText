@@ -1,0 +1,121 @@
+using LeviathanText.Application;
+using LeviathanText.Contracts;
+using LeviathanText.Formats;
+
+namespace LeviathanText.Application.Tests;
+
+public sealed class GeometryServiceTests
+{
+    private static (EntityId LineId, EntityId SurfaceId, GeometryService Service, InMemoryStore Store) Setup()
+    {
+        var store = new InMemoryStore();
+        store.SaveProject(SampleProjectBuilder.Build());
+        var project = SampleProjectBuilder.Build();
+        var surface = project.Objects[0].Surfaces[0];
+        return (surface.Lines[0].Id, surface.Id, new GeometryService(store), store);
+    }
+
+    private static NativeProject Load(InMemoryStore store, EntityId id) =>
+        store.LoadProject(id) ?? throw new InvalidOperationException("project missing");
+
+    [Fact]
+    public void SetLineGeometry_updates_and_persists()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        IReadOnlyList<PointD> polygon = [new(5, 5), new(120, 5), new(120, 40), new(5, 40)];
+        IReadOnlyList<PointD> baseline = [new(6, 38), new(118, 36)];
+
+        var (updated, _, line) = service.SetLineGeometry(project, lineId, polygon, baseline);
+
+        Assert.Equal(polygon, line.Polygon);
+        Assert.Equal(baseline, line.Baseline);
+        var reloaded = Load(store, updated.Id).Objects[0].Surfaces[0].Lines[0];
+        Assert.Equal(4, reloaded.Polygon.Count);
+        Assert.Equal(2, reloaded.Baseline.Count);
+    }
+
+    [Fact]
+    public void Polygon_with_fewer_than_three_points_is_rejected()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var ex = Assert.Throws<LeviathanException>(() =>
+            service.SetLineGeometry(project, lineId, [new(0, 0), new(1, 1)], []));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+    }
+
+    [Fact]
+    public void Infinite_coordinates_are_rejected()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var ex = Assert.Throws<LeviathanException>(() =>
+            service.SetLineGeometry(project, lineId,
+                [new(0, 0), new(double.PositiveInfinity, 1), new(1, 1)], []));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+        Assert.Contains("finite", ex.Error.Message);
+    }
+
+    [Fact]
+    public void Baseline_with_one_point_is_rejected()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var ex = Assert.Throws<LeviathanException>(() =>
+            service.SetLineGeometry(project, lineId,
+                [new(0, 0), new(10, 0), new(10, 10)], [new(1, 1)]));
+        Assert.Contains("two points", ex.Error.Message);
+    }
+
+    [Fact]
+    public void SetReadingOrder_reorders_regions_and_persists()
+    {
+        var (_, surfaceId, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        // Fixture has one region; add a second region to the surface for a real reorder.
+        var original = project.Objects[0].Surfaces[0];
+        var second = new NativeRegion
+        {
+            Id = new EntityId(EntityKind.Region, "reg2"),
+            FrameRef = original.Regions[0].FrameRef,
+            Polygon = [new(1, 1), new(50, 1), new(50, 20), new(1, 20)],
+            ReadingOrderIndex = 1,
+        };
+        var withTwo = project with
+        {
+            Objects =
+            [
+                project.Objects[0] with
+                {
+                    Surfaces = [original with { Regions = [.. original.Regions, second] }],
+                },
+            ],
+        };
+        store.SaveProject(withTwo);
+
+        var (updated, surface) = service.SetReadingOrder(withTwo, surfaceId,
+            [new EntityId(EntityKind.Region, "reg2"), new EntityId(EntityKind.Region, "reg1")]);
+
+        Assert.Equal(0, surface.Regions.Single(r => r.Id == new EntityId(EntityKind.Region, "reg2")).ReadingOrderIndex);
+        Assert.Equal(1, surface.Regions.Single(r => r.Id == new EntityId(EntityKind.Region, "reg1")).ReadingOrderIndex);
+        var reloaded = Load(store, updated.Id).Objects[0].Surfaces[0];
+        Assert.Equal(0, reloaded.Regions.Single(r => r.Id == new EntityId(EntityKind.Region, "reg2")).ReadingOrderIndex);
+    }
+
+    [Fact]
+    public void SetReadingOrder_rejects_incomplete_or_foreign_sets()
+    {
+        var (_, surfaceId, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+
+        var missing = Assert.Throws<LeviathanException>(() =>
+            service.SetReadingOrder(project, surfaceId, []));
+        Assert.Equal(ErrorCode.StageContractViolation, missing.Error.Code);
+
+        var foreign = Assert.Throws<LeviathanException>(() =>
+            service.SetReadingOrder(project, surfaceId,
+                [new EntityId(EntityKind.Region, "reg1"), new EntityId(EntityKind.Region, "ghost")]));
+        Assert.Contains("exactly once", foreign.Error.Message);
+    }
+}
