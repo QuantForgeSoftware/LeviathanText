@@ -110,9 +110,29 @@ configuration. No IMG-owned file was touched.
 | `4341277` | AI | Proposal reject/expire + mandated bulk-acceptance dry run (pure preview, batch conflict reporting). |
 | `9024d2e` | ML | Training run manifest (architecture/config/label/split hashes, checkpoint digest, learning curve); P01 split hash matches the pilot report. |
 | `0842cec` | ML | Adopted the concurrent integrator's Otsu interior-threshold fix into the ML-owned preprocessing file so P01 measurements are reproducible from HEAD. |
+| `c645920` | EVAL | Grapheme-level calibration pairing (deletions stay uncalibrated, never fabricated); measured P01 dev ECE 0.237 / MCE 0.737. |
+| `0093374` | AI | Proposal JSON round-trip tests (camelCase string enums, range, confidence, provenance; unknown enum rejected). |
+| `414d9b0` | AI | `AiProviderRegistry`: opaque config ref → local/hosted adapter (schema-validating default), provider switching without code changes. |
+| `28945ef` | ML | Checkpoint load rejects a mismatched label-set hash (same class count is not enough). |
+| `4b8f728` | EVAL | Per-track/profile aggregation with no pooled cross-track API. |
 
 All of the above are green in `LeviathanText.AI.Tests`, `LeviathanText.Evaluation.Tests`,
 `LeviathanText.ML.Tests`; the solution builds in Release. B did not edit `todo.md`,
 contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 `src/LeviathanText.{Application,Infrastructure,Api,Worker,Cli,Formats,Imaging}/`,
 `tests/LeviathanText.Pilot.Tests/`, or `web/`.
+
+### Ready for A to wire (no A-owned file touched)
+
+| Class | Use |
+| --- | --- |
+| `AiProviderRegistry` (`src/LeviathanText.AI/AiProviderRegistry.cs`) | Resolve `AiProposalRequest.ProviderConfigRef` to a schema-validating local/hosted provider or model catalog; inject one `HttpClient` and an `IAiCredentialSource` (defaults to environment variables). |
+| `AiProposalService` | Wrap the provider call: resolves `SourceText` from `RevisionChain` + scalar range, rejects client-supplied evidence/out-of-range spans, then calls the provider. |
+| `BulkProposalAcceptanceService` / `ProposalLifecycle` | `Preview` before bulk acceptance (pure), apply acceptable items, report blocked ones; reject/expire transitions. |
+| `AiHttpProvider` / `AiHttpModelCatalog` | OpenAI-compatible and Ollama-native adapters; credentials only by environment-variable reference; retries, timeouts, response cap, spend cap. |
+| `CorrectionEffortScorer`, `SelectivePredictionScorer`, `GraphemeCalibration`, `ErrorAnalysis`, `TrackScoring` (`src/LeviathanText.Evaluation/`) | Acceptance-report metrics (AI-assisted effort, calibration, risk–coverage, confusions, per-track grouping). |
+| `TrainingRunManifestWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints for reproducible reports. |
+
+Not done by B: live provider calls (no keys/endpoints were configured and none were
+tested against a real server), API/UI wiring, corpus acquisition, expert adjudication,
+and any accuracy threshold. All AI adapter tests use an in-process HTTP stub.
