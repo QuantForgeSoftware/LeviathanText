@@ -82,6 +82,12 @@ cd web && npx ng test --watch=false --browsers=ChromeHeadless
 
 The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations, draft recovery), a dual-pane L1/L2 view, a geometry/reading-order overlay editor, jobs with live progress, exports, and an opt-in AI assistance panel.
 
+## Status and operations
+
+- [docs/STATUS.md](docs/STATUS.md) — one-page status: what works, measured numbers, blockers.
+- [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations.
+- [docs/handbook/transcription-guide.md](docs/handbook/transcription-guide.md) — annotator workflow.
+
 ## Measured pilot baselines (honest status)
 
 See [docs/evaluation/pilot-p01-report.md](docs/evaluation/pilot-p01-report.md). Pilot-scale only — single documentary hand (papyri) and single-codex cross-witness probe (manuscripts); labels not yet expert-adjudicated; inscriptions have no labels yet (construction work pending). **These are baselines, not thresholds or pass/fail results.** The combined initial Greek scope is not complete until all three material gates pass.
