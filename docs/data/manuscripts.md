@@ -212,6 +212,13 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 - **Label-policy cautions (pending specialist review):** expansion-lite labels (`ἰῦ`, `χῦ`), diaeresis forms (`ϊ`), and whether label spaces reflect visible spacing are open questions recorded in `data/manifests/manuscripts/m02a.json`.
 - **Corpus status:** M02a is **audited, not training-ready**: specialist adjudication (DATA-03) pending; single-codex coverage; early-majuscule gap remains. No release claim.
 
+## 11. M01 acquisition + cross-witness generalization gate (2026-10-19)
+
+- **Acquisition:** M01 v1.0 (`eparchos.zip`, 114.7 MB) downloaded and **md5-verified** (`e172aa8b4017436e37cf25991b5bf8b8`) to `.artifacts/datasets/m01-v1.0/` — **120/120 image/XML pairs; 2,272 TextLines (inspected)**.
+- **Register discrepancy RESOLVED:** Zenodo's "9,285 lines" evidently counts **words** (~4 words/line × 2,272); HTR-United's 2,272 is the true line count. `units_evidence` now carries the inspected numbers (corpus-manifest.md §2 convention).
+- **Cross-witness generalization gate (the todo §5/§7 deliverable), measured:** trained on M02a pages only (571 lines, 150 epochs, no M01 data or tuning) → scored a deterministic 1-in-4 sample of **all 2,272 M01 lines** (568 lines): **CER 0.838** vs 0.811 within-book. Perfect-line rate 0 at this pilot scale; the 0.8+ range is near-chance, so the numbers demonstrate *transfer* more than competence — but the **measurement machinery for witness-level holdout** is proven and the gap is small in relative terms.
+- Both witnesses remain later-minuscule; early-majuscule coverage stays an explicit gap (per B's manuscripts.md §7/§8).
+
 ## 9. Open questions handed to A / the owner
 
 1. Count handling — **resolved** by `C0-0.3-draft`: publish both figures in `units_evidence` (`publisher-reported` vs `file-list-derived`) and keep `paired_line_counts` `unverified`.
