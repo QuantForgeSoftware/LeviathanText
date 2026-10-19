@@ -7,6 +7,7 @@
 import { Component, computed, input, signal } from '@angular/core';
 import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
 import { scalarCount, scalarOffsetFromUtf16 } from './text-utils';
+import { ProposalPanel } from './proposal-panel';
 
 interface UndoStack {
   text: string;
@@ -16,6 +17,7 @@ interface UndoStack {
 @Component({
   selector: 'app-line-editor',
   standalone: true,
+  imports: [ProposalPanel],
   template: `
     @if (payload(); as data) {
       <section>
@@ -64,6 +66,14 @@ interface UndoStack {
             }
           </ul>
         </details>
+
+        @if (currentRevision(); as revision) {
+          <app-proposal-panel
+            [lineId]="lineId()"
+            [revisionId]="revision.id"
+            [rangeStart]="0"
+            [rangeEnd]="scalarTotal()" />
+        }
       </section>
     } @else {
       <p>Editor offline.</p>
@@ -110,6 +120,11 @@ export class LineEditor {
   }
 
   protected readonly draftRestored = signal(false);
+
+  protected readonly currentRevision = computed(() => {
+    const history = this.history();
+    return history.length > 0 ? history[history.length - 1] : null;
+  });
 
   protected onEdit(event: Event): void {
     const input = event.target as HTMLInputElement;

@@ -158,6 +158,24 @@ export class ApiClient {
   trainingExport(projectId: string): Observable<unknown> {
     return this.http.get<unknown>(`/api/v1/projects/${projectId}/training-export`);
   }
+
+  providers(): Observable<{ providers: { configRef: string; settings: { modelId: string } }[] }> {
+    return this.http.get<{ providers: { configRef: string; settings: { modelId: string } }[] }>('/api/v1/providers');
+  }
+
+  propose(request: {
+    targetRevisionId: string;
+    range: { start: number; end: number };
+    task: string;
+    providerConfigRef: string;
+    promptVersion: string;
+  }): Observable<unknown> {
+    return this.http.post<unknown>('/api/v1/proposals', request);
+  }
+
+  acceptProposal(id: string, proposal: unknown, acceptorId: string): Observable<unknown> {
+    return this.http.post<unknown>(`/api/v1/proposals/${id}/accept`, { proposal, acceptorId });
+  }
 }
 
 /** Minimal projection of the native project payload needed by the workspace. */
