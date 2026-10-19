@@ -344,6 +344,18 @@ public static class Program
                 return strict && report.FlaggedTotal > 0 ? 1 : 0;
             }
 
+            case "project" when rest.Length >= 3 && rest[1] == "delete":
+            {
+                if (!rest.Contains("--force"))
+                {
+                    Console.Error.WriteLine("refusing deletion without --force (this removes the project document; back up first)");
+                    return 1;
+                }
+                projects.Delete(EntityId.Parse(rest[2], EntityKind.Collection));
+                Console.WriteLine($"deleted project {rest[2]}");
+                return 0;
+            }
+
             case "jobs" when rest.Length >= 2 && rest[1] == "list":
             {
                 var limit = rest.Length >= 4 && rest[2] == "--limit" ? int.Parse(rest[3]) : 20;

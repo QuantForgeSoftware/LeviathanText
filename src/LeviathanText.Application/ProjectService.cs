@@ -26,6 +26,12 @@ public sealed class ProjectService(IProjectStore store)
     private static EntityId NewProjectId() =>
         new(EntityKind.Collection, Guid.NewGuid().ToString("N")[..12]);
 
+    public void Delete(EntityId id)
+    {
+        _ = Load(id); // explicit InputMissing when absent
+        store.DeleteProject(id);
+    }
+
     public NativeProject Load(EntityId id) =>
         store.LoadProject(id)
             ?? throw new LeviathanException(new LeviathanError

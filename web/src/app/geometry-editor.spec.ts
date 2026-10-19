@@ -74,3 +74,35 @@ describe('GeometryEditor (undo)', () => {
     expect(anyComponent.dirty()).toBe(true);
   });
 });
+
+
+describe('GeometryEditor (read-only view)', () => {
+  it('emits the line id on click and does not start a drag', () => {
+    const line = { id: 'ln1', regionId: 'reg1', polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }], baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }] };
+    const stub = {
+      loadProject: () => of({
+        id: 'col1', name: 'p',
+        objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', readingOrderIndex: 0 }], captures: [] }] }],
+      }),
+      geometryHistory: () => of([]),
+    };
+    TestBed.configureTestingModule({
+      imports: [GeometryEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(GeometryEditor);
+    fixture.componentRef.setInput('projectId', 'col1');
+    fixture.componentRef.setInput('surfaceId', 'surf1');
+    fixture.componentRef.setInput('imageUrl', '');
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+
+    const selected: string[] = [];
+    fixture.componentInstance.lineSelected.subscribe(id => selected.push(id));
+    const polygon = fixture.nativeElement.querySelector('polygon') as SVGPolygonElement;
+    polygon.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+
+    expect(selected).toEqual(['ln1']);
+    expect(fixture.nativeElement.querySelector('.handle')).toBeNull(); // no resize handles in view mode
+  });
+});

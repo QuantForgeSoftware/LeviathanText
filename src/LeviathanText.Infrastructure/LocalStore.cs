@@ -120,6 +120,24 @@ public sealed class LocalStore : IDisposable, IProjectStore
         return list;
     }
 
+    public void DeleteProject(EntityId id)
+    {
+        using var tx = _connection.BeginTransaction();
+        var cmd = _connection.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "DELETE FROM projects WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", id.ToString());
+        var removed = cmd.ExecuteNonQuery();
+        tx.Commit();
+        if (removed == 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = id.ToString(),
+                Message = "No such project.",
+            });
+    }
+
     // ---- jobs ----
 
     public void SaveJob(JobRecord job)

@@ -4,7 +4,7 @@
  * in the image's natural coordinate frame; drags translate the selected line; region
  * order is editable with up/down; saves go through the geometry API.
  */
-import { Component, input, signal, OnInit } from '@angular/core';
+import { Component, input, output, signal, OnInit } from '@angular/core';
 import { ApiClient, GeometryLine, GeometryPoint, GeometryRegion, ProjectPayload } from './api-client';
 
 interface DragState {
@@ -22,7 +22,11 @@ interface DragState {
   template: `
     <section>
       <h3>Geometry <small>(image frame: {{ width() }}×{{ height() }})</small></h3>
-      <p class="hint">Click a line, drag to move it, then save. Region order controls reading order.</p>
+      @if (readOnly()) {
+        <p class="hint">Page view: click a line box to open it. Enable edit mode to move/draw/resize.</p>
+      } @else {
+        <p class="hint">Click a line, drag to move it, then save. Region order controls reading order.</p>
+      }
       <p class="tools">
         <button type="button" (click)="zoomBy(-0.25)">−</button>
         <button type="button" (click)="zoom.set(1)">Fit</button>
@@ -55,7 +59,7 @@ interface DragState {
               @if (line.baseline.length > 1) {
                 <polyline [attr.points]="baselinePoints(line)" class="baseline" />
               }
-              @if (line.id === selectedId()) {
+              @if (line.id === selectedId() && !readOnly()) {
                 @for (corner of bboxCorners(line); track $index) {
                   <circle
                     [attr.cx]="corner.x"
@@ -71,6 +75,7 @@ interface DragState {
       </div>
       </div>
 
+      @if (!readOnly()) {
       <div class="tools">
         <button type="button" (click)="setMode('move')" [disabled]="mode() === 'move'">Move / resize</button>
         <button type="button" (click)="setMode('draw')" [disabled]="mode() === 'draw'">Draw new line</button>
@@ -81,7 +86,9 @@ interface DragState {
         <span class="hint">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
         @if (actionStatus()) { <span class="hint">{{ actionStatus() }}</span> }
       </div>
+      }
 
+      @if (!readOnly()) {
       <h4>Region order</h4>
       <ol>
         @for (region of regions(); track region.id) {
@@ -118,6 +125,7 @@ interface DragState {
           }
         </ul>
       </details>
+      }
     </section>
   `,
   styles: [`
@@ -138,6 +146,8 @@ export class GeometryEditor implements OnInit {
   projectId = input.required<string>();
   surfaceId = input.required<string>();
   imageUrl = input.required<string>();
+  readOnly = input(false);
+  lineSelected = output<string>();
 
   protected readonly lines = signal<GeometryLine[]>([]);
   protected readonly regions = signal<GeometryRegion[]>([]);
@@ -238,8 +248,12 @@ export class GeometryEditor implements OnInit {
 
   protected onDown(event: PointerEvent, line: GeometryLine): void {
     if (this.mode() === 'draw') return;
-    (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
+    if (this.readOnly()) {
+      this.lineSelected.emit(line.id);
+      return;
+    }
+    (event.target as Element).setPointerCapture?.(event.pointerId);
     this.pendingSnapshot = this.snapshot();
     this.drag = { ...this.dragFor(event), lineId: line.id, original: this.clone(line), mode: 'move', corner: -1 };
   }
@@ -280,6 +294,7 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onMove(event: PointerEvent): void {
+    if (this.readOnly()) return;
     if (this.drawStart) {
       const point = this.dragFor(event);
       const x = Math.min(this.drawStart.x, point.startX);

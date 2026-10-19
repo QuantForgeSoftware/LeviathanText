@@ -61,6 +61,18 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Project_can_be_deleted_and_is_gone_from_listing()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "delete-e2e" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/v1/projects/{project!["id"]}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/v1/projects/{project["id"]}")).StatusCode);
+        Assert.DoesNotContain("delete-e2e", await client.GetStringAsync("/api/v1/projects"));
+    }
+
+    [Fact]
     public async Task Unknown_project_returns_closed_vocabulary_error()
     {
         var client = NewClient();

@@ -159,6 +159,12 @@ api.MapPost("projects", (ProjectService projects, [FromBody] CreateProjectReques
     return Results.Created($"/api/v1/projects/{project.Id}", new { id = project.Id.ToString(), name = project.Name });
 });
 
+api.MapDelete("projects/{id}", (ProjectService projects, string id) =>
+{
+    projects.Delete(EntityId.Parse(id, EntityKind.Collection));
+    return Results.NoContent();
+});
+
 api.MapGet("projects/{id}", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

@@ -74,6 +74,21 @@ public class LocalStoreTests : IDisposable
     }
 
     [Fact]
+    public void DeleteProject_removes_the_document_and_reports_missing_ids()
+    {
+        using var store = new LocalStore(_path);
+        var project = MinimalProject();
+        store.SaveProject(project);
+
+        store.DeleteProject(project.Id);
+        Assert.Null(store.LoadProject(project.Id));
+        Assert.Empty(store.ListProjects());
+
+        var ex = Assert.Throws<LeviathanException>(() => store.DeleteProject(project.Id));
+        Assert.Equal(ErrorCode.InputMissing, ex.Error.Code);
+    }
+
+    [Fact]
     public void BackupTo_produces_an_independently_readable_database()
     {
         var backupPath = _path + ".backup";

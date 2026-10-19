@@ -38,9 +38,18 @@ import { GeometryEditor } from './geometry-editor';
           <app-dual-pane [lineId]="editingLineId()!" [imageLink]="imageLink()" />
         }
 
-        <p><button type="button" (click)="toggleGeometry()">Geometry / reading order</button></p>
-        @if (showGeometry() && imageLink()) {
-          <app-geometry-editor [projectId]="projectId()" [surfaceId]="surfaceId()" [imageUrl]="imageLink()" />
+        <p>
+          <button type="button" (click)="toggleGeometry()">
+            {{ showGeometry() ? 'View only' : 'Edit geometry / reading order' }}
+          </button>
+        </p>
+        @if (imageLink()) {
+          <app-geometry-editor
+            [projectId]="projectId()"
+            [surfaceId]="surfaceId()"
+            [imageUrl]="imageLink()"
+            [readOnly]="!showGeometry()"
+            (lineSelected)="editingLineId.set($event)" />
         }
 
         <p class="hint">

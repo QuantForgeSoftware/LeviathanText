@@ -91,6 +91,10 @@ leviathan --store pilot.db backup ./snapshots/2026-10-19
 leviathan --store pilot.db restore ./snapshots/2026-10-19 --into pilot-restored.db [--force]
 ```
 
+Deleting a project is destructive and requires an explicit flag:
+`leviathan --store pilot.db project delete <projectId> --force`, or
+`DELETE /api/v1/projects/{id}`. Back up first.
+
 Backup uses `VACUUM INTO` (consistent snapshot), copies the image cache and writes a
 checksum manifest. Restore verifies the database **and every image** before writing; a
 corrupt set leaves no partial target.

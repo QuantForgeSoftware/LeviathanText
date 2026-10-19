@@ -104,7 +104,7 @@ within the pilot; shapes follow §2.0 and errors use the closed vocabulary.
 
 | Area | Routes |
 | --- | --- |
-| Projects | `GET/POST /projects`, `GET /projects/{id}` |
+| Projects | `GET/POST /projects`, `GET/DELETE /projects/{id}`, `GET /projects/{id}/stats` |
 | Ingestion | `POST /projects/{id}/import-page`, `…/import-iiif`, `…/import-image`, `…/import-legacy` |
 | Layout | `POST /surfaces/{id}/detect-layout`, `PUT /surfaces/{id}/reading-order`, `PUT /regions/{id}/line-order`, `POST /surfaces/{id}/lines`, `DELETE /lines/{id}`, `PUT /lines/{id}/geometry` |
 | Transcription | `GET/POST /lines/{id}/revisions`, `GET /lines/{id}` (L1 chain plus all-layer `revisions`), `GET/POST /lines/{id}/annotations` |
