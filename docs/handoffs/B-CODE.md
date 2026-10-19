@@ -72,6 +72,16 @@ dotnet test  tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj   # trai
 - Contract requests from the code: `B-CCR-6` (preservation tags / catalogue `asset_kind`) and `B-CCR-7` (`Proposal` entity kind) remain **open**; `B-CCR-8` withdrawn (satisfied by `domain-and-pipeline.md` §3). See [B-PLAN.md](B-PLAN.md) for the full review and dispositions.
 - Note for the serializer contract: B's `AiProposal.Request` carries `ProviderConfigRef` (opaque) and never credentials, consistent with `interchange-and-api.md` §2.3.
 
+## Session close (2026-10-19 11:00 CDT, Instance B)
+
+Instance B's two-instance session ended at 11:00 CDT. Final state: Release build clean;
+B suites **AI 73/73 (+1 opt-in live test skipped), EVAL 39/39, ML 45/45**; non-B suites
+183/183. Best measured P01 candidate: height 16, width 4, augmentation on, weight decay 0,
+dropout 0, batch 8, Adam 3e-3 (dev CER **0.783**, packaged under
+`.artifacts/pilot/model-p01-h16-aug/`). Live local Ollama smoke passed; external hosted
+providers remain untested. Locked-set disclosure, acceptance-sheet drafts and measurement
+records are current. Further work requires fresh adjudicated data / held-out witnesses.
+
 ## Two-instance resumption (2026-10-19 06:55, Instance B)
 
 - Baseline: `main` @ `23eb349`, contract set **`C0-0.4-draft`**. Working mode: two instances in one worktree with disjoint write paths (A = integrator/C0/APP/FMT/IMG/UI; B = ML/AI/EVAL).
