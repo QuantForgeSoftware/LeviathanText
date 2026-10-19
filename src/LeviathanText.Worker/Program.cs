@@ -25,7 +25,7 @@ public static class Program
         var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
         var imageResolver = new ImageResolver(store, imageCache);
         var host = new WorkerHost(new LocalStoreJobStore(store),
-            [new NoOpHandler(), new LayoutDetectHandler(store, imageResolver), new RecognizeSurfaceHandler(store, imageResolver)]);
+            [new NoOpHandler(), new LayoutDetectHandler(store, imageResolver), new RecognizeSurfaceHandler(store, imageResolver), new ImportDirectoryHandler(store)]);
         var workerId = host.WorkerId.ToString();
 
         Console.WriteLine($"worker {workerId} polling {storePath}");

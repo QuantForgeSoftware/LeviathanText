@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\LeviathanText.Worker\LeviathanText.Worker.csproj" />
     <ProjectReference Include="..\..\src\LeviathanText.Infrastructure\LeviathanText.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\LeviathanText.Application\LeviathanText.Application.csproj" />
   </ItemGroup>
 
 </Project>

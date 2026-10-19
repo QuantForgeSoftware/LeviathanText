@@ -325,6 +325,27 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Bulk_import_job_carries_project_and_source_directory()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "import-job" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var response = await client.PostAsJsonAsync("/api/v1/jobs", new
+        {
+            type = "import.dir",
+            ownerId = "test",
+            idempotencyKey = "import-dir-1",
+            projectId = project!["id"],
+            sourceDirectory = "/tmp/page-xml",
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains(project["id"], body);
+        Assert.Contains("dir:/tmp/page-xml", body);
+    }
+
+    [Fact]
     public async Task Job_events_stream_replays_created_event()
     {
         var client = NewClient();
