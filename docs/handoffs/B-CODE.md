@@ -123,6 +123,7 @@ Full data and caveats: `docs/evaluation/decoding-comparison.md`; artifacts under
 | `0c6c768` | IMG (A) | A's extraction fix (padding 0.25, 12 px cap) driven by B's measured finding — post-fix baseline improved to ~0.80. |
 | `51eb654` | AI/APP (A, swept) | A wired B's registry/proposal/bulk services into the API; this commit also swept in B's in-flight augmentation code (`LineAugmenter`, `TrainingConfig.AugmentTraining`, `P01AugmentationTests`, `RestoreBest` usage) because both instances shared one worktree. Content is B-authored; attribution is per commit only. |
 | (this commit) | ML/EVAL/Docs | Measured post-fix augmentation A/B (0.805 → 0.783) and rewrote the P01 measurement record; `lessons.md` added after the deadline-time correction. |
+| `1fd7201`…`(this commit)` | ML | Regularization matrix (weight decay and dropout hurt; keep 0), learning-rate confirmation (3e-3 best), model packaging (`ModelPackageWriter` + model card + reload test). |
 
 **Coordination note:** the shared worktree caused A's `51eb654` to include B's uncommitted
 augmentation files. Nothing was lost or overwritten, but future two-instance runs should
@@ -168,7 +169,7 @@ contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 | `BulkProposalAcceptanceService` / `ProposalLifecycle` | `Preview` before bulk acceptance (pure), apply acceptable items, report blocked ones; reject/expire transitions. |
 | `AiHttpProvider` / `AiHttpModelCatalog` | OpenAI-compatible and Ollama-native adapters; credentials only by environment-variable reference; retries, timeouts, response cap, spend cap. |
 | `CorrectionEffortScorer`, `SelectivePredictionScorer`, `GraphemeCalibration`, `ErrorAnalysis`, `TrackScoring` (`src/LeviathanText.Evaluation/`) | Acceptance-report metrics (AI-assisted effort, calibration, risk–coverage, confusions, per-track grouping). |
-| `TrainingRunManifestWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints for reproducible reports. |
+| `TrainingRunManifestWriter`, `ModelPackageWriter` (`src/LeviathanText.Training/`) | Write/read a run manifest beside checkpoints; package the selected checkpoint with weights, optimizer state, metadata/label set, manifest and model card. |
 
 Not done by B: external provider calls (no credentials/endpoints were configured). The
 HTTP path is proven end-to-end over **loopback sockets** (`LoopbackProviderTests`), not
