@@ -30,7 +30,7 @@ public sealed class CtcTrainer
         _model = model;
         _labels = labels;
         _config = config;
-        _optimizer = optim.Adam(model.parameters(), lr: config.LearningRate);
+        _optimizer = optim.Adam(model.parameters(), lr: config.LearningRate, weight_decay: config.WeightDecay);
         manual_seed(config.Seed);
     }
 

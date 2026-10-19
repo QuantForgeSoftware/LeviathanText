@@ -20,6 +20,7 @@ public sealed record TrainingRunManifest
     public required int WidthDownsampleFactor { get; init; }
     public required int InputHeightPixels { get; init; }
     public required bool AugmentTraining { get; init; }
+    public required double WeightDecay { get; init; }
     public required int TrainLines { get; init; }
     public required int DevLines { get; init; }
     public required int TestLockedLines { get; init; }
@@ -87,6 +88,7 @@ public static class TrainingRunManifestWriter
             WidthDownsampleFactor = model.WidthDownsampleFactor,
             InputHeightPixels = model.InputHeightPixels,
             AugmentTraining = config.AugmentTraining,
+            WeightDecay = config.WeightDecay,
             TrainLines = trainLines,
             DevLines = devLines,
             TestLockedLines = testLockedLines,
