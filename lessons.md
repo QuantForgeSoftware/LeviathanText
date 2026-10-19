@@ -13,3 +13,10 @@ Corrections from the user, converted into rules for future sessions.
    working tree; `-A` swept another instance's in-flight files into the wrong commit
    (2026-10-19, `51eb654`). Prefer separate worktrees; otherwise stage only owned paths.
 
+
+4. **Cycle-end archiving (standing instruction, 2026-10-19).** At the end of every work
+   cycle, move completed checklist items from `todo.md` to `completed.md` (verbatim, grouped
+   under the original section headings); leave open/in-progress items and reference records
+   (tables, registers, decisions, estimates) in `todo.md`. Add a section note where a
+   section's items are all archived, refresh `completed.md`'s build date/item count, and
+   commit both files together. "Cycle" = a closed work session or assignment handoff.

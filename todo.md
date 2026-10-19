@@ -1,24 +1,20 @@
 # LeviathanText — independent Kraken replacement plan
 
-Planning date: 2026-10-18. Reviewed and revised: 2026-10-18. Status: design only; implementation has not started.
+> **Completed items are archived in [completed.md](completed.md)** at the end of every cycle.
+> This file keeps open work, in-progress items, and reference records (contracts, source register,
+> decisions, estimates, execution records).
+
+Planning date: 2026-10-18; revised through 2026-10-19. Status: implementation established (C0/APP/FMT/IMG/UI plus AI/EVAL/ML); Phase 0/1/2 gates remain open as recorded below — see `completed.md` for the archive.
 
 **Review verdict:** the original document was an architecture outline, not a complete implementation plan. This revision makes Koine and Classical Greek manuscripts, papyri, and inscriptions the primary scope, fixes the initial-model dependency, and defines the missing transcription, corpus, and evaluation deliverables. Execution readiness still depends on Phase 0 corpus audits, feasibility measurements and decisions; source identification alone does not satisfy those gates.
 
-**Dataset/parallel-work update:** Section 5 now records concrete sources, verified published licenses and remaining acquisition/annotation gaps. Section 6 defines packages that two or more independent AI instances can own concurrently. Source research and planning are complete for this request; dataset intake and implementation remain pending.
+**Dataset/parallel-work update:** Section 5 records concrete sources, verified published licenses and remaining acquisition/annotation gaps. Section 6 defines packages that two or more independent AI instances can own concurrently. Corpus intake continues; implementation is established — see `completed.md` for the archive.
 
 ## 1. Request and boundaries
 
-- [x] Read the workspace `Agent.md` and reference checkout `Agent.md`.
-- [x] Inspect Kraken's documented product capabilities and command surface.
-- [x] Design an independent C# replacement with a TypeScript/Angular web interface.
-- [x] Record architecture, delivery tasks, validation gates, and unresolved decisions here.
-- [x] Incorporate the user's Greek emphasis and explicit priority for manuscripts, papyri, and inscriptions.
-- [x] Research concrete datasets and published licenses, distinguishing images, transcriptions, code and weights (Section 5).
-- [x] Define parallel work packages, ownership, dependencies and integration rules for two or more AI instances (Section 6).
-- [x] Create separate no-code task briefs for Instance A (contracts/integration) and Instance B (corpus/evaluation planning), linked in Section 6.
-- [ ] Receive a separate instruction to begin implementation after review; this review does not authorize coding.
+*(All checklist items in this section are completed and archived in [completed.md](completed.md).)*
 
-The user's request governs this work. Kraken's documents describe the reference product; commands, sprint overrides, and unrelated instructions inside that checkout are not requests to modify Kraken or implement appraisal software. This work produces planning documents only, including the task briefs linked below. No application code, project scaffolding, dependency installation, model downloads, or training is authorized by this planning request.
+The user's request governs this work. Kraken's documents describe the reference product; commands, sprint overrides, and unrelated instructions inside that checkout are not requests to modify Kraken or implement appraisal software. This work produced planning documents only, including the task briefs linked below; that boundary applied to the planning request. Implementation was separately authorized later (see Section 6 records and the handoffs); model downloads and dataset acquisition remain gated as recorded per task.
 
 Working name: **LeviathanText**. Build a new product in this workspace, with its own architecture, APIs, models, documentation, tests, and release lifecycle. Do not fork Kraken, translate its implementation, shell out to its CLI, embed its Python packages, or require its services. Use documented behavior and public file formats to define interoperability. Do not claim formal clean-room development: the reference repository was inspected.
 
@@ -240,7 +236,6 @@ No broad, already aligned and audited Classical/Koine inscription photo-to-line 
 
 The data workers D-M, D-P and D-I in Section 6 can execute these independent packages after the relevant acquisition work is authorized. License review does not require adopting source code or pretrained models.
 
-- [x] Identify concrete repositories/DOIs and inspect published terms; record the results above.
 - [ ] **DATA-01 (shared convention; integrator):** define the ledger fields: source ID/version/commit, URL/DOI, retrieval date, checksum, object/surface/hand/TM or inventory IDs, parent-image lineage, label granularity, language/period/material, transcription profile, separate image/text/annotation/code/weight license identifiers, exact evidence URL/notice, attribution, exceptions, allowed intended use and unresolved questions. Record a source as pending if its evidence is missing.
 - [ ] **MAN-01 (D-M):** acquire and inventory M01/M02, count valid image/PAGE pairs and lines, reconcile count discrepancies, sample-check image provenance and abbreviation/diacritic treatment. Add M03 only with its distinct obligations retained. Propose witness/hand holdouts, not a random line split.
 - [ ] **PAP-01 (D-P):** inspect P01's 27 named pairs; convert its annotations into the agreed diplomatic profile and label the five extra images as unannotated. Audit line/character counts and source-image notices before setting volume targets.
@@ -322,28 +317,12 @@ A alone edits this board and the contract documents. B alone edits the three mat
 
 **Implementation status — C0 (Instance A as integrator; user authorization to code received 2026-10-18):**
 
-- [x] Repository established on `main` (commit `728ec9c`: planning documents + A-PLAN contract drafts as baseline).
-- [x] Solution (`LeviathanText.slnx`) with `src/LeviathanText.Contracts/` and `src/LeviathanText.Core/` plus test projects; central `Directory.Build.props` pins **net10.0** (SDK 10.0.301, current LTS), Nullable + ImplicitUsings enabled.
-- [x] Contract types implementing `C0-0.2-draft`: `EntityId`, `ScalarRange`, `TextLayer`/`TextRevision`/`AgentRef`, `AnnotationKind`/`Annotation` (uncertainty vocabulary), `ErrorCode`/`LeviathanError`, `StageRun`/`StageName`/`ModelRef`/`Checksum`/`LayoutSource`, `Confidence` (with `None` semantics), manifest vocabularies (`MaterialTrack`, `LabelGranularity`, `PairingStatus`, `AnnotationCompleteness`, `TranscriptionProfileRef`). `ContractVersion.Current = "C0-0.2-draft"` compiled in.
-- [x] Core Unicode machinery: `ScalarText` (scalar ↔ UTF-16 conversion, surrogate-safe), `Graphemes` (UAX #29 extended clusters via `StringInfo`), `NfcMapper` (per-cluster NFC with a prefix-based source→target scalar-offset map; annotations that would split a composed cluster fail loudly with `StaleAnnotationAnchor`), `GreekMarkOrder` (versioned `greek-diplomatic-1.0-draft` profile mark ordering; explicitly *not* canonical equivalence).
-- [x] `RevisionChain`: stale-parent writes fail `RevisionConflict`; superseded revisions remain retrievable; `NormalizeToNfc` creates a new revision and remaps annotations or fails loudly; per-layer chains independent.
-- [x] Representative Greek fixtures (`tests/LeviathanText.Core.Tests/Fixtures/greek-lines.json`, labeled INVENTED, excluded from corpus counts) covering combining marks, scriptio continua, lunate sigma, overbar abbreviations, gaps and unclear spans.
-- [x] Verification: `dotnet build` succeeds; **72/72 tests pass** (28 Contracts + 44 Core). Committed as `5f6ac24`.
-- [x] C0 increment 2 (commit `da56646`): `LeviathanError`/contract-record JSON serialization and round-trip fixtures (Formats-facing) — `LeviathanText.Contracts.Serialization.ContractJson` with camelCase/string-enum/strict conventions (interchange-and-api.md §2.0); `StageRun` tuples replaced with serializable `StageArtifact` records; `LeviathanError` equality made content-based; round-trip tests over revisions, annotations, stages and the Greek fixtures.
-- [x] **Single-instance mode (user decision, 2026-10-18 evening):** all packages now owned by Instance A. B's increment (commit `72690ea`) merged after independent verification (Release build clean; 136/136 tests). B's emergency repairs to Core (`RequireCurrentAnchor` CS0165, `MapRange` end-clamp) reviewed and accepted — equivalent to A's own fixes. B's contract requests dispositioned: **B-CCR-6 accepted** (`catalog/metadata-text` asset kind + `preservation_tags`), **B-CCR-7 accepted** (`EntityKind.Proposal`, prefix `prop`; `AiProposal.Id` now `EntityId`) → contract set **`C0-0.4-draft`** (commit `15fa2c7`).
-- [x] **FMT package** (commit `95b7bd3`): native project persistence (`NativeProject` + `NativeJson` with contract-version refusal); diplomatic plain-text export with **mandatory loss report**; bounded **PAGE XML** import (pinned 2013+2019 namespaces, ReadingOrder consumed, severity Loss|Note issues) + export round-trip; bounded **TEI/EpiDoc** import/export (unclear/gap/supplied/app+rdg as annotations, never literal brackets in L1; DOCTYPE/external entities refused). 13 Formats tests.
-- [x] **APP package** (commit `b7bf85e`): `Infrastructure.LocalStore` (SQLite via Microsoft.Data.Sqlite 10.0.13; schema versioning, newer-schema refusal, transactional project/job persistence); `Application` services (`ProjectService` over `IProjectStore`, `InterchangeService`); local **CLI** (`project new/list`, `import page`, `export diplomatic/page/tei`, `--store`/`LEVIATHAN_STORE`, closed-vocabulary errors, loss report on stderr). CLI smoke-tested end to end on real fixtures.
-- [x] **IMG package** (commit `1f3a4f3`): SkiaSharp decode (size/dimension guards, sha256), `ImageTransform` records (Crop/Deskew mappable incl. center-pivot matrix; NonlinearDewarp recorded-but-refused, explicitly unmappable), `DerivativeFactory`, `LineCropper` with mandatory vertical padding (diacritics/overbars/interlinear retention) + edge-loss reporting + explicit refusal on absent geometry. 10 imaging tests.
-- [x] **PAP-01 executed** (commit `3bc2131`): P01 v0.9 acquired from Zenodo — **59/59 files md5-verified**; audited **27 pairs / 321 real diplomatic TextLines / 14,394 chars**; 5 unannotated images recorded image-only; DATA-01 ledger at [data/manifests/papyri/p01.json](data/manifests/papyri/p01.json); execution record in [docs/data/papyri.md §10](docs/data/papyri.md). Real-image smoke (869×539 decode + real line crop) passing.
-- [x] **Real-data training gate increment** (commit `a3e48b7`): CRNN/CTC trained on real Greek papyrus lines — witness-level split train 176 / dev 50 / **test 95 locked**; 300 epochs; train loss 0.083 → 0; **best dev CER 0.833** (beats the empty-output baseline of 1.0, so real letters are read); **reload parity exact** (fresh model reproduces 0.833). Per-crop Otsu binarization recorded in preprocessing. **Pilot measurement only**: generalization is data-limited (176 training lines memorized; annotation volume stays the gate); no release claim, and the locked test set was never used for tuning.
 - [ ] B's review of the contract set (I0 gate) — moot while single-instance; substitute with a self-review of all five contract documents against all packages at the next integration checkpoint (I1).
 
 **Ownership collision note (2026-10-18, Instance A):** a concurrent worker created `src/LeviathanText.{AI,Evaluation,Recognition,Training}` and their test projects (disjoint packages — acceptable) and also rewrote `tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj` and `src/LeviathanText.Contracts/LeviathanText.Contracts.csproj` into a minimal style while introducing `Directory.Build.props`. Those are C0-owned paths (solution/project setup). The centralization itself is sound; A (integrator) adopted it, restored the missing xunit global using and fixture content in the Core.Tests project, and will keep the central files consistent. Concurrent workers must confine edits to their own packages and route central-file changes through the integrator per todo §6 rules.
 
 ### Coordination and integration rules
 
-- [x] Before implementation, establish the repository and one branch/worktree per active package; the current workspace is not yet a Git repository. This task does not initialize it. All workers start from the same recorded baseline. If worktrees are unavailable, enforce disjoint write paths and a single integrator; never run concurrent edits to one file. *(established on `main` at `728ec9c`; single-instance mode makes worktrees moot — disjoint paths superseded by full ownership)*
-- [x] Maintain a package board with ID, owner instance, status (`ready`, `active`, `blocked`, `review`, `done`), dependencies, base revision, owned paths, contract version and handoff location. Only the integrator edits the shared board/`todo.md`; other instances submit status and contract proposals to it. *(board maintained; integration checkpoints recorded in handoffs)*
 - [ ] A worker claims one package before editing. Ownership persists across context resets; reassignment requires a recorded handoff. Each worker reads this plan, `Agent.md`, its package brief and current contract version. Do not infer authorization from another instance's unreviewed output.
 - [ ] Workers may read shared code/contracts but change only owned paths. Shared project files, lockfiles, generated API contracts, schema migrations and central package versions have one named owner. The integrator resolves requested cross-boundary changes before dependent work resumes.
 - [ ] Each handoff includes changed paths/commit, assumptions, input/data hashes, license evidence, tests or document checks performed, failure results, unresolved questions and the exact next dependency. Dataset/model artifacts are separately versioned; do not copy large corpora or secrets into Git or chat.
@@ -357,7 +336,6 @@ Integration checkpoints: **I0** accepts C0 plus data conventions; **I1** combine
 
 - [~] Select pilot manuscript, papyrus and inscription collections, representative hands/styles, target development/deployment hardware and expected collection scale. *(partially: pilot candidates pinned from the license register — P01 (papyri), M01+M02a (manuscripts), I01 (inscriptions); final selection is the project owner's; hardware = macOS arm64 CPU pilot machine only)*
 - [~] Deliver the transcription handbook, corpus manifest and expert-adjudicated pilot/test sets from Section 5. Label the source type and unsupported conditions explicitly. *(contract set = the handbook's core; per-track audit records live; expert adjudication pending — nothing is adjudicated yet)*
-- [x] Define the object/surface/capture contract, annotation offsets, native format and bounded TEI/EpiDoc mapping before building adapters or datasets. *(C0-0.4-draft, implemented as compiled contracts)*
 - [~] In a later implementation task, prove C# autograd, CTC loss, variable-width batching, normalization/tokenization, training, optimizer-state resume, checkpoint reload, decoding and inference on real Greek lines from the selected tracks. A toy tensor example does not pass this gate. *(papyri track: proven end-to-end incl. locked split; manuscript track: trained + page-holdout scored; cross-witness M02a→M01 gap measured; inscription track has no labels yet — mechanics only proven via TEI import path)*
 - [~] Compare automatic and manually supplied layout for all three tracks. Record extraction failures and preserve marks around line boundaries. Test enough real images to expose material-specific failures; a single image per track is only a smoke test. *(imported/manual layout is the implemented path; automatic layout unstarted; per-track smoke only so far)*
 - [~] Package and run the candidate C# path on the actual target machine(s), recording native dependencies, train/inference duration, peak RAM/VRAM, pilot/development-set accuracy and unsupported accelerators. Prove high-resolution image/TIFF handling and select the imaging backend. Reserve locked test sets for acceptance after model/configuration selection. *(pilot-machine measurements recorded: 0.105 s/line training, 1614 MB allocations, CPU backend; TIFF handling unverified — PNG/JPG only so far)*
@@ -369,12 +347,8 @@ Gate: all three tracks have actual source data, an annotation contract and a doc
 
 ### Phase 1 — Greek engine, minimal training and CLI
 
-- [x] Implement native object/surface/capture persistence, scholarly annotation layers and coordinate mappings. *(NativeProject + LocalStore + Annotation/TextRevision contracts + frame registration)*
 - [~] Implement image preparation, tiling, manual/imported line annotations, baseline/layout inference, extraction, recognition and alignment, with bounded resource use. *(decode/crop/deskew + extraction with bounded queues contract; automatic baseline/layout inference unstarted)*
-- [x] Deliver minimal C# dataset preparation, training/fine-tuning, checkpoint resume and model packaging needed to produce the initial track-specific models. The first release must not depend on Phase 3 to obtain its models. *(CtcTrainer: train/evaluate/best-checkpoint/early-stop/resume; checkpoints now complete model packages with persisted labels)*
 - [~] Support unspaced Greek recognition, visible diacritics and signs, uncertain spans and explicit model/profile selection per material/hand. Keep model outputs separate from expert annotations. *(label set supports spaces/diacritics; profile selection is per-run; model-vs-expert separation is contractual; unspaced accuracy unmeasured at scale)*
-- [x] Import/export native JSON and diplomatic UTF-8 text, the bounded TEI/EpiDoc profile, and a supported PAGE subset for annotation interchange; report losses in less expressive formats. *(all four formats + severity-graded loss reporting)*
-- [x] Provide batch processing, cancellation, durable stage checkpoints, run manifests and actionable errors. *(RecognitionPipeline batch path + cooperative cancellation + checkpoint validity classification + closed error vocabulary)*
 
 Gate: a fresh offline installation processes the held-out sets for all three tracks, reloads its own trained checkpoints and meets the agreed per-track pilot thresholds. Manual layout assistance is recorded and evaluated separately from fully automatic processing. Unmet tracks remain visible blockers to claiming the full initial scope.
 
@@ -481,9 +455,6 @@ Acceptance invariants that can be specified now: original assets/revisions remai
 
 ### Licensing and contribution policy — 2026-10-19
 
-- [x] Install the unmodified [Apache-2.0 license](LICENSE) and [DCO 1.1 text](DCO), plus project attribution and license-scope notices in [NOTICE](NOTICE).
-- [x] Write [governance](GOVERNANCE.md), [contribution requirements](CONTRIBUTING.md) and a [pull-request evidence template](.github/pull_request_template.md) reflecting the owner's approval.
-- [x] Link the policy documents from the README and verify text integrity, links and consistency without changing application code.
 - [ ] Configure required maintainer review, trusted status checks, DCO validation and protected release/default branches on the hosting service. No Git remote is currently configured; writing local policy files does not enable these controls.
 
 Review result: LICENSE matches the official Apache text byte for byte; DCO matches the official published text; 29 local links in the policy/README/template documents resolve; whitespace checks pass. Independent review clarified that an earlier contributor's sign-off does not certify later edits. No application code changed, no runtime tests were needed for these document changes, and the pre-existing edit to `docs/evaluation/layout-comparison.md` was left untouched. Hosting controls are not yet enabled.
@@ -505,22 +476,7 @@ Technical feasibility references checked during planning:
 
 Review results:
 
-- [x] User constraints are explicit: independent product, C# backend/training, Angular/TypeScript UI, AI-friendly policy, plan only.
-- [x] Scope prioritizes Koine/Classical Greek manuscripts, papyri and inscriptions, with printed editions later.
-- [x] Initial-model production and minimal annotation/training precede the first model-dependent release.
-- [x] Greek transcription, scholarly interchange, corpus ownership and acceptance-sheet deliverables are explicit.
-- [x] Object/surface/capture modeling and unspaced recognition replace assumptions of rectangular pages and word boxes.
-- [x] Initial AI assistance follows stable evidence/revision contracts rather than waiting for broad Kraken parity.
-- [x] Architecture addresses C# training/export uncertainty, data availability, document fidelity, durable jobs and migration.
-- [x] Future work is unchecked and has dependencies and measurable acceptance categories.
-- [x] Concrete dataset sources, license evidence, restricted/uncertain alternatives and remaining material-specific gaps are recorded in Section 5.
-- [x] Parallel package ownership, two-instance and larger-team assignments, versioned contracts and serial integration checkpoints are recorded in Section 6.
-- [x] Two standalone planning briefs define disjoint write ownership, independent starting work, review dependencies, acceptance criteria and versioned handoffs; neither assignment has been executed by this briefing task.
-- [x] Independent brief review found no ownership overlaps, circular acceptance dependency or unintended authorization of implementation/acquisition. The changed-file check contains only the two briefs and this plan.
-- [x] Independent source/plan reviews checked manuscript, papyrus and inscription facts; identified ownership gaps were corrected.
-- [x] No application code was written; this work changes only planning documents.
 - [ ] Execution readiness: select real collections and hardware, secure usable image/label pairs and reviewers, prove the C# pipeline, and freeze measured acceptance thresholds.
-- [x] Implementation has started (superseded the original "unstarted" status; see Section 6 implementation records and the handoffs). This line is kept for history.
 
 ## 11. Remaining-effort estimate — 2026-10-19
 
