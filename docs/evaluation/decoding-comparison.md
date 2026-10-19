@@ -122,6 +122,16 @@ configuration exists (`CrnnModel(..., dropout:)`) and is recorded in the run man
 
 3e-3 remains the best measured rate; no change.
 
+## Batch-size A/B (height 16, width 4, augmentation on)
+
+| Batch size | Dev scalar CER |
+| --- | --- |
+| 4 | 0.7859 |
+| **8 (default)** | **0.7829** |
+| 16 | 0.7958 |
+
+Batch 8 remains the best measured value; no change.
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
