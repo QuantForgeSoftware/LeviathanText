@@ -271,6 +271,25 @@ public class HttpProviderTests
     }
 
     [Fact]
+    public async Task Retries_inside_one_call_do_not_consume_extra_request_budget()
+    {
+        var handler = new StubHandler((_, call) => Task.FromResult(call == 1
+            ? Json("""{"error":"temporary"}""", HttpStatusCode.InternalServerError)
+            : Json("""{"choices":[{"message":{"content":"κυρίου"}}]}""")));
+        var settings = OpenAiSettings(maxAttempts: 2) with { MaxRequests = 1 };
+        var provider = new SchemaValidatingAiProvider(new AiHttpProvider(settings, new HttpClient(handler), Credentials(), NoDelay));
+
+        var first = await provider.ProposeAsync(Request());
+        var second = await provider.ProposeAsync(Request());
+
+        Assert.True(first.Succeeded);
+        Assert.Equal(2, handler.Calls); // initial + retry, still one logical call
+        Assert.False(second.Succeeded);
+        Assert.Equal(AiFailureReasons.RequestBudgetExceeded, second.Failure!.Reason);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
     public async Task Missing_credential_fails_as_configuration_without_a_request()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json("{}")));
