@@ -43,19 +43,28 @@ The dataset-backed pilot tests are skipped automatically when the artifact store
 ```bash
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db project new "Pilot corpus"
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import page <projectId> page.xml
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db import iiif <projectId> manifest.json
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db layout detect <projectId> <surfaceId>   # auto layout (never overwrites)
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export diplomatic <projectId> <surfaceId>   # loss report on stderr
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export tei <projectId> <surfaceId>
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db export training <projectId>   # L1-only labels + annotation status
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface <projectId> <surfaceId> --package <model-package-dir>
 ```
+
+Remote captures (IIIF) are fetched once into a checksummed local cache when an analysis stage first needs them, so later runs work offline.
 
 ## HTTP API
 
 ```bash
 dotnet run --project src/LeviathanText.Api
-# GET  /api/v1/projects, POST /api/v1/projects
-# POST /api/v1/projects/{id}/import-page, GET .../diplomatic, GET .../tei
-# POST /api/v1/projects/{id}/import-iiif  (bounded Presentation 3 manifest import)
-# POST /api/v1/jobs (idempotency key), GET /api/v1/jobs/{id}/events (SSE with cursor replay)
+# projects: GET/POST /api/v1/projects, GET /projects/{id}
+# ingestion: POST /projects/{id}/import-page | import-iiif
+# layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
+# transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
+# geometry: PUT /lines/{id}/geometry
+# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | training-export
+# AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
+# jobs: POST /jobs (idempotency key), GET /jobs/{id}/events (SSE with cursor replay)
 ```
 
 ## Web workspace
@@ -64,6 +73,8 @@ dotnet run --project src/LeviathanText.Api
 cd web && npx ng serve --proxy-config proxy.conf.json   # http://localhost:4200
 cd web && npx ng test --watch=false --browsers=ChromeHeadless
 ```
+
+The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations, draft recovery), a dual-pane L1/L2 view, a geometry/reading-order overlay editor, jobs with live progress, exports, and an opt-in AI assistance panel.
 
 ## Measured pilot baselines (honest status)
 
