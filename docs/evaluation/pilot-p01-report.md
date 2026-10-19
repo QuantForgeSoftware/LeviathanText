@@ -1,11 +1,11 @@
 # P01 pilot evaluation (pilot-scale; locked set used multiple times)
 
-- Date: 2026-10-19T17:35:58.3012290+00:00; contract C0-0.4-draft
+- Date: 2026-10-19T18:18:40.3049660+00:00; contract C0-0.4-draft
 - **Locked-set status:** this split has been scored multiple times (pre-fix and post-fix re-baselines); it is spent for threshold purposes. See `docs/evaluation/locked-set-reuse.md`.
 - Dataset: P01 Zenon Papyri HTR v0.9 (CC BY 4.0), md5-verified, 27 pairs, 321 lines
 - Split: witness-level (file = unit); train 176 / dev 50 / **test 95 (locked)**
 - Split hash (sha256 of sorted assignment): `f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6`
-- Model: eval-pilot-crnn CRNN(h=64), 300 epochs, lr 0.003, seed 42; train loss 1.059 → 0.03
+- Model: eval-pilot-crnn CRNN(h=64), 300 epochs, lr 0.003, seed 42; train loss 1.074 → 0.007
 - Labels: Transkribus-prepared diplomatic text, grapheme-level label set (45 classes), NOT yet expert-adjudicated (DATA-03 pending)
 - Layout: imported (PAGE geometry) — this is recognition-on-manual-layout, never advertised as fully automatic
 
@@ -23,10 +23,10 @@
 
 | Entry | Value |
 | --- | --- |
-| Training wall time | 0.6 min |
-| Training seconds per line | 0.218 s |
-| Peak RAM (process) | unmeasured on macOS (platform limitation); working set at report time 805 MB |
-| Total allocations | 20230 MB |
+| Training wall time | 0.8 min |
+| Training seconds per line | 0.28 s |
+| Peak RAM (process) | unmeasured on macOS (platform limitation); working set at report time 912 MB |
+| Total allocations | 23406 MB |
 | Backend | TorchSharp CPU (libtorch-cpu-osx-arm64 2.10.0) |
 
 ## Status and caveats
