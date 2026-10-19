@@ -84,6 +84,49 @@ app.Use(async (context, next) =>
         await context.Response.WriteAsync(ContractJson.ToJson(ex.Error));
     }
 });
+// Pilot shared-deployment guard (opt-in). With an API key configured, every /api/v1
+// request must present it (Bearer or X-Api-Key) and ReadOnly blocks non-GET methods.
+// Without a key the server is LOCAL-ONLY: no accounts, roles or audit — do not expose it.
+var authApiKey = builder.Configuration["LeviathanText:Auth:ApiKey"];
+var authReadOnly = builder.Configuration.GetValue<bool>("LeviathanText:Auth:ReadOnly");
+if (string.IsNullOrEmpty(authApiKey))
+    app.Logger.LogWarning("authentication disabled: local-only deployment (set LeviathanText:Auth:ApiKey before sharing)");
+
+app.Use(async (context, next) =>
+{
+    if (string.IsNullOrEmpty(authApiKey) || !context.Request.Path.StartsWithSegments("/api/v1"))
+    {
+        await next();
+        return;
+    }
+
+    var provided = context.Request.Headers.Authorization.ToString();
+    if (provided.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        provided = provided["Bearer ".Length..].Trim();
+    if (string.IsNullOrEmpty(provided))
+        provided = context.Request.Headers["X-Api-Key"].ToString();
+
+    var matches = !string.IsNullOrEmpty(provided)
+        && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(provided),
+            System.Text.Encoding.UTF8.GetBytes(authApiKey));
+    if (!matches)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await context.Response.WriteAsJsonAsync(new { code = "unauthorized", message = "Missing or invalid API key." });
+        return;
+    }
+
+    if (authReadOnly && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { code = "read_only", message = "This deployment is read-only." });
+        return;
+    }
+
+    await next();
+});
+
 app.MapControllers();
 
 // Versioned REST (interchange-and-api.md §2). All bodies use the contract JSON conventions.

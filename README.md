@@ -64,7 +64,11 @@ dotnet run --project src/LeviathanText.Api
 # geometry: PUT /lines/{id}/geometry
 # exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | training-export
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
-# jobs: POST /jobs (idempotency key), GET /jobs/{id}/events (SSE with cursor replay)
+# jobs: POST /jobs (idempotency key; layout.detect / recognize.surface), GET /jobs/{id}/events (SSE with cursor replay)
+
+# Shared deployment (opt-in): set LeviathanText:Auth:ApiKey (Bearer or X-Api-Key required
+# under /api/v1); LeviathanText:Auth:ReadOnly=true blocks mutations. Without a key the API
+# is local-only (no accounts/roles/audit) and must not be exposed.
 ```
 
 ## Web workspace

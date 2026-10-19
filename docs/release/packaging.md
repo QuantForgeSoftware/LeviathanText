@@ -24,4 +24,4 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Throughput/peak-RAM profiling under sustained collection load (pilot measurements exist in the evaluation records).
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
-- Shared-server authentication is **not** implemented; do not expose the API beyond localhost.
+- Shared-server authentication: a **pilot-grade opt-in guard** exists (`LeviathanText:Auth:ApiKey` → Bearer/`X-Api-Key` required under `/api/v1`; `Auth:ReadOnly=true` blocks mutations). It is **not** a user system: no accounts, roles, per-user audit or key rotation. Without a key the API logs a local-only warning — do not expose it beyond localhost.
