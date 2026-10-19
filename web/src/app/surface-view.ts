@@ -6,6 +6,7 @@
 import { Component, computed, signal, OnInit, input } from '@angular/core';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
+import { DualPane } from './dual-pane';
 
 @Component({
   selector: 'app-surface-view',
@@ -23,6 +24,7 @@ import { LineEditor } from './line-editor';
 
         @if (editingLineId()) {
           <app-line-editor [lineId]="editingLineId()!" [authorId]="'workspace-editor'" />
+          <app-dual-pane [lineId]="editingLineId()!" [imageLink]="imageLink()" />
         }
 
         <h3>Loss report <code>{{ data.lossReport.format }}</code></h3>
@@ -44,7 +46,7 @@ import { LineEditor } from './line-editor';
     .greek { font-size: 1.3rem; cursor: pointer; }
     .lines { line-height: 2; }
   `],
-  imports: [LineEditor],
+  imports: [LineEditor, DualPane],
 })
 export class SurfaceView {
   projectId = input.required<string>();
@@ -55,6 +57,7 @@ export class SurfaceView {
   protected readonly selectedEnd = signal(0);
   protected readonly totalScalars = signal(0);
   protected readonly editingLineId = signal<string | null>(null);
+  protected readonly imageLink = signal('');
   private readonly lineIdsByIndex = signal<string[]>([]);
 
   protected readonly lines = computed(() => (this.exportData()?.text ?? '').split('\n'));
@@ -80,7 +83,9 @@ export class SurfaceView {
       const surface = payload.objects
         .flatMap(o => o.surfaces)
         .find(s => s.id === this.surfaceId());
-      this.lineIdsByIndex.set(surface?.lines.map((l: unknown) => (l as { id: string }).id) ?? []);
+      this.lineIdsByIndex.set(surface?.lines.map(l => l.id) ?? []);
+      // Image link from the surface's first capture (original captures are immutable).
+      this.imageLink.set(surface?.captures?.[0]?.imageLocation ?? '');
     });
   }
 
