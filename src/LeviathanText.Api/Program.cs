@@ -186,12 +186,42 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/alto", (ProjectService projects, 
         "application/xml");
 });
 
+api.MapGet("projects/{id}/surfaces/{surfaceId}/hocr", (ProjectService projects, string id, string surfaceId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(
+        new InterchangeService(projects).ExportHocr(project, EntityId.Parse(surfaceId, EntityKind.Surface)),
+        "text/html");
+});
+
 api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, string id, string surfaceId) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
     return Results.Text(
         new InterchangeService(projects).ExportTei(project, EntityId.Parse(surfaceId, EntityKind.Surface), $"LeviathanText export {surfaceId}"),
         "application/xml");
+});
+
+api.MapPost("projects/{id}/import-legacy", (ProjectService projects, string id, [FromBody] ImportLegacyRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    if (!Path.IsPathRooted(request.DocumentPath) || !Path.IsPathRooted(request.ImagePath))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = "import-legacy",
+            Message = "Document and image paths must be absolute on the server host.",
+        });
+
+    var (imported, unsupported) = new InterchangeService(projects)
+        .ImportLegacyLayout(project, request.DocumentPath, request.ImagePath, request.Format, request.Kind ?? "page");
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceId = imported.Surfaces[0].Id.ToString(),
+        lineCount = imported.Surfaces[0].Lines.Count,
+        unsupported,
+    });
 });
 
 api.MapPost("projects/{id}/import-iiif", (ProjectService projects, string id, [FromBody] ImportIiifRequest request) =>
@@ -437,6 +467,8 @@ app.Run();
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath, string? Kind = null);
 public sealed record ImportIiifRequest(string ManifestPath);
+
+public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 

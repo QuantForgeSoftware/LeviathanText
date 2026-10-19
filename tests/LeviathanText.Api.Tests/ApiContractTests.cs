@@ -240,6 +240,43 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Legacy_alto_import_creates_a_surface_with_lines_and_text()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "legacy-alto" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var dir = Path.Combine(Path.GetTempPath(), $"lt-alto-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var altoPath = Path.Combine(dir, "page.alto.xml");
+        var imagePath = Path.Combine(dir, "page.png");
+        await File.WriteAllTextAsync(altoPath, """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="100" HEIGHT="50"><PrintSpace>
+                <TextBlock ID="b1"><TextLine ID="l1">
+                  <Shape><Polygon POINTS="0,0 90,0 90,20 0,20"/></Shape>
+                  <String CONTENT="αβγ"/>
+                </TextLine></TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """);
+        await File.WriteAllBytesAsync(imagePath, [0x89, 0x50, 0x4E, 0x47]);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-legacy",
+            new { documentPath = altoPath, imagePath, format = "alto" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"lineCount\":1", body);
+
+        // Missing paths are refused (payload validation, not a crash).
+        var bad = await client.PostAsJsonAsync($"/api/v1/projects/{project["id"]}/import-legacy",
+            new { documentPath = "relative.xml", imagePath, format = "alto" });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+
+        Directory.Delete(dir, recursive: true);
+    }
+
+    [Fact]
     public async Task Revision_history_accepts_camel_case_layer_names()
     {
         var client = NewClient();

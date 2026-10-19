@@ -178,6 +178,18 @@ public static class Program
                 return ok == files.Count ? 0 : 1;
             }
 
+            case "import" when rest.Length >= 5 && rest[1] is "alto" or "hocr":
+            {
+                // Legacy OCR migration: bounded ALTO/hOCR subset + the page image.
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var kind = rest.Length >= 7 && rest[5] == "--kind" ? rest[6] : "page";
+                var (imported, unsupported) = interchange.ImportLegacyLayout(project, rest[3], rest[4], rest[1], kind);
+                foreach (var issue in unsupported)
+                    Console.Error.WriteLine($"unsupported: {issue.Element}: {issue.Description}");
+                Console.WriteLine($"imported object {imported.Id}, surface {imported.Surfaces[0].Id}");
+                return 0;
+            }
+
             case "import" when rest.Length >= 4 && rest[1] == "page":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -218,6 +230,13 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 Console.WriteLine(interchange.ExportAlto(project, EntityId.Parse(rest[3], EntityKind.Surface)));
+                return 0;
+            }
+
+            case "export" when rest.Length >= 4 && rest[1] == "hocr":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                Console.WriteLine(interchange.ExportHocr(project, EntityId.Parse(rest[3], EntityKind.Surface)));
                 return 0;
             }
 

@@ -107,6 +107,78 @@ public sealed class InterchangeService(ProjectService projects)
     }
 
     /// <summary>
+    /// Import a legacy OCR export (ALTO or hOCR) plus its page image as a new surface.
+    /// Bounded subset only; unsupported elements are reported to the caller (never silently
+    /// dropped). Text is imported as L1 diplomatic with an explicit importer author.
+    /// </summary>
+    public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Unsupported) ImportLegacyLayout(
+        NativeProject project, string documentPath, string imagePath, string format, string surfaceKind = "page")
+    {
+        if (!File.Exists(documentPath))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = documentPath,
+                Message = "Import document is not readable on this host.",
+            });
+        if (!File.Exists(imagePath))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = imagePath,
+                Message = "Page image is not readable on this host.",
+            });
+
+        var captureId = NewCaptureId(project);
+        var content = File.ReadAllText(documentPath);
+
+        (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
+            IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed =
+            format switch
+            {
+                "alto" => FromAlto(AltoXml.Import(content, captureId, UnknownChecksum())),
+                "hocr" => FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum())),
+                _ => throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.SchemaVersionUnsupported,
+                    Scope = format,
+                    Message = "Legacy-layout import supports 'alto' and 'hocr'.",
+                }),
+            };
+
+        var surface = new NativeSurface
+        {
+            Id = NewId(EntityKind.Surface, project, "surf"),
+            Kind = surfaceKind,
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
+                ImageLocation = Path.GetFullPath(imagePath),
+            }],
+            Regions = parsed.Regions,
+            Lines = parsed.Lines,
+            Revisions = parsed.Revisions,
+        };
+
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Surfaces = [surface],
+        };
+        projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
+        return (imported, parsed.Unsupported);
+    }
+
+    private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
+        IReadOnlyList<TextRevision>, IReadOnlyList<PageXml.ImportIssue>) FromAlto(AltoXml.AltoImportResult result) =>
+        (result.Regions, result.Lines, result.Revisions, result.Unsupported);
+
+    private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
+        IReadOnlyList<TextRevision>, IReadOnlyList<PageXml.ImportIssue>) FromHocr(HocrFormat.HocrImportResult result) =>
+        (result.Regions, result.Lines, result.Revisions, result.Unsupported);
+
+    /// <summary>
     /// Import a IIIF Presentation 3 manifest as one physical object whose surface carries
     /// every canvas as a SEPARATE capture (views are never coordinate-merged). Attribution
     /// from the manifest's requiredStatement is retained per capture; image bytes are not
@@ -180,6 +252,12 @@ public sealed class InterchangeService(ProjectService projects)
     {
         var surface = FindSurface(project, surfaceId);
         return AltoXml.Export(surface, surface.Captures[0], surface.Revisions);
+    }
+
+    public string ExportHocr(NativeProject project, EntityId surfaceId)
+    {
+        var surface = FindSurface(project, surfaceId);
+        return HocrFormat.Export(surface, surface.Captures[0], surface.Revisions);
     }
 
     public string ExportTei(NativeProject project, EntityId surfaceId, string title)
