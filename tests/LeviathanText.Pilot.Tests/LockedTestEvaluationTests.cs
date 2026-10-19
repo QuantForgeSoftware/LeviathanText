@@ -43,7 +43,15 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
 
         var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
         var trainer = new CtcTrainer(model, labels, config);
+        var trainingClock = System.Diagnostics.Stopwatch.StartNew();
         var run = trainer.Fit(snapshot.Train, snapshot.Dev);
+        trainingClock.Stop();
+        var trainingWallTime = trainingClock.Elapsed;
+        var trainingSecondsPerLine = trainingWallTime.TotalSeconds / Math.Max(1, snapshot.Train.Count);
+
+        // EVAL-04: measured operating limits on this machine (pilot form).
+        // PeakWorkingSet64 is not reliably supported on macOS; allocations are precise.
+        var allocationMb = GC.GetTotalAllocatedBytes(precise: true) / 1024.0 / 1024.0;
 
         // ONE-SHOT locked-test scoring, raw model output only (no assistance).
         var results = new TorchLineRecognizer(model, labels).Recognize([.. snapshot.TestLocked.Select(l => l.Image)]);
@@ -88,6 +96,16 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
             | Mark insertions (wrongly supplied marks) | {markInsertions} |
             | Mark deletions (missing marks) | {markDeletions} |
             | Mark substitutions | {markSubstitutions} |
+
+            ## Operating limits measured (EVAL-04, pilot machine: macOS arm64, CPU inference/training)
+
+            | Entry | Value |
+            | --- | --- |
+            | Training wall time | {trainingWallTime.TotalMinutes:0.#} min |
+            | Training seconds per line | {trainingSecondsPerLine:0.###} s |
+            | Peak RAM (process) | unmeasured on macOS (platform limitation); working set at report time {Environment.WorkingSet / 1024 / 1024:0} MB |
+            | Total allocations | {allocationMb:0} MB |
+            | Backend | TorchSharp CPU (libtorch-cpu-osx-arm64 2.10.0) |
 
             ## Status and caveats
 
