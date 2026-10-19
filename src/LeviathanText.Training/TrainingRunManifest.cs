@@ -18,6 +18,7 @@ public sealed record TrainingRunManifest
     public required long NumClasses { get; init; }
     public required long HiddenSize { get; init; }
     public required int WidthDownsampleFactor { get; init; }
+    public required int InputHeightPixels { get; init; }
     public required int TrainLines { get; init; }
     public required int DevLines { get; init; }
     public required int TestLockedLines { get; init; }
@@ -83,6 +84,7 @@ public static class TrainingRunManifestWriter
             NumClasses = model.NumClasses,
             HiddenSize = model.HiddenSize,
             WidthDownsampleFactor = model.WidthDownsampleFactor,
+            InputHeightPixels = model.InputHeightPixels,
             TrainLines = trainLines,
             DevLines = devLines,
             TestLockedLines = testLockedLines,

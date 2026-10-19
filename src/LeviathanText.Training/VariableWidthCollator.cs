@@ -27,11 +27,12 @@ public static class VariableWidthCollator
     public static CtcBatch Collate(
         IReadOnlyList<LabeledLine> lines,
         LabelSet labels,
-        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor)
+        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor,
+        int inputHeight = CrnnModel.InputHeight)
     {
         if (lines.Count == 0) throw new ArgumentException("Cannot collate zero lines.", nameof(lines));
 
-        var (images, inputLengths) = LineBatcher.ToTensor([.. lines.Select(l => l.Image)], widthDownsampleFactor);
+        var (images, inputLengths) = LineBatcher.ToTensor([.. lines.Select(l => l.Image)], widthDownsampleFactor, inputHeight);
         var targetIndices = lines.Select(l => labels.EncodeText(l.Text)).ToList();
 
         var flat = targetIndices.SelectMany(s => s).Select(i => (long)i).ToArray();

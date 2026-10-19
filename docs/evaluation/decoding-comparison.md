@@ -4,6 +4,7 @@
 - Reproduce:
   - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01DecodingComparisonTests`
   - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01WidthDownsampleTests`
+  - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01InputHeightTests`
   - skipped automatically when the P01 artifact store is absent.
 - Artifacts: `.artifacts/pilot/p01-decoding-comparison.txt`, `.artifacts/pilot/p01-width-downsample.txt`,
   `.artifacts/pilot/p01-decode-run-manifest.json`.
@@ -14,7 +15,7 @@
 
 Config: P01 v0.9, train 176 / dev 50 / **test 95 locked (not used here)**, 300 epochs,
 seed 42, hidden 64, vocabulary 45. The run manifest records architecture
-(`widthDownsampleFactor`), config hash, label-set hash, split hash, best-checkpoint
+(`widthDownsampleFactor`, `inputHeightPixels`), config hash, label-set hash, split hash, best-checkpoint
 SHA-256 and the full 300-epoch learning curve. Its split hash
 `f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6` equals the one-shot
 [pilot-p01-report.md](pilot-p01-report.md), so both records refer to the same split.
@@ -70,22 +71,31 @@ Top deletions: `α` ×71, `ο` ×70, `ε` ×62, `ν` ×61, `τ` ×52.
 | Unreachable lines if the width downsample were 2 | 20/50 |
 
 Every dev line has fewer CTC frames than reference scalars: the decoder is structurally
-unable to emit the full line, which is exactly the deletion-dominated profile above. A
-35 px median width for an 18-scalar line means the *crops* are near-square; the likely
-root cause is line-region geometry/extraction (imaging package), not the CTC decoder.
+unable to emit the full line, which is exactly the deletion-dominated profile above.
 
-## ML fallback: width-downsample A/B (measured)
+The padding is a *contract requirement* (marks/interlinear additions), but it doubles the
+crop height; at input height 16 the text band is then only ~8 px tall and the
+aspect-preserving resize halves the width. So this is a **normalization** problem as much
+as a geometry problem: re-cropping at height 32 restores both text rows and width.
 
-| Width downsample | Dev scalar CER | Reachable lines (T ≥ scalars) | Min T | Median T | Seconds/line |
-| --- | --- | --- | --- | --- | --- |
-| 4 (default) | 0.8496 | 0/50 | 4 | 8 | 0.0001 |
-| **2 (candidate)** | **0.8257** | **30/50** | 8 | 17 | 0.0002 |
+## ML fallback A/B: input height and width downsample (measured)
 
-Factor 2 removes the structural limit on 30/50 dev lines and improves dev CER by ≈0.024
-absolute. The architecture is configurable (`CrnnModel(numClasses, hiddenSize,
-widthDownsampleFactor)` with 1/2/4). The **default stays 4** so existing checkpoints and
-the one-shot locked-test report remain valid; factor 2 is recommended for the next frozen
-candidate, which must use fresh held-out witnesses (acceptance-plan.md §2 reuse rule).
+| Input height | Width downsample | Dev scalar CER | Reachable lines | Min T | Median T | Median width | Seconds/line |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 16 (default) | 4 (default) | 0.8576 | 0/50 | 4 | 8 | 35 | 0.0001 |
+| **32** | **4** | **0.8297** | 29/50 | 8 | 17 | 71 | 0.0002 |
+| 32 | 2 | 0.8675 | 50/50 | 16 | 35 | 71 | 0.0003 |
+
+Height 32 with the original width downsample is the best measured candidate (~0.028 CER
+improvement, ~2× decode cost). Height 32 + width 2 reaches every line but is **worse** at
+this data volume: too many frames for 176 training lines. Width 2 at height 16 measured
+0.8257 in a separate run (within ±0.02 run variation of height 32); height 32 is preferred
+because it also restores vertical text resolution.
+
+Architecture is configurable (`CrnnModel(numClasses, hiddenSize, widthDownsampleFactor,
+inputHeight)`); the **defaults stay 16/4** so existing checkpoints and the one-shot
+locked-test report remain valid. The next frozen candidate should use height 32 with fresh
+held-out witnesses (acceptance-plan.md §2 reuse rule).
 
 ## Decision (pilot-scale, reversible)
 
@@ -93,8 +103,12 @@ candidate, which must use fresh held-out witnesses (acceptance-plan.md §2 reuse
   (`CtcDecodeMode.PrefixBeam`). Re-run after the annotation-volume gate and on the other
   two tracks before changing.
 - Do **not** ship confidence-based abstention or a calibration claim from this data.
-- **Report the sequence-length limit to IMG as a blocker**: fix P01 crop geometry first,
-  then re-measure; the factor-2 model shape is the ML fallback.
+- **Report the padding/normalization interaction to IMG**: the mandatory vertical padding
+  doubles crop height, so height-16 normalization leaves an ~8 px text band. IMG owns the
+  padding fraction; ML measures height 32 as the candidate fix. Re-measure after either
+  change.
+- Next model candidate: **input height 32, width downsample 4**; width 2 at height 16 is
+  the alternative. Defaults remain 16/4 for checkpoint/report compatibility.
 - Per-grapheme confidence under beam mode uses a forced best alignment
   (`CtcBeamDecoder.BestAlignment`), so values remain real per-label probabilities.
 

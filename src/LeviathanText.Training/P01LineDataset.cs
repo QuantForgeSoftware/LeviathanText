@@ -31,7 +31,7 @@ public static class P01LineDataset
     /// Load a PAGE/image corpus directory (works for any track; image extension differs —
     /// P01 uses .jpg, manuscript scans use .png). The directory/file remains the split unit.
     /// </summary>
-    public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6)
+    public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6, int targetHeight = CrnnModel.InputHeight)
     {
         if (!Directory.Exists(datasetDirectory))
             throw new LeviathanException(new LeviathanError
@@ -80,7 +80,7 @@ public static class P01LineDataset
                 if (points.Count < 2) continue;
 
                 var extracted = LineCropper.Extract(decoded.Bitmap, points);
-                var lineImage = ToLineImage(extracted.AppliedCrop, decoded.Bitmap);
+                var lineImage = ToLineImage(extracted.AppliedCrop, decoded.Bitmap, targetHeight);
                 extracted.Bitmap.Dispose();
 
                 var labeled = new LabeledLine(revision.Text, lineImage);
@@ -117,13 +117,12 @@ public static class P01LineDataset
     }
 
     /// <summary>Crop the page by the recorded crop bounds and produce a normalized LineImage.</summary>
-    private static LineImage ToLineImage(ImageTransform.Crop crop, SKBitmap page)
+    private static LineImage ToLineImage(ImageTransform.Crop crop, SKBitmap page, int targetHeight)
     {
         var region = new SKRectI(crop.Left, crop.Top, crop.Left + crop.Width, crop.Top + crop.Height);
         using var subset = new SKBitmap();
         page.ExtractSubset(subset, region);
 
-        int targetHeight = CrnnModel.InputHeight;
         int targetWidth = Math.Max(8, (int)Math.Round((float)subset.Width * targetHeight / subset.Height));
         using var resized = subset.Resize(new SKImageInfo(targetWidth, targetHeight), new SKSamplingOptions(SKFilterMode.Linear));
 

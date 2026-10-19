@@ -11,11 +11,12 @@ public static class LineBatcher
 {
     public static (Tensor Images, int[] InputLengths) ToTensor(
         IReadOnlyList<LineImage> lines,
-        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor)
+        int widthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor,
+        int inputHeight = CrnnModel.InputHeight)
     {
         if (lines.Count == 0) throw new ArgumentException("Cannot build a batch from zero lines.", nameof(lines));
 
-        int height = CrnnModel.InputHeight;
+        int height = inputHeight;
         foreach (var line in lines)
             if (line.Height != height)
                 throw new ArgumentException($"Line height {line.Height} does not match the model input height {height}.", nameof(lines));

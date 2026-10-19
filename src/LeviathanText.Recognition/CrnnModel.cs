@@ -21,7 +21,6 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
     public const int DefaultWidthDownsampleFactor = 4;
 
     private const int ConvChannels = 32;
-    private const int FeatureHeightAfterPools = InputHeight / 4; // two 2x-height pools -> 4
 
     private readonly nn.Module<Tensor, Tensor> _conv1;
     private readonly nn.Module<Tensor, Tensor> _conv2;
@@ -29,17 +28,26 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
     private readonly nn.Module<Tensor, Tensor> _pool2;
     private readonly LSTM _lstm;
     private readonly nn.Module<Tensor, Tensor> _fc;
+    private readonly int _featureHeightAfterPools;
 
-    public CrnnModel(long numClasses, long hiddenSize = 64, int widthDownsampleFactor = DefaultWidthDownsampleFactor)
+    public CrnnModel(
+        long numClasses,
+        long hiddenSize = 64,
+        int widthDownsampleFactor = DefaultWidthDownsampleFactor,
+        int inputHeight = InputHeight)
         : base(nameof(CrnnModel))
     {
         if (numClasses < 2) throw new ArgumentOutOfRangeException(nameof(numClasses), "Need at least a blank plus one label.");
         if (widthDownsampleFactor is not (1 or 2 or 4))
             throw new ArgumentOutOfRangeException(nameof(widthDownsampleFactor), "Width downsample factor must be 1, 2 or 4.");
+        if (inputHeight < 8 || inputHeight % 4 != 0)
+            throw new ArgumentOutOfRangeException(nameof(inputHeight), "Input height must be at least 8 and divisible by 4 (two 2x height pools).");
 
         NumClasses = numClasses;
         HiddenSize = hiddenSize;
         WidthDownsampleFactor = widthDownsampleFactor;
+        InputHeightPixels = inputHeight;
+        _featureHeightAfterPools = inputHeight / 4;
 
         _conv1 = nn.Conv2d(1, ConvChannels / 2, 3, padding: 1);
         _conv2 = nn.Conv2d(ConvChannels / 2, ConvChannels, 3, padding: 1);
@@ -48,7 +56,7 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
         // aggressive for short lines, so it is configurable and measured.
         _pool1 = widthDownsampleFactor == 1 ? nn.MaxPool2d((2, 1), (2, 1)) : nn.MaxPool2d(2, 2);
         _pool2 = widthDownsampleFactor == 4 ? nn.MaxPool2d(2, 2) : nn.MaxPool2d((2, 1), (2, 1));
-        _lstm = nn.LSTM(inputSize: ConvChannels * FeatureHeightAfterPools, hiddenSize: hiddenSize, numLayers: 1, batchFirst: false);
+        _lstm = nn.LSTM(inputSize: ConvChannels * _featureHeightAfterPools, hiddenSize: hiddenSize, numLayers: 1, batchFirst: false);
         _fc = nn.Linear(hiddenSize, numClasses);
 
         register_module(nameof(_conv1), _conv1);
@@ -65,11 +73,14 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
     /// <summary>Width reduction factor; 4 keeps the original pilot architecture.</summary>
     public int WidthDownsampleFactor { get; }
 
+    /// <summary>Input raster height this model expects; 16 is the original pilot value.</summary>
+    public int InputHeightPixels { get; }
+
     public override Tensor forward(Tensor input)
     {
         if (input.dim() != 4) throw new ArgumentException("Expected a 4-D (N,1,H,W) tensor.", nameof(input));
-        if (input.shape[2] != InputHeight)
-            throw new ArgumentException($"Expected input height {InputHeight}, got {input.shape[2]}.", nameof(input));
+        if (input.shape[2] != InputHeightPixels)
+            throw new ArgumentException($"Expected input height {InputHeightPixels}, got {input.shape[2]}.", nameof(input));
 
         var x = _conv1.forward(input).relu();
         x = _pool1.forward(x);

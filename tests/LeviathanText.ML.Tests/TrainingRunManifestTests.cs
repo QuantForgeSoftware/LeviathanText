@@ -52,6 +52,7 @@ public class TrainingRunManifestTests
         Assert.Equal(labels.NumClasses, manifest.NumClasses);
         Assert.Equal(32, manifest.HiddenSize);
         Assert.Equal(2, manifest.WidthDownsampleFactor);
+        Assert.Equal(16, manifest.InputHeightPixels);
         Assert.Equal(16, manifest.TrainLines);
         Assert.Equal(8, manifest.DevLines);
         Assert.Equal(0, manifest.TestLockedLines);

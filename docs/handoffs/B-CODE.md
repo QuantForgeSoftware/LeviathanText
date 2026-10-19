@@ -90,10 +90,13 @@ decoder is structurally unable to emit a full line; that is why the error profil
 deletion-dominated (706–800 deletions vs 0 insertions).
 
 B recommends IMG review P01 line-region geometry/deskew extraction before any accuracy
-claim. The ML-side fallback (CRNN width downsample 4 → 2) removes the limit on 30/50 lines
-and improves dev CER 0.8496 → 0.8257 (measured, `P01WidthDownsampleTests`); the default
-stays 4 so existing checkpoints remain valid, and factor 2 is the recommended next-candidate
-configuration. No IMG-owned file was touched.
+claim. Root cause measured: the mandatory vertical padding doubles crop height, so
+resizing to input height 16 leaves an ~8 px text band and halves the CTC frames. The
+ML-side A/B (`P01InputHeightTests`) finds **input height 32 / width downsample 4** best
+(dev CER 0.8297 vs 0.8576, reachable 29/50 vs 0/50); height 16 / width 2 measured 0.8257
+in a separate run and height 32 / width 2 was worse (0.8675, over-resolved for 176 lines).
+Defaults stay 16/4 so existing checkpoints/report remain valid; height 32 is the next
+frozen-candidate configuration. No IMG-owned file was touched.
 
 ### B progress log (2026-10-19, two-instance session)
 
