@@ -22,6 +22,17 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     foreach (var converter in contract.Converters)
         options.JsonSerializerOptions.Converters.Add(converter);
 });
+
+// Minimal-API endpoints bind and serialize with the SAME contract conventions
+// (EntityId, ScalarRange, Confidence, string enums) — otherwise the two surfaces
+// disagree on the wire format.
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = ContractJson.Options.PropertyNamingPolicy;
+    options.SerializerOptions.NumberHandling = ContractJson.Options.NumberHandling;
+    foreach (var converter in ContractJson.Options.Converters)
+        options.SerializerOptions.Converters.Add(converter);
+});
 builder.Services.AddSingleton<IProjectStore>(sp => new LocalStore(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db"));
 builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectStore>());
 builder.Services.AddSingleton<ProjectService>();
@@ -43,6 +54,28 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
 
 var app = builder.Build();
+
+// Map the contract error shape to HTTP semantics: unknown input 404, revision/anchor
+// conflicts 409, rejected payload versions 422, everything else 422 or 500 as coded.
+app.Use(async (context, next) =>
+{
+    try { await next(); }
+    catch (LeviathanException ex)
+    {
+        var status = ex.Error.Code switch
+        {
+            ErrorCode.InputMissing => 404,
+            ErrorCode.RevisionConflict or ErrorCode.StaleAnnotationAnchor => 409,
+            ErrorCode.ChecksumMismatch or ErrorCode.FrameUnregistered or ErrorCode.ProfileVersionUnsupported
+                or ErrorCode.SchemaVersionUnsupported or ErrorCode.LossyExportRequiredReport or ErrorCode.UnknownLabel
+                or ErrorCode.ModelIncompatible or ErrorCode.StageContractViolation => 422,
+            _ => 400,
+        };
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(ContractJson.ToJson(ex.Error));
+    }
+});
 app.MapControllers();
 
 // Versioned REST (interchange-and-api.md §2). All bodies use the contract JSON conventions.
@@ -66,9 +99,18 @@ api.MapGet("projects/{id}", (ProjectService projects, string id) =>
 api.MapPost("projects/{id}/import-page", (ProjectService projects, string id, [FromBody] ImportPageRequest request) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    var (imported, unsupported) = projects is not null
-        ? new InterchangeService(projects).ImportPage(project, request.PageXmlPath)
-        : throw new InvalidOperationException();
+
+    // Validate the path up front with an actionable 400 instead of a raw 500:
+    // local imports take an absolute path (the web workspace will upload files instead).
+    if (!Path.IsPathRooted(request.PageXmlPath) || !File.Exists(request.PageXmlPath))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.PageXmlPath,
+            Message = "Page XML path must be absolute and readable on the server host.",
+        });
+
+    var (imported, unsupported) = new InterchangeService(projects).ImportPage(project, request.PageXmlPath);
     return Results.Ok(new
     {
         objectId = imported.Id.ToString(),
@@ -141,11 +183,27 @@ api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionSe
     }));
 });
 
-api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] Annotation annotation) =>
+api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AddAnnotationRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var annotation = new Annotation
+    {
+        Id = string.IsNullOrEmpty(request.Id)
+            ? new EntityId(EntityKind.Annotation, Guid.NewGuid().ToString("N")[..12])
+            : EntityId.Parse(request.Id, EntityKind.Annotation),
+        Kind = request.Kind,
+        AnchoredRevisionId = string.IsNullOrEmpty(request.AnchoredRevisionId)
+            ? default // null/omitted = bind to the line's current revision (server-side)
+            : EntityId.Parse(request.AnchoredRevisionId, EntityKind.TranscriptionRevision),
+        Range = request.Range,
+        GapExtent = request.GapExtent,
+        AlternativeText = request.AlternativeText,
+        HandLabel = request.HandLabel,
+        Description = request.Description,
+    };
 
     var (_, _, anchored) = transcription.AddAnnotation(project, lineEntityId, annotation);
     return Results.Ok(new
@@ -213,6 +271,16 @@ public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
+
+public sealed record AddAnnotationRequest(
+    AnnotationKind Kind,
+    ScalarRange Range,
+    string? Id = null,
+    string? AnchoredRevisionId = null,
+    GapExtent? GapExtent = null,
+    string? AlternativeText = null,
+    string? HandLabel = null,
+    string? Description = null);
 
 /// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource

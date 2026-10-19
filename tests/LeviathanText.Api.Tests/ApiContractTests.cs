@@ -57,7 +57,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     {
         var client = NewClient();
         var response = await client.GetAsync("/api/v1/projects/col-doesnotexist");
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode); // InputMissing maps to 404 via the error middleware
     }
 
     [Fact]
@@ -90,7 +90,54 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             providerConfigRef = "unknown-provider",
             promptVersion = "v1",
         });
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode); // InputMissing maps to 404 via the error middleware
+    }
+
+    [Fact]
+    public async Task Annotation_binds_to_current_revision_when_anchor_is_omitted()
+    {
+        // Imported fixture project through the real API, then annotate the first line.
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "annotate-e2e" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        var fixture = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "LeviathanText.Formats.Tests", "Fixtures", "sample.page.xml"));
+        var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-page", new { pageXmlPath = fixture });
+        Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
+        var surface = await imported.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        Assert.True(surface!.ContainsKey("lineCount"));
+
+        var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>($"/api/v1/projects/{project["id"]}");
+        var lineId = ExtractFirstLineId(projectJson!);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/annotations", new
+        {
+            kind = "unclear",
+            range = new { start = 0, end = 2 },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("anchoredRevisionId", body);
+        Assert.DoesNotContain("rev-00000000", body);
+    }
+
+    [Fact]
+    public async Task Unknown_line_annotation_returns_404_via_error_middleware()
+    {
+        var client = NewClient();
+        var response = await client.PostAsJsonAsync("/api/v1/lines/ln-missing/annotations", new
+        {
+            kind = "unclear",
+            range = new { start = 0, end = 1 },
+        });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("inputMissing", body); // closed-vocabulary code in the payload
+    }
+
+    private static string ExtractFirstLineId(Dictionary<string, object> projectJson)
+    {
+        var objects = (System.Text.Json.JsonElement)projectJson["objects"];
+        return objects[0].GetProperty("surfaces")[0].GetProperty("lines")[0].GetProperty("id").GetString()!;
     }
 
     [Fact]
