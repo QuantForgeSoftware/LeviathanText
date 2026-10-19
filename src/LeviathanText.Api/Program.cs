@@ -1,4 +1,5 @@
 using LeviathanText.Api;
+using LeviathanText.AI;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Contracts.Serialization;
@@ -8,10 +9,19 @@ using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net.ServerSentEvents;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    // Contract conventions become the MVC serializer settings.
+    var contract = ContractJson.Options;
+    options.JsonSerializerOptions.PropertyNamingPolicy = contract.PropertyNamingPolicy;
+    options.JsonSerializerOptions.NumberHandling = contract.NumberHandling;
+    foreach (var converter in contract.Converters)
+        options.JsonSerializerOptions.Converters.Add(converter);
+});
 builder.Services.AddSingleton<IProjectStore>(sp => new LocalStore(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db"));
 builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectStore>());
 builder.Services.AddSingleton<ProjectService>();
@@ -22,8 +32,18 @@ builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
 builder.Services.AddSingleton<JobEnqueuer>();
 builder.Services.AddSingleton<RevisionChain>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton(sp =>
+{
+    var settings = builder.Configuration.GetSection("LeviathanText:AiProviders").GetChildren()
+        .Select(s => s.Get<AiProviderSettings>()!)
+        .Where(s => s is not null && s.ProviderId is not null);
+    return new AiProviderRegistry(settings, new HttpClient(), new EnvironmentCredentialSource());
+});
+builder.Services.AddSingleton<BulkProposalAcceptanceService>();
 
 var app = builder.Build();
+app.MapControllers();
 
 // Versioned REST (interchange-and-api.md §2). All bodies use the contract JSON conventions.
 var api = app.MapGroup("/api/v1");
@@ -193,5 +213,11 @@ public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
+
+/// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
+file sealed class EnvironmentCredentialSource : IAiCredentialSource
+{
+    public string? Resolve(string reference) => Environment.GetEnvironmentVariable(reference);
+}
 
 public partial class Program;

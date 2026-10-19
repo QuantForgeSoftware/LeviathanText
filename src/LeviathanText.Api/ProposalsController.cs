@@ -7,25 +7,37 @@ using Microsoft.AspNetCore.Mvc;
 namespace LeviathanText.Api;
 
 /// <summary>
-/// AI proposal endpoints (interchange-and-api.md §2.3): tasks are visually separate,
-/// provenance travels on every proposal, acceptance creates an L2 revision (L1 untouched),
-/// and malformed provider responses become recorded failures — never partial proposals.
-/// Providers in this scaffold are the labeled test double and the schema-validating
-/// wrapper; real hosted/local adapters require user configuration (todo §2).
+/// AI proposal endpoints (interchange-and-api.md §2.3), now backed by B's server-side
+/// services: the client names a revision + scalar offsets and NEVER supplies evidence
+/// (resolved from the revision chain); providers resolve through the registry so
+/// switching is configuration, not code; bulk acceptance requires the pure preview and
+/// reports blocked items instead of overwriting.
 /// </summary>
 [ApiController]
-[Route("/api/v1/proposals")]
-public sealed class ProposalsController(RevisionChain chain, JobEventBus bus) : ControllerBase
+[Route("/api/v1")]
+public sealed class ProposalsController(
+    RevisionChain chain,
+    AiProviderRegistry registry,
+    BulkProposalAcceptanceService bulk,
+    JobEventBus bus) : ControllerBase
 {
-    private static readonly RawScriptedAiProvider Raw = new("scripted-double", "labeled-test-double",
-        request => $"[proposal:{request.Task}]");
+    [HttpGet("providers")]
+    public IActionResult Providers() => Ok(new
+    {
+        providers = registry.ProviderIds.Select(id => new
+        {
+            configRef = id,
+            settings = registry.SettingsFor(id) with { CredentialEnvironmentVariable = null }, // never leak credential names
+        }),
+        note = "credentials resolve server-side only; the browser never sees or sends them",
+    });
 
-    private static readonly SchemaValidatingAiProvider Provider = new(Raw, maxTextLength: 2000);
-
-    [HttpPost]
+    [HttpPost("proposals")]
     public async Task<IActionResult> Propose([FromBody] AiProposalRequest request, CancellationToken cancellation)
     {
-        var outcome = await Provider.ProposeAsync(request, cancellation).ConfigureAwait(false);
+        var service = new AiProposalService(registry.ProviderFor(request.ProviderConfigRef));
+        var outcome = await service.ProposeAsync(chain, request, cancellation).ConfigureAwait(false);
+
         if (outcome.Failure is { } failure)
         {
             bus.Publish(request.TargetRevisionId, "proposal.failed", failure.Reason);
@@ -35,18 +47,26 @@ public sealed class ProposalsController(RevisionChain chain, JobEventBus bus) : 
         return Ok(ContractJson.ToJson(outcome.Proposal));
     }
 
-    [HttpPost("{id}/accept")]
-    public IActionResult Accept(string id, [FromBody] AcceptRequestBody body)
+    [HttpPost("proposals/bulk-preview")]
+    public IActionResult BulkPreview([FromBody] BulkRequestBody body) =>
+        Ok(ContractJson.ToJson(bulk.Preview(body.Proposals)));
+
+    [HttpPost("proposals/bulk-accept")]
+    public IActionResult BulkAccept([FromBody] BulkRequestBody body)
     {
-        var acceptor = new AgentRef { Id = body.AcceptorId, IsModel = false };
-        var (accepted, editorial) = new ProposalAcceptanceService(chain).Accept(body.Proposal, acceptor);
-        return Ok(ContractJson.ToJson(new
-        {
-            acceptedProposalId = accepted.Id.ToString(),
-            editorialRevisionId = editorial.Id.ToString(),
-            layer = editorial.Layer.ToString(),
-        }));
+        var preview = bulk.Preview(body.Proposals);
+        if (!preview.IsFullyApplicable)
+            return Conflict(new
+            {
+                error = "bulk-acceptance-blocked",
+                preview,
+                remedy = "resolve blocked proposals (reject/expire them) or accept individually",
+            });
+
+        var result = bulk.Accept(body.Proposals, new AgentRef { Id = body.AcceptorId, IsModel = false });
+        bus.Publish(body.Proposals[0].Request.TargetRevisionId, "proposal.bulk-accepted", ContractJson.ToJson(result));
+        return Ok(ContractJson.ToJson(result));
     }
 
-    public sealed record AcceptRequestBody(AiProposal Proposal, string AcceptorId);
+    public sealed record BulkRequestBody(IReadOnlyList<AiProposal> Proposals, string AcceptorId);
 }

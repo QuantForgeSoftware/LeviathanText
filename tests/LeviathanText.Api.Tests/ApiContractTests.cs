@@ -1,6 +1,8 @@
 using LeviathanText.Contracts;
 using LeviathanText.Contracts.Serialization;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit;
@@ -59,6 +61,39 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Providers_endpoint_lists_configured_providers_without_credential_names()
+    {
+        var client = NewClient();
+        var response = await client.GetAsync("/api/v1/providers");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("stub-provider", body);                 // configured in ApiFactory
+        Assert.DoesNotContain("STUB_API_KEY", body);            // credential names never leave the server
+        Assert.Contains("never sees or sends", body);
+    }
+
+    [Fact]
+    public async Task Proposals_require_a_known_provider_config_ref()
+    {
+        var client = NewClient();
+        // Seed one revision into the host's chain; then use an unknown provider ref.
+        var chain = _factory.Services.GetRequiredService<LeviathanText.Core.Revisions.RevisionChain>();
+        var revision = chain.Append(new LeviathanText.Contracts.EntityId(EntityKind.Line, "seedline"),
+            LeviathanText.Contracts.TextLayer.L1Diplomatic, "αβ",
+            new LeviathanText.Contracts.AgentRef { Id = "seed", IsModel = false });
+
+        var response = await client.PostAsJsonAsync("/api/v1/proposals", new
+        {
+            targetRevisionId = revision.Id.ToString(),
+            range = new { start = 0, end = 1 },
+            task = "candidateReading",
+            providerConfigRef = "unknown-provider",
+            promptVersion = "v1",
+        });
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Job_creation_is_idempotent_by_client_key()
     {
         var client = NewClient();
@@ -87,12 +122,26 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 }
 
-/// <summary>Test host factory with an isolated store file per factory.</summary>
+/// <summary>Test host factory with an isolated store file, one stub provider and a seeded revision.</summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
+    public string SeedRevisionId { get; } = "rev-seedchain01";
+
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"leviathan-api-{Guid.NewGuid():N}.db");
         builder.UseSetting("LeviathanText:StorePath", dbPath);
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["LeviathanText:AiProviders:0:ProviderId"] = "stub-provider",
+                ["LeviathanText:AiProviders:0:Host"] = "Hosted",
+                ["LeviathanText:AiProviders:0:Protocol"] = "OpenAiChatCompletions",
+                ["LeviathanText:AiProviders:0:Endpoint"] = "http://localhost:1/v1",
+                ["LeviathanText:AiProviders:0:ModelId"] = "stub-model",
+                ["LeviathanText:AiProviders:0:CredentialEnvironmentVariable"] = "STUB_API_KEY",
+            });
+        });
     }
 }

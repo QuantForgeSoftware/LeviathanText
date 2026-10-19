@@ -81,7 +81,9 @@ public sealed class P01InputHeightTests(ITestOutputHelper output)
         };
 
         var model = new CrnnModel(labels.NumClasses, config.HiddenSize, widthDownsampleFactor, inputHeight);
-        new CtcTrainer(model, labels, config).Fit(snapshot.Train, snapshot.Dev);
+        var trainer = new CtcTrainer(model, labels, config);
+        trainer.Fit(snapshot.Train, snapshot.Dev);
+        trainer.RestoreBest(); // measure the selected checkpoint, not the last epoch
 
         var images = snapshot.Dev.Select(l => l.Image).ToArray();
         var recognizer = new TorchLineRecognizer(model, labels);

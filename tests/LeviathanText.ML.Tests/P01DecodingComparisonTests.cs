@@ -50,6 +50,7 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
         var trainer = new CtcTrainer(model, labels, config);
         var run = trainer.Fit(snapshot.Train, snapshot.Dev);
+        trainer.RestoreBest(); // measure the selected checkpoint, not the last epoch
 
         var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
         Directory.CreateDirectory(artifactDir);

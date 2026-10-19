@@ -50,6 +50,19 @@ public sealed class CtcTrainer
         for (int i = 0; i < shuffled.Count; i += _config.BatchSize)
         {
             var batch = shuffled.Skip(i).Take(_config.BatchSize).ToList();
+            if (_config.AugmentTraining)
+            {
+                batch = batch
+                    .Select(line => line with
+                    {
+                        Image = LineAugmenter.Apply(
+                            line.Image, rng,
+                            _config.MaxHorizontalStretch,
+                            _config.MaxVerticalShiftPx,
+                            _config.SaltPepperFraction),
+                    })
+                    .ToList();
+            }
             var collated = VariableWidthCollator.Collate(batch, _labels, _model.WidthDownsampleFactor, _model.InputHeightPixels);
 
             _optimizer.zero_grad();
@@ -173,6 +186,9 @@ public sealed class CtcTrainer
             CreatedAt = DateTimeOffset.UtcNow,
         }, suffix);
     }
+
+    /// <summary>Restore the selected best checkpoint into this trainer's model/optimizer.</summary>
+    public CheckpointMetadata RestoreBest() => LoadCheckpoint(".best");
 
     /// <summary>Restore model, optimizer and counters from a checkpoint (latest or ".best").</summary>
     public CheckpointMetadata LoadCheckpoint(string suffix = "")

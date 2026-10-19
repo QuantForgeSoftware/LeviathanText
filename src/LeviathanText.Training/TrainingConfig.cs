@@ -18,10 +18,23 @@ public sealed record TrainingConfig
     public string ModelName { get; init; } = "synthetic-crnn";
     public string CheckpointDirectory { get; init; } = "checkpoints";
 
+    /// <summary>Opt-in on-the-fly training augmentation; validation data is never augmented.</summary>
+    public bool AugmentTraining { get; init; }
+
+    /// <summary>Maximum horizontal stretch as a fraction of width (0.1 = ±10%).</summary>
+    public double MaxHorizontalStretch { get; init; } = 0.1;
+
+    /// <summary>Maximum vertical shift in pixels, filled with background.</summary>
+    public int MaxVerticalShiftPx { get; init; } = 1;
+
+    /// <summary>Fraction of pixels randomly set to ink/background (salt-and-pepper).</summary>
+    public double SaltPepperFraction { get; init; } = 0.01;
+
     /// <summary>Stable hash of the parameters that change model meaning (excludes the output directory).</summary>
     public string ComputeHash()
     {
-        var canonical = $"{Epochs}|{BatchSize}|{LearningRate:R}|{Seed}|{HiddenSize}|{ModelName}";
+        var canonical = $"{Epochs}|{BatchSize}|{LearningRate:R}|{Seed}|{HiddenSize}|{ModelName}" +
+                        $"|aug={AugmentTraining}:{MaxHorizontalStretch:R}:{MaxVerticalShiftPx}:{SaltPepperFraction:R}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
     }
 }
