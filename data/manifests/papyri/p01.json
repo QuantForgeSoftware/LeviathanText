@@ -1,6 +1,6 @@
 {
   "schema": "leviathantext.corpus-manifest",
-  "schemaSchemaVersion": "C0-0.4-draft",
+  "schemaContractVersion": "C0-0.4-draft",
   "manifestVersion": "manifest-v1",
   "changeLog": [
     {

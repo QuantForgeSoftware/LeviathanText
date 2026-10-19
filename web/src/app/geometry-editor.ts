@@ -23,8 +23,15 @@ interface DragState {
     <section>
       <h3>Geometry <small>(image frame: {{ width() }}×{{ height() }})</small></h3>
       <p class="hint">Click a line, drag to move it, then save. Region order controls reading order.</p>
+      <p class="tools">
+        <button type="button" (click)="zoomBy(-0.25)">−</button>
+        <button type="button" (click)="zoom.set(1)">Fit</button>
+        <button type="button" (click)="zoomBy(0.25)">+</button>
+        <span class="hint">{{ (zoom() * 100).toFixed(0) }}%</span>
+      </p>
 
-      <div class="canvas">
+      <div class="scroll">
+      <div class="canvas" [style.width.%]="zoom() * 100">
         <img [src]="imageUrl()" (load)="onImage($event)" alt="surface capture" />
         <svg
           [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
@@ -61,6 +68,7 @@ interface DragState {
             </g>
           }
         </svg>
+      </div>
       </div>
 
       <div class="tools">
@@ -113,7 +121,8 @@ interface DragState {
     </section>
   `,
   styles: [`
-    .canvas { position: relative; max-width: 100%; }
+    .scroll { max-height: 70vh; overflow: auto; border: 1px solid #dde; }
+    .canvas { position: relative; }
     .canvas img { width: 100%; display: block; }
     .canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
     polygon { fill: rgba(40, 120, 220, 0.15); stroke: #2878dc; stroke-width: 2; cursor: move; }
@@ -141,6 +150,7 @@ export class GeometryEditor implements OnInit {
   protected readonly mode = signal<'move' | 'draw'>('move');
   protected readonly drawRect = signal<{ x: number; y: number; width: number; height: number } | null>(null);
   protected readonly actionStatus = signal('');
+  protected readonly zoom = signal(1);
   protected readonly historyEdits = signal<{
     id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
   }[]>([]);
@@ -207,6 +217,10 @@ export class GeometryEditor implements OnInit {
 
   protected baselinePoints(line: { baseline: GeometryPoint[] }): string {
     return line.baseline.map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  protected zoomBy(delta: number): void {
+    this.zoom.set(Math.min(4, Math.max(0.5, this.zoom() + delta)));
   }
 
   protected setMode(mode: 'move' | 'draw'): void {

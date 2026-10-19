@@ -53,6 +53,12 @@ dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface
 
 Remote captures (IIIF) are fetched once into a checksummed local cache when an analysis stage first needs them, so later runs work offline.
 
+## End-to-end smoke
+
+```bash
+scripts/pilot-demo.sh /tmp/lt-demo   # import → train → recognize → exports → backup
+```
+
 ## HTTP API
 
 ```bash

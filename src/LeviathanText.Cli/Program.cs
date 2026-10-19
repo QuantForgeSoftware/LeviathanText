@@ -308,6 +308,25 @@ public static class Program
                 return 0;
             }
 
+            case "validate" when rest.Length >= 3 && rest[1] == "manifests":
+            {
+                var directory = rest[2];
+                var strict = rest.Contains("--strict");
+                var files = Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories)
+                    .OrderBy(f => f, StringComparer.Ordinal).ToList();
+                int errors = 0, warnings = 0;
+                foreach (var file in files)
+                {
+                    var issues = CorpusManifestAudit.Audit(File.ReadAllText(file));
+                    errors += issues.Count(i => i.Severity == CorpusManifestAudit.Severity.Error);
+                    warnings += issues.Count(i => i.Severity == CorpusManifestAudit.Severity.Warning);
+                    foreach (var issue in issues)
+                        Console.Error.WriteLine($"{Path.GetFileName(file)}\t{issue.Severity}\t{issue.SourceId}\t{issue.Field}: {issue.Message}");
+                }
+                Console.WriteLine($"audited {files.Count} manifest(s): {errors} error(s), {warnings} warning(s)");
+                return strict && errors > 0 ? 1 : 0;
+            }
+
             case "validate" when rest.Length >= 3 && rest[1] == "text":
             {
                 // Greek transcription-profile inspection (no rewriting): unknown scalars,

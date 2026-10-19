@@ -55,6 +55,17 @@ curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/jso
 Check jobs with `leviathan jobs list` or `GET /api/v1/jobs`; watch with
 `GET /api/v1/jobs/{id}/events` (SSE; events are advisory, the job resource is authoritative).
 
+## Data-ledger audit
+
+```bash
+leviathan validate manifests data/manifests --strict
+```
+
+Checks the declared schema, contract version, change log and the required per-source fields
+(rights identifiers/evidence, attribution, allowed use, checksums, units evidence). It does
+not verify rights — it verifies the ledger says what it must. Warnings flag `unverified`
+license values.
+
 ## Models
 
 `LeviathanText:Models:Directory` (default `~/.leviathantext/models`) is scanned by
