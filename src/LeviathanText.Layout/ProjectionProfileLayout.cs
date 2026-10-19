@@ -75,7 +75,10 @@ public static class ProjectionProfileLayout
             sampled++;
         }
         int otsu = Otsu(histogram, (int)sampled);
-        float inkThreshold = otsu / 255f;
+        // Paper-relative threshold (see RowFeatureExtractor): faint letters are missed by
+        // global Otsu on real scans, where the dark surround dominates the histogram.
+        float paper = RowFeatureExtractor.Percentile(histogram, (int)sampled, 0.95);
+        float inkThreshold = Math.Clamp(paper - 0.12f, 0.05f, 0.90f);
 
         // 2) Border trim: dark page edges/shadows dominate the projection otherwise.
         int trimX = (int)(width * 0.02), trimY = (int)(height * 0.02);
@@ -99,15 +102,19 @@ public static class ProjectionProfileLayout
         int smoothWindow = Math.Max(1, height / 150);
         var smoothed = MovingAverage(rowDensity, smoothWindow);
 
-        // 5) Bands split at rows below an adaptive, local threshold: ValleyFraction of
-        //    the local peak in a sliding window — robust to uneven lighting down the page.
+        // 5) Bands split at rows below an adaptive threshold between the LOCAL BACKGROUND
+        //    and the local peak. (Peak-only fractions fail on real scans: the parchment
+        //    texture floor is ~1/3 of the letter peaks, so peak*0.15 < floor and every
+        //    row looks like text.)
         int localWindow = Math.Max(20, height / 12);
         var lines = new List<DetectedLine>();
         int start = -1;
         for (int row = trimY; row <= height - trimY; row++)
         {
             double localPeak = LocalPeak(smoothed, row, localWindow, trimY, height - trimY);
-            double splitAt = Math.Max(options.MinRowDensity, localPeak * options.ValleyFraction);
+            double localFloor = LocalFloor(smoothed, row, localWindow, trimY, height - trimY);
+            double splitAt = Math.Max(options.MinRowDensity,
+                localFloor + (localPeak - localFloor) * options.ValleyFraction);
             bool inBand = row < height - trimY && smoothed[row] >= splitAt;
             if (inBand && start < 0) start = row;
             if (!inBand && start >= 0)
@@ -182,6 +189,15 @@ public static class ProjectionProfileLayout
         int to = Math.Min(high, center + window / 2);
         for (int i = from; i < to; i++) peak = Math.Max(peak, values[i]);
         return peak;
+    }
+
+    private static double LocalFloor(double[] values, int center, int window, int low, int high)
+    {
+        double floor = double.MaxValue;
+        int from = Math.Max(low, center - window / 2);
+        int to = Math.Min(high, center + window / 2);
+        for (int i = from; i < to; i++) floor = Math.Min(floor, values[i]);
+        return floor == double.MaxValue ? 0 : floor;
     }
 
     private static (int Left, int Right, double Density) BandExtent(SKBitmap page, int top, int bottom, float inkThreshold)
