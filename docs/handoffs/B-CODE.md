@@ -202,7 +202,7 @@ matrix grew. With the P01 artifact store present the suite trains several models
 ~15 minutes; without artifacts every dataset-backed test skips and the suite is fast.
 
 **Final verification (2026-10-19):** Release build succeeded; **AI 73/73 (1 opt-in live test skipped by default), EVAL 39/39,
-ML 44/44**; non-B suites also green — Contracts 41, Core 72, Application 15, API 11,
+ML 45/45**; non-B suites also green — Contracts 41, Core 72, Application 15, API 11,
 Formats 13, Imaging 10, Infrastructure 5, Worker 8, Layout 6. B's packages build with no
 warnings; the remaining warnings are pre-existing xUnit analyzer notes in A-owned tests. B did not edit `todo.md`,
 contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
