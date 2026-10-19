@@ -52,6 +52,15 @@ public class ProposalLifecycleTests
     }
 
     [Fact]
+    public void Empty_batch_is_rejected()
+    {
+        var chain = new RevisionChain();
+        var service = new BulkProposalAcceptanceService(chain);
+
+        Assert.Throws<ArgumentException>(() => service.Preview([]));
+    }
+
+    [Fact]
     public void Dry_run_never_mutates_the_chain()
     {
         var chain = new RevisionChain();

@@ -74,6 +74,8 @@ public sealed class BulkProposalAcceptanceService(RevisionChain chain)
     public BulkAcceptancePreview Preview(IReadOnlyList<AiProposal> proposals)
     {
         ArgumentNullException.ThrowIfNull(proposals);
+        if (proposals.Count == 0)
+            throw new ArgumentException("At least one proposal is required for bulk acceptance.", nameof(proposals));
 
         var items = new List<BulkAcceptanceItem>(proposals.Count);
         var provisionallyAcceptedChains = new HashSet<(EntityId Scope, TextLayer Layer)>();

@@ -129,6 +129,21 @@ augmentation files. Nothing was lost or overwritten, but future two-instance run
 prefer separate worktrees or stage explicit paths (B's `lessons.md` records the deadline
 lesson; this note records the staging lesson).
 
+### B review of A's API wiring (`51eb654`) — follow-ups for A
+
+Read-only review of the API integration with B's services; no A-owned file was edited.
+
+| Severity | Finding | Suggested fix |
+| --- | --- | --- |
+| **High** | `POST /api/v1/proposals/bulk-accept` indexes `body.Proposals[0]` when publishing the completion event. An empty batch reached that line because `Preview(empty)` returned `IsFullyApplicable == true`. | B now rejects an empty batch in `BulkProposalAcceptanceService` (ArgumentException); A should return a 400 for an empty list before calling the service. |
+| Medium | `Program.cs` constructs `new AiProviderRegistry(settings, new HttpClient(), ...)`, bypassing the `AddHttpClient()` registration it adds just above. | Resolve `IHttpClientFactory` and pass `factory.CreateClient()` (per-request timeouts are already handled by the transport). |
+| Low | A new file-local `EnvironmentCredentialSource` duplicates the public one in `LeviathanText.AI`. | Use `LeviathanText.AI.EnvironmentCredentialSource` so credential behavior has one implementation. |
+| Low | The old `POST /api/v1/proposals/{id}/accept` endpoint was removed by the rewrite. | Confirm this is intended; if clients already use it, keep it as a single-accept wrapper over `ProposalAcceptanceService`. |
+
+Positive: the provider listing nulls `CredentialEnvironmentVariable` before returning
+settings, so the browser never receives credential names; B verified this matches
+`interchange-and-api.md` §2.3.
+
 All of the above are green in `LeviathanText.AI.Tests`, `LeviathanText.Evaluation.Tests`,
 `LeviathanText.ML.Tests`; the solution builds in Release. B did not edit `todo.md`,
 contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
