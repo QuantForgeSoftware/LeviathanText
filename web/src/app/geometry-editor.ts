@@ -61,6 +61,20 @@ interface DragState {
         }
       </ol>
       <button type="button" (click)="saveOrder()" [disabled]="!orderDirty()">Save reading order</button>
+
+      <h4>Line order <small>(region {{ activeRegionId() }})</small></h4>
+      <ol>
+        @for (line of orderedLines(); track line.id) {
+          <li>
+            <code>{{ line.id }}</code>
+            <button type="button" (click)="moveLine(line.id, -1)">↑</button>
+            <button type="button" (click)="moveLine(line.id, 1)">↓</button>
+          </li>
+        } @empty {
+          <li>No lines in this region.</li>
+        }
+      </ol>
+      <button type="button" (click)="saveLineOrder()" [disabled]="!lineOrderDirty()">Save line order</button>
     </section>
   `,
   styles: [`
@@ -86,6 +100,8 @@ export class GeometryEditor implements OnInit {
   protected readonly height = signal(1);
   protected readonly dirty = signal(false);
   protected readonly orderDirty = signal(false);
+  protected readonly lineOrderDirty = signal(false);
+  protected readonly lineOrder = signal<string[]>([]);
   private readonly original = signal<GeometryLine[]>([]);
   private readonly originalOrder = signal<string[]>([]);
   private drag: DragState | null = null;
@@ -118,8 +134,11 @@ export class GeometryEditor implements OnInit {
     this.original.set(lines.map(l => ({ ...l, polygon: l.polygon.map(p => ({ ...p })), baseline: l.baseline.map(p => ({ ...p })) })));
     this.regions.set(regions);
     this.originalOrder.set(regions.map(r => r.id));
+    const firstRegion = regions[0]?.id;
+    this.lineOrder.set(lines.filter(l => l.regionId === firstRegion).map(l => l.id));
     this.dirty.set(false);
     this.orderDirty.set(false);
+    this.lineOrderDirty.set(false);
   }
 
   protected onImage(event: Event): void {
@@ -204,6 +223,33 @@ export class GeometryEditor implements OnInit {
         this.orderDirty.set(false);
       },
       error: () => this.orderDirty.set(true),
+    });
+  }
+
+  protected activeRegionId(): string {
+    return this.regions()[0]?.id ?? '';
+  }
+
+  protected orderedLines(): { id: string }[] {
+    const ids = this.lineOrder();
+    const byId = new Map(this.lines().map(l => [l.id, l]));
+    return ids.filter(id => byId.has(id)).map(id => ({ id }));
+  }
+
+  protected moveLine(lineId: string, delta: number): void {
+    const list = [...this.lineOrder()];
+    const index = list.indexOf(lineId);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= list.length) return;
+    [list[index], list[target]] = [list[target], list[index]];
+    this.lineOrder.set(list);
+    this.lineOrderDirty.set(true);
+  }
+
+  protected saveLineOrder(): void {
+    this.api.updateLineOrder(this.activeRegionId(), this.lineOrder()).subscribe({
+      next: () => this.lineOrderDirty.set(false),
+      error: () => this.lineOrderDirty.set(true),
     });
   }
 }
