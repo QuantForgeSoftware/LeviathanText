@@ -60,6 +60,18 @@ public static class Program
                 return 0;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "iiif":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var (imported, manifest, warnings) = interchange.ImportIiif(project, rest[3]);
+                Console.WriteLine($"imported object {imported.Id}, surface {imported.Surfaces[0].Id}, " +
+                                  $"captures {imported.Surfaces[0].Captures.Count}");
+                if (manifest.ManifestLabel is not null) Console.WriteLine($"manifest: {manifest.ManifestLabel}");
+                if (manifest.RightsStatement is not null) Console.WriteLine($"rights: {manifest.RightsStatement}");
+                foreach (var warning in warnings) Console.WriteLine($"note: {warning}");
+                return 0;
+            }
+
             case "import" when rest.Length >= 4 && rest[1] == "page":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -148,6 +160,7 @@ public static class Program
               leviathan [--store <path>] project new <name>
               leviathan [--store <path>] project list
               leviathan [--store <path>] import page <projectId> <page.xml>
+              leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] export tei <projectId> <surfaceId>

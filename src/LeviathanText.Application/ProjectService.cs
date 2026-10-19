@@ -84,6 +84,64 @@ public sealed class InterchangeService(ProjectService projects)
         return (imported, result.Unsupported);
     }
 
+    /// <summary>
+    /// Import a IIIF Presentation 3 manifest as one physical object whose surface carries
+    /// every canvas as a SEPARATE capture (views are never coordinate-merged). Attribution
+    /// from the manifest's requiredStatement is retained per capture; image bytes are not
+    /// fetched here (offline-safe: the manifest is the record, images load on demand).
+    /// </summary>
+    public (NativeObject Imported, IiifImport.ManifestResult Manifest, IReadOnlyList<string> Warnings) ImportIiif(
+        NativeProject project, string manifestPath)
+    {
+        var manifest = IiifImport.ParseManifest(File.ReadAllText(manifestPath));
+        var warnings = new List<string>();
+
+        var canvases = manifest.Canvases.Where(c => c.Images.Count > 0).ToList();
+        if (canvases.Count == 0)
+            warnings.Add("manifest yielded no canvases with image bodies; nothing imported");
+
+        var captures = new List<NativeCapture>();
+        for (int i = 0; i < canvases.Count; i++)
+        {
+            var canvas = canvases[i];
+            var captureId = new EntityId(EntityKind.Capture, $"{Guid.NewGuid().ToString("N")[..12]}");
+            captures.Add(new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
+                ImageLocation = canvas.Images[0].ImageUrl,
+                RightsEvidenceRef = manifest.RightsStatement,
+            });
+            if (canvas.Images.Count > 1)
+                warnings.Add($"canvas {canvas.CanvasId} exposes {canvas.Images.Count} image bodies; first used");
+        }
+
+        var surface = new NativeSurface
+        {
+            Id = NewId(EntityKind.Surface, project, "surf"),
+            Kind = "inscription-face",
+            Captures = captures,
+            Regions = [],
+            Lines = [],
+        };
+
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            ExternalRefs = manifest.ManifestId is null
+                ? new Dictionary<string, string>()
+                : new Dictionary<string, string> { ["iiif-manifest"] = manifest.ManifestId },
+            Surfaces = [surface],
+        };
+
+        if (captures.Count > 0)
+        {
+            var updated = project with { Objects = [.. project.Objects.Append(imported)] };
+            projects.Save(updated);
+        }
+        return (imported, manifest, warnings);
+    }
+
     public (string Text, LossReport Report) ExportDiplomatic(NativeProject project, EntityId surfaceId)
     {
         var surface = FindSurface(project, surfaceId);
