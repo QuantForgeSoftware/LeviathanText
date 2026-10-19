@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LeviathanText.Application\LeviathanText.Application.csproj" />
     <ProjectReference Include="..\LeviathanText.Infrastructure\LeviathanText.Infrastructure.csproj" />
+    <ProjectReference Include="..\LeviathanText.Training\LeviathanText.Training.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

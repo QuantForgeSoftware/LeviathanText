@@ -4,6 +4,8 @@
     <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
     <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
     <ProjectReference Include="..\LeviathanText.Formats\LeviathanText.Formats.csproj" />
+    <ProjectReference Include="..\LeviathanText.Recognition\LeviathanText.Recognition.csproj" />
+    <ProjectReference Include="..\LeviathanText.Imaging\LeviathanText.Imaging.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

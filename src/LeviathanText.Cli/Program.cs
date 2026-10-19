@@ -2,6 +2,8 @@
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
+using LeviathanText.Recognition;
+using LeviathanText.Training;
 
 namespace LeviathanText.Cli;
 
@@ -92,6 +94,30 @@ public static class Program
                 return 0;
             }
 
+            case "recognize" when rest.Length >= 4 && rest[1] == "surface":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
+                var modelDir = rest.Length >= 6 && rest[4] == "--model" ? rest[5] : null;
+                var modelDirectory = modelDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models");
+                var modelName = rest.Length >= 8 && rest[6] == "--name" ? rest[7] : "p01-pilot-crnn";
+
+                var pipeline = new RecognitionPipeline(store);
+                var outcome = pipeline.Run(project, surfaceId, new RecognitionPipeline.Options
+                {
+                    ModelDirectory = modelDirectory,
+                    ModelName = modelName,
+                    ModelFactory = () => LoadModel(modelDirectory, modelName),
+                    LabelSetFactory = () => LoadLabelSet(modelDirectory, modelName),
+                });
+
+                foreach (var line in outcome.Lines)
+                    Console.WriteLine($"{line.LineId}\t{line.L0Text}");
+                foreach (var stage in outcome.Stages)
+                    Console.Error.WriteLine(stage);
+                return 0;
+            }
+
             default:
                 return Help();
         }
@@ -109,6 +135,34 @@ public static class Program
         storePath ??= Environment.GetEnvironmentVariable("LEVIATHAN_STORE")
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "store.db");
         return (storePath, [.. rest]);
+    }
+
+    private static CrnnModel LoadModel(string directory, string modelName)
+    {
+        var labels = LoadLabelSet(directory, modelName);
+        var model = new CrnnModel(labels.NumClasses);
+        model.load(CheckpointStore.ModelPath(directory, modelName, ".best"));
+        return model;
+    }
+
+    private static LabelSet LoadLabelSet(string directory, string modelName)
+    {
+        var metadata = CheckpointStore.ReadMetadata(directory, modelName, ".best");
+        if (metadata.Labels.Count == 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.ModelIncompatible,
+                Scope = modelName,
+                Message = "Checkpoint metadata carries no label list; re-save the checkpoint with this version.",
+            });
+        if (CheckpointStore.HashOf(string.Join('\u001f', metadata.Labels)) != metadata.LabelSetHash)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.ChecksumMismatch,
+                Scope = modelName,
+                Message = "Persisted label list does not match the recorded label-set hash.",
+            });
+        return new LabelSet(metadata.Labels);
     }
 
     private static int Help()

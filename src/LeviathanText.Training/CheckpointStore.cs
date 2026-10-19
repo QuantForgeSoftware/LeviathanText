@@ -5,13 +5,19 @@ using LeviathanText.Recognition;
 
 namespace LeviathanText.Training;
 
-/// <summary>Sidecar metadata written next to every checkpoint.</summary>
+/// <summary>Sidecar metadata written next to every checkpoint. Labels are persisted so a
+/// checkpoint is a complete model package (domain-and-pipeline.md §3: tokenizer/label set
+/// travels with the model; loading must not depend on external state).</summary>
 public sealed record CheckpointMetadata
 {
     public required int Epoch { get; init; }
     public required long GlobalStep { get; init; }
     public required double BestValidationCer { get; init; }
     public required string LabelSetHash { get; init; }
+
+    /// <summary>The full label list, index-ordered; empty in checkpoints written before this field existed.</summary>
+    public IReadOnlyList<string> Labels { get; init; } = [];
+
     public required string ConfigHash { get; init; }
     public required string TorchVersion { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }

@@ -166,6 +166,7 @@ public sealed class CtcTrainer
             GlobalStep = _globalStep,
             BestValidationCer = _bestValidationCer,
             LabelSetHash = CheckpointStore.LabelSetHash(_labels),
+            Labels = _labels.Labels,
             ConfigHash = _config.ComputeHash(),
             TorchVersion = torch.__version__,
             CreatedAt = DateTimeOffset.UtcNow,

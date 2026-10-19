@@ -23,6 +23,8 @@
     <ProjectReference Include="..\..\src\LeviathanText.Formats\LeviathanText.Formats.csproj" />
     <ProjectReference Include="..\..\src\LeviathanText.Imaging\LeviathanText.Imaging.csproj" />
     <ProjectReference Include="..\..\src\LeviathanText.Training\LeviathanText.Training.csproj" />
+    <ProjectReference Include="..\..\src\LeviathanText.Application\LeviathanText.Application.csproj" />
+    <ProjectReference Include="..\..\src\LeviathanText.Cli\LeviathanText.Cli.csproj" />
   </ItemGroup>
 
 </Project>
