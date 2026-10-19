@@ -45,6 +45,85 @@ public static class Program
         {
             case "help": return Help();
 
+            case "backup" when rest.Length >= 2:
+            {
+                // Consistent backup set: VACUUM INTO database copy + cached images + manifest.
+                var target = rest[1];
+                Directory.CreateDirectory(target);
+                var dbTarget = Path.Combine(target, "store.db");
+                store.BackupTo(dbTarget);
+
+                var imagesDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+                var manifest = new Dictionary<string, object>
+                {
+                    ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"),
+                    ["storeChecksum"] = Sha256File(dbTarget),
+                    ["images"] = new List<object>(),
+                };
+                var imageEntries = (List<object>)manifest["images"]!;
+                if (Directory.Exists(imagesDir))
+                {
+                    var imageTarget = Path.Combine(target, "images");
+                    Directory.CreateDirectory(imageTarget);
+                    foreach (var file in Directory.GetFiles(imagesDir))
+                    {
+                        var name = Path.GetFileName(file);
+                        File.Copy(file, Path.Combine(imageTarget, name), overwrite: true);
+                        imageEntries.Add(new Dictionary<string, object>
+                        {
+                            ["name"] = name,
+                            ["sha256"] = Sha256File(file),
+                            ["size"] = new FileInfo(file).Length,
+                        });
+                    }
+                }
+                File.WriteAllText(Path.Combine(target, "backup-manifest.json"),
+                    System.Text.Json.JsonSerializer.Serialize(manifest, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine($"backup written: {target} ({imageEntries.Count} images)");
+                return 0;
+            }
+
+            case "restore" when rest.Length >= 2:
+            {
+                var source = rest[1];
+                var targetDb = rest.Length >= 4 && rest[2] == "--into" ? rest[3] : storePath;
+                var force = rest.Contains("--force");
+
+                var manifestPath = Path.Combine(source, "backup-manifest.json");
+                if (!File.Exists(manifestPath)) { Console.Error.WriteLine("no backup-manifest.json in the backup"); return 1; }
+                var manifest = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath)).RootElement;
+
+                var sourceDb = Path.Combine(source, "store.db");
+                var expected = manifest.GetProperty("storeChecksum").GetString();
+                if (Sha256File(sourceDb) != expected)
+                {
+                    Console.Error.WriteLine("backup checksum mismatch; refusing to restore");
+                    return 1;
+                }
+
+                if (File.Exists(targetDb) && !force)
+                {
+                    Console.Error.WriteLine($"target store exists ({targetDb}); pass --force to overwrite");
+                    return 1;
+                }
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetDb))!);
+                File.Copy(sourceDb, targetDb, overwrite: true);
+
+                var imagesSource = Path.Combine(source, "images");
+                if (Directory.Exists(imagesSource))
+                {
+                    var imagesTarget = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(targetDb))!, "images");
+                    Directory.CreateDirectory(imagesTarget);
+                    foreach (var property in manifest.GetProperty("images").EnumerateArray())
+                    {
+                        var name = property.GetProperty("name").GetString()!;
+                        File.Copy(Path.Combine(imagesSource, name), Path.Combine(imagesTarget, name), overwrite: true);
+                    }
+                }
+                Console.WriteLine($"restored: {source} -> {targetDb}");
+                return 0;
+            }
+
             case "project" when rest.Length >= 2 && rest[1] == "new":
             {
                 var name = rest.Length >= 3 ? rest[2] : throw new ArgumentException("Usage: project new <name>");
@@ -274,12 +353,17 @@ public static class Program
         return (storePath, [.. rest]);
     }
 
+    private static string Sha256File(string path) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+
     private static int Help()
     {
         Console.WriteLine("""
             LeviathanText CLI (local; no web server required)
 
               leviathan [--store <path>] project new <name>
+              leviathan [--store <path>] backup <target-dir>
+              leviathan [--store <path>] restore <backup-dir> [--into <store>] [--force]
               leviathan [--store <path>] project list
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>

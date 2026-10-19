@@ -73,6 +73,23 @@ public class LocalStoreTests : IDisposable
         Assert.Equal(job.IdempotencyKey, loaded.IdempotencyKey);
     }
 
+    [Fact]
+    public void BackupTo_produces_an_independently_readable_database()
+    {
+        var backupPath = _path + ".backup";
+        using (var store = new LocalStore(_path))
+        {
+            store.SaveProject(MinimalProject());
+            store.BackupTo(backupPath);
+        }
+
+        using var restored = new LocalStore(backupPath);
+        var list = restored.ListProjects();
+        Assert.Single(list);
+        Assert.Equal("infra-fixture", list[0].Name);
+        File.Delete(backupPath);
+    }
+
     public void Dispose() => File.Delete(_path);
 
     private static NativeProject MinimalProject() => new()

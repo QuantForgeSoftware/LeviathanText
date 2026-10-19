@@ -170,5 +170,22 @@ public sealed class LocalStore : IDisposable, IProjectStore
         return jobs;
     }
 
+    /// <summary>
+    /// Consistent database backup via SQLite's VACUUM INTO (safe while the connection is
+    /// open; the target must not exist). Used by the CLI backup/restore workflow.
+    /// </summary>
+    public void BackupTo(string targetDatabasePath)
+    {
+        var full = Path.GetFullPath(targetDatabasePath);
+        if (File.Exists(full)) File.Delete(full);
+        var dir = Path.GetDirectoryName(full);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "VACUUM INTO $target";
+        cmd.Parameters.AddWithValue("$target", full);
+        cmd.ExecuteNonQuery();
+    }
+
     public void Dispose() => _connection.Dispose();
 }
