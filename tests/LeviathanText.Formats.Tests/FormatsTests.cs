@@ -195,3 +195,56 @@ public class TeiXmlTests
         Assert.Throws<InvalidDataException>(() => TeiXml.Import(xml));
     }
 }
+
+public class PageExportOrderingTests
+{
+    [Fact]
+    public void Export_orders_regions_and_lines_by_reading_order_and_records_dimensions()
+    {
+        var captureId = new EntityId(EntityKind.Capture, "cap1");
+        var regionA = new NativeRegion
+        {
+            Id = new EntityId(EntityKind.Region, "regA"), FrameRef = captureId,
+            Polygon = [new(0, 0), new(100, 0), new(100, 50), new(0, 50)],
+            LayoutSource = LayoutSource.Manual, ReadingOrderIndex = 1,
+        };
+        var regionB = new NativeRegion
+        {
+            Id = new EntityId(EntityKind.Region, "regB"), FrameRef = captureId,
+            Polygon = [new(0, 60), new(100, 60), new(100, 110), new(0, 110)],
+            LayoutSource = LayoutSource.Manual, ReadingOrderIndex = 0,
+        };
+        NativeLine Line(string id, EntityId region, int top) => new()
+        {
+            Id = new EntityId(EntityKind.Line, id), RegionId = region, FrameRef = captureId,
+            Polygon = [new(0, top), new(100, top), new(100, top + 20), new(0, top + 20)],
+            Baseline = [new(0, top + 18), new(100, top + 18)],
+        };
+
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "s1"), Kind = "page",
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = SampleProject.Sum },
+                ImageLocation = "page.png", WidthPx = 800, HeightPx = 1000,
+            }],
+            Regions = [regionA, regionB],
+            // Deliberately out of order: region A's line first, then B's.
+            Lines = [Line("a1", regionA.Id, 10), Line("b1", regionB.Id, 70)],
+        };
+
+        var xml = PageXml.Export(surface, surface.Captures[0], []);
+        var document = System.Xml.Linq.XDocument.Parse(xml);
+        var page = document.Root!.Elements().First(e => e.Name.LocalName == "Page");
+        Assert.Equal("800", (string?)page.Attribute("imageWidth"));
+        Assert.Equal("1000", (string?)page.Attribute("imageHeight"));
+
+        var regionIds = page.Elements().Where(e => e.Name.LocalName == "TextRegion")
+            .Select(e => (string?)e.Attribute("id")).ToList();
+        Assert.Equal(["regB", "regA"], regionIds);
+        Assert.Equal("b1", (string?)page.Elements().First(e => (string?)e.Attribute("id") == "regB")
+            .Elements().First(e => e.Name.LocalName == "TextLine").Attribute("id"));
+    }
+}

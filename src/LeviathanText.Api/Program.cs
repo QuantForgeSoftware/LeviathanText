@@ -426,6 +426,11 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) 
                     : "",
             })];
     }
+    else if (request.Type == "recognize.project" && !string.IsNullOrEmpty(request.ProjectId) && !string.IsNullOrEmpty(request.ModelPackagePath))
+    {
+        inputs = [new StageArtifact(EntityId.Parse(request.ProjectId, EntityKind.Collection),
+            new Checksum { Algorithm = "model-package", Digest = "pkg:" + request.ModelPackagePath })];
+    }
     else if (request.Type == "import.dir" && !string.IsNullOrEmpty(request.ProjectId) && !string.IsNullOrEmpty(request.SourceDirectory))
     {
         inputs = [new StageArtifact(EntityId.Parse(request.ProjectId, EntityKind.Collection),

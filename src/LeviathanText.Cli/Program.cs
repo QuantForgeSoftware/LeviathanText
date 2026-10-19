@@ -271,6 +271,14 @@ public static class Program
                 return 0;
             }
 
+            case "jobs" when rest.Length >= 2 && rest[1] == "list":
+            {
+                var limit = rest.Length >= 4 && rest[2] == "--limit" ? int.Parse(rest[3]) : 20;
+                foreach (var job in store.LoadJobs(limit))
+                    Console.WriteLine($"{job.Id}\t{job.Type}\t{job.Status}\tretries={job.RetriesUsed}");
+                return 0;
+            }
+
             case "layout" when rest.Length >= 4 && rest[1] == "detect":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));

@@ -66,7 +66,7 @@ dotnet run --project src/LeviathanText.Api
 #          GET /projects/{id}/training-export | bundle (zip with manifest)
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
 # jobs: POST /jobs (idempotency key; layout.detect / recognize.surface / import.dir),
-#       GET /jobs/{id}/events (SSE with cursor replay)
+#       GET /jobs (recent, ?status=), GET /jobs/{id}, GET /jobs/{id}/events (SSE with cursor replay)
 
 # Shared deployment (opt-in): set LeviathanText:Auth:ApiKey (Bearer or X-Api-Key required
 # under /api/v1); LeviathanText:Auth:ReadOnly=true blocks mutations. Without a key the API

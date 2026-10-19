@@ -176,6 +176,8 @@ public static class PageXml
 
         var page = new XElement(Pc + "Page",
             new XAttribute("imageFilename", capture.ImageLocation),
+            capture.WidthPx is { } width ? new XAttribute("imageWidth", width) : null!,
+            capture.HeightPx is { } height ? new XAttribute("imageHeight", height) : null!,
             regions);
         var pcGts = new XElement(Pc + "PcGts",
             new XAttribute(XNamespace.Xmlns + "xsi", Xsi),
