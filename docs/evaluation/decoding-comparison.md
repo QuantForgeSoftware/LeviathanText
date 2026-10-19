@@ -133,6 +133,16 @@ configuration exists (`CrnnModel(..., dropout:)`) and is recorded in the run man
 
 Batch 8 remains the best measured value; no change.
 
+## Hidden-size A/B (best configuration)
+
+| Hidden size | Dev scalar CER |
+| --- | --- |
+| 32 | 0.7998 |
+| **64 (default)** | **0.7829** |
+| 128 | 0.7898 |
+
+64 remains the best measured capacity; 128 does not help at 176 training lines.
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
