@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/LeviathanText.AI/LeviathanText.AI.csproj" />
+    <Project Path="src/LeviathanText.Api/LeviathanText.Api.csproj" />
     <Project Path="src/LeviathanText.Application/LeviathanText.Application.csproj" />
     <Project Path="src/LeviathanText.Cli/LeviathanText.Cli.csproj" />
     <Project Path="src/LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
@@ -14,6 +15,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LeviathanText.AI.Tests/LeviathanText.AI.Tests.csproj" />
+    <Project Path="tests/LeviathanText.Api.Tests/LeviathanText.Api.Tests.csproj" />
     <Project Path="tests/LeviathanText.Application.Tests/LeviathanText.Application.Tests.csproj" />
     <Project Path="tests/LeviathanText.Contracts.Tests/LeviathanText.Contracts.Tests.csproj" />
     <Project Path="tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj" />
@@ -22,5 +24,6 @@
     <Project Path="tests/LeviathanText.Imaging.Tests/LeviathanText.Imaging.Tests.csproj" />
     <Project Path="tests/LeviathanText.Infrastructure.Tests/LeviathanText.Infrastructure.Tests.csproj" />
     <Project Path="tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj" />
+    <Project Path="tests/LeviathanText.Pilot.Tests/LeviathanText.Pilot.Tests.csproj" />
   </Folder>
 </Solution>

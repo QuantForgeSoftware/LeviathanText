@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LeviathanText.Application\LeviathanText.Application.csproj" />
+    <ProjectReference Include="..\LeviathanText.Infrastructure\LeviathanText.Infrastructure.csproj" />
+    <ProjectReference Include="..\LeviathanText.Formats\LeviathanText.Formats.csproj" />
+    <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
+    <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
+  </ItemGroup>
+
+</Project>
