@@ -53,6 +53,13 @@ public static class ProjectionProfileLayout
 
         /// <summary>Rows below this density split bands (valley threshold as fraction of peak).</summary>
         public float ValleyFraction { get; init; } = 0.15f;
+
+        /// <summary>
+        /// Drop implausibly faint bands: density below half the page's median band density.
+        /// Dev-selected on M02a dev pages (later reported on held-out pages: precision
+        /// 0.335→0.381, recall unchanged). Disable to reproduce the unfiltered baseline.
+        /// </summary>
+        public bool FilterImplausibleLines { get; init; } = true;
     }
 
     public static LayoutResult Detect(SKBitmap page, Options? options = null)
@@ -139,8 +146,30 @@ public static class ProjectionProfileLayout
             }
         }
 
+        if (options.FilterImplausibleLines && lines.Count > 2)
+        {
+            // Post-filter: drop bands far below this page's own median ink density. A page-
+            // relative rule (not an absolute threshold) keeps it usable across materials.
+            var medianDensity = Median(lines.Select(l => l.InkDensity));
+            if (medianDensity > 0)
+            {
+                lines = [.. lines
+                    .Where(l => l.InkDensity >= 0.5 * medianDensity)
+                    .Select((l, index) => l with { OrderIndex = index })];
+            }
+        }
+
         var parametersHash = HashOf(options, inkThreshold);
         return new LayoutResult(lines, nameof(ProjectionProfileLayout), parametersHash);
+    }
+
+    private static double Median(IEnumerable<double> values)
+    {
+        var sorted = values.OrderBy(v => v).ToList();
+        if (sorted.Count == 0) return 0;
+        return sorted.Count % 2 == 1
+            ? sorted[sorted.Count / 2]
+            : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2;
     }
 
     internal static int Otsu(int[] histogram, int total)
