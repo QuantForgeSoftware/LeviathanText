@@ -13,7 +13,14 @@
 - [live-provider-smoke.md](live-provider-smoke.md) — opt-in local Ollama smoke test (transport only).
 - [correction-effort.md](correction-effort.md) — AI-assisted review metric and its limits.
 - [layout-comparison.md](layout-comparison.md) — automatic-layout comparison and the
-  negative pilot finding.
+  negative pilot finding (regenerated after the paper-relative threshold, band-split and
+  dev-selected density-filter fixes).
+- [layout-learned-comparison.md](layout-learned-comparison.md) — learned row-model attempt
+  vs the corrected projection baseline: measured negative result with diagnosis.
+- [layout-postfilter.md](layout-postfilter.md) — dev-selected post-filter evaluated on
+  held-out pages (density filter: precision up, recall unchanged; now the detector default).
+- [throughput.md](throughput.md) — measured import/training/recognition throughput on the
+  pilot machine (what is and is not measured).
 - [../handoffs/B-CODE.md](../handoffs/B-CODE.md) — implementation handoff and review notes.
 
 All numbers are pilot-scale baselines unless a sheet explicitly says otherwise. No sheet is
