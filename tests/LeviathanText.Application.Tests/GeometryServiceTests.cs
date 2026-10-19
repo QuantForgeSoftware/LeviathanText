@@ -271,7 +271,7 @@ public sealed class GeometryServiceTests
         Assert.Contains(splitSurface.GeometryEdits, e => e.Kind == GeometryEditKind.LineSplit);
 
         var (afterMerge, mergedSurface, merged) = service.MergeLines(afterSplit, top.Id, bottom.Id);
-        Assert.Single(mergedSurface.Lines.Where(l => l.Id == merged.Id));
+        Assert.Single(mergedSurface.Lines, l => l.Id == merged.Id);
         Assert.DoesNotContain(mergedSurface.Lines, l => l.Id == bottom.Id);
         Assert.Contains(mergedSurface.GeometryEdits, e => e.Kind == GeometryEditKind.LineMerged);
         Assert.Equal(2, store.LoadProject(afterMerge.Id)!.Objects[0].Surfaces[0].Lines.Count); // fixture line + merged
