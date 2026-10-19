@@ -1,39 +1,58 @@
-# Decoding-strategy measurement — P01 dev split (greedy vs prefix beam)
+# Decoding-strategy and selective-prediction measurement — P01 dev split
 
-- Owner: **Instance B (ML/EVAL)**; contract set **C0-0.4-draft**; baseline `main` @ `ac6479d`.
+- Owner: **Instance B (ML/EVAL)**; contract set **C0-0.4-draft**; baseline `main` @ `0bccf6b`.
 - Reproduce: `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01DecodingComparisonTests` (skipped when the P01 artifact store is absent). Artifact written to `.artifacts/pilot/p01-decoding-comparison.txt`.
-- Decision input for todo §5: “decoding strategy is chosen by measurement, not assumption”.
+- Decision input for todo §5: “decoding strategy is chosen by measurement, not assumption”, and acceptance-plan.md §3 (AI-assisted / uncertainty rows).
 
 ## Measured (2026-10-19, macOS arm64 CPU, pilot machine)
 
 Training: P01 v0.9, train 176 / dev 50, 300 epochs, seed 42, train loss 0.084 → 0,
-best dev CER 0.827, label vocabulary 45. **The locked test split was not used.**
+best dev CER 0.835, label vocabulary 45. **The locked test split was not used.**
+
+Latest run:
 
 | Decoder | Dev scalar CER | Perfect lines | Seconds/line |
 | --- | --- | --- | --- |
-| greedy (default) | 0.8466 | 0/50 | 0.0001 |
-| beam-2 | 0.8466 | 0/50 | 0.0007 |
-| **beam-4** | **0.8446** | 0/50 | 0.0007 |
-| beam-8 | 0.8456 | 0/50 | 0.0012 |
+| greedy (default) | 0.8367 | 0/50 | 0.0001 |
+| beam-2 | 0.8367 | 0/50 | 0.0007 |
+| **beam-4** | **0.8337** | 0/50 | 0.0008 |
+| beam-8 | 0.8367 | 0/50 | 0.0014 |
 
-Beam decoding is scored on the *same* alignment-summed objective as greedy
-(`CtcBeamDecoder.PrefixBeamSearch`); the improvement is 0.002 CER absolute.
+**Run-to-run variation is about ±0.01 CER** (an earlier run of the same configuration
+measured greedy 0.8466 / beam-4 0.8446). The beam gain is at or below that variation.
+
+### Selective prediction (greedy, min per-grapheme line confidence)
+
+| Entry | Value |
+| --- | --- |
+| Full-coverage dev CER | 0.8367 |
+| Area under the risk–coverage curve (rectangle rule; lower is better) | 0.8497 |
+| Text coverage with CER ≤ 0.80 | 0.032 |
+| Text coverage with CER ≤ 0.75 | 0 |
+
+AURC is slightly **above** full-coverage CER: at this data scale the raw per-grapheme
+confidence barely orders lines by correctness, so abstaining on low confidence buys
+almost no CER reduction. This is a reason to keep uncertainty as an explicit annotation
+concept rather than trusting model confidence.
 
 ## Decision (pilot-scale, reversible)
 
-- **Keep greedy as the default decoder.** At this data scale the beam gain is within
-  noise of the annotation volume (176 training lines), while decode cost rises ~6–12×.
-- Beam mode stays available and tested (`CtcDecodeMode.PrefixBeam`); re-run this
-  measurement after the annotation-volume gate is met and on the other two tracks.
-- Per-grapheme confidence under beam mode uses a forced best alignment of the chosen
-  label sequence, so confidence values remain real per-label probabilities, not
-  fabricated scores.
+- **Keep greedy as the default decoder.** Beam mode stays available and tested
+  (`CtcDecodeMode.PrefixBeam`); re-run after the annotation-volume gate and on the other
+  two tracks before any change.
+- Do **not** ship confidence-based abstention as a quality claim. Use it only as a
+  review-ordering hint until calibration is demonstrated on adjudicated data.
+- Per-grapheme confidence under beam mode uses a forced best alignment
+  (`CtcBeamDecoder.BestAlignment`), so values remain real per-label probabilities.
 
 ## Honest limits
 
 - Labels are Transkribus-prepared and **not expert-adjudicated** (DATA-03 pending).
-- One documentary hand; the result does not generalize to manuscripts or inscriptions.
-- 0.84 dev CER is a **baseline**, not a threshold; the model is memorizing a small set
-  (train loss 0). No release claim follows from this table.
+- One documentary hand; nothing here generalizes to manuscripts or inscriptions.
+- 0.83–0.85 dev CER is a **baseline** from a data-limited model that has memorized its
+  training set (train loss 0). No release claim follows.
 - The comparison is dev-only; the one-shot locked-test result in
   [pilot-p01-report.md](pilot-p01-report.md) is unaffected and its reuse rules stand.
+- Calibration/ECE scoring is implemented and unit-tested
+  (`SelectivePredictionScorer.Calibration`) but not yet run on adjudicated per-grapheme
+  labels.

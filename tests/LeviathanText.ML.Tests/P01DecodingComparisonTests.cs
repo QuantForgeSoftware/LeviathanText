@@ -75,6 +75,29 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         summary.AppendLine();
         summary.AppendLine($"Best measured dev CER: {best.Mode} at {best.Cer:0.####}. Selection is dev-only; the locked test split stays untouched.");
 
+        // Selective prediction on the default (greedy) decoder: line confidence is the
+        // minimum per-grapheme probability, so a single shaky grapheme lowers the line.
+        var greedyResults = new TorchLineRecognizer(model, labels).Recognize(images);
+        var selectiveSamples = new List<SelectiveSample>(greedyResults.Count);
+        for (var i = 0; i < greedyResults.Count; i++)
+        {
+            var score = RecognitionScorer.Score(references[i], greedyResults[i].Text);
+            var confidence = greedyResults[i].Graphemes.Count == 0
+                ? 0.0
+                : greedyResults[i].Graphemes.Min(g => g.Confidence.Value);
+            selectiveSamples.Add(new SelectiveSample(confidence, score.ReferenceScalarLength, score.ScalarDistance));
+        }
+
+        var selective = SelectivePredictionScorer.Selective(selectiveSamples);
+        summary.AppendLine();
+        summary.AppendLine("## Selective prediction (greedy, min per-grapheme line confidence)");
+        summary.AppendLine();
+        summary.AppendLine($"- Full-coverage dev CER: {selective.FullCoverageCer:0.####}");
+        summary.AppendLine($"- Area under the risk-coverage curve (rectangle rule, lower is better): {selective.AreaUnderRiskCoverageCurve:0.####}");
+        summary.AppendLine($"- Text coverage with CER <= 0.80: {selective.CoverageForCerBelow(0.80):0.###}");
+        summary.AppendLine($"- Text coverage with CER <= 0.75: {selective.CoverageForCerBelow(0.75):0.###}");
+        summary.AppendLine("- Pilot-scale: confidence is a raw model probability, not a scholarly judgment; no threshold is set here.");
+
         var text = summary.ToString();
         output.WriteLine(text);
 
