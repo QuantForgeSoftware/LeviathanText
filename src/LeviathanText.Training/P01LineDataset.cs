@@ -102,15 +102,17 @@ public static class P01LineDataset
         return new Snapshot(train, dev, test, unannotated, total, witnessSplit);
     }
 
-    /// <summary>Find the image for a PAGE file: next to the XML, or in a sibling/child images/ directory (Transkribus convention).</summary>
+    /// <summary>Find the image for a PAGE file: next to the XML, or in sibling/child images|image directories (Transkribus conventions vary).</summary>
     private static string? ResolveImagePath(string datasetDirectory, string baseName, string imageExtension)
     {
         string[] candidates =
-        [
+        {
             Path.Combine(datasetDirectory, baseName + imageExtension),
             Path.Combine(datasetDirectory, "images", baseName + imageExtension),
+            Path.Combine(datasetDirectory, "image", baseName + imageExtension),
             Path.Combine(Path.GetDirectoryName(datasetDirectory)!, "images", baseName + imageExtension),
-        ];
+            Path.Combine(Path.GetDirectoryName(datasetDirectory)!, "image", baseName + imageExtension),
+        };
         return candidates.FirstOrDefault(File.Exists);
     }
 

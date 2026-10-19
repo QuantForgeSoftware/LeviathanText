@@ -85,4 +85,63 @@ public sealed class ManuscriptPilotTests(ITestOutputHelper output)
         Assert.True(run.History[^1].TrainLoss < run.History[0].TrainLoss, "manuscript training loss should decrease");
         Assert.True(cer < 1.0, $"page-holdout CER {cer:0.###} must beat the empty baseline");
     }
+
+    [SkippableFact]
+    public void CrossWitness_Generalization_TrainOnM02a_ScoreM01()
+    {
+        var m02aDir = FindDataDir(); // m02a root
+        Skip.IfNot(m02aDir != "", "M02a dataset not downloaded.");
+        m02aDir = Path.Combine(m02aDir, "xml");
+
+        var root = FindRepoRoot()!;
+        var m01Dir = Path.Combine(root, ".artifacts", "datasets", "m01-v1.0", "eparchos", "xml");
+        Skip.IfNot(Directory.Exists(m01Dir), "M01 dataset not downloaded.");
+
+        var m02a = P01LineDataset.Load(m02aDir, imageExtension: ".png");
+        var train = m02a.Train.Where(l => !MarkupContaminated(l.Text)).ToList();
+        var dev = m02a.Dev.Where(l => !MarkupContaminated(l.Text)).ToList();
+        var vocabulary = train.Concat(dev)
+            .SelectMany(l => Graphemes.Enumerate(l.Text).Select(g => g.Text))
+            .Distinct(StringComparer.Ordinal).ToList();
+        var labels = new LabelSet(vocabulary);
+
+        var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-crosswitness", Guid.NewGuid().ToString("N"));
+        var config = new TrainingConfig
+        {
+            Epochs = 150, BatchSize = 8, LearningRate = 3e-3, Seed = 42,
+            EarlyStoppingPatience = 150, HiddenSize = 64,
+            ModelName = "crosswitness-crnn", CheckpointDirectory = checkpointDir,
+        };
+        var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+        var trainer = new CtcTrainer(model, labels, config);
+        trainer.Fit(train, dev);
+
+        var m01 = P01LineDataset.Load(m01Dir, imageExtension: ".png");
+        var all = m01.TestLocked.Concat(m01.Dev).Concat(m01.Train).ToList();
+        var sample = all.Where((_, i) => i % 4 == 0).ToList();
+        var results = new TorchLineRecognizer(model, labels).Recognize([.. sample.Select(l => l.Image)]);
+
+        int distance = 0, referenceLength = 0, perfect = 0;
+        for (int i = 0; i < sample.Count; i++)
+        {
+            var score = RecognitionScorer.Score(sample[i].Text, results[i].Text);
+            distance += score.ScalarDistance;
+            referenceLength += score.ReferenceScalarLength;
+            if (score.ScalarDistance == 0) perfect++;
+        }
+        double cer = referenceLength == 0 ? 1.0 : (double)distance / referenceLength;
+
+        output.WriteLine($"CROSS-WITNESS M02a->M01: sampled {sample.Count}/{all.Count} lines; " +
+                         $"CER={cer:0.###}; perfect={perfect}/{sample.Count}; vocab={vocabulary.Count} (no M01-specific tuning)");
+
+        Assert.True(cer <= 1.2, $"cross-witness CER {cer:0.###} outside the scorer's expected range");
+    }
+
+    private static string? FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "LeviathanText.slnx")))
+            dir = dir.Parent;
+        return dir?.FullName;
+    }
 }
