@@ -9,9 +9,9 @@
 ## Verified result
 
 Current session totals (2026-10-19 close): Release build clean; **AI 73/73** (+1 opt-in
-live test skipped by default), **EVAL 39/39**, **ML 45/45**; non-B suites 183/183
+live test skipped by default), **EVAL 39/39**, **ML 45/45**; non-B suites 185/185
 (Contracts 41, Core 72, Formats 13, Imaging 10, Infrastructure 5, Worker 8, API 13,
-Application 15, Layout 6). The historical single-instance counts are kept below.
+Application 17, Layout 6). The historical single-instance counts are kept below.
 
 The ML suite proves the Phase 0 C# feasibility path end to end on **synthetic** data: variable-width CTC training → best-checkpoint selection → checkpoint reload into a fresh model → greedy decode → exact match, plus optimizer-state resume that continues the schedule. Synthetic fixtures are not corpus counts and make no accuracy claim about real Greek.
 
@@ -71,7 +71,7 @@ dotnet test  tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj   # trai
 
 Instance B's two-instance session ended at 11:00 CDT. Final state: Release build clean;
 B suites **AI 73/73 (+1 opt-in live test skipped), EVAL 39/39, ML 45/45**; non-B suites
-183/183. Best measured P01 candidate: height 16, width 4, augmentation on, weight decay 0,
+185/185. Best measured P01 candidate: height 16, width 4, augmentation on, weight decay 0,
 dropout 0, batch 8, Adam 3e-3 (dev CER **0.783**, packaged under
 `.artifacts/pilot/model-p01-h16-aug/`). Live local Ollama smoke passed; external hosted
 providers remain untested. Locked-set disclosure, acceptance-sheet drafts and measurement
