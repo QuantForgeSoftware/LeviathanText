@@ -33,6 +33,12 @@ import { GeometryEditor } from './geometry-editor';
           <app-geometry-editor [projectId]="projectId()" [surfaceId]="surfaceId()" [imageUrl]="imageLink()" />
         }
 
+        <p class="tools">
+          <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
+          <button type="button" (click)="downloadTraining()">Download training JSON</button>
+          <span class="hint">{{ exportStatus() }}</span>
+        </p>
+
         <h3>Loss report <code>{{ data.lossReport.format }}</code></h3>
         @if (data.lossReport.entries.length === 0) {
           <p>Lossless: nothing was dropped.</p>
@@ -65,10 +71,41 @@ export class SurfaceView {
   protected readonly editingLineId = signal<string | null>(null);
   protected readonly imageLink = signal('');
   protected readonly showGeometry = signal(false);
+  protected readonly exportStatus = signal('');
   private readonly lineIdsByIndex = signal<string[]>([]);
 
   protected toggleGeometry(): void {
     this.showGeometry.update(v => !v);
+  }
+
+  protected downloadTei(): void {
+    this.api.tei(this.projectId(), this.surfaceId()).subscribe({
+      next: (xml) => {
+        this.download(`${this.surfaceId()}.tei.xml`, xml, 'application/xml');
+        this.exportStatus.set('TEI downloaded');
+      },
+      error: () => this.exportStatus.set('TEI export failed'),
+    });
+  }
+
+  protected downloadTraining(): void {
+    this.api.trainingExport(this.projectId()).subscribe({
+      next: (document) => {
+        this.download(`${this.projectId()}-training.json`, JSON.stringify(document, null, 2), 'application/json');
+        this.exportStatus.set('training export downloaded');
+      },
+      error: () => this.exportStatus.set('training export failed'),
+    });
+  }
+
+  private download(filename: string, content: string, type: string): void {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   protected readonly lines = computed(() => (this.exportData()?.text ?? '').split('\n'));

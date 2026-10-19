@@ -150,6 +150,14 @@ export class ApiClient {
   annotations(lineId: string): Observable<AnnotationView[]> {
     return this.http.get<AnnotationView[]>(`/api/v1/lines/${lineId}/annotations`);
   }
+
+  tei(projectId: string, surfaceId: string): Observable<string> {
+    return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
+  }
+
+  trainingExport(projectId: string): Observable<unknown> {
+    return this.http.get<unknown>(`/api/v1/projects/${projectId}/training-export`);
+  }
 }
 
 /** Minimal projection of the native project payload needed by the workspace. */
