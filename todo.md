@@ -285,7 +285,7 @@ Dataset workers publish immutable, versioned development images/crops and annota
 
 **With three or more instances:** run D-M, D-P and D-I independently; keep one integrator. After C0, run ML, FMT/IMG, APP, and UI/AI in parallel as slots permit. At four instances a practical allocation is integrator/APP, ML, IMG/FMT, and UI/AI; each owns its tests. EVAL may be a separate instance where available, or a bounded cross-review task after candidate outputs are frozen. Separate role assignments do not require an additional person for each role.
 
-**Implementation session record (2026-10-19 morning, two-instance mode):** A (contracts + C0/APP/FMT/IMG/UI + integration) and B (AI/EVAL/ML). Records in both handoffs; collaboration state: clean separation verified, no conflicts. </think><tool_call>edit<arg_key>newString</arg_key><arg_value>**Implementation session record (2026-10-19 morning, two-instance mode):** A (contracts + C0/APP/FMT/IMG/UI + integration) and B (AI/EVAL/ML). Records in both handoffs; collaboration state: clean separation verified, no conflicts.
+**Implementation session record (2026-10-19 morning, two-instance mode):** A (contracts + C0/APP/FMT/IMG/UI + integration) and B (AI/EVAL/ML). Records in both handoffs; collaboration state: clean separation verified, no conflicts.
 
 **Two-instance mode restored (2026-10-19 06:54):** Instance A resumes as **integrator** and owns `docs/contracts/`, `docs/handoffs/A-PLAN.md`, `todo.md`, and the implementation packages **C0/APP/FMT/IMG/UI**. ML/AI/EVAL code exists from the single-instance session; A holds it until B claims it (B's natural packages: ML/AI/EVAL refinement or D-M/D-P/D-I data work — B records its claim in its own handoff; A will reflect it on this board). Ready inputs for B: contract set `C0-0.4-draft`, per-track audited manifests (`data/manifests/*`), pilot reports, and the trained-model/checkpoint conventions.
 
@@ -473,7 +473,7 @@ Acceptance invariants that can be specified now: original assets/revisions remai
 | Inscription/fragment recognition difficulty | Separate models/benchmarks; manual layout permitted but disclosed | Phase 0 evidence; research risk remains |
 | TEI/EpiDoc interoperability scope | Bounded versioned profile with explicit loss reporting | Phase 0 contract, Phase 1–2 verification |
 | AI restriction claim | Treat absence of project-imposed AI bans as a requirement; source of claimed Kraken restriction is unverified | Clarify only if policy comparison becomes necessary |
-| Project license and contribution policy | **Approved 2026-10-19:** Apache-2.0, maintainer-led governance, DCO sign-off, reproducible improvement evidence and regression gates | Write policy files now; hosting enforcement remains pending repository configuration |
+| Project license and contribution policy | **Approved and documented 2026-10-19:** Apache-2.0, maintainer-led governance, DCO sign-off, reproducible improvement evidence and regression gates | Local policy files complete; hosting enforcement remains pending repository configuration |
 | Standalone vs shared service priority | CLI/local first; shared server follows | Before Phase 1 implementation |
 | Staffing, dates and compute costs | Re-estimate from actual annotation/model work; earlier week estimates withdrawn | Phase 0 completion |
 
@@ -481,12 +481,12 @@ Acceptance invariants that can be specified now: original assets/revisions remai
 
 ### Licensing and contribution policy — 2026-10-19
 
-- [ ] Install the unmodified Apache-2.0 license and DCO 1.1 text, plus project attribution and license-scope notices.
-- [ ] Write governance, contribution requirements and a pull-request evidence template reflecting the owner's approval.
-- [ ] Link the policy documents from the README and verify text integrity, links and consistency without changing application code.
+- [x] Install the unmodified [Apache-2.0 license](LICENSE) and [DCO 1.1 text](DCO), plus project attribution and license-scope notices in [NOTICE](NOTICE).
+- [x] Write [governance](GOVERNANCE.md), [contribution requirements](CONTRIBUTING.md) and a [pull-request evidence template](.github/pull_request_template.md) reflecting the owner's approval.
+- [x] Link the policy documents from the README and verify text integrity, links and consistency without changing application code.
 - [ ] Configure required maintainer review, trusted status checks, DCO validation and protected release/default branches on the hosting service. No Git remote is currently configured; writing local policy files does not enable these controls.
 
-Review result: pending document verification. Existing unrelated work must remain untouched.
+Review result: LICENSE matches the official Apache text byte for byte; DCO matches the official published text; 29 local links in the policy/README/template documents resolve; whitespace checks pass. Independent review clarified that an earlier contributor's sign-off does not certify later edits. No application code changed, no runtime tests were needed for these document changes, and the pre-existing edit to `docs/evaluation/layout-comparison.md` was left untouched. Hosting controls are not yet enabled.
 
 Local reference material inspected:
 
