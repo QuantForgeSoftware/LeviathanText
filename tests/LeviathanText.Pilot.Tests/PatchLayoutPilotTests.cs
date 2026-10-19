@@ -207,7 +207,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 - Date: {DateTimeOffset.UtcNow:O}; contract {ContractVersion.Current}
                 - Model: `{PatchLayoutModel.Architecture}` {PatchLayoutModel.ModelVersion}; input {options.InputHeight}px high, max width {options.MaxInputWidth}; {options.Epochs} epochs, seed {options.Seed}
                 - Training: {train.Count} M02a train pages (page-level split); threshold selected on {dev.Count} M02a dev pages; **test pages never trained on**
-                - Held-out: {test.Count} pages (M02a test i%5==0 + P01 8 pages, reported separately as out-of-domain)
+                - Held-out: {test.Count} pages (M02a test i%5==0 + {p01Test.Count} P01 test pages, reported separately as out-of-domain)
                 - Matching: vertical-band IoU ≥ {learnedSummary.IouThreshold:0.##}; confidence: none (detector has no calibrated probability claim)
                 - Training wall time: {stopwatch.Elapsed.TotalSeconds:0.0}s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
                 - Threshold selection table (dev only):

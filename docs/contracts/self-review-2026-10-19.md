@@ -19,6 +19,7 @@
 | Stage envelope (§2.1) and manual layout as first-class | `StageRun` records model identity/transform chain; `LayoutSource` manual/automatic/imported; detection refuses overwrite | **conforms** |
 | Bounded resource use (§2.3) | Import through bounded pipeline; layout preview decode bounded by pixels; recognition decodes full frames per surface; no tiling for very large images | **partial** (documented) |
 | Model package (§3): architecture, weights, tokenizer, provenance, hashes | `ModelPackageWriter`/`RecognitionModelLoader` verify labels, arch, digest; package from `train lines`; model card | **conforms** |
+| Layout model package (analogue of §3) | `patch-row-cnn-v2` package checks architecture and weights; metadata records threshold, training page count, seed, epoch count and scope note | **conforms (pilot)**; no model card/manifest digest yet — open |
 | Reject executable payloads / path limits | Loader reads only named files; no script/exec loading; archive/encoded size and dimension limits | **conforms** (checkpoint format is data-only) |
 | Confidence semantics (§4) | Confidence carries scale and source; layout/geometry use `None`; L0 revisions persist the **mean raw probability** with its scale (per-grapheme detail remains in-memory for review queues) | **conforms** (mean persisted; per-grapheme persistence open) |
 | Jobs (§5): durable, leases, heartbeats, idempotency, cancellation | SQLite-backed jobs, timed leases, API key idempotency, DB pickup, cancellation between batch items | **conforms** (cancellation granularity documented) |

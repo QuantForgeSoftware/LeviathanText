@@ -298,5 +298,9 @@ Blockers recorded so far:
   API configuration `LeviathanText:Layout:Models:<kind>`, and an Application-level detector
   parameter; projection remains the default. Model packages are validated (architecture match,
   weights present) before use.
+- **Verification:** 482 tests (481 passed + 1 opt-in skipped), 0 failed across 13 suites;
+  Release build 0 warnings/0 errors; 26 web specs; `scripts/pilot-demo.sh` PASS. The first
+  solution-level run reported 39/45 ML tests once (test-host anomaly, no failures); rerun with
+  TRX logging executed all 45 and reproduced the green result.
 - **Not claimed:** multi-column/rotated layout, papyrus layout production use, or broader
   manuscript generalization from one codex; the P01 split remains spent.
