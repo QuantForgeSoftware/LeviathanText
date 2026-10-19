@@ -97,8 +97,8 @@ measurements (dev-only, best checkpoint):
   confidence ECE improved 0.237 → 0.151.
 - height 32 or width 2 are now **worse** (0.827 / 0.838): extra time resolution does not
   help once crops are sane. B withdrawn the earlier h32 recommendation.
-- training augmentation (training-only geometry/noise) improves dev CER **0.805 → 0.783**;
-  it is opt-in (`AugmentTraining`, default off).
+- training augmentation (training-only geometry/noise) improves dev CER **0.796–0.811 → 0.783**
+  across runs; it is opt-in (`AugmentTraining`, default off).
 
 Best measured next-candidate configuration: **height 16, width 4, augmentation on,
 weight decay 0, dropout 0** (dev CER 0.783, packaged under
