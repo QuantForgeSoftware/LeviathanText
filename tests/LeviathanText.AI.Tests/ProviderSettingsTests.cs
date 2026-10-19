@@ -21,6 +21,22 @@ public class ProviderSettingsTests
         Valid().Validate();
     }
 
+    [Fact]
+    public void Resource_and_transport_defaults_are_explicit()
+    {
+        var settings = Valid();
+
+        Assert.Equal(TimeSpan.FromSeconds(60), settings.Timeout);
+        Assert.Equal(512, settings.MaxOutputTokens);
+        Assert.Equal(1_048_576, settings.MaxResponseBytes);
+        Assert.Equal(20_000, settings.MaxPromptCharacters);
+        Assert.Equal(3, settings.MaxAttempts);
+        Assert.Equal(0, settings.MaxRequests);
+        Assert.Null(settings.MaxSpendUsd);
+        Assert.Null(settings.OllamaThink);
+        Assert.False(settings.UseMaxCompletionTokens);
+    }
+
     public static IEnumerable<object[]> InvalidSettings()
     {
         yield return [Valid() with { ProviderId = "" }];

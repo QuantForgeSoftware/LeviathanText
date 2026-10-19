@@ -143,6 +143,20 @@ Batch 8 remains the best measured value; no change.
 
 64 remains the best measured capacity; 128 does not help at 176 training lines.
 
+## Selected configuration (all levers measured)
+
+| Lever | Selected | Measured alternatives (dev CER) |
+| --- | --- | --- |
+| Decoder | greedy | beam-2/4/8 ≥ greedy cost, within noise |
+| Input height | 16 | 32 worse post-fix (0.800–0.827) |
+| Width downsample | 4 | 2 worse post-fix (0.838) |
+| Training augmentation | **on** | plain 0.796–0.811 vs augmented 0.783 |
+| Weight decay | 0 | 1e-4 0.802, 1e-3 0.823 |
+| Dropout | 0 | 0.1 0.807, 0.2 0.801 |
+| Learning rate | 3e-3 | 1e-3 0.803, 5e-3 0.790 |
+| Batch size | 8 | 4 0.786, 16 0.796 |
+| Hidden size | 64 | 32 0.800, 128 0.790 |
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
