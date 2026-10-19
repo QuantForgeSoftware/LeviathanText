@@ -60,6 +60,7 @@ interface DragState {
 
       <div class="tools">
         <button type="button" (click)="saveGeometry()" [disabled]="!dirty()">Save geometry</button>
+        <button type="button" (click)="undoGeometry()" [disabled]="history().length === 0">Undo edit</button>
         <button type="button" (click)="reset()" [disabled]="!dirty()">Reset</button>
         <span class="hint">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
       </div>
@@ -117,6 +118,8 @@ export class GeometryEditor implements OnInit {
   protected readonly orderDirty = signal(false);
   protected readonly lineOrderDirty = signal(false);
   protected readonly lineOrder = signal<string[]>([]);
+  protected readonly history = signal<GeometryLine[][]>([]);
+  private pendingSnapshot: GeometryLine[] | null = null;
   private readonly original = signal<GeometryLine[]>([]);
   private readonly originalOrder = signal<string[]>([]);
   private drag: DragState | null = null;
@@ -173,6 +176,7 @@ export class GeometryEditor implements OnInit {
   protected onDown(event: PointerEvent, line: GeometryLine): void {
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
+    this.pendingSnapshot = this.snapshot();
     this.drag = { ...this.dragFor(event), lineId: line.id, original: this.clone(line), mode: 'move', corner: -1 };
   }
 
@@ -180,6 +184,7 @@ export class GeometryEditor implements OnInit {
     event.stopPropagation();
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
+    this.pendingSnapshot = this.snapshot();
     this.drag = { ...this.dragFor(event), lineId: line.id, original: this.clone(line), mode: 'resize', corner };
   }
 
@@ -254,7 +259,23 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onUp(): void {
+    if (this.drag && this.pendingSnapshot
+        && JSON.stringify(this.pendingSnapshot) !== JSON.stringify(this.snapshot()))
+      this.history.update(stack => [...stack, this.pendingSnapshot!]);
+    this.pendingSnapshot = null;
     this.drag = null;
+  }
+
+  protected undoGeometry(): void {
+    const stack = this.history();
+    if (stack.length === 0) return;
+    this.lines.set(stack[stack.length - 1].map(l => this.clone(l)));
+    this.history.set(stack.slice(0, -1));
+    this.dirty.set(true);
+  }
+
+  private snapshot(): GeometryLine[] {
+    return this.lines().map(l => this.clone(l));
   }
 
   protected saveGeometry(): void {
@@ -270,7 +291,8 @@ export class GeometryEditor implements OnInit {
   }
 
   protected reset(): void {
-    this.lines.set(this.original().map(l => ({ ...l, polygon: l.polygon.map(p => ({ ...p })), baseline: l.baseline.map(p => ({ ...p })) })));
+    this.lines.set(this.original().map(l => this.clone(l)));
+    this.history.set([]);
     this.dirty.set(false);
   }
 
