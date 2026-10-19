@@ -94,3 +94,18 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 | Multiple captures | EX-7 |
 | Stale revision | EX-8 |
 | Uncertainty/blank/missed-line scoring | EX-5, EX-9 |
+
+## 4. Planned named round-trip fixtures (IDs fixed at contract level; content from real sources)
+
+Accepted from B's acceptance-plan §10 (answer to §7 Q1 of interchange-and-api.md): fixture **names** are pinned now, **content** is populated from real sources after acquisition/adjudication. Until populated, the invented cases above stand in.
+
+| Fixture ID | Material | Distinction under test |
+| --- | --- | --- |
+| `FX-MSS-nomina-sacra-overbar` | manuscript | overbar sign + expansion link (EX-1) |
+| `FX-PAP-lacuna-unknown-extent` | papyrus | gap extent unknown vs unannotated (EX-5) |
+| `FX-INS-stoichedon-scriptio-continua` | inscription | unspaced scoring, no WER (EX-3) |
+| `FX-shared-abbrev-expansion` | shared | reversible expansion links (EX-4) |
+| `FX-shared-lunate-sigma` | shared | glyph-form annotation, no substitution (EX-6) |
+| `FX-shared-combining-mark-offsets` | shared | NFC remap + UTF-16 conversion (EX-2) |
+| `FX-shared-blank-region` | shared | insertions on uninscribed regions scored as failures (EX-9) |
+| `FX-shared-alternate-capture` | shared | frame registration before geometry transfer (EX-7) |
