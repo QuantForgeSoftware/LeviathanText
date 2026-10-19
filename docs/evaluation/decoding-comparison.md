@@ -68,6 +68,14 @@ to full-coverage CER.
 
 ## Architecture / augmentation A/B (all post-fix, best checkpoint)
 
+Greedy vs beam-8 on each configuration (beam is not selected anywhere below):
+
+| Configuration | Greedy CER | Beam-8 CER |
+| --- | --- | --- |
+| height 16, plain | 0.7958 | 0.8018 |
+| height 16, augmented | **0.7829** | 0.7878 |
+| height 32, augmented | 0.8008 | 0.8018 |
+
 | Configuration | Dev scalar CER | Reachable lines (T ≥ scalars) | Seconds/line |
 | --- | --- | --- | --- |
 | **height 16, width 4 (defaults)** | **0.799–0.805** | 7/50 | 0.0002 |

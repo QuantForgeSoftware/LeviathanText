@@ -45,11 +45,11 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
         summary.AppendLine("P01 v0.9 training-augmentation A/B, dev split (pilot-scale, non-adjudicated labels)");
         summary.AppendLine($"train={snapshot.Train.Count} dev={snapshot.Dev.Count}; height 16 vs 32, width downsample 4 (post IMG padding fix), greedy decoding");
         summary.AppendLine();
-        summary.AppendLine("| Input height | Training | Dev scalar CER | Best dev CER during fit | Perfect lines | s/line |");
-        summary.AppendLine("| --- | --- | --- | --- | --- | --- |");
-        summary.AppendLine($"| 16 | plain | {baseline.Cer:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
-        summary.AppendLine($"| 16 | augmented | {augmented.Cer:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
-        summary.AppendLine($"| 32 | augmented | {augmented32.Cer:0.####} | {augmented32.BestValidationCer:0.####} | {augmented32.Perfect}/{augmented32.Lines} | {augmented32.SecondsPerLine:0.0000} |");
+        summary.AppendLine("| Input height | Training | Greedy CER | Beam-8 CER | Best dev CER during fit | Perfect lines | s/line |");
+        summary.AppendLine("| --- | --- | --- | --- | --- | --- | --- |");
+        summary.AppendLine($"| 16 | plain | {baseline.Cer:0.####} | {baseline.BeamCer:0.####} | {baseline.BestValidationCer:0.####} | {baseline.Perfect}/{baseline.Lines} | {baseline.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 16 | augmented | {augmented.Cer:0.####} | {augmented.BeamCer:0.####} | {augmented.BestValidationCer:0.####} | {augmented.Perfect}/{augmented.Lines} | {augmented.SecondsPerLine:0.0000} |");
+        summary.AppendLine($"| 32 | augmented | {augmented32.Cer:0.####} | {augmented32.BeamCer:0.####} | {augmented32.BestValidationCer:0.####} | {augmented32.Perfect}/{augmented32.Lines} | {augmented32.SecondsPerLine:0.0000} |");
         summary.AppendLine();
         summary.AppendLine("Augmentation = stretch ±10%, vertical shift ±1 px, 1% salt/pepper, training only.");
         summary.AppendLine();
@@ -124,15 +124,21 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             if (score.ScalarDistance == 0) perfect++;
         }
 
+        var beam = new TorchLineRecognizer(model, labels, CtcDecodeMode.PrefixBeam, beamWidth: 8).Recognize(images);
+        int beamDistance = 0;
+        for (var i = 0; i < images.Length; i++)
+            beamDistance += RecognitionScorer.Score(snapshot.Dev[i].Text, beam[i].Text).ScalarDistance;
+
         return new Result(
             length == 0 ? 1.0 : (double)distance / length,
+            length == 0 ? 1.0 : (double)beamDistance / length,
             run.BestValidationCer,
             perfect,
             images.Length,
             clock.Elapsed.TotalSeconds / Math.Max(1, images.Length));
     }
 
-    private sealed record Result(double Cer, double BestValidationCer, int Perfect, int Lines, double SecondsPerLine);
+    private sealed record Result(double Cer, double BeamCer, double BestValidationCer, int Perfect, int Lines, double SecondsPerLine);
 
     private static string FindDataDir()
     {
