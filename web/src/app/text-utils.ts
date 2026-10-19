@@ -45,3 +45,54 @@ export function applyScalarEdit(text: string, start: number, end: number, replac
   const to = Math.max(from, Math.min(end, scalars.length));
   return scalars.slice(0, from).join('') + replacement + scalars.slice(to).join('');
 }
+
+export interface MarkRange {
+  start: number;
+  end: number;
+  kind: string;
+}
+
+export interface MarkSegment {
+  text: string;
+  kind: string; // '' for plain, otherwise a mark class suffix
+}
+
+/**
+ * Split text into segments by scalar ranges so uncertainty/gap/supply marks can be rendered.
+ * Overlapping ranges resolve to the last annotation in the supplied order (documented
+ * simplification: the renderer shows one style per scalar).
+ */
+export function markSegments(text: string, ranges: MarkRange[]): MarkSegment[] {
+  const scalars = Array.from(text);
+  const kindAt: string[] = new Array(scalars.length).fill('');
+  for (const range of ranges) {
+    const kind = markClass(range.kind);
+    if (!kind) continue;
+    const from = Math.max(0, Math.min(range.start, scalars.length));
+    const to = Math.max(from, Math.min(range.end, scalars.length));
+    for (let i = from; i < to; i++) kindAt[i] = kind;
+  }
+
+  const segments: MarkSegment[] = [];
+  for (let i = 0; i < scalars.length; i++) {
+    if (segments.length > 0 && segments[segments.length - 1].kind === kindAt[i]) {
+      segments[segments.length - 1].text += scalars[i];
+    } else {
+      segments.push({ text: scalars[i], kind: kindAt[i] });
+    }
+  }
+  return segments;
+}
+
+function markClass(kind: string): string {
+  switch (kind) {
+    case 'Unclear':
+    case 'Illegible': return 'unclear';
+    case 'Lost': return 'lost';
+    case 'SuppliedEditorial': return 'supplied';
+    case 'AlternativeReading': return 'alternative';
+    case 'Erased':
+    case 'Overwritten': return 'erased';
+    default: return '';
+  }
+}

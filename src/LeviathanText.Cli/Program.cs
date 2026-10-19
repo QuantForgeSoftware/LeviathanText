@@ -250,6 +250,14 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 4 && rest[1] == "annotations":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                File.WriteAllText(rest[3], AnnotationCsv.Export(project));
+                Console.WriteLine($"wrote {rest[3]} (annotation CSV; native project remains authoritative)");
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "lines":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));

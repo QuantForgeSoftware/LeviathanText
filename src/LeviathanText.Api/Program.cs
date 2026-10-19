@@ -323,6 +323,12 @@ api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, Geome
     });
 });
 
+api.MapGet("projects/{id}/annotations.csv", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(AnnotationCsv.Export(project), "text/csv");
+});
+
 api.MapGet("projects/{id}/lines.csv", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

@@ -1,4 +1,4 @@
-import { applyScalarEdit, scalarCount, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
+import { applyScalarEdit, markSegments, scalarCount, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
 
 describe('text-utils (scalar offsets)', () => {
   const decomposed = '\u03B1\u0301\u03BD\u03B8\u03C1\u03C9\u03C0\u03BF\u03C2'; // α + acute + 7 letters
@@ -42,5 +42,27 @@ describe('applyScalarEdit', () => {
     expect(applyScalarEdit('abc', 2, 99, 'Z')).toBe('abZ');
     expect(applyScalarEdit('abc', 9, 10, 'Z')).toBe('abcZ');
     expect(applyScalarEdit('', 0, 0, 'x')).toBe('x');
+  });
+});
+
+describe('markSegments', () => {
+  it('splits scalar ranges into styled segments', () => {
+    const segments = markSegments('αβγδ', [
+      { start: 1, end: 3, kind: 'Unclear' },
+      { start: 3, end: 4, kind: 'Lost' },
+    ]);
+    expect(segments).toEqual([
+      { text: 'α', kind: '' },
+      { text: 'βγ', kind: 'unclear' },
+      { text: 'δ', kind: 'lost' },
+    ]);
+  });
+
+  it('is scalar-safe with astral characters and clamps ranges', () => {
+    const segments = markSegments('a\uD835\uDD38b', [{ start: 1, end: 99, kind: 'SuppliedEditorial' }]);
+    expect(segments).toEqual([
+      { text: 'a', kind: '' },
+      { text: '\uD835\uDD38b', kind: 'supplied' },
+    ]);
   });
 });

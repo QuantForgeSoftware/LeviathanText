@@ -6,7 +6,7 @@
  */
 import { Component, computed, input, signal } from '@angular/core';
 import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
-import { applyScalarEdit, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
+import { applyScalarEdit, markSegments, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 import { ProposalPanel } from './proposal-panel';
 
 interface UndoStack {
@@ -29,6 +29,11 @@ interface UndoStack {
         @if (draftRestored()) {
           <p class="hint">Unsaved draft restored after reload (⌘/Ctrl+S saves, ⌘/Ctrl+Z undoes).</p>
         }
+        <p class="marked" aria-label="marked text">
+          @for (segment of markedSegments(); track $index) {
+            <span [class]="segment.kind ? 'mark-' + segment.kind : ''">{{ segment.text }}</span>
+          }
+        </p>
 
         <div class="tools">
           <button type="button" (click)="markUnclear()" [disabled]="caret() === 0 && text().length === 0">Mark unclear (at caret)</button>
@@ -109,6 +114,12 @@ interface UndoStack {
   `,
   styles: [`
     .greek { font-size: 1.3rem; width: 24rem; }
+    .marked { font-size: 1.3rem; line-height: 1.6; }
+    .mark-unclear { text-decoration: underline dotted #b36b00; background: rgba(255, 200, 0, 0.12); }
+    .mark-lost { outline: 1px dashed #a33; background: rgba(255, 0, 0, 0.08); }
+    .mark-supplied { color: #345; font-style: italic; text-decoration: overline; }
+    .mark-alternative { text-decoration: underline double #47a; }
+    .mark-erased { text-decoration: line-through #888; }
     .tools { margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
@@ -221,6 +232,9 @@ export class LineEditor {
       error: () => { /* surfaced by the API; state kept */ },
     });
   }
+
+  protected readonly markedSegments = computed(() =>
+    markSegments(this.text(), this.annotations().map(a => ({ start: a.range.start, end: a.range.end, kind: a.kind }))));
 
   protected readonly currentRevision = computed(() => {
     const history = this.history();
