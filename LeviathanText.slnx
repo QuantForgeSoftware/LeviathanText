@@ -10,6 +10,7 @@
     <Project Path="src/LeviathanText.Formats/LeviathanText.Formats.csproj" />
     <Project Path="src/LeviathanText.Imaging/LeviathanText.Imaging.csproj" />
     <Project Path="src/LeviathanText.Infrastructure/LeviathanText.Infrastructure.csproj" />
+    <Project Path="src/LeviathanText.Layout/LeviathanText.Layout.csproj" />
     <Project Path="src/LeviathanText.Recognition/LeviathanText.Recognition.csproj" />
     <Project Path="src/LeviathanText.Training/LeviathanText.Training.csproj" />
     <Project Path="src/LeviathanText.Worker/LeviathanText.Worker.csproj" />
@@ -24,6 +25,7 @@
     <Project Path="tests/LeviathanText.Formats.Tests/LeviathanText.Formats.Tests.csproj" />
     <Project Path="tests/LeviathanText.Imaging.Tests/LeviathanText.Imaging.Tests.csproj" />
     <Project Path="tests/LeviathanText.Infrastructure.Tests/LeviathanText.Infrastructure.Tests.csproj" />
+    <Project Path="tests/LeviathanText.Layout.Tests/LeviathanText.Layout.Tests.csproj" />
     <Project Path="tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj" />
     <Project Path="tests/LeviathanText.Pilot.Tests/LeviathanText.Pilot.Tests.csproj" />
     <Project Path="tests/LeviathanText.Worker.Tests/LeviathanText.Worker.Tests.csproj" />

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
+    <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
+    <ProjectReference Include="..\LeviathanText.Imaging\LeviathanText.Imaging.csproj" />
+  </ItemGroup>
+
+</Project>

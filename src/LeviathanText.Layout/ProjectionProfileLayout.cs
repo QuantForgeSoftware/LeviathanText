@@ -1,0 +1,220 @@
+using LeviathanText.Contracts;
+using SkiaSharp;
+
+namespace LeviathanText.Layout;
+
+/// <summary>
+/// A detected layout element in one coordinate frame (todo §4: regions, baselines,
+/// reading order). Reading order is a validated linear order for this module; the graph
+/// model with alternatives arrives with the trainable order module.
+/// </summary>
+public sealed record DetectedLine
+{
+    public required EntityId Id { get; init; }
+    public required int Top { get; init; }
+    public required int Bottom { get; init; }
+    public required int Left { get; init; }
+    public required int Right { get; init; }
+    public int OrderIndex { get; init; }
+
+    /// <summary>Mean ink density inside the band (0..1) — a bounded, defined heuristic signal, not scholarly certainty.</summary>
+    public double InkDensity { get; init; }
+
+    public int Height => Bottom - Top;
+
+    public override string ToString() => $"line[{Top}..{Bottom}] x[{Left}..{Right}] density={InkDensity:0.###}";
+}
+
+public sealed record LayoutResult(IReadOnlyList<DetectedLine> Lines, string Method, string ParametersHash);
+
+/// <summary>
+/// Automatic layout detection, first module: horizontal projection-profile line
+/// segmentation on a binarized page (todo Phase 1: baseline/layout inference — the
+/// smallest honest baseline for single-column documentary pages).
+///
+/// Contract notes:
+/// - Confidence is <see cref="Confidence.None"/> for now: the projection heuristic has
+///   no probability semantics; fabricating one is forbidden (domain-and-pipeline §4).
+/// - Multi-column, curved and marginal layouts are NOT handled and are recorded as
+///   unsupported conditions, not silently mis-segmented.
+/// </summary>
+public static class ProjectionProfileLayout
+{
+    public sealed record Options
+    {
+        /// <summary>Binarization threshold (luminance); ink is darker.</summary>
+        public float InkThreshold { get; init; } = 0.55f;
+
+        /// <summary>A band is a line candidate only when its peak row density exceeds this.</summary>
+        public float MinRowDensity { get; init; } = 0.02f;
+
+        /// <summary>Minimum band height in pixels (rejects specks).</summary>
+        public int MinLineHeight { get; init; } = 6;
+
+        /// <summary>Rows below this density split bands (valley threshold as fraction of peak).</summary>
+        public float ValleyFraction { get; init; } = 0.15f;
+    }
+
+    public static LayoutResult Detect(SKBitmap page, Options? options = null)
+    {
+        options ??= new Options();
+        int width = page.Width, height = page.Height;
+        var info = page.Info;
+        var bytes = page.Bytes;
+
+        // 1) Per-page Otsu binarization (fixed thresholds fail across captures).
+        int sampleStride = Math.Max(1, (width * height) / 200_000);
+        var histogram = new int[256];
+        long sampled = 0;
+        for (int p = 0; p < width * height; p += sampleStride)
+        {
+            int b = p * info.BytesPerPixel;
+            byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+            float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+            histogram[(int)(luminance * 255f)]++;
+            sampled++;
+        }
+        int otsu = Otsu(histogram, (int)sampled);
+        float inkThreshold = otsu / 255f;
+
+        // 2) Border trim: dark page edges/shadows dominate the projection otherwise.
+        int trimX = (int)(width * 0.02), trimY = (int)(height * 0.02);
+
+        // 3) Row ink densities inside the trimmed area.
+        var rowDensity = new double[height];
+        for (int row = trimY; row < height - trimY; row++)
+        {
+            int ink = 0;
+            for (int col = trimX; col < width - trimX; col++)
+            {
+                int b = (row * width + col) * info.BytesPerPixel;
+                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                if (luminance < inkThreshold) ink++;
+            }
+            rowDensity[row] = (double)ink / (width - 2 * trimX);
+        }
+
+        // 4) Smooth (moving average) to bridge intraline gaps and suppress speck noise.
+        int smoothWindow = Math.Max(1, height / 150);
+        var smoothed = MovingAverage(rowDensity, smoothWindow);
+
+        // 5) Bands split at rows below an adaptive, local threshold: ValleyFraction of
+        //    the local peak in a sliding window — robust to uneven lighting down the page.
+        int localWindow = Math.Max(20, height / 12);
+        var lines = new List<DetectedLine>();
+        int start = -1;
+        for (int row = trimY; row <= height - trimY; row++)
+        {
+            double localPeak = LocalPeak(smoothed, row, localWindow, trimY, height - trimY);
+            double splitAt = Math.Max(options.MinRowDensity, localPeak * options.ValleyFraction);
+            bool inBand = row < height - trimY && smoothed[row] >= splitAt;
+            if (inBand && start < 0) start = row;
+            if (!inBand && start >= 0)
+            {
+                int end = row; // exclusive
+                if (end - start >= options.MinLineHeight && localPeak > 0)
+                {
+                    var (left, right, density) = BandExtent(page, start, end, inkThreshold);
+                    if (right > left)
+                        lines.Add(new DetectedLine
+                        {
+                            Id = new EntityId(EntityKind.Region, $"lay{lines.Count:x4}"),
+                            Top = start,
+                            Bottom = end,
+                            Left = left,
+                            Right = right,
+                            OrderIndex = lines.Count,
+                            InkDensity = density,
+                        });
+                }
+                start = -1;
+            }
+        }
+
+        var parametersHash = HashOf(options, inkThreshold);
+        return new LayoutResult(lines, nameof(ProjectionProfileLayout), parametersHash);
+    }
+
+    internal static int Otsu(int[] histogram, int total)
+    {
+        double sum = 0;
+        for (int i = 0; i < 256; i++) sum += (double)i * histogram[i];
+
+        double sumB = 0, wB = 0, maxVariance = -1;
+        int best = 127;
+        // Search interior thresholds only: t=0/t=255 are degenerate for perfectly
+        // bimodal histograms (they make one class the pure black/white peak and
+        // maximize variance at threshold 0, which binarizes nothing as ink).
+        for (int t = 1; t < 255; t++)
+        {
+            wB += histogram[t];
+            if (wB == 0) continue;
+            double wF = total - wB;
+            if (wF == 0) break;
+            sumB += (double)t * histogram[t];
+            double meanB = sumB / wB;
+            double meanF = (sum - sumB) / wF;
+            double variance = wB * wF * (meanB - meanF) * (meanB - meanF);
+            if (variance > maxVariance) { maxVariance = variance; best = t; }
+        }
+        return best;
+    }
+
+    private static double[] MovingAverage(double[] values, int window)
+    {
+        var result = new double[values.Length];
+        double sum = 0;
+        int count = 0;
+        for (int i = 0; i < values.Length; i++)
+        {
+            sum += values[i]; count++;
+            if (i >= window) { sum -= values[i - window]; count--; }
+            result[i] = sum / Math.Max(1, count);
+        }
+        return result;
+    }
+
+    private static double LocalPeak(double[] values, int center, int window, int low, int high)
+    {
+        double peak = 0;
+        int from = Math.Max(low, center - window / 2);
+        int to = Math.Min(high, center + window / 2);
+        for (int i = from; i < to; i++) peak = Math.Max(peak, values[i]);
+        return peak;
+    }
+
+    private static (int Left, int Right, double Density) BandExtent(SKBitmap page, int top, int bottom, float inkThreshold)
+    {
+        int width = page.Width;
+        var info = page.Info;
+        var bytes = page.Bytes;
+        int left = width, right = 0;
+        long inkPixels = 0;
+
+        for (int row = top; row < bottom; row++)
+        {
+            for (int col = 0; col < width; col++)
+            {
+                int b = (row * width + col) * info.BytesPerPixel;
+                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                if (luminance < inkThreshold)
+                {
+                    if (col < left) left = col;
+                    if (col > right) right = col;
+                    inkPixels++;
+                }
+            }
+        }
+
+        double density = (double)inkPixels / Math.Max(1, (bottom - top) * width);
+        if (right < left) return (0, 0, density);
+        return (left, right, density);
+    }
+
+    internal static string HashOf(Options options, float resolvedInkThreshold) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(
+                $"{options.InkThreshold:R}|{options.MinRowDensity:R}|{options.MinLineHeight}|{options.ValleyFraction:R}|otsu:{resolvedInkThreshold:R}"))).ToLowerInvariant();
+}
