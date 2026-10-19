@@ -3,3 +3,6 @@ obj/
 *.user
 TestResults/
 .artifacts/
+
+# local publish outputs
+dist/
