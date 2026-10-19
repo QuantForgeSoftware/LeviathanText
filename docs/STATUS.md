@@ -50,6 +50,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 
 ## Next recommended steps
 
+0. Limits and open issues: [docs/release/known-issues.md](release/known-issues.md).
 1. Data: finish adjudication of the pilot labels; add fresh held-out witnesses for any claim.
 2. Engineering: patch-level layout learning; confidence-aware review queue; tiled decode.
 3. Integration: surface B's latest evaluation artifacts; reconcile contract increments before any bump.
