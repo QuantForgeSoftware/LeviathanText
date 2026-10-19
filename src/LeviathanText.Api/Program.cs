@@ -3,6 +3,7 @@ using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Contracts.Serialization;
 using LeviathanText.Core.Jobs;
+using LeviathanText.Core.Revisions;
 using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
 using Microsoft.AspNetCore.Http;
@@ -19,6 +20,8 @@ builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredServic
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
 builder.Services.AddSingleton<JobEnqueuer>();
+builder.Services.AddSingleton<RevisionChain>();
+builder.Services.AddSingleton<RevisionChain>();
 
 var app = builder.Build();
 

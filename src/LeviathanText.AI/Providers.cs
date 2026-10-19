@@ -96,10 +96,19 @@ public static class ProposalIds
     public static EntityId New() => new(EntityKind.Proposal, Guid.NewGuid().ToString("N"));
 }
 
-/// <summary>
-/// Deterministic in-process test double. Used to exercise proposal handling without a
-/// network call; its identity clearly marks it as not a real model.
-/// </summary>
+/// <summary>Raw variant of the scripted double, for use under the schema-validating wrapper.</summary>
+public sealed class RawScriptedAiProvider(string providerId, string modelId, Func<AiProposalRequest, string> generator) : IRawAiProvider
+{
+    public string ProviderId => providerId;
+
+    public string ModelId => modelId;
+
+    public Task<string?> GenerateRawAsync(AiProposalRequest request, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(generator(request));
+}
+
+/// <summary>Deterministic in-process test double. Used to exercise proposal handling without a
+/// network call; its identity clearly marks it as not a real model.</summary>
 public sealed class ScriptedAiProvider(string providerId, string modelId, Func<AiProposalRequest, string> generator) : IAiProvider
 {
     public string ProviderId => providerId;

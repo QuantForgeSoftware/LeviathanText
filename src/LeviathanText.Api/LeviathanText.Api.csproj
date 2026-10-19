@@ -6,16 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- Microsoft.AspNetCore.OpenApi removed: it pulled Microsoft.OpenApi 2.0.0 (NU1903 high-severity advisory);
+       the API serves no OpenAPI documents. Add OpenAPI via a patched version when needed. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
-  </ItemGroup>
 
-  <ItemGroup>
     <ProjectReference Include="..\LeviathanText.Application\LeviathanText.Application.csproj" />
     <ProjectReference Include="..\LeviathanText.Infrastructure\LeviathanText.Infrastructure.csproj" />
     <ProjectReference Include="..\LeviathanText.Formats\LeviathanText.Formats.csproj" />
     <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
     <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
+    <ProjectReference Include="..\LeviathanText.AI\LeviathanText.AI.csproj" />
   </ItemGroup>
 
 </Project>
