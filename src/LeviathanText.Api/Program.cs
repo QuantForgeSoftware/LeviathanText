@@ -46,7 +46,7 @@ builder.Services.AddSingleton(sp =>
     return new ImageResolver(sp.GetRequiredService<IProjectStore>(), cache);
 });
 builder.Services.AddSingleton(sp => new LayoutService(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
-builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>()));
+builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
 builder.Services.AddSingleton<JobEnqueuer>();

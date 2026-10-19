@@ -37,8 +37,13 @@ public sealed class RecognitionPipeline
         string TransformChain);
 
     private readonly IProjectStore _store;
+    private readonly ImageResolver? _imageResolver;
 
-    public RecognitionPipeline(IProjectStore store) => _store = store;
+    public RecognitionPipeline(IProjectStore store, ImageResolver? imageResolver = null)
+    {
+        _store = store;
+        _imageResolver = imageResolver;
+    }
 
     public SurfaceOutcome Run(NativeProject project, EntityId surfaceId, Options options, CancellationToken cancellation = default)
     {
@@ -57,6 +62,15 @@ public sealed class RecognitionPipeline
                 Scope = surfaceId.ToString(),
                 Message = "Surface has no capture to recognize against.",
             });
+
+        // Remote captures (IIIF URLs) are fetched once into the checksummed cache.
+        if (!File.Exists(capture.ImageLocation) && _imageResolver is not null)
+        {
+            var resolved = _imageResolver.EnsureLocal(project, surfaceId);
+            project = resolved.Project;
+            surface = resolved.Surface;
+            capture = resolved.Capture;
+        }
 
         var labels = options.LabelSetFactory();
         using var model = options.ModelFactory();

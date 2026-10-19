@@ -137,7 +137,8 @@ public static class Program
                 // a package that cannot prove its identity fails with ModelIncompatible.
                 var loaded = RecognitionModelLoader.Load(packageDir);
 
-                var pipeline = new RecognitionPipeline(store);
+                var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+                var pipeline = new RecognitionPipeline(store, new ImageResolver(store, imageCache));
                 var outcome = pipeline.Run(project, surfaceId, new RecognitionPipeline.Options
                 {
                     ModelDirectory = packageDir,
