@@ -68,6 +68,18 @@ public sealed class ApiAuthTests
     }
 
     [Fact]
+    public async Task Query_token_is_accepted_for_event_source_compatibility()
+    {
+        using var factory = new AuthFactory(readOnly: false);
+        var client = factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.GetAsync($"/api/v1/projects?api_key={Key}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.GetAsync("/api/v1/projects?api_key=wrong")).StatusCode);
+    }
+
+    [Fact]
     public async Task Read_only_mode_blocks_mutations_but_allows_reads()
     {
         using var factory = new AuthFactory(readOnly: true);

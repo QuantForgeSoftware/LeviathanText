@@ -39,6 +39,7 @@ interface UndoStack {
           <button type="button" (click)="markUnclear()" [disabled]="caret() === 0 && text().length === 0">Mark unclear (at caret)</button>
           <button type="button" (click)="markLost()">Insert lost gap (position)</button>
           <span class="hint">position {{ caret() }} (scalars: {{ scalarTotal() }})</span>
+          <button type="button" (click)="copyLatestL0()" [disabled]="!latestL0()">Copy latest L0</button>
         </div>
 
         <div class="tools">
@@ -231,6 +232,20 @@ export class LineEditor {
       },
       error: () => { /* surfaced by the API; state kept */ },
     });
+  }
+
+  protected readonly latestL0 = computed(() => {
+    const revisions = this.payload()?.revisions ?? [];
+    return [...revisions].reverse().find(r => r.layer === 'L0RawRecognition') ?? null;
+  });
+
+  protected copyLatestL0(): void {
+    const l0 = this.latestL0();
+    if (!l0) return;
+    // Copy only: the model output becomes L1 only after a human saves a revision.
+    this.text.set(l0.text);
+    this.caret.set(scalarCount(l0.text));
+    this.writeDraft(l0.text);
   }
 
   protected readonly markedSegments = computed(() =>

@@ -62,6 +62,13 @@ public sealed class TranscriptionService(IProjectStore store)
             .OrderBy(r => r.CreatedAt)
             .ToList();
 
+    /// <summary>Every revision of a line across layers, oldest first (audit/display).</summary>
+    public IReadOnlyList<TextRevision> AllRevisions(NativeProject project, EntityId lineId)
+    {
+        var (_, surface, _) = FindLine(project, lineId);
+        return [.. surface.Revisions.Where(r => r.ScopeId == lineId).OrderBy(r => r.CreatedAt)];
+    }
+
     /// <summary>All annotations of a line's revisions (any layer), oldest first.</summary>
     public IReadOnlyList<Annotation> AnnotationsFor(NativeProject project, EntityId lineId)
     {

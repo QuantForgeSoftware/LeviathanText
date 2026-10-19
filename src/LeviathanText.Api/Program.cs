@@ -2,6 +2,7 @@ using LeviathanText.Api;
 using LeviathanText.AI;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
+using LeviathanText.Training;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Contracts.Serialization;
 using LeviathanText.Core.Jobs;
@@ -106,6 +107,10 @@ app.Use(async (context, next) =>
         provided = provided["Bearer ".Length..].Trim();
     if (string.IsNullOrEmpty(provided))
         provided = context.Request.Headers["X-Api-Key"].ToString();
+    // EventSource cannot set headers: accept a query token for the SSE endpoint (URLs may
+    // be logged — deploy behind TLS and treat logs accordingly).
+    if (string.IsNullOrEmpty(provided))
+        provided = context.Request.Query["api_key"].ToString();
 
     var matches = !string.IsNullOrEmpty(provided)
         && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
@@ -345,6 +350,77 @@ api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
     return Results.File(bytes, "application/zip", $"{project.Id}.zip");
 });
 
+// Model packages are discovered under one configured directory; clients name a package,
+// never a path. Listing is read-only and verifies package shape.
+string ModelsRoot(IConfiguration configuration) =>
+    configuration["LeviathanText:Models:Directory"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models");
+
+api.MapGet("models", (IConfiguration configuration) =>
+{
+    var root = ModelsRoot(configuration);
+    if (!Directory.Exists(root)) return Results.Ok(Array.Empty<object>());
+
+    var packages = Directory.GetDirectories(root).Select(directory =>
+    {
+        var manifest = Path.Combine(directory, "run-manifest.json");
+        var metadata = Directory.GetFiles(directory, "*.best.json");
+        if (!File.Exists(manifest) && metadata.Length != 1) return null;
+        return new
+        {
+            name = Path.GetFileName(directory),
+            modifiedAt = Directory.GetLastWriteTimeUtc(directory),
+            hasManifest = File.Exists(manifest),
+        };
+    }).Where(p => p is not null).ToList();
+    return Results.Ok(packages);
+});
+
+api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, ProjectService projects, IProjectStore store, ImageResolver imageResolver, string surfaceId, [FromBody] RecognizeRequest request) =>
+{
+    var root = ModelsRoot(configuration);
+    if (string.IsNullOrWhiteSpace(request.Model) || request.Model.Contains('/') || request.Model.Contains('\\')
+        || request.Model.Contains("..", StringComparison.Ordinal))
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = request.Model ?? "",
+            Message = "Model must be a package name under the configured model directory.",
+        });
+
+    var directory = Path.Combine(root, request.Model);
+    if (!Directory.Exists(directory))
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.Model,
+            Message = "No such model package on the server.",
+        });
+
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+
+    var loaded = RecognitionModelLoader.Load(directory);
+    var pipeline = new RecognitionPipeline(store, imageResolver);
+    var outcome = pipeline.Run(project, surfaceEntityId, new RecognitionPipeline.Options
+    {
+        ModelDirectory = directory,
+        ModelName = loaded.Manifest?.ModelName ?? request.Model,
+        ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
+        ModelFactory = () => loaded.Model,
+        LabelSetFactory = () => loaded.Labels,
+    });
+
+    return Results.Ok(new
+    {
+        surfaceId = surfaceId,
+        model = request.Model,
+        lines = outcome.Lines.Count,
+        skipped = outcome.SkippedLines.Count,
+    });
+});
+
 api.MapGet("projects/{id}/search", (ProjectService projects, string id, string q, string? mode) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -400,11 +476,20 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
     var history = transcription.RevisionHistory(project, lineEntityId, TextLayer.L1Diplomatic);
+    var all = transcription.AllRevisions(project, lineEntityId);
     return Results.Ok(new
     {
         line = lineId,
         diplomatic = history.LastOrDefault()?.Text,
         history = history.Select(r => new { id = r.Id.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt }),
+        revisions = all.Select(r => new
+        {
+            id = r.Id.ToString(),
+            layer = r.Layer.ToString(),
+            text = r.Text,
+            author = r.Author.Id,
+            at = r.CreatedAt,
+        }),
     });
 });
 
@@ -585,6 +670,8 @@ public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
+public sealed record RecognizeRequest(string Model);
+
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 

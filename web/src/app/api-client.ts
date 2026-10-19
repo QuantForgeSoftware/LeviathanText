@@ -46,6 +46,7 @@ export interface LinePayload {
   line: string;
   diplomatic: string | null;
   history: RevisionPayload[];
+  revisions?: RevisionPayload[];
 }
 
 export interface GeometryPoint {
@@ -213,6 +214,15 @@ export class ApiClient {
 
   trainingExport(projectId: string): Observable<unknown> {
     return this.http.get<unknown>(`/api/v1/projects/${projectId}/training-export`);
+  }
+
+  models(): Observable<{ name: string; modifiedAt: string; hasManifest: boolean }[]> {
+    return this.http.get<{ name: string; modifiedAt: string; hasManifest: boolean }[]>('/api/v1/models');
+  }
+
+  recognizeSurface(surfaceId: string, model: string): Observable<{ surfaceId: string; model: string; lines: number; skipped: number }> {
+    return this.http.post<{ surfaceId: string; model: string; lines: number; skipped: number }>(
+      `/api/v1/surfaces/${surfaceId}/recognize`, { model });
   }
 
   providers(): Observable<{ providers: { configRef: string; settings: { modelId: string } }[] }> {

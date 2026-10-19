@@ -55,6 +55,13 @@ curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/jso
 Check jobs with `leviathan jobs list` or `GET /api/v1/jobs`; watch with
 `GET /api/v1/jobs/{id}/events` (SSE; events are advisory, the job resource is authoritative).
 
+## Models
+
+`LeviathanText:Models:Directory` (default `~/.leviathantext/models`) is scanned by
+`GET /api/v1/models`; clients name a package (never a path). `POST
+/api/v1/surfaces/{id}/recognize {"model":"<name>"}` loads the verified package, persists L0
+revisions with provenance and returns line/skip counts. Long batch work belongs in jobs.
+
 ## Exports
 
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
@@ -85,8 +92,11 @@ LeviathanText__Auth__ApiKey=… LeviathanText__Auth__ReadOnly=true \
 ```
 
 Every `/api/v1` request must then send `Authorization: Bearer <key>` or `X-Api-Key`.
-Read-only blocks non-GET methods. **No accounts/roles/audit** — do not treat this as a
-complete authentication system. Without a key the API logs a local-only warning.
+SSE clients that cannot set headers (browser `EventSource`) may use `?api_key=…`; URLs can
+be logged, so use TLS and treat access logs accordingly. Read-only blocks non-GET methods.
+**No accounts/roles/audit** — do not treat this as a complete authentication system. Without
+a key the API logs a local-only warning. The current workspace client does not prompt for a
+key: use it locally, or add a client-side key holder before exposing a UI.
 
 ## Known limits to communicate
 

@@ -16,6 +16,7 @@
     <ProjectReference Include="..\LeviathanText.Contracts\LeviathanText.Contracts.csproj" />
     <ProjectReference Include="..\LeviathanText.Core\LeviathanText.Core.csproj" />
     <ProjectReference Include="..\LeviathanText.AI\LeviathanText.AI.csproj" />
+    <ProjectReference Include="..\LeviathanText.Training\LeviathanText.Training.csproj" />
   </ItemGroup>
 
 </Project>

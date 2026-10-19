@@ -87,3 +87,42 @@ describe('LineEditor (alternatives)', () => {
     expect(calls).toEqual([{ layer: 'L2Editorial', text: 'aXd', parent: 'rev-1' }]);
   });
 });
+
+describe('LineEditor (L0 copy)', () => {
+  it('copies model output into the editor but never saves it automatically', () => {
+    let saved = 0;
+    const stub = {
+      line: () => of({
+        line: 'ln-l0', diplomatic: 'abc',
+        history: [{ id: 'rev-l1', layer: 'L1Diplomatic', text: 'abc', author: 'human', at: '' }],
+        revisions: [
+          { id: 'rev-l1', layer: 'L1Diplomatic', text: 'abc', author: 'human', at: '' },
+          { id: 'rev-l0', layer: 'L0RawRecognition', text: 'model read', author: 'model:tiny', at: '' },
+        ],
+      }),
+      annotations: () => of([]),
+      appendRevision: () => { saved++; return of({}); },
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-l0');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.includes('Copy latest L0')) as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    expect(input.value).toBe('model read');
+    expect(saved).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('unsaved');
+  });
+});

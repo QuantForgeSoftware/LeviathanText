@@ -240,6 +240,17 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Line_payload_lists_every_layer_for_audit()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "layers-e2e");
+
+        var body = await client.GetStringAsync($"/api/v1/lines/{lineId}");
+        Assert.Contains("\"revisions\"", body);
+        Assert.Contains("L1Diplomatic", body);
+    }
+
+    [Fact]
     public async Task Legacy_alto_import_creates_a_surface_with_lines_and_text()
     {
         var client = NewClient();

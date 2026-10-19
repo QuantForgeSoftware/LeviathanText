@@ -66,6 +66,7 @@ dotnet run --project src/LeviathanText.Api
 # exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | alto | hocr
 #          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
+# models: GET /models (packages under LeviathanText:Models:Directory), POST /surfaces/{id}/recognize
 # jobs: POST /jobs (idempotency key; layout.detect / layout.project / recognize.surface / recognize.project / import.dir),
 #       GET /jobs (recent, ?status=), GET /jobs/{id}, GET /jobs/{id}/events (SSE with cursor replay)
 

@@ -50,6 +50,20 @@ import { GeometryEditor } from './geometry-editor';
         </p>
 
         <p class="tools">
+          @if (models().length > 0) {
+            <label>Model
+              <select [value]="selectedModel()" (change)="onModel($event)">
+                @for (model of models(); track model.name) { <option [value]="model.name">{{ model.name }}</option> }
+              </select>
+            </label>
+            <button type="button" (click)="recognize()" [disabled]="recognizeBusy()">Recognize surface (L0)</button>
+            <span class="hint">{{ recognizeStatus() }}</span>
+          } @else {
+            <span class="hint">No model packages found on the server.</span>
+          }
+        </p>
+
+        <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
           <button type="button" (click)="detectLayout()">Detect layout</button>
@@ -96,6 +110,31 @@ export class SurfaceView {
   protected readonly qaProfile = signal('');
   protected readonly qaFlagged = signal(0);
   protected readonly qaIssues = signal<{ lineId: string; scalarOffset: number; category: string; scalar: string }[]>([]);
+  protected readonly models = signal<{ name: string; modifiedAt: string; hasManifest: boolean }[]>([]);
+  protected readonly selectedModel = signal('');
+  protected readonly recognizeStatus = signal('');
+  protected readonly recognizeBusy = signal(false);
+
+  protected onModel(event: Event): void {
+    this.selectedModel.set((event.target as HTMLSelectElement).value);
+  }
+
+  protected recognize(): void {
+    const model = this.selectedModel();
+    if (!model) return;
+    this.recognizeBusy.set(true);
+    this.recognizeStatus.set('recognizing…');
+    this.api.recognizeSurface(this.surfaceId(), model).subscribe({
+      next: (result) => {
+        this.recognizeBusy.set(false);
+        this.recognizeStatus.set(`${result.lines} line(s) recognized${result.skipped ? `, ${result.skipped} skipped` : ''} (L0)`);
+      },
+      error: () => {
+        this.recognizeBusy.set(false);
+        this.recognizeStatus.set('recognition failed (model package or surface)');
+      },
+    });
+  }
   private readonly lineIdsByIndex = signal<string[]>([]);
 
   protected onCapture(event: Event): void {
@@ -177,6 +216,14 @@ export class SurfaceView {
         },
         error: () => this.exportData.set({ text: '', lossReport: { format: 'unavailable', contractVersion: '-', entries: [] } }),
       });
+
+    this.api.models().subscribe({
+      next: (list) => {
+        this.models.set(list);
+        if (list.length > 0) this.selectedModel.set(list[0].name);
+      },
+      error: () => this.models.set([]),
+    });
 
     this.api.profileReport(this.projectId()).subscribe({
       next: (report) => {
