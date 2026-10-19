@@ -66,6 +66,11 @@
 
 One filled sheet per track (manuscript / papyrus / inscription). Fields marked *(pending)* require measured pilot values; none are invented here.
 
+- Papyri draft: [acceptance-papyri-draft.md](acceptance-papyri-draft.md) (not frozen; thresholds and specialist sign-off pending).
+- Locked-set reuse history: [locked-set-reuse.md](locked-set-reuse.md).
+- P01 measurement record: [decoding-comparison.md](decoding-comparison.md); AI-assisted method: [correction-effort.md](correction-effort.md).
+- Manuscript and inscription sheets are not drafted: neither track has adjudicated labels and the combined initial scope is not complete.
+
 | Required entry | Content for this track | Status |
 | --- | --- | --- |
 | Corpus/version, object counts, evaluated lines/signs, unresolved spans, split hashes | from MAN-01 / PAP-01 / INS-01 | *(pending)* |
