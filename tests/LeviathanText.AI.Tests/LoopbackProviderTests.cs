@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using LeviathanText.AI;
 using LeviathanText.Contracts;
+using LeviathanText.Core.Revisions;
 using Xunit;
 
 namespace LeviathanText.AI.Tests;
@@ -111,6 +112,39 @@ public class LoopbackProviderTests
         Assert.True(outcome.Succeeded);
         Assert.Equal(2, server.Requests.Count);
         Assert.All(server.Requests, request => Assert.Equal("/api/chat", request.Path));
+    }
+
+    [Fact]
+    public async Task Proposal_service_resolves_evidence_and_uses_the_registered_provider()
+    {
+        await using var server = new Loopback(
+            (200, """{"choices":[{"message":{"content":"κυρίου"}}]}"""));
+
+        var chain = new RevisionChain();
+        var scope = new EntityId(EntityKind.Surface, "s1");
+        var revision = chain.Append(scope, TextLayer.L1Diplomatic, "κυριου", new AgentRef { Id = "u1", IsModel = false });
+
+        var settings = OpenAiSettings(server.BaseUrl);
+        var registry = new AiProviderRegistry([settings], new HttpClient(), Credentials(), (_, _) => Task.CompletedTask);
+        var service = new AiProposalService(registry.ProviderFor(settings.ProviderId));
+
+        var request = new AiProposalRequest
+        {
+            TargetRevisionId = revision.Id,
+            Range = new ScalarRange(0, 6),
+            Task = AiTaskKind.CandidateReading,
+            ProviderConfigRef = settings.ProviderId,
+            PromptVersion = "greek-ai-1",
+            SourceText = "CLIENT MUST NOT CONTROL THIS",
+        };
+
+        var outcome = await service.ProposeAsync(chain, request);
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal("κυρίου", outcome.Proposal!.ProposedText);
+        var body = Assert.Single(server.Requests).Body;
+        Assert.Contains("κυριου", body);
+        Assert.DoesNotContain("CLIENT MUST NOT CONTROL THIS", body);
     }
 
     /// <summary>Minimal loopback HTTP server serving a fixed sequence of responses.</summary>
