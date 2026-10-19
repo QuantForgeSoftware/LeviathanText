@@ -323,6 +323,12 @@ api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, Geome
     });
 });
 
+api.MapGet("projects/{id}/lines.csv", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(LineCsv.Export(project), "text/csv");
+});
+
 api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -484,6 +490,11 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) 
                     ? "pkg:" + request.ModelPackagePath
                     : "",
             })];
+    }
+    else if (request.Type == "layout.project" && !string.IsNullOrEmpty(request.ProjectId))
+    {
+        inputs = [new StageArtifact(EntityId.Parse(request.ProjectId, EntityKind.Collection),
+            new Checksum { Algorithm = "project", Digest = "" })];
     }
     else if (request.Type == "recognize.project" && !string.IsNullOrEmpty(request.ProjectId) && !string.IsNullOrEmpty(request.ModelPackagePath))
     {

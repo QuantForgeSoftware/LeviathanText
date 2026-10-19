@@ -28,6 +28,7 @@ public static class Program
         var host = new WorkerHost(jobStore,
             [new NoOpHandler(),
              new LayoutDetectHandler(store, imageResolver),
+             new LayoutProjectHandler(store, imageResolver, jobStore),
              new RecognizeSurfaceHandler(store, imageResolver),
              new RecognizeProjectHandler(store, imageResolver, jobStore),
              new ImportDirectoryHandler(store, jobStore)]);

@@ -87,7 +87,7 @@ public static class SearchService
     {
         int index = text.IndexOf(query, StringComparison.Ordinal);
         if (index < 0) return null;
-        int start = ScalarText.ScalarLength(text[..index]);
+        int start = ScalarText.ScalarLength(text.AsSpan(0, index));
         return new ScalarRange(start, start + ScalarText.ScalarLength(query));
     }
 

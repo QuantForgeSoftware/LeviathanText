@@ -41,6 +41,9 @@ Batch flows (durable jobs):
 # Bulk import (API); then run one worker iteration (or keep the worker running)
 curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/json' -d \
   '{"type":"import.dir","ownerId":"ops","projectId":"<col-id>","sourceDirectory":"/abs/pages","idempotencyKey":"import-1"}'
+# then detect layout on every surface that has none
+curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/json' -d \
+  '{"type":"layout.project","ownerId":"ops","projectId":"<col-id>","idempotencyKey":"layout-1"}'
 dotnet run --project src/LeviathanText.Worker -- --store pilot.db --once
 
 # Recognition of a whole project needs a verified model package
@@ -57,7 +60,9 @@ Check jobs with `leviathan jobs list` or `GET /api/v1/jobs`; watch with
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
 - `export tei` / `export alto` / `export hocr` — bounded profiles (unsupported fields reported).
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
-- `export bundle` — zip with native JSON, training export and all per-surface formats + manifest.
+- `export bundle` — zip with native JSON, training export, profile report and all per-surface
+  formats + manifest.
+- `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 

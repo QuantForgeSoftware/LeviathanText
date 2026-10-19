@@ -64,9 +64,9 @@ dotnet run --project src/LeviathanText.Api
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
 # geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}
 # exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | alto | hocr
-#          GET /projects/{id}/training-export | bundle (zip with manifest)
+#          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
-# jobs: POST /jobs (idempotency key; layout.detect / recognize.surface / import.dir),
+# jobs: POST /jobs (idempotency key; layout.detect / layout.project / recognize.surface / recognize.project / import.dir),
 #       GET /jobs (recent, ?status=), GET /jobs/{id}, GET /jobs/{id}/events (SSE with cursor replay)
 
 # Shared deployment (opt-in): set LeviathanText:Auth:ApiKey (Bearer or X-Api-Key required
