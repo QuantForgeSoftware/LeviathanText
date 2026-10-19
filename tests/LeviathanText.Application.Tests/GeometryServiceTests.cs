@@ -242,6 +242,37 @@ public sealed class GeometryServiceTests
     }
 }
 
+public sealed class ImportScopingTests
+{
+    [Fact]
+    public void Importing_the_same_document_twice_produces_disjoint_ids()
+    {
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("scoped");
+        var interchange = new InterchangeService(projects);
+        var fixture = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..",
+            "LeviathanText.Formats.Tests", "Fixtures", "sample.page.xml"));
+
+        var first = interchange.ImportPage(project, fixture);
+        project = store.LoadProject(project.Id)!;
+        var second = interchange.ImportPage(project, fixture);
+        project = store.LoadProject(project.Id)!;
+
+        var allLines = project.Objects.SelectMany(o => o.Surfaces).SelectMany(s => s.Lines).ToList();
+        Assert.Equal(4, allLines.Count);
+        Assert.Equal(allLines.Count, allLines.Select(l => l.Id).Distinct().Count());
+        Assert.Equal(allLines.Count, allLines.Select(l => l.DiplomaticRevisionId).Distinct().Count());
+
+        // Revision scopes point at the scoped line ids, not the document-local ones.
+        var linesById = allLines.ToDictionary(l => l.Id);
+        foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+            foreach (var revision in surface.Revisions)
+                if (revision.Layer == TextLayer.L1Diplomatic)
+                    Assert.Contains(revision.ScopeId, linesById.Keys);
+    }
+}
+
 public sealed class ImportImageTests : IDisposable
 {
     private readonly string _image = Path.Combine(Path.GetTempPath(), $"lt-import-image-{Guid.NewGuid():N}.png");

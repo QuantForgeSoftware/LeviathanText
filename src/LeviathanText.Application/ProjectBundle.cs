@@ -71,6 +71,11 @@ public static class ProjectBundle
                 annotations = s.Annotations.Count,
             }),
             files,
+            transcriptionProfile = new
+            {
+                id = Core.Unicode.GreekTextProfile.ProfileId,
+                version = Core.Unicode.GreekTextProfile.Version,
+            },
             layers = new
             {
                 l0 = "raw model output; never an edition",

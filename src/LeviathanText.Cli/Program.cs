@@ -1,5 +1,6 @@
 ﻿using LeviathanText.Application;
 using LeviathanText.Contracts;
+using LeviathanText.Core.Unicode;
 using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
 using LeviathanText.Recognition;
@@ -280,6 +281,39 @@ public static class Program
                 return 0;
             }
 
+            case "validate" when rest.Length >= 3 && rest[1] == "text":
+            {
+                // Greek transcription-profile inspection (no rewriting): unknown scalars,
+                // Latin letters and unpaired combining marks are reported per surface.
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var strict = rest.Contains("--strict");
+                int lines = 0, flagged = 0;
+                foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+                {
+                    var revisions = surface.Revisions.ToDictionary(r => r.Id);
+                    int surfaceLines = 0, surfaceIssues = 0;
+                    var shown = 0;
+                    foreach (var line in surface.Lines)
+                    {
+                        if (line.DiplomaticRevisionId is not { } rid || !revisions.TryGetValue(rid, out var revision)) continue;
+                        surfaceLines++;
+                        var report = GreekTextProfile.Inspect(revision.Text);
+                        if (report.IsClean) continue;
+                        surfaceIssues++;
+                        foreach (var issue in report.Issues)
+                        {
+                            if (shown++ >= 5) break;
+                            Console.Error.WriteLine($"  {line.Id} scalar {issue.ScalarOffset}: {issue.Category} {issue.Scalar}");
+                        }
+                    }
+                    lines += surfaceLines;
+                    flagged += surfaceIssues;
+                    Console.WriteLine($"{surface.Id}\tlines={surfaceLines}\tflagged={surfaceIssues}\tprofile={GreekTextProfile.ProfileId}@{GreekTextProfile.Version}");
+                }
+                Console.Error.WriteLine($"checked {lines} transcribed lines; flagged {flagged}");
+                return strict && flagged > 0 ? 1 : 0;
+            }
+
             case "jobs" when rest.Length >= 2 && rest[1] == "list":
             {
                 var limit = rest.Length >= 4 && rest[2] == "--limit" ? int.Parse(rest[3]) : 20;
@@ -306,8 +340,24 @@ public static class Program
                 var outDir = rest.Length >= 5 && rest[3] == "--out" ? rest[4] : Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "trained");
                 var epochs = rest.Length >= 7 && rest[5] == "--epochs" ? int.Parse(rest[6]) : 120;
+                var profileStrict = rest.Contains("--profile-strict");
 
                 var snapshot = P01LineDataset.Load(dataDir);
+                if (profileStrict)
+                {
+                    // Exclude labels with scalars outside the transcription profile (markup
+                    // leakage, unknown symbols). Reported, never silently dropped.
+                    static bool Outside(string text) => GreekTextProfile.Inspect(text).Issues
+                        .Any(i => i.Category == GreekTextProfile.Category.Other);
+                    var excludedTrain = snapshot.Train.Count(l => Outside(l.Text));
+                    var excludedDev = snapshot.Dev.Count(l => Outside(l.Text));
+                    snapshot = snapshot with
+                    {
+                        Train = [.. snapshot.Train.Where(l => !Outside(l.Text))],
+                        Dev = [.. snapshot.Dev.Where(l => !Outside(l.Text))],
+                    };
+                    Console.Error.WriteLine($"profile-strict: excluded {excludedTrain} train / {excludedDev} dev out-of-profile lines");
+                }
                 if (snapshot.Train.Count == 0) throw new ArgumentException("dataset produced no training lines");
                 var vocabulary = snapshot.Train.Concat(snapshot.Dev)
                     .SelectMany(l => LeviathanText.Core.Unicode.Graphemes.Enumerate(l.Text).Select(g => g.Text))

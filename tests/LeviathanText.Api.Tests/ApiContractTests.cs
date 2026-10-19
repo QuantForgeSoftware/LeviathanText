@@ -421,6 +421,53 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Imported_ids_are_scoped_per_project_so_global_line_endpoints_are_unambiguous()
+    {
+        var client = NewClient();
+        var (_, lineA, _) = await ImportFixtureAsync(client, "scoping-a");
+        var (_, lineB, _) = await ImportFixtureAsync(client, "scoping-b");
+        Assert.NotEqual(lineA, lineB); // document-local PAGE ids are namespaced per import
+
+        var projectA = await GetProjectIdAsync(client, "scoping-a");
+        var projectB = await GetProjectIdAsync(client, "scoping-b");
+
+        // Mutating B's line must not leak into A.
+        var appended = await client.PostAsJsonAsync($"/api/v1/lines/{lineB}/revisions",
+            new { layer = "L1Diplomatic", text = "abc", authorId = "tester" });
+        Assert.Equal(HttpStatusCode.OK, appended.StatusCode);
+
+        var reportA = await client.GetStringAsync($"/api/v1/projects/{projectA}/profile-report");
+        var reportB = await client.GetStringAsync($"/api/v1/projects/{projectB}/profile-report");
+        Assert.Contains("\"flagged\":0", reportA);
+        Assert.Contains("\"flagged\":1", reportB);
+    }
+
+    [Fact]
+    public async Task Profile_report_flags_latin_characters_without_rewriting_text()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "profile-report-e2e");
+        var projectId = await GetProjectIdAsync(client, "profile-report-e2e");
+
+        var clean = await client.GetAsync($"/api/v1/projects/{projectId}/profile-report");
+        Assert.Equal(HttpStatusCode.OK, clean.StatusCode);
+        var cleanBody = await clean.Content.ReadAsStringAsync();
+        Assert.Contains("greek-diplomatic-pilot", cleanBody);
+        Assert.Contains("\"flagged\":0", cleanBody);
+
+        // Append a Latin-bearing L1 revision: reported, and the stored text is untouched.
+        var appended = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/revisions",
+            new { layer = "L1Diplomatic", text = "abc", authorId = "tester" });
+        Assert.Equal(HttpStatusCode.OK, appended.StatusCode);
+
+        var flagged = await client.GetAsync($"/api/v1/projects/{projectId}/profile-report");
+        var flaggedBody = await flagged.Content.ReadAsStringAsync();
+        Console.WriteLine("PROFILE BODY: " + flaggedBody);
+        Assert.Contains("\"flagged\":1", flaggedBody);
+        Assert.Contains("LatinLetter", await flagged.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Project_bundle_returns_a_zip_with_a_manifest()
     {
         var client = NewClient();

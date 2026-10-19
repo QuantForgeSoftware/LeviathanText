@@ -87,4 +87,9 @@ complete authentication system. Without a key the API logs a local-only warning.
   has undo, and backups are the recovery path.
 - Recognition L0 is not an edition; only reviewed L1/L2 is transcription evidence.
 - The model packages shipped by `train lines` are pilot models trained on PAGE-derived
-  labels, not specialist-adjudicated ground truth.
+  labels, not specialist-adjudicated ground truth. `--profile-strict` excludes labels with
+  scalars outside the Greek profile (markup leakage) and reports how many.
+- Imported PAGE/ALTO/hOCR ids are namespaced per import (`ln-ln1-1a2b3c4d`), so globally
+  addressed endpoints cannot act on another project's line with the same document-local id.
+- `leviathan validate text <projectId>` (or `GET /projects/{id}/profile-report`) flags Latin
+  letters, unknown scalars and unpaired combining marks without rewriting text.

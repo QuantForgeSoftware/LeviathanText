@@ -67,7 +67,11 @@ public sealed class InterchangeService(ProjectService projects)
     {
         var xml = File.ReadAllText(pageXmlPath);
         var captureId = NewCaptureId(project);
-        var result = PageXml.Import(xml, captureId, UnknownChecksum());
+        var parsed = PageXml.Import(xml, captureId, UnknownChecksum());
+        var scopeToken = captureId.Suffix.Length >= 8 ? captureId.Suffix[^8..] : captureId.Suffix;
+        var (scopedRegions, scopedLines, scopedRevisions) =
+            ScopeImportedIds(parsed.Regions, parsed.Lines, parsed.Revisions, scopeToken);
+        var result = parsed with { Regions = scopedRegions, Lines = scopedLines, Revisions = scopedRevisions };
 
         // Resolve the referenced image next to the PAGE file (name from the document,
         // falling back to the XML basename with common extensions). Unresolved names are
@@ -169,6 +173,7 @@ public sealed class InterchangeService(ProjectService projects)
 
         var captureId = NewCaptureId(project);
         var content = File.ReadAllText(documentPath);
+        var scopeToken = captureId.Suffix.Length >= 8 ? captureId.Suffix[^8..] : captureId.Suffix;
 
         (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
             IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed =
@@ -184,6 +189,8 @@ public sealed class InterchangeService(ProjectService projects)
                 }),
             };
 
+        var (scopedRegions, scopedLines, scopedRevisions) =
+            ScopeImportedIds(parsed.Regions, parsed.Lines, parsed.Revisions, scopeToken);
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),
@@ -194,9 +201,9 @@ public sealed class InterchangeService(ProjectService projects)
                 Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
                 ImageLocation = Path.GetFullPath(imagePath),
             }],
-            Regions = parsed.Regions,
-            Lines = parsed.Lines,
-            Revisions = parsed.Revisions,
+            Regions = scopedRegions,
+            Lines = scopedLines,
+            Revisions = scopedRevisions,
         };
 
         var imported = new NativeObject
@@ -206,6 +213,46 @@ public sealed class InterchangeService(ProjectService projects)
         };
         projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
         return (imported, parsed.Unsupported);
+    }
+
+
+    /// <summary>
+    /// Namespace document-local IDs (PAGE/ALTO/hOCR carry IDs like "ln1") with a token
+    /// unique to the import. Without this, two projects imported from similar documents
+    /// share IDs and globally addressed endpoints can act on the wrong project.
+    /// </summary>
+    private static (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
+        IReadOnlyList<TextRevision> Revisions) ScopeImportedIds(
+        IReadOnlyList<NativeRegion> regions, IReadOnlyList<NativeLine> lines,
+        IReadOnlyList<TextRevision> revisions, string token)
+    {
+        static EntityId Scoped(EntityId id, string token)
+        {
+            var suffix = id.Suffix;
+            int maxBase = 63 - token.Length - 1;
+            if (suffix.Length > maxBase) suffix = suffix[..Math.Max(1, maxBase)];
+            return new EntityId(id.Kind, suffix + "-" + token);
+        }
+
+        var regionMap = regions.ToDictionary(r => r.Id, r => Scoped(r.Id, token));
+        var lineMap = lines.ToDictionary(l => l.Id, l => Scoped(l.Id, token));
+        var revisionMap = revisions.ToDictionary(r => r.Id, r => Scoped(r.Id, token));
+
+        var scopedRegions = regions.Select(r => r with { Id = regionMap[r.Id] }).ToList();
+        var scopedLines = lines.Select(l => l with
+        {
+            Id = lineMap[l.Id],
+            RegionId = regionMap.GetValueOrDefault(l.RegionId, l.RegionId),
+            DiplomaticRevisionId = l.DiplomaticRevisionId is { } rid
+                ? revisionMap.GetValueOrDefault(rid, rid)
+                : null,
+        }).ToList();
+        var scopedRevisions = revisions.Select(r => r with
+        {
+            Id = revisionMap[r.Id],
+            ScopeId = lineMap.GetValueOrDefault(r.ScopeId, r.ScopeId),
+        }).ToList();
+        return (scopedRegions, scopedLines, scopedRevisions);
     }
 
     private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
