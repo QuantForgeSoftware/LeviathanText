@@ -158,3 +158,17 @@ Blockers recorded so far:
 - New contract surface: `CoordinateFrame` (capture/derivative pinned by checksum — a re-captured image is a *different frame*), `Registration` (bounded transform description + responsible agent), `JobRecord`/`LeaseInfo`/`JobStatus`, `StageArtifact` (from increment 2).
 - New Core behavior, all test-proven: geometry transfer requires explicit symmetric registration (`FrameUnregistered` + `RegisterCaptures` remedy; EX-7 contract case now executable); stage checkpoints invalidate on input-checksum, model, config or contract-version change with closed-vocabulary reasons; jobs enforce idempotent creation via client key, idempotent identical publication, hard failure on divergent publication of a finalized job, bounded recorded retries and idempotent cancellation.
 - Verification: 41/41 Contracts.Tests + 72/72 Core.Tests pass (`dotnet test` on both test projects). Solution-wide build is currently blocked only by the concurrent worker's in-flight `src/LeviathanText.Recognition/` edits (their package; A's projects build and test clean in isolation).
+
+### Handoff revision 7 — 2026-10-18 (night session; single-instance mode)
+
+- Action: user made A the **only** instance and requested maximum progress on todo before 06:00 next day. A absorbed all packages.
+- Merged B-CODE after independent verification: Release build clean, 136/136 tests (commit `72690ea`). B's two Core repairs reviewed and accepted. B-CCR-6/B-CCR-7 accepted → contract set **`C0-0.4-draft`** (commit `15fa2c7`).
+- New packages implemented, each committed with green tests:
+  - **FMT** `95b7bd3`: native persistence + diplomatic export + loss reports + bounded PAGE (2013/2019) + bounded TEI/EpiDoc round-trips.
+  - **APP** `b7bf85e`: SQLite LocalStore (schema-versioned), Application services, local CLI (smoke-tested end to end).
+  - **IMG** `1f3a4f3`: SkiaSharp decode/crop/deskew, recorded transforms, explicit unmappability, mark-preserving crops.
+  - **PAP-01** `3bc2131`: P01 acquired, 59/59 md5-verified, audited 27 pairs / **321 real diplomatic lines** / 14,394 chars; DATA-01 ledger committed (`data/manifests/papyri/p01.json`); 5 unannotated images recorded.
+  - **Real-data training** `a3e48b7`: CTC on real lines — witness-level split (train 176/dev 50/test 95 locked), train loss → 0, **dev CER 0.833 vs 1.0 empty baseline**, exact reload parity. Pilot-scale: generalization is data-limited; locked test never touched by tuning; no release claim.
+- Suite state: **173/173 tests passing**, Release build 0 errors/0 warnings.
+- I0 substitute: with single-instance mode, the former "B reviews C0" gate becomes a recorded self-review at I1 (contract docs re-read against the implemented packages); noted as pending below.
+- Remaining before Phase 0 can be called *complete* (all pending, honestly): expert adjudication (DATA-03), corpus scale-up beyond 321 lines, all three tracks (manuscripts/inscriptions not yet acquired), locked-test evaluation, acceptance sheet with measured thresholds.
