@@ -4,7 +4,7 @@ Items checked off in `todo.md`, moved here at the end of each work cycle. `todo.
 open and in-progress work plus reference records (contracts, source register, decisions,
 estimates); completed checklist items live here. Rule recorded in `lessons.md`.
 
-Archive build: 2026-10-19 (archive run from `85488f5`).
+Archive build: 2026-10-19 (archive run from `d233ed5`).
 `9810e57`.
 Entries are verbatim, including commit references and links. 49 items.
 
@@ -81,3 +81,7 @@ Entries are verbatim, including commit references and links. 49 items.
 ## 6. Delivery backlog and acceptance gates
 ### Phase 2 — scholarly workspace and initial AI assistance
 - [x] Export corrected training data using visible-text labels and explicit annotation status; do not train visual recognition on supplied restorations. *(TrainingDataExport: L1-only labels, editorial-supply lines excluded outright, uncertainty spans + exact-span complements, CLI/API exports; 8 tests + live smoke. ML training consumption remains B's pipeline work.)*
+
+## 6. Delivery backlog and acceptance gates
+### Issued two-instance planning briefs
+- [x] B's review of the contract set (I0 gate) — moot while single-instance; substitute with a self-review of all five contract documents against all packages at the next integration checkpoint (I1). *(done: docs/contracts/self-review-2026-10-19.md — conformance matrix, deviations, open actions)*

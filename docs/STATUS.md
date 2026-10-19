@@ -24,6 +24,12 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | Workspace | editor with mark rendering + L1/L2 diff, annotations (all kinds), alternatives→L2, geometry (draw/resize/delete/order), jobs history, search, models + recognition, exports, QA badge |
 | Shared deployment guard | opt-in API key + read-only; **not** a user system |
 
+## Verification
+
+- 465 tests (464 passed + 1 opt-in skip), 0 failed, 13 suites; Release build 0 warnings/0 errors.
+- 21 Angular specs; production build clean; `scripts/pilot-demo.sh` PASS.
+- Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
+
 ## Measured numbers (pilot scale)
 
 - Recognition: P01 locked split spent; M02a dev CER ~0.84–0.88 depending on configuration.

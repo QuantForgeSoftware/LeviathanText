@@ -266,6 +266,9 @@ Blockers recorded so far:
   self-review recorded (`docs/contracts/self-review-2026-10-19.md`) with open actions.
 - **Docs:** `docs/STATUS.md` (one-page status), `docs/operations.md` (run/backup/batch/auth),
   throughput + evaluation index updates, implemented endpoint inventory in the API contract.
-- **Verification:** full Release build and suite counts recorded in the board after the closing
-  run; no open cross-package requests. B remains quiet since its morning handoff; licensing
-  files still belong to their author.
+- **Verification:** closing run **465 tests (464 passed + 1 opt-in skipped, 0 failed) across
+  13 suites; Release build 0 warnings/0 errors**; 21 web specs green; `scripts/pilot-demo.sh`
+  end-to-end PASS. Two self-review integrity actions were resolved in-cycle (mean L0
+  confidence persisted; run-id idempotency for retries) and geometry/order edits now have a
+  surface-level audit. B remains quiet since its morning handoff; licensing files still belong
+  to their author.
