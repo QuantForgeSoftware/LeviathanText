@@ -252,6 +252,37 @@ public sealed class GeometryServiceTests
         Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
         Assert.Contains("exactly once", ex.Error.Message);
     }
+
+    [Fact]
+    public void Split_and_merge_untranscribed_lines_with_audit()
+    {
+        var (lineId, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var surfaceId = project.Objects[0].Surfaces[0].Id;
+
+        var (added, surfaceWithAdded, line) = service.AddLine(project, surfaceId,
+            [new(10, 100), new(200, 100), new(200, 160), new(10, 160)],
+            [new(10, 158), new(200, 158)]);
+        Assert.NotNull(line);
+
+        var (afterSplit, splitSurface, top, bottom) = service.SplitLine(added, line.Id, 130);
+        var lines = splitSurface.Lines.Where(l => l.Id == top.Id || l.Id == bottom.Id).ToList();
+        Assert.Equal(2, lines.Count);
+        Assert.Contains(splitSurface.GeometryEdits, e => e.Kind == GeometryEditKind.LineSplit);
+
+        var (afterMerge, mergedSurface, merged) = service.MergeLines(afterSplit, top.Id, bottom.Id);
+        Assert.Single(mergedSurface.Lines.Where(l => l.Id == merged.Id));
+        Assert.DoesNotContain(mergedSurface.Lines, l => l.Id == bottom.Id);
+        Assert.Contains(mergedSurface.GeometryEdits, e => e.Kind == GeometryEditKind.LineMerged);
+        Assert.Equal(2, store.LoadProject(afterMerge.Id)!.Objects[0].Surfaces[0].Lines.Count); // fixture line + merged
+
+        // Transcribed fixture line cannot be split or merged.
+        var ex = Assert.Throws<LeviathanException>(() => service.SplitLine(afterMerge, lineId, 30));
+        Assert.Equal(ErrorCode.RevisionConflict, ex.Error.Code);
+        var invalid = Assert.Throws<LeviathanException>(() => service.SplitLine(afterMerge, merged.Id, 1));
+        Assert.Equal(ErrorCode.StageContractViolation, invalid.Error.Code);
+    }
+
 }
 
 public sealed class ImportScopingTests
@@ -325,4 +356,5 @@ public sealed class ImportImageTests : IDisposable
     {
         if (File.Exists(_image)) File.Delete(_image);
     }
+
 }

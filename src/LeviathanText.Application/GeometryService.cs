@@ -314,6 +314,167 @@ public sealed class GeometryService(IProjectStore store)
         return (foundProject, updated);
     }
 
+    /// <summary>
+    /// Split an untranscribed line at a horizontal y position (correction for merged
+    /// detections). Refuses lines carrying diplomatic text: that evidence must not be
+    /// re-partitioned silently.
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Top, NativeLine Bottom) SplitLine(
+        NativeProject project, EntityId lineId, double splitY, string author = "manual-editor")
+    {
+        var (foundProject, surface, line) = FindLine(project, lineId);
+        if (line.DiplomaticRevisionId is not null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RevisionConflict,
+                Scope = lineId.ToString(),
+                Message = "Line has a diplomatic revision; splitting it would detach text from geometry.",
+            });
+
+        double top = line.Polygon.Min(p => p.Y);
+        double bottom = line.Polygon.Max(p => p.Y);
+        double left = line.Polygon.Min(p => p.X);
+        double right = line.Polygon.Max(p => p.X);
+        if (splitY <= top + 2 || splitY >= bottom - 2)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = lineId.ToString(),
+                Details = new Dictionary<string, string> { ["splitY"] = splitY.ToString("0.#"), ["range"] = $"{top:0.#}..{bottom:0.#}" },
+                Message = "Split position must be inside the line box (at least 2 px from each edge).",
+            });
+
+        var topLine = line with
+        {
+            Id = new EntityId(EntityKind.Line, Guid.NewGuid().ToString("N")[..12]),
+            Polygon = [new(left, top), new(right, top), new(right, splitY), new(left, splitY)],
+            Baseline = [new(left, splitY), new(right, splitY)],
+        };
+        var bottomLine = line with
+        {
+            Id = new EntityId(EntityKind.Line, Guid.NewGuid().ToString("N")[..12]),
+            Polygon = [new(left, splitY), new(right, splitY), new(right, bottom), new(left, bottom)],
+            Baseline = [new(left, bottom), new(right, bottom)],
+        };
+
+        var lines = new List<NativeLine>();
+        foreach (var candidate in surface.Lines)
+        {
+            if (candidate.Id == lineId)
+            {
+                lines.Add(topLine);
+                lines.Add(bottomLine);
+            }
+            else lines.Add(candidate);
+        }
+
+        var updated = surface with
+        {
+            Lines = lines,
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineSplit,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = lineId,
+                    Before = GeometryJson(line.Polygon, line.Baseline),
+                    After = GeometryJson(topLine.Polygon, topLine.Baseline) + "|" + GeometryJson(bottomLine.Polygon, bottomLine.Baseline),
+                },
+            ],
+        };
+        foundProject = WithSurface(foundProject, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated, topLine, bottomLine);
+    }
+
+    /// <summary>
+    /// Merge two untranscribed lines of the same region (correction for split detections).
+    /// The first line's position is kept.
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Merged) MergeLines(
+        NativeProject project, EntityId firstLineId, EntityId secondLineId, string author = "manual-editor")
+    {
+        if (firstLineId == secondLineId)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = firstLineId.ToString(),
+                Message = "Cannot merge a line with itself.",
+            });
+
+        var (foundProject, surface, first) = FindLine(project, firstLineId);
+        if (first.DiplomaticRevisionId is not null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RevisionConflict,
+                Scope = firstLineId.ToString(),
+                Message = "First line has a diplomatic revision; merging would detach text from geometry.",
+            });
+        var second = surface.Lines.FirstOrDefault(l => l.Id == secondLineId)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = secondLineId.ToString(),
+                Message = "No such line on the first line's surface.",
+            });
+        if (second.DiplomaticRevisionId is not null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RevisionConflict,
+                Scope = secondLineId.ToString(),
+                Message = "Second line has a diplomatic revision; merging would detach text from geometry.",
+            });
+        if (second.RegionId != first.RegionId)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = secondLineId.ToString(),
+                Message = "Lines belong to different regions.",
+            });
+
+        double left = Math.Min(first.Polygon.Min(p => p.X), second.Polygon.Min(p => p.X));
+        double right = Math.Max(first.Polygon.Max(p => p.X), second.Polygon.Max(p => p.X));
+        double top = Math.Min(first.Polygon.Min(p => p.Y), second.Polygon.Min(p => p.Y));
+        double bottom = Math.Max(first.Polygon.Max(p => p.Y), second.Polygon.Max(p => p.Y));
+
+        var merged = first with
+        {
+            Polygon = [new(left, top), new(right, top), new(right, bottom), new(left, bottom)],
+            Baseline = [new(left, bottom), new(right, bottom)],
+        };
+
+        var lines = surface.Lines
+            .Where(l => l.Id != secondLineId)
+            .Select(l => l.Id == firstLineId ? merged : l)
+            .ToList();
+
+        var updated = surface with
+        {
+            Lines = lines,
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineMerged,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = firstLineId,
+                    Before = GeometryJson(first.Polygon, first.Baseline) + "|" + GeometryJson(second.Polygon, second.Baseline),
+                    After = GeometryJson(merged.Polygon, merged.Baseline),
+                },
+            ],
+        };
+        foundProject = WithSurface(foundProject, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated, merged);
+    }
+
     private static string GeometryJson(IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline) =>
         JsonSerializer.Serialize(new { polygon, baseline });
 

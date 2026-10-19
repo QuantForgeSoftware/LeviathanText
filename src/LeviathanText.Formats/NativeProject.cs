@@ -65,6 +65,8 @@ public enum GeometryEditKind
     LineDeleted,
     RegionOrder,
     LineOrder,
+    LineSplit,
+    LineMerged,
 }
 
 public sealed record GeometryEdit

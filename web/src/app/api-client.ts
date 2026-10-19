@@ -171,6 +171,14 @@ export class ApiClient {
     return this.http.delete(`/api/v1/lines/${lineId}`);
   }
 
+  splitLine(lineId: string, y: number): Observable<{ topLineId: string; bottomLineId: string }> {
+    return this.http.post<{ topLineId: string; bottomLineId: string }>(`/api/v1/lines/${lineId}/split`, { y });
+  }
+
+  mergeLines(lineId: string, otherLineId: string): Observable<{ lineId: string }> {
+    return this.http.post<{ lineId: string }>(`/api/v1/lines/${lineId}/merge`, { otherLineId });
+  }
+
   detectLayout(surfaceId: string): Observable<{ lineCount: number; method: string }> {
     return this.http.post<{ lineCount: number; method: string }>(`/api/v1/surfaces/${surfaceId}/detect-layout`, {});
   }

@@ -324,6 +324,25 @@ api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryServ
     });
 });
 
+api.MapPost("lines/{lineId}/split", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] SplitLineRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    var (_, _, top, bottom) = geometry.SplitLine(project, lineEntityId, request.Y, request.AuthorId ?? "api");
+    return Results.Ok(new { topLineId = top.Id.ToString(), bottomLineId = bottom.Id.ToString() });
+});
+
+api.MapPost("lines/{lineId}/merge", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] MergeLinesRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    var (_, _, merged) = geometry.MergeLines(project, lineEntityId,
+        EntityId.Parse(request.OtherLineId, EntityKind.Line), request.AuthorId ?? "api");
+    return Results.Ok(new { lineId = merged.Id.ToString() });
+});
+
 api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, string lineId, string? author) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
@@ -735,6 +754,10 @@ public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnl
 public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds, string? AuthorId = null);
 
 public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds, string? AuthorId = null);
+
+public sealed record SplitLineRequest(double Y, string? AuthorId = null);
+
+public sealed record MergeLinesRequest(string OtherLineId, string? AuthorId = null);
 
 public sealed record AddLineRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, EntityId? RegionId = null, string? AuthorId = null);
 

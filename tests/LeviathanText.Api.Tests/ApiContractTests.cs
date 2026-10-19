@@ -472,6 +472,38 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Untranscribed_line_can_be_split_and_merged_back()
+    {
+        var client = NewClient();
+        var (_, transcribedLine, surfaceId) = await ImportFixtureAsync(client, "split-merge-e2e");
+
+        var created = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/lines", new
+        {
+            polygon = new[]
+            {
+                new { x = 10.0, y = 100.0 }, new { x = 190.0, y = 100.0 },
+                new { x = 190.0, y = 160.0 }, new { x = 10.0, y = 160.0 },
+            },
+            baseline = new[] { new { x = 10.0, y = 158.0 }, new { x = 190.0, y = 158.0 } },
+        });
+        using var createdJson = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var lineId = createdJson.RootElement.GetProperty("lineId").GetString()!;
+
+        var split = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/split", new { y = 130.0 });
+        Assert.Equal(HttpStatusCode.OK, split.StatusCode);
+        using var splitJson = System.Text.Json.JsonDocument.Parse(await split.Content.ReadAsStringAsync());
+        var topId = splitJson.RootElement.GetProperty("topLineId").GetString()!;
+        var bottomId = splitJson.RootElement.GetProperty("bottomLineId").GetString()!;
+
+        var merged = await client.PostAsJsonAsync($"/api/v1/lines/{topId}/merge", new { otherLineId = bottomId });
+        Assert.Equal(HttpStatusCode.OK, merged.StatusCode);
+
+        // Transcribed lines are protected.
+        var refused = await client.PostAsJsonAsync($"/api/v1/lines/{transcribedLine}/split", new { y = 45.0 });
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+    }
+
+    [Fact]
     public async Task Imported_ids_are_scoped_per_project_so_global_line_endpoints_are_unambiguous()
     {
         var client = NewClient();

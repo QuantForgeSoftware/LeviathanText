@@ -81,6 +81,8 @@ interface DragState {
         <button type="button" (click)="setMode('draw')" [disabled]="mode() === 'draw'">Draw new line</button>
         <button type="button" (click)="saveGeometry()" [disabled]="!dirty()">Save geometry</button>
         <button type="button" (click)="undoGeometry()" [disabled]="history().length === 0">Undo edit</button>
+        <button type="button" (click)="splitSelected()" [disabled]="!selectedId()">Split line</button>
+        <button type="button" (click)="mergeSelectedWithNext()" [disabled]="!selectedId()">Merge with next</button>
         <button type="button" (click)="deleteSelected()" [disabled]="!selectedId()">Delete line</button>
         <button type="button" (click)="reset()" [disabled]="!dirty()">Reset</button>
         <span class="hint">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
@@ -380,6 +382,42 @@ export class GeometryEditor implements OnInit {
         },
         error: () => this.actionStatus.set('could not add line'),
       });
+  }
+
+  protected splitSelected(): void {
+    const line = this.lines().find(l => l.id === this.selectedId());
+    if (!line || line.polygon.length === 0) return;
+    const ys = line.polygon.map(p => p.y);
+    const middle = (Math.min(...ys) + Math.max(...ys)) / 2;
+    this.api.splitLine(line.id, middle).subscribe({
+      next: () => {
+        this.actionStatus.set('line split');
+        this.selectedId.set(null);
+        this.reload();
+      },
+      error: () => this.actionStatus.set('split refused (line has transcribed text)'),
+    });
+  }
+
+  protected mergeSelectedWithNext(): void {
+    const selected = this.selectedId();
+    if (!selected) return;
+    const list = this.lines();
+    const index = list.findIndex(l => l.id === selected);
+    if (index < 0) return;
+    const next = list.slice(index + 1).find(l => l.regionId === list[index].regionId);
+    if (!next) {
+      this.actionStatus.set('no following line in this region to merge');
+      return;
+    }
+    this.api.mergeLines(selected, next.id).subscribe({
+      next: () => {
+        this.actionStatus.set('lines merged');
+        this.selectedId.set(null);
+        this.reload();
+      },
+      error: () => this.actionStatus.set('merge refused (transcribed text or different region)'),
+    });
   }
 
   protected deleteSelected(): void {
