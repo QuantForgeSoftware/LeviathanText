@@ -11,8 +11,14 @@ namespace LeviathanText.Formats;
 /// </summary>
 public static class PageXml
 {
-    private static readonly XNamespace Pc = "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15";
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
+
+    /// <summary>Pinned accepted PAGE schema versions (todo §3: pin schema versions).</summary>
+    private static readonly string[] AcceptedNamespaces =
+    [
+        "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15",
+        "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15",
+    ];
 
     public sealed record PageImportResult(
         IReadOnlyList<NativeRegion> Regions,
@@ -20,7 +26,9 @@ public static class PageXml
         IReadOnlyList<TextRevision> Revisions,
         IReadOnlyList<ImportIssue> Unsupported);
 
-    public sealed record ImportIssue(string Element, string Description);
+    public enum IssueSeverity { Loss, Note }
+
+    public sealed record ImportIssue(string Element, string Description, IssueSeverity Severity = IssueSeverity.Loss);
 
     public static PageImportResult Import(string xml, EntityId frameEntity, Checksum frameChecksum)
     {
@@ -28,7 +36,10 @@ public static class PageXml
         var unsupported = new List<ImportIssue>();
 
         var pcGts = doc.Root ?? throw new InvalidDataException("Missing root element.");
-        if (pcGts.Name != Pc + "PcGts") throw new InvalidDataException($"Unexpected root {pcGts.Name}; expected PAGE PcGts.");
+        if (pcGts.Name.LocalName != "PcGts") throw new InvalidDataException($"Unexpected root {pcGts.Name}; expected PAGE PcGts.");
+        if (!AcceptedNamespaces.Contains(pcGts.Name.Namespace.NamespaceName))
+            throw new InvalidDataException($"PAGE namespace {pcGts.Name.Namespace} is not in the accepted, pinned set.");
+        var Pc = pcGts.Name.Namespace;
         RejectExternalEntities(doc);
 
         var page = pcGts.Element(Pc + "Page") ?? throw new InvalidDataException("Missing Page element.");
@@ -39,10 +50,16 @@ public static class PageXml
         var frame = new CoordinateFrame { ImageRef = frameEntity, ImageChecksum = frameChecksum };
         int regionOrder = 0;
 
+        // Consume Page/ReadingOrder (RegionRefIndexed) when present — real reading order, not a loss.
+        var declaredOrder = page.Elements(Pc + "ReadingOrder")
+            .SelectMany(ro => ro.Descendants(Pc + "RegionRefIndexed"))
+            .GroupBy(rr => (string?)rr.Attribute("regionRef"))
+            .ToDictionary(g => g.Key ?? "", g => (int?)g.First().Attribute("index"));
+
         foreach (var region in page.Elements(Pc + "TextRegion"))
         {
             var regionId = RequireId(region, "TextRegion");
-            var readingOrder = (int?)region.Element(Pc + "ReadingOrder")?.Attribute("index");
+            var customIndex = TryParseCustomIndex(region);
             var poly = ParsePoints(region.Element(Pc + "Coords")?.Attribute("points")?.Value);
             regions.Add(new NativeRegion
             {
@@ -50,12 +67,16 @@ public static class PageXml
                 FrameRef = frameEntity,
                 Polygon = poly,
                 LayoutSource = LayoutSource.Imported,
-                ReadingOrderIndex = readingOrder ?? regionOrder,
+                ReadingOrderIndex = declaredOrder.GetValueOrDefault(regionId) ?? customIndex ?? regionOrder,
             });
             regionOrder++;
 
-            foreach (var issue in UnsupportedChildren(region, ["Coords", "TextLine"]))
+            foreach (var issue in UnsupportedChildren(region, ["Coords", "TextLine", "TextEquiv"]))
                 unsupported.Add(issue);
+            if (region.Element(Pc + "TextEquiv") is not null)
+                unsupported.Add(new ImportIssue("region-TextEquiv",
+                    "region-level default text is recognized but not mapped: per-line diplomatic labels are authoritative",
+                    IssueSeverity.Note));
 
             foreach (var line in region.Elements(Pc + "TextLine"))
             {
@@ -95,15 +116,16 @@ public static class PageXml
         }
 
         foreach (var element in page.Elements())
-            if (element.Name != Pc + "TextRegion")
+            if (element.Name != Pc + "TextRegion" && element.Name != Pc + "ReadingOrder")
                 unsupported.Add(new ImportIssue(element.Name.LocalName, "unsupported PAGE element is preserved in the source attachment, not flattened"));
 
         return new PageImportResult(regions, lines, revisions, unsupported);
     }
 
-    /// <summary>Export a surface's regions/lines (geometry + text via TextEquiv) as a bounded PAGE document.</summary>
+    /// <summary>Export a surface's regions/lines (geometry + text via TextEquiv) as a bounded PAGE document (pinned 2019-07-15).</summary>
     public static string Export(NativeSurface surface, NativeCapture capture, IReadOnlyList<TextRevision> revisions)
     {
+        var Pc = XNamespace.Get("http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15");
         var revisionById = revisions.ToDictionary(r => r.Id);
 
         IEnumerable<XElement> LinesOf(NativeRegion region) =>
@@ -172,5 +194,14 @@ public static class PageXml
         var id = (string?)element.Attribute("id");
         if (string.IsNullOrEmpty(id)) throw new InvalidDataException($"{kind} is missing an id.");
         return id;
+    }
+
+    /// <summary>PAGE `custom="readingOrder {index:N;}"` attribute (Transkribus convention).</summary>
+    private static int? TryParseCustomIndex(XElement element)
+    {
+        var custom = (string?)element.Attribute("custom");
+        if (custom is null) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(custom, @"readingOrder \{index:(\d+);?\}");
+        return m.Success && int.TryParse(m.Groups[1].Value, out var index) ? index : null;
     }
 }

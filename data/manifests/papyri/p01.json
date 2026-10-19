@@ -1,0 +1,55 @@
+{
+  "schema": "leviathantext.corpus-manifest",
+  "schemaSchemaVersion": "C0-0.4-draft",
+  "manifestVersion": "manifest-v1",
+  "changeLog": [
+    {
+      "date": "2026-10-18",
+      "change": "P01 acquired (59 files, md5-verified) and audited: 27 pairs, 321 lines, 14394 chars; 5 images recorded image-only. Evidence: tests/LeviathanText.Pilot.Tests.",
+      "evidence": ["https://zenodo.org/api/records/6565706"]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "P01",
+      "source_version": "0.9",
+      "url_doi": "https://doi.org/10.5281/zenodo.6565706",
+      "retrieval_date": "2026-10-18",
+      "content_checksums": "verified: all 59 files md5 match (record.json manifest)",
+      "material_track": "papyrus",
+      "language_period": "Ancient Greek (to 1453); documentary, Zenon archive, Hellenistic",
+      "witness_dating": { "range": "3rd century BCE", "basis": "inferred from archive; record does not state" },
+      "units_evidence": {
+        "counts": { "jpg": 32, "xml": 27, "matched_pairs": 27, "images_without_xml": 5 },
+        "provenance": "inspected"
+      },
+      "paired_line_counts": 321,
+      "paired_char_counts": 14394,
+      "license_image": "cc-by-4.0",
+      "license_text": "cc-by-4.0",
+      "license_annotation": "cc-by-4.0",
+      "license_code": "unverified",
+      "license_weights": "unverified",
+      "license_evidence": "Zenodo rendered license: cc-by-4.0 (https://zenodo.org/api/records/6565706, accessed 2026-10-18)",
+      "attribution": "Isabelle Marthot-Santaniello; Tobias Hodel; D-Scribes project (University of Basel); CC BY 4.0",
+      "conditions_exceptions": ["no uniform separate image-rights statement found; treat as pending specialist confirmation"],
+      "allowed_intended_use": "dev",
+      "unresolved_questions": [
+        "sampled expert audit of diplomatic labels (expansion/editorial supply unknown)",
+        "provenance of the 5 extra images",
+        "cross-source dedup against P02/P03/P04 (DATA-02)"
+      ],
+      "artifacts": {
+        "store_prefix": ".artifacts/datasets/p01-v0.9/",
+        "files": 59,
+        "checksum_algorithm": "md5",
+        "verified": true
+      },
+      "splits": { "assignment": "pending DATA-03", "split_hash": null },
+      "notes": [
+        "record inconsistency: files block '5.2 MB' vs stats '811 MB total volume' (recorded in source card)",
+        "label spaces: documentary hand with word spacing; lunate sigma present"
+      ]
+    }
+  ]
+}

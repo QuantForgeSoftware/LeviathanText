@@ -202,3 +202,14 @@ Repo sources without a DOI (P04, and P05 with its moving `master`) must use `sou
 2. Granularity vocabulary — **resolved**: `label_granularity` covers `line`/`word`/`character-box`/`glyph`/`region`/`none`. Residual: no `asset_kind` value for a text-only catalogue/metadata asset → `B-CCR-6`.
 3. Whether NC (P02/P03) material may be used for **research-only** training that is not redistributed; recommend recording both bundled and research-only tracks rather than silently dropping NC data (todo Section 2 permits AI use; NC limits redistribution).
 4. Suggested source-backed replacement for A's invented EX-5: a real P01 lacuna line once PAP-01 inspects the XML.
+
+## 10. PAP-01 execution record (2026-10-18, single-instance mode: Instance A absorbed all packages)
+
+- **Acquisition:** all **59 files** of P01 v0.9 downloaded from `https://zenodo.org/api/records/6565706` to artifact-store prefix `.artifacts/datasets/p01-v0.9/` (gitignored; retrieval date **2026-10-18**). **All 59 md5 checksums verified against the record's file manifest** — 0 mismatches.
+- **File-list audit (API, inspected):** 32 `.jpg`, 27 `.xml`, **27 matching-name pairs**, 5 images without XML (III.59436, 59437, 59438, 59439, 59440r), 0 XML without image. Confirms the card's `[filelist]` figures by inspection.
+- **Automated audit (`tests/LeviathanText.Pilot.Tests`, green):** all 27 PAGE XMLs import through the bounded adapter with **no real-loss issue** (severity `Loss`); the only reported items are severity `Note` (region-level `TextEquiv` not mapped; per-line labels remain authoritative) and preserved attachments (`GraphicRegion` where present).
+- **Audited diplomatic counts:** **321 TextLines across 27 files; 14,394 Unicode characters** of diplomatic text; 0 empty diplomatic texts; every line carries its PAGE text + Coords/Baseline geometry; lunate sigma (`ϲ`) present in labels, matching the diplomatic profile's expectations.
+- **Namespace note `[new]`:** P01 files use PAGE **2013-07-15**; the adapter accepts both pinned versions (2013-07-15, 2019-07-15) and refuses others. ReadingOrder (`RegionRefIndexed`) is consumed into native reading-order indices, not flattened.
+- **Label-policy cautions (pending specialist review):** diplomatic text is Transkribus-prepared; spaces exist (documentary hand); expansion/editorial supply unknown → sampled review still required before any training; the 5 extra images are recorded as `image-only` / unannotated and excluded from pair counts.
+- **Real-image smoke:** P.Cair.Zen.II.59263r.jpg decodes at the declared 869×539; imported baseline geometry yields a real derivative line crop with a distinct checksum (crop lineage recorded).
+- **Corpus status:** P01 pilot is **audited, not training-ready**: expert adjudication (DATA-03) and split assignment remain pending. No accuracy or volume target is claimed.
