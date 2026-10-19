@@ -204,3 +204,17 @@ Blockers recorded so far:
 - **Layout iteration (meaningful result):** fixed three real-corpus preprocessing defects (faint-letter threshold, dark-surround crop, peak-only banding) — projection baseline precision 0.087→0.345, recall 0.096→0.506. The learned row-logit detector **underperforms** the corrected baseline; recorded as a negative result with diagnosis ([layout-learned-comparison.md](../evaluation/layout-learned-comparison.md)). Next iteration: patch-level CNN.
 - **Verification:** full suite green after the final run (counts in the board record); web: 12/12 Chrome specs, production build clean.
 - **Collaboration:** B's files untouched; B quiet during this window after its morning increments. Boundary state unchanged; no new contract requests raised. The licensing-policy files remain untracked (another worker's assignment).
+
+### Handoff revision 11 — 2026-10-19 afternoon (cycle 3 close; A only)
+
+- **Window:** 12:14–13:2x, single-instance work on A's packages (B quiet since its 10:35 handoff; licensing-policy files remain untracked for their author).
+- **Delivered:**
+  - **Durable jobs completed end to end:** `layout.detect` handler (surface carried as the job's input artifact), DB-backed job pickup fixed (API-enqueued jobs now execute in a separate worker process), remote captures resolved through the checksummed image cache. Live smoke: API enqueue → worker run → 12 detected lines, job `Succeeded`.
+  - **Layout:** projection detector improved (paper-relative threshold + content-bounds crop + background-relative banding): precision 0.087→0.345, recall 0.096→0.506 on real pages; wired as a first-class stage (CLI/API/UI) that refuses to overwrite existing layout. Learned row-logit retried with scale-relative and column-texture features — improved (R 0.003→0.04) but still below the projection baseline; recorded as a negative result with diagnosis.
+  - **Workflow proofs on both real tracks:** image-only papyrus page → 4 detected lines → 4 non-empty L0 outputs; held-out M02a manuscript page → 25 lines → 19 non-empty L0 outputs. L0 revisions are now persisted with model provenance (raw output never enters L1).
+  - **Self-service training:** `train lines` CLI writes a complete model package (manifest + card, verified label/architecture metadata); loop verified: train → package → import → recognize.
+  - **Ingestion/import fixes:** PAGE import resolves the referenced image path (was storing only a filename) and accepts a surface kind; bulk PAGE import through the bounded pipeline (27/27 files, 0.6 s).
+  - **UI:** line-order editing, generic annotation form (all kinds/extent/alternatives), geometry resize handles, multi-view capture selector, detect-layout action.
+  - **Measured limitations recorded:** TIFF unsupported by the current codec (now rejected cleanly, no crash); geometry edits still update the native document directly (no geometry revision history; client undo + backups — disclosed gap).
+- **Verification:** full suite green (counts in the board record); 12 web specs; Release build 0 warnings.
+- **Still open (unchanged):** Phase 0 specialist adjudication/annotation volume; inscription labels; shared-server auth; TIFF/backend selection; Kraken comparator; frozen acceptance sheet; hosted provider calls.
