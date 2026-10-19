@@ -135,6 +135,29 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, s
         "application/xml");
 });
 
+api.MapPost("projects/{id}/import-iiif", (ProjectService projects, string id, [FromBody] ImportIiifRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    if (!Path.IsPathRooted(request.ManifestPath) || !File.Exists(request.ManifestPath))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.ManifestPath,
+            Message = "Manifest path must be absolute and readable on the server host.",
+        });
+
+    var (imported, manifest, warnings) = new InterchangeService(projects).ImportIiif(project, request.ManifestPath);
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceId = imported.Surfaces[0].Id.ToString(),
+        captureCount = imported.Surfaces[0].Captures.Count,
+        manifestLabel = manifest.ManifestLabel,
+        rights = manifest.RightsStatement,
+        warnings,
+    });
+});
+
 // Transcription writes (Phase 2): layer-respecting revisions with revision-based undo,
 // and scholarly annotations with stale-anchor rejection.
 api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService transcription, string lineId) =>
@@ -269,6 +292,7 @@ app.Run();
 
 public sealed record CreateProjectRequest(string Name, MaterialTrack? Track);
 public sealed record ImportPageRequest(string PageXmlPath);
+public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
