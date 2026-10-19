@@ -8,6 +8,7 @@
     <ProjectReference Include="../../src/LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
     <ProjectReference Include="../../src/LeviathanText.Core/LeviathanText.Core.csproj" />
     <ProjectReference Include="../../src/LeviathanText.AI/LeviathanText.AI.csproj" />
+    <ProjectReference Include="../../src/LeviathanText.Evaluation/LeviathanText.Evaluation.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
