@@ -34,7 +34,8 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
         long numClasses,
         long hiddenSize = 64,
         int widthDownsampleFactor = DefaultWidthDownsampleFactor,
-        int inputHeight = InputHeight)
+        int inputHeight = InputHeight,
+        double dropout = 0.0)
         : base(nameof(CrnnModel))
     {
         if (numClasses < 2) throw new ArgumentOutOfRangeException(nameof(numClasses), "Need at least a blank plus one label.");
@@ -42,11 +43,14 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
             throw new ArgumentOutOfRangeException(nameof(widthDownsampleFactor), "Width downsample factor must be 1, 2 or 4.");
         if (inputHeight < 8 || inputHeight % 4 != 0)
             throw new ArgumentOutOfRangeException(nameof(inputHeight), "Input height must be at least 8 and divisible by 4 (two 2x height pools).");
+        if (dropout is < 0 or >= 0.9)
+            throw new ArgumentOutOfRangeException(nameof(dropout), "Dropout must be in [0,0.9).");
 
         NumClasses = numClasses;
         HiddenSize = hiddenSize;
         WidthDownsampleFactor = widthDownsampleFactor;
         InputHeightPixels = inputHeight;
+        Dropout = dropout;
         _featureHeightAfterPools = inputHeight / 4;
 
         _conv1 = nn.Conv2d(1, ConvChannels / 2, 3, padding: 1);
@@ -76,6 +80,9 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
     /// <summary>Input raster height this model expects; 16 is the original pilot value.</summary>
     public int InputHeightPixels { get; }
 
+    /// <summary>Dropout applied to the LSTM output before the CTC head; 0 disables it.</summary>
+    public double Dropout { get; }
+
     public override Tensor forward(Tensor input)
     {
         if (input.dim() != 4) throw new ArgumentException("Expected a 4-D (N,1,H,W) tensor.", nameof(input));
@@ -92,6 +99,7 @@ public sealed class CrnnModel : nn.Module<Tensor, Tensor>
         x = x.reshape(n, c * h, w).permute(2, 0, 1);
 
         var (output, _, _) = _lstm.forward(x);
+        if (Dropout > 0) output = nn.functional.dropout(output, Dropout, training);
         var logits = _fc.forward(output); // (T, N, C)
         return nn.functional.log_softmax(logits, dim: 2);
     }

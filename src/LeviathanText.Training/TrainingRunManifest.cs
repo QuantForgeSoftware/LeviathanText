@@ -19,6 +19,7 @@ public sealed record TrainingRunManifest
     public required long HiddenSize { get; init; }
     public required int WidthDownsampleFactor { get; init; }
     public required int InputHeightPixels { get; init; }
+    public required double Dropout { get; init; }
     public required bool AugmentTraining { get; init; }
     public required double WeightDecay { get; init; }
     public required int TrainLines { get; init; }
@@ -87,6 +88,7 @@ public static class TrainingRunManifestWriter
             HiddenSize = model.HiddenSize,
             WidthDownsampleFactor = model.WidthDownsampleFactor,
             InputHeightPixels = model.InputHeightPixels,
+            Dropout = model.Dropout,
             AugmentTraining = config.AugmentTraining,
             WeightDecay = config.WeightDecay,
             TrainLines = trainLines,

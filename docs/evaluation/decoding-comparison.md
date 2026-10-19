@@ -93,12 +93,23 @@ volume: it does not fix the remaining errors once crop geometry is sane.
 Weight decay hurts monotonically at this data volume; keep it **0**. The knob exists
 (`TrainingConfig.WeightDecay`) and is recorded in the run manifest for future data scales.
 
+## Dropout A/B (height 16, width 4, augmentation on)
+
+| Dropout | Dev scalar CER |
+| --- | --- |
+| **0 (default)** | **0.7908** |
+| 0.1 | 0.8068 |
+| 0.2 | 0.8008 |
+
+Dropout on the LSTM output does not help at this data volume; keep it **0**. The
+configuration exists (`CrnnModel(..., dropout:)`) and is recorded in the run manifest.
+
 ## Decision (pilot-scale, reversible)
 
 - Keep **greedy** as the default decoder; keep `AugmentTraining` **off by default** so
   existing runs/checkpoints remain comparable.
 - Best measured next-candidate configuration: **height 16, width 4, augmentation on,
-  weight decay 0**.
+  weight decay 0, dropout 0**.
   A future frozen candidate must use fresh held-out witnesses (acceptance-plan.md §2).
 - Do **not** claim calibrated confidence or use confidence-based abstention from this data.
 - The earlier height-32 recommendation is withdrawn for now; re-test it after the

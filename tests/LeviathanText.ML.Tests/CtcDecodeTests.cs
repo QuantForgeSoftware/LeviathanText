@@ -108,6 +108,26 @@ public class CtcDecodeTests
     }
 
     [Fact]
+    public void Dropout_is_active_in_training_and_bypassed_in_evaluation()
+    {
+        var labels = new LabelSet(new[] { "α", "β", "γ" });
+        var model = new CrnnModel(labels.NumClasses, hiddenSize: 64, dropout: 0.5);
+        var (images, _) = LineBatcher.ToTensor([Training.SyntheticGraphemeRenderer.Render("αβγ")]);
+
+        model.eval();
+        var first = model.forward(images).data<float>().ToArray();
+        var second = model.forward(images).data<float>().ToArray();
+        Assert.Equal(first, second);
+
+        model.train();
+        var third = model.forward(images).data<float>().ToArray();
+        var fourth = model.forward(images).data<float>().ToArray();
+        Assert.NotEqual(third, fourth);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CrnnModel(labels.NumClasses, dropout: 1.0));
+    }
+
+    [Fact]
     public void Recognizer_defaults_to_greedy_and_accepts_beam_mode()
     {
         var labels = new LabelSet(new[] { "α", "β", "γ" });
