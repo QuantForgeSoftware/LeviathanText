@@ -18,7 +18,7 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
 {
     public sealed record Outcome(NativeProject Project, NativeSurface Surface, int LineCount, string Method);
 
-    public Outcome Detect(NativeProject project, EntityId surfaceId)
+    public Outcome Detect(NativeProject project, EntityId surfaceId, long maxPixels = 12_000_000)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -62,8 +62,13 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
                 Message = "Capture image is not readable on this host.",
             });
 
-        using var decoded = ImageDecoder.Decode(capture.ImageLocation);
+        // Bound memory: very large captures are detected on a scaled preview and all
+        // coordinates are mapped back to the original frame. Recognition still requires
+        // full-resolution pixels for crops (tiled region decode is a known open item).
+        using var decoded = ImageDecoder.DecodeBounded(capture.ImageLocation, maxPixels);
         var result = ProjectionProfileLayout.Detect(decoded.Bitmap);
+        double scaleX = decoded.ScaleX, scaleY = decoded.ScaleY;
+        int originalWidth = decoded.OriginalWidth, originalHeight = decoded.OriginalHeight;
 
         var region = new NativeRegion
         {
@@ -72,9 +77,9 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
             Polygon =
             [
                 new PointD(0, 0),
-                new PointD(decoded.Bitmap.Width, 0),
-                new PointD(decoded.Bitmap.Width, decoded.Bitmap.Height),
-                new PointD(0, decoded.Bitmap.Height),
+                new PointD(originalWidth, 0),
+                new PointD(originalWidth, originalHeight),
+                new PointD(0, originalHeight),
             ],
             LayoutSource = LayoutSource.Automatic,
             ReadingOrderIndex = 0,
@@ -87,12 +92,16 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
             FrameRef = capture.Id,
             Polygon =
             [
-                new PointD(detected.Left, detected.Top),
-                new PointD(detected.Right, detected.Top),
-                new PointD(detected.Right, detected.Bottom),
-                new PointD(detected.Left, detected.Bottom),
+                new PointD(detected.Left / scaleX, detected.Top / scaleY),
+                new PointD(detected.Right / scaleX, detected.Top / scaleY),
+                new PointD(detected.Right / scaleX, detected.Bottom / scaleY),
+                new PointD(detected.Left / scaleX, detected.Bottom / scaleY),
             ],
-            Baseline = [new PointD(detected.Left, detected.Bottom), new PointD(detected.Right, detected.Bottom)],
+            Baseline =
+            [
+                new PointD(detected.Left / scaleX, detected.Bottom / scaleY),
+                new PointD(detected.Right / scaleX, detected.Bottom / scaleY),
+            ],
         }).ToList();
 
         var updated = surface with { Regions = [region], Lines = lines };

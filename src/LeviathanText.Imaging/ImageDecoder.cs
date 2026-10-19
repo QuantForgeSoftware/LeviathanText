@@ -18,6 +18,138 @@ public static class ImageDecoder
         public void Dispose() => Bitmap.Dispose();
     }
 
+    /// <summary>
+    /// Bounded-pixel decode: images above <paramref name="maxPixels"/> are decoded at a
+    /// reduced scale (codec-level scaling, so the full bitmap never exists in memory).
+    /// Callers map coordinates back with <see cref="ScaledImage.ScaleX"/>/<see cref="ScaledImage.ScaleY"/>.
+    /// This is the preview path for layout on very large captures; recognition still needs
+    /// full-resolution pixels for line crops (tiled region decode is not implemented).
+    /// </summary>
+    public sealed record ScaledImage(SKBitmap Bitmap, int OriginalWidth, int OriginalHeight, Checksum SourceChecksum) : IDisposable
+    {
+        public double ScaleX => OriginalWidth == 0 ? 1 : (double)Bitmap.Width / OriginalWidth;
+        public double ScaleY => OriginalHeight == 0 ? 1 : (double)Bitmap.Height / OriginalHeight;
+        public bool IsScaled => ScaleX < 0.999 || ScaleY < 0.999;
+        public void Dispose() => Bitmap.Dispose();
+    }
+
+    public static ScaledImage DecodeBounded(string path, long maxPixels = 12_000_000)
+    {
+        var file = new FileInfo(path);
+        if (!file.Exists)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = path,
+                Message = "Image file not found.",
+            });
+        if (file.Length > MaxEncodedBytes)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Details = new Dictionary<string, string> { ["bytes"] = file.Length.ToString(), ["max"] = MaxEncodedBytes.ToString() },
+                Message = "Encoded image exceeds the configured size limit.",
+            });
+
+        var bytes = File.ReadAllBytes(path);
+        var checksum = ChecksumOf(bytes);
+
+        try
+        {
+            using var codec = SKCodec.Create(new MemoryStream(bytes));
+            if (codec is null)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RejectedArchive,
+                    Scope = path,
+                    Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format" },
+                    Message = "Image format is not supported by the current imaging backend.",
+                });
+
+            var info = codec.Info;
+            if (info.Width > MaxDimension || info.Height > MaxDimension)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RejectedArchive,
+                    Scope = path,
+                    Details = new Dictionary<string, string> { ["width"] = info.Width.ToString(), ["height"] = info.Height.ToString() },
+                    Message = "Image dimensions exceed the configured limit.",
+                });
+
+            long pixels = (long)info.Width * info.Height;
+            if (pixels <= maxPixels)
+            {
+                var full = SKBitmap.Decode(new MemoryStream(bytes));
+                if (full is null)
+                    throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.RejectedArchive,
+                        Scope = path,
+                        Message = "Image could not be decoded.",
+                    });
+                return new ScaledImage(full, info.Width, info.Height, checksum);
+            }
+
+            var desired = (float)Math.Sqrt((double)maxPixels / pixels);
+            var dimensions = codec.GetScaledDimensions(desired);
+
+            if (dimensions.Width < info.Width || dimensions.Height < info.Height)
+            {
+                // Codec-level scaling (JPEG/WebP): the full bitmap never exists.
+                var scaled = new SKBitmap(dimensions.Width, dimensions.Height, info.ColorType, info.AlphaType);
+                var result = codec.GetPixels(scaled.Info, scaled.GetPixels());
+                if (result is not SKCodecResult.Success and not SKCodecResult.IncompleteInput)
+                {
+                    scaled.Dispose();
+                    throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.RejectedArchive,
+                        Scope = path,
+                        Details = new Dictionary<string, string> { ["reason"] = "scaled-decode-failed", ["result"] = result.ToString() },
+                        Message = "Scaled decode failed for this image.",
+                    });
+                }
+                if (result == SKCodecResult.IncompleteInput)
+                    scaled.Erase(SKColors.Black);
+                return new ScaledImage(scaled, info.Width, info.Height, checksum);
+            }
+
+            // Formats without codec-level scaling (e.g. PNG in this build): decode full and
+            // resample. This still bounds the bitmap handed to downstream stages, but the
+            // temporary full decode is bounded only by MaxDimension — a documented limit.
+            int targetWidth = Math.Max(1, (int)Math.Round(info.Width * (double)desired));
+            int targetHeight = Math.Max(1, (int)Math.Round(info.Height * (double)desired));
+            using var decodedFull = SKBitmap.Decode(new MemoryStream(bytes))
+                ?? throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RejectedArchive,
+                    Scope = path,
+                    Message = "Image could not be decoded.",
+                });
+            var resampled = new SKBitmap(targetWidth, targetHeight, info.ColorType, info.AlphaType);
+            using (var canvas = new SKCanvas(resampled))
+            {
+                canvas.DrawBitmap(decodedFull,
+                    new SKRect(0, 0, decodedFull.Width, decodedFull.Height),
+                    new SKRect(0, 0, targetWidth, targetHeight),
+                    new SKSamplingOptions(SKFilterMode.Linear));
+            }
+            return new ScaledImage(resampled, info.Width, info.Height, checksum);
+        }
+        catch (LeviathanException) { throw; }
+        catch (Exception ex)
+        {
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format", ["exception"] = ex.GetType().Name },
+                Message = "Image format is not supported by the current imaging backend.",
+            });
+        }
+    }
+
     public static DecodedImage Decode(string path)
     {
         var file = new FileInfo(path);

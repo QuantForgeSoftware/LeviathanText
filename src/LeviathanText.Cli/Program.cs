@@ -101,6 +101,21 @@ public static class Program
                     return 1;
                 }
 
+                // Verify every image BEFORE writing anything: a corrupt set must not leave
+                // a half-restored store behind.
+                var imagesSource = Path.Combine(source, "images");
+                var images = manifest.GetProperty("images").EnumerateArray().ToList();
+                foreach (var property in images)
+                {
+                    var name = property.GetProperty("name").GetString()!;
+                    var file = Path.Combine(imagesSource, name);
+                    if (!File.Exists(file) || Sha256File(file) != property.GetProperty("sha256").GetString())
+                    {
+                        Console.Error.WriteLine($"image checksum mismatch or missing ({name}); refusing to restore");
+                        return 1;
+                    }
+                }
+
                 if (File.Exists(targetDb) && !force)
                 {
                     Console.Error.WriteLine($"target store exists ({targetDb}); pass --force to overwrite");
@@ -109,12 +124,11 @@ public static class Program
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetDb))!);
                 File.Copy(sourceDb, targetDb, overwrite: true);
 
-                var imagesSource = Path.Combine(source, "images");
-                if (Directory.Exists(imagesSource))
+                if (images.Count > 0)
                 {
                     var imagesTarget = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(targetDb))!, "images");
                     Directory.CreateDirectory(imagesTarget);
-                    foreach (var property in manifest.GetProperty("images").EnumerateArray())
+                    foreach (var property in images)
                     {
                         var name = property.GetProperty("name").GetString()!;
                         File.Copy(Path.Combine(imagesSource, name), Path.Combine(imagesTarget, name), overwrite: true);

@@ -325,6 +325,22 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Project_bundle_returns_a_zip_with_a_manifest()
+    {
+        var client = NewClient();
+        var created = await client.PostAsJsonAsync("/api/v1/projects", new { name = "bundle-e2e" });
+        var project = await created.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var response = await client.GetAsync($"/api/v1/projects/{project!["id"]}/bundle");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/zip", response.Content.Headers.ContentType?.MediaType);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.True(bytes.Length > 100);
+        Assert.Equal((byte)'P', bytes[0]); // PK zip signature
+        Assert.Equal((byte)'K', bytes[1]);
+    }
+
+    [Fact]
     public async Task Bulk_import_job_carries_project_and_source_directory()
     {
         var client = NewClient();

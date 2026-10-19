@@ -78,7 +78,8 @@ public static class ProjectBundle
                 l2 = "editorial reading/accepted proposals",
             },
             note = "Lossy conversions (plain text, bounded TEI/ALTO/hOCR) report what they drop; " +
-                   "the native project.json is authoritative.",
+                   "the native project.json is authoritative. Image files are NOT bundled — " +
+                   "capture paths and checksums in project.json locate them.",
         };
         Add("manifest.json", JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
 

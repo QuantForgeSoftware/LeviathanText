@@ -64,6 +64,38 @@ public class ImageDecoderTests : IDisposable
     }
 
     [Fact]
+    public void DecodeBounded_scales_large_images_and_maps_coordinates()
+    {
+        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(3000, 2000));
+        surface.Canvas.Clear(SkiaSharp.SKColors.White);
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 90);
+        var path = Path.Combine(Path.GetTempPath(), $"lt-big-{Guid.NewGuid():N}.png");
+        using (var stream = File.Create(path)) data.SaveTo(stream);
+
+        try
+        {
+            using var bounded = ImageDecoder.DecodeBounded(path, maxPixels: 1_000_000);
+            Assert.True(bounded.IsScaled);
+            Assert.Equal(3000, bounded.OriginalWidth);
+            Assert.Equal(2000, bounded.OriginalHeight);
+            Assert.True((long)bounded.Bitmap.Width * bounded.Bitmap.Height <= 1_000_000);
+            // Aspect ratio preserved within one pixel of scaling.
+            Assert.Equal(1.5, (double)bounded.Bitmap.Width / bounded.Bitmap.Height, 1);
+            Assert.Equal(3000.0 * bounded.ScaleX, bounded.Bitmap.Width, 0);
+
+            using var full = ImageDecoder.DecodeBounded(path, maxPixels: 100_000_000);
+            Assert.False(full.IsScaled);
+            Assert.Equal(3000, full.Bitmap.Width);
+            Assert.Equal(1.0, full.ScaleX);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Tiff_support_is_documented_either_way()
     {
         var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.tif");
