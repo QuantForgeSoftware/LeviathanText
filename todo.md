@@ -524,7 +524,9 @@ Review results:
 
 ## 11. Remaining-effort estimate — 2026-10-19
 
-Estimate basis: measured output of the completed engineering (14 C# packages + Angular workspace, 359 tests), the three real-data pilots, and the pilot training runs. Units are **dev-days** (one engineer or agent-equivalent working day) and **specialist-days** (Greek/papyrology/epigraphy expert time). Ranges are deliberately wide where the plan says "measure first"; no date claim is made.
+Estimate basis: measured output of the completed engineering (14 C# packages + Angular workspace, 359 tests), the three real-data pilots, and the pilot training runs. **The tables below are human-equivalent scope** (one engineer or one specialist). §11.D translates that to agent execution, which is a different number: my measured throughput is several human-equivalent days per active hour, but the calendar is still gated by humans and compute.
+
+Units are **dev-days** (one human engineer working day) and **specialist-days** (Greek/papyrology/epigraphy expert time). Ranges are deliberately wide where the plan says "measure first"; no date claim is made.
 
 ### A. Engineering (C#/Angular), remaining
 
@@ -575,3 +577,25 @@ Estimate basis: measured output of the completed engineering (14 C# packages + A
 - **Recognition quality**: **not estimable** — measured CER is 0.78–0.87 at 176–571 training lines; reaching release-quality needs adjudicated volume (thousands of lines per hand) and is a research outcome, not a schedule item.
 - **What compresses the estimate**: (1) named specialist with regular hours; (2) a decision allowing NC corpora for research-only tracks (removes per-image rights friction); (3) accepting a narrow documented profile (e.g., two supported hands) instead of broad generalization; (4) combining the dev/acceptance label audits into one instrumented pass.
 - **What expands it**: any track whose labels cannot be adjudicated; a requirement for fully automatic layout from day one; per-image institutional permissions for P02/P03.
+
+### D. Agent (Instance A) timeline — the same scope, my execution
+
+Measured velocity basis: this morning's ~3.5 hours of active session produced work equal to roughly 12–17 human dev-days (transcription service + 11 tests, API write surface + 13 HTTP tests + live smoke, editor/dual-pane/jobs UI, Layout package + harness, extraction fix, IIIF CLI/API + tests, streaming pipeline, handbook). That is ~4–5 human-days per active hour on **well-specified, contract-driven** work. I apply a **2× conservatism** for the remainder because it contains more experimentation and less greenfield code.
+
+| Work package | My active time | Sessions (4–6 h cap) | Calendar if inputs are supplied |
+| --- | --- | --- | --- |
+| Engineering stream (46–80 human-days) | **20–50 h** | 5–10 | 1.5–4 weeks of working days |
+| ML scale-up experiments | 8–20 h of my time + **30–80 h background training** | interleaved | gated by adjudicated data volume |
+| Data acquisition/audit (5–8 human-days) | 2–4 h + download/convert wall time | 1–2 | 1–3 days (network/hardware) |
+| Release engineering/packaging (5–7 human-days) | 2–4 h | 1–2 | 1 week |
+| Formats/parity (10–18 human-days) | 4–8 h | 2–3 | 1–2 weeks |
+| **My total for Phases 1–2 engineering** | **~35–80 h active** | **8–15** | **3–6 weeks** |
+
+**What my speed does not change:**
+
+1. **Phase 0's gate is human.** Adjudicated labels (12–23 specialist-days), rights decisions on P02/P03, and sign-off on the transcription profile cannot be compressed by me. With a specialist on regular hours: **4–6 weeks calendar** for Phase 0, of which my share is ~1 week.
+2. **Research outcomes.** Recognition quality at 176–571 training lines is CER 0.78–0.87. Whether adjudicated volume gets a model to release quality is measured, not scheduled — my ability to run experiments fast does not make the outcome predictable.
+3. **Context limits.** I work in bounded sessions; a multi-week calendar means re-briefing per the handoff protocol (`docs/handoffs/A-PLAN.md`), not one continuous run. Long sessions degrade my reliability (observed 2026-10-19: garbled edits after ~4 h without a break), so 4–6 h sessions with test gates are the sane unit.
+4. **Compute wall clock.** Training/eval runs are minutes-to-hours each; suites already take ~20 min (ML alone ~14). Background runs don't need my attention but they extend the calendar.
+
+**Bottom line:** if specialists and rights decisions arrived at a steady pace, I could deliver the **Phase 1–2 engineering** in about **3–6 weeks of calendar with ~8–15 working sessions (~35–80 active hours)**, and the **first usable Greek release** in roughly **6–10 weeks calendar** — the delta being human adjudication and fresh held-out evaluation. The 10–16 week figure in §11.C is the realistic plan when specialist time is part-time; it is not my coding speed.
