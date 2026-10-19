@@ -188,6 +188,12 @@ api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, Geome
     });
 });
 
+api.MapGet("projects/{id}/training-export", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Content(TrainingDataExport.ToJson(TrainingDataExport.Export(project)), "application/json");
+});
+
 // Transcription writes (Phase 2): layer-respecting revisions with revision-based undo,
 // and scholarly annotations with stale-anchor rejection.
 api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService transcription, string lineId) =>

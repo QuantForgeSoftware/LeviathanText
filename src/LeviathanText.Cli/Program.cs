@@ -82,6 +82,15 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 3 && rest[1] == "training":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var document = TrainingDataExport.Export(project);
+                Console.WriteLine(TrainingDataExport.ToJson(document));
+                Console.Error.WriteLine($"clean={document.CleanLines} uncertain={document.UncertainLines} excluded={document.ExcludedLines}");
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "diplomatic":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
