@@ -134,6 +134,41 @@ public class HttpProviderTests
     }
 
     [Fact]
+    public async Task Ollama_think_flag_is_sent_only_when_configured()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Json("""
+            {"message":{"content":"κυρίου"},"eval_count":2}
+            """)));
+        var settings = OllamaSettings() with { OllamaThink = false };
+        var provider = new AiHttpProvider(settings, new HttpClient(handler), delay: NoDelay);
+
+        await new SchemaValidatingAiProvider(provider).ProposeAsync(Request());
+
+        Assert.Contains("\"think\":false", Assert.Single(handler.Bodies));
+
+        var handlerDefault = new StubHandler((_, _) => Task.FromResult(Json("""
+            {"message":{"content":"κυρίου"},"eval_count":2}
+            """)));
+        await new SchemaValidatingAiProvider(
+            new AiHttpProvider(OllamaSettings(), new HttpClient(handlerDefault), delay: NoDelay)).ProposeAsync(Request());
+        Assert.DoesNotContain("think", Assert.Single(handlerDefault.Bodies));
+    }
+
+    [Fact]
+    public async Task Truncated_thinking_only_response_has_a_specific_failure_reason()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Json("""
+            {"message":{"role":"assistant","content":"","thinking":"reasoning..."},"done":true,"done_reason":"length","eval_count":64}
+            """)));
+        var provider = new AiHttpProvider(OllamaSettings(), new HttpClient(handler), delay: NoDelay);
+
+        var outcome = await new SchemaValidatingAiProvider(provider).ProposeAsync(Request());
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureReasons.ResponseTruncated, outcome.Failure!.Reason);
+    }
+
+    [Fact]
     public async Task Transient_rate_limit_is_retried_with_retry_after()
     {
         var waits = new List<TimeSpan>();

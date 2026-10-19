@@ -198,7 +198,7 @@ because parallel native-libtorch training caused a test-host crash once the P01 
 matrix grew. With the P01 artifact store present the suite trains several models and takes
 ~15 minutes; without artifacts every dataset-backed test skips and the suite is fast.
 
-**Final verification (2026-10-19):** Release build succeeded; **AI 70/70, EVAL 39/39,
+**Final verification (2026-10-19):** Release build succeeded; **AI 72/72 (1 opt-in live test skipped by default), EVAL 39/39,
 ML 44/44**; non-B suites also green — Contracts 41, Core 72, Application 15, API 11,
 Formats 13, Imaging 10, Infrastructure 5, Worker 8, Layout 6. B's packages build with no
 warnings; the remaining warnings are pre-existing xUnit analyzer notes in A-owned tests. B did not edit `todo.md`,
@@ -218,7 +218,8 @@ contracts, `A-PLAN.md`, the solution file, `src/LeviathanText.Layout/`,
 | `AiEvaluationBridge` (`src/LeviathanText.AI/`) | Maps recorded `AiProposal` task/status to EVAL suggestion kinds and scores a reviewed session (`ScoreSession`); no package cycle (AI→Evaluation). |
 | `TrainingRunManifestWriter`, `ModelPackageWriter`, `RecognitionModelLoader` (`src/LeviathanText.Training/`) | Write/read a run manifest; package the selected checkpoint with weights, optimizer state, metadata/label set, manifest and model card; load a package into a ready `TorchLineRecognizer` (verifies label hash and manifest digest). |
 
-Not done by B: external provider calls (no credentials/endpoints were configured). The
-HTTP path is proven end-to-end over **loopback sockets** (`LoopbackProviderTests`), not
-against a third-party service; API/UI wiring was done by A, and corpus acquisition,
+Provider evidence: the HTTP path is proven over loopback sockets
+(`LoopbackProviderTests`) **and** against a real local Ollama server
+(`LiveOllamaTests`, opt-in; see [live-provider-smoke.md](../evaluation/live-provider-smoke.md)).
+No external hosted API was exercised. API/UI wiring was done by A; corpus acquisition,
 expert adjudication and thresholds remain pending.

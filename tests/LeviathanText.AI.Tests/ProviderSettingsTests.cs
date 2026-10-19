@@ -33,6 +33,7 @@ public class ProviderSettingsTests
         yield return [Valid() with { MaxAttempts = 6 }];
         yield return [Valid() with { MaxRequests = -1 }];
         yield return [Valid() with { MaxSpendUsd = 1m }]; // price missing
+        yield return [Valid() with { Protocol = AiWireProtocol.OpenAiChatCompletions, OllamaThink = false }];
     }
 
     [Theory]

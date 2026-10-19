@@ -10,6 +10,7 @@
   measurements: greedy vs beam, calibration/risk–coverage, error analysis, and the
   architecture/augmentation/regularization/learning-rate/batch-size matrix.
 - [model-card-p01-h16-aug.md](model-card-p01-h16-aug.md) — tracked card for the best measured P01 dev candidate (package is in the artifact store).
+- [live-provider-smoke.md](live-provider-smoke.md) — opt-in local Ollama smoke test (transport only).
 - [correction-effort.md](correction-effort.md) — AI-assisted review metric and its limits.
 - [layout-comparison.md](layout-comparison.md) — automatic-layout comparison and the
   negative pilot finding.

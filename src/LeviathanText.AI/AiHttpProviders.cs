@@ -87,19 +87,26 @@ public sealed class AiHttpProvider : IRawAiProvider
                 ["temperature"] = 0,
                 ["stream"] = false,
             }
-            : new
-            {
-                model = _settings.ModelId,
-                messages,
-                stream = false,
-                options = new
-                {
-                    temperature = 0,
-                    num_predict = _settings.MaxOutputTokens,
-                },
-            };
+            : BuildOllamaPayload(messages);
 
         return JsonSerializer.Serialize(payload, PayloadOptions);
+    }
+
+    private Dictionary<string, object?> BuildOllamaPayload(object[] messages)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["model"] = _settings.ModelId,
+            ["messages"] = messages,
+            ["stream"] = false,
+            ["options"] = new
+            {
+                temperature = 0,
+                num_predict = _settings.MaxOutputTokens,
+            },
+        };
+        if (_settings.OllamaThink is { } think) payload["think"] = think;
+        return payload;
     }
 
     private (string Content, int InputTokens, int OutputTokens) Parse(string json, int promptCharacters)
@@ -117,6 +124,14 @@ public sealed class AiHttpProvider : IRawAiProvider
                 throw new JsonException("The response content is not a string.");
 
             var content = contentElement.GetString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(content)
+                && root.TryGetProperty("done_reason", out var doneReason)
+                && doneReason.ValueKind == JsonValueKind.String
+                && string.Equals(doneReason.GetString(), "length", StringComparison.Ordinal))
+                throw new AiProviderException(
+                    AiFailureReasons.ResponseTruncated,
+                    _transport.SanitizeForRecord(json),
+                    detail: "The model stopped at the token limit before emitting replacement text (thinking budget may be exhausted).");
             var inputTokens = EstimateTokens(promptCharacters);
             var outputTokens = EstimateTokens(content.Length);
 

@@ -87,6 +87,13 @@ public sealed record AiProviderSettings
     /// <summary>Optional cap on logical provider calls (0 = unlimited); retries do not consume extra calls.</summary>
     public int MaxRequests { get; init; }
 
+    /// <summary>
+    /// Ollama-only: send <c>think</c> to enable/disable a reasoning model's thinking phase.
+    /// Null leaves the server default. A thinking model with a small token budget can
+    /// spend it all on thinking and emit no content.
+    /// </summary>
+    public bool? OllamaThink { get; init; }
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(ProviderId)) Invalid("providerId is required.");
@@ -100,6 +107,8 @@ public sealed record AiProviderSettings
         if (MaxAttempts is < 1 or > 5) Invalid("maxAttempts must be between 1 and 5.");
         if (BaseRetryDelay < TimeSpan.Zero || BaseRetryDelay > TimeSpan.FromSeconds(30)) Invalid("baseRetryDelay must be between 0 and 30 seconds.");
         if (MaxRequests < 0) Invalid("maxRequests must be non-negative.");
+        if (OllamaThink is not null && Protocol != AiWireProtocol.OllamaChat)
+            Invalid("ollamaThink is only valid for the Ollama protocol.");
         if (MaxSpendUsd is { } spend)
         {
             if (spend < 0) Invalid("maxSpendUsd must be non-negative.");
@@ -128,6 +137,7 @@ public static class AiFailureReasons
     public const string SpendBudgetExceeded = "spend-budget-exceeded";
     public const string PromptTooLarge = "prompt-too-large";
     public const string RequestBudgetExceeded = "request-budget-exceeded";
+    public const string ResponseTruncated = "response-truncated";
 }
 
 /// <summary>
