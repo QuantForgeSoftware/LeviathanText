@@ -161,6 +161,21 @@ Read-only review; Application suite is green (15 tests, including 5000-item back
 - `ItemResult.Error` carries `exception.Message`; ensure future work callbacks never embed
   credentials or other secrets in exception text.
 
+### Suggested next B session (in dependency order)
+
+1. **Fresh data first.** Any further accuracy claim needs adjudicated labels and fresh
+   held-out witnesses; the P01 locked split is spent. Do not tune on it.
+2. **Live provider test** with user-supplied credentials/endpoints, then a small
+   prompt/model comparison through `AiEvaluationBridge` + the correction-effort scorer.
+   Until then, hosted/local quality is unmeasured.
+3. **Manuscript hand holdout** (M01 ff.104r–174v) once MAN-04 confirms the boundary;
+   inscription labels (INS-01/DATA-03) remain the third-track blocker.
+4. Re-test beam/width/height only after the training volume grows; at 176 lines the
+   measured defaults (greedy, height 16, width 4, augmentation on, wd/dropout 0, batch 8,
+   lr 3e-3) are the selected configuration.
+5. Wire the packaged model card (`ModelPackageWriter`) into the API/model-catalog surface
+   with A; no new quality claim follows from packaging alone.
+
 ### Locked-set disclosure (B, EVAL)
 
 The P01 locked split was scored twice (0.885 pre-fix, 0.828 post-fix). The public
