@@ -285,6 +285,8 @@ Dataset workers publish immutable, versioned development images/crops and annota
 
 **With three or more instances:** run D-M, D-P and D-I independently; keep one integrator. After C0, run ML, FMT/IMG, APP, and UI/AI in parallel as slots permit. At four instances a practical allocation is integrator/APP, ML, IMG/FMT, and UI/AI; each owns its tests. EVAL may be a separate instance where available, or a bounded cross-review task after candidate outputs are frozen. Separate role assignments do not require an additional person for each role.
 
+**Status correction (night session 2026-10-18/19, single-instance mode):** "every implementation package unstarted" is superseded — the user authorized coding and made Instance A the only instance; current state is the board above. Acquisition/adjudication gates remain pending.
+
 **Starting assignment:** C0 and D-M/D-P/D-I are ready for further documentation/intake planning; every implementation package is unstarted and awaits a user instruction permitting code. Data/license research is complete only to the extent recorded in Section 5; acquisition, pairing and expert annotation remain pending. Give each new instance a package brief containing its ID, allowed action scope, base revision, owned paths, contract version, dependency inputs, acceptance criteria and handoff path `docs/handoffs/<package-id>.md`. A brief must carry the no-code constraint whenever it is still in effect. This lets a fresh instance resume without relying on another chat's memory.
 
 ### Issued two-instance planning briefs
@@ -294,7 +296,21 @@ Baseline ID: **PLAN-2026-10-18-two-instance-v1**, issued 2026-10-18. These brief
 | Package | Owner / brief | Current status | Dependency before acceptance | Handoff |
 | --- | --- | --- | --- | --- |
 | A-PLAN | Instance A — [contracts and planning integration](docs/tasks/instance-a-contracts-and-integration.md) | **review** (documentation complete 2026-10-18; handoff: [docs/handoffs/A-PLAN.md](docs/handoffs/A-PLAN.md); blocked on B's peer review — see execution record below) | B's material-fit review of the named C0 draft; recorded dispositions | `docs/handoffs/A-PLAN.md` |
-| B-PLAN | Instance B — [corpus intake and evaluation planning](docs/tasks/instance-b-corpus-and-evaluation.md) | ready; not started (no B handoff exists as of A's claim) | A's draft conventions and review of B's named document revisions | `docs/handoffs/B-PLAN.md` |
+| B-PLAN | Instance B — [corpus intake and evaluation planning](docs/tasks/instance-b-corpus-and-evaluation.md) | **done → absorbed** (B's planning docs completed by B; B-CODE increment merged into single-instance mode) | — | `docs/handoffs/B-PLAN.md`, `docs/handoffs/B-CODE.md` |
+
+**Implementation package board (single-instance mode, night session 2026-10-18/19; all owned by Instance A):**
+
+| ID | Scope | Status | Evidence |
+| --- | --- | --- | --- |
+| C0 | Contracts/Core + solution setup | **done** (increments 1–3 + C0-0.4-draft dispositions) | commits `5f6ac24`, `da56646`, `44d4a9a`, `15fa2c7` |
+| FMT | Formats/ingestion | **done** (native JSON, diplomatic+loss reports, PAGE 2013/2019, TEI/EpiDoc, IIIF P3) | commit `95b7bd3`, `1a6d09c` |
+| IMG | Imaging/layout adapters | **done (adapters)**; automatic layout detection unstarted | commit `1f3a4f3` |
+| APP | Persistence/jobs/CLI/Worker | **done (local-first core)**; HTTP editor workflows partial | commits `b7bf85e`, `1bc025d` |
+| ML | Recognition/training | **done (feasibility gate on real + synthetic data)** | commits `72690ea`, `a3e48b7`, `0534ac1` |
+| EVAL | Evaluation/scoring | **pilot reports live** (EVAL-02/04 pilot form); frozen acceptance sheet pending specialists | commit `9a3efd7`, `a0c43fc` |
+| AI | Provider adapters | **scaffold done** (schema validation, scripted double, acceptance→L2); real hosted/local adapters untested | commit `72690ea` |
+| UI | Angular workspace | **scaffold + surface view live**; annotation editor partial | commits `108d45e`, `4903a80` |
+| DATA-01..03 | Corpus ledger/manifests/splits | **ledgers committed** (p01, m01, m02a, i01); expert adjudication pending | commits `3bc2131`, `4d16e1b`, `3b75bf0` |
 
 A alone edits this board and the contract documents. B alone edits the three material plans and evaluation plan. Each owns its own handoff. The briefs are read-only inputs during execution. A publishes a draft manifest/transcription contract early; B publishes source cards independently. They then exchange reviews without requiring either package to be accepted first. A integrates accepted decisions; unresolved scholarly, acquisition and feasibility work stays pending. Completing these documentation packages does not complete I0 or Phase 0, or authorize code. The briefs specify acceptance criteria, exact owned paths and the evidence required in each handoff.
 
