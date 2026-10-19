@@ -161,7 +161,8 @@ public static class P01LineDataset
 
         double sumB = 0, wB = 0, maxVariance = -1;
         int best = 127;
-        for (int t = 0; t < 256; t++)
+        // Interior thresholds only: t=0/t=255 degenerate on perfectly bimodal crops.
+        for (int t = 1; t < 255; t++)
         {
             wB += histogram[t];
             if (wB == 0) continue;
