@@ -72,6 +72,33 @@ public static class Program
                 return 0;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "dir":
+            {
+                // Collection-scale import: every PAGE XML in a directory, through the
+                // bounded-queue pipeline (memory stays bounded; failures are reported
+                // per file and do not stop the run).
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var directory = rest[3];
+                var files = Directory.GetFiles(directory, "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
+                if (files.Count == 0) { Console.Error.WriteLine("no PAGE XML files found"); return 1; }
+
+                var current = project;
+                var results = StreamingPipeline.RunAsync(
+                    files.Select(file => (new EntityId(EntityKind.Line, Path.GetFileNameWithoutExtension(file)), (Func<CancellationToken, Task>)(_ =>
+                    {
+                        var (imported, _) = interchange.ImportPage(current, file);
+                        current = projects.Load(current.Id);
+                        return Task.CompletedTask;
+                    }))),
+                    maxDegreeOfParallelism: 1).GetAwaiter().GetResult();
+
+                var ok = results.Count(r => r.Succeeded);
+                Console.WriteLine($"imported {ok}/{files.Count} PAGE files");
+                foreach (var failure in results.Where(r => !r.Succeeded).Take(5))
+                    Console.Error.WriteLine($"failed: {failure.ItemId}: {failure.Error}");
+                return ok == files.Count ? 0 : 1;
+            }
+
             case "import" when rest.Length >= 4 && rest[1] == "page":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -247,6 +274,7 @@ public static class Program
               leviathan [--store <path>] project new <name>
               leviathan [--store <path>] project list
               leviathan [--store <path>] import page <projectId> <page.xml>
+              leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
