@@ -118,4 +118,71 @@ public sealed class GeometryServiceTests
                 [new EntityId(EntityKind.Region, "reg1"), new EntityId(EntityKind.Region, "ghost")]));
         Assert.Contains("exactly once", foreign.Error.Message);
     }
+
+    [Fact]
+    public void SetLineOrder_reorders_lines_within_a_region_and_preserves_other_regions()
+    {
+        var (lineId, surfaceId, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var surface = project.Objects[0].Surfaces[0];
+
+        // Add a second region with one line, and a second line in the first region.
+        var otherRegion = new NativeRegion
+        {
+            Id = new EntityId(EntityKind.Region, "reg-other"),
+            FrameRef = surface.Regions[0].FrameRef,
+            Polygon = [new(1, 1), new(30, 1), new(30, 20), new(1, 20)],
+            ReadingOrderIndex = 1,
+        };
+        var otherLine = new NativeLine
+        {
+            Id = new EntityId(EntityKind.Line, "ln-other"),
+            RegionId = otherRegion.Id,
+            FrameRef = surface.Regions[0].FrameRef,
+        };
+        var secondLine = new NativeLine
+        {
+            Id = new EntityId(EntityKind.Line, "ln-second"),
+            RegionId = surface.Regions[0].Id,
+            FrameRef = surface.Regions[0].FrameRef,
+        };
+        var expanded = project with
+        {
+            Objects = [project.Objects[0] with
+            {
+                Surfaces = [surface with
+                {
+                    Regions = [.. surface.Regions, otherRegion],
+                    Lines = [.. surface.Lines, secondLine, otherLine],
+                }],
+            }],
+        };
+        store.SaveProject(expanded);
+
+        var (updated, updatedSurface) = service.SetLineOrder(expanded, surface.Regions[0].Id,
+            [new EntityId(EntityKind.Line, "ln-second"), lineId]);
+
+        var regionLines = updatedSurface.Lines
+            .Where(l => l.RegionId == surface.Regions[0].Id)
+            .Select(l => l.Id.Suffix)
+            .ToList();
+        Assert.Equal(["ln-second", "ln1"], regionLines);
+        // The other region's line is untouched and still present.
+        Assert.Contains(updatedSurface.Lines, l => l.Id.Suffix == "ln-other");
+
+        var reloaded = Load(store, updated.Id).Objects[0].Surfaces[0];
+        Assert.Equal("ln-second", reloaded.Lines.First(l => l.RegionId == surface.Regions[0].Id).Id.Suffix);
+    }
+
+    [Fact]
+    public void SetLineOrder_rejects_incomplete_sets()
+    {
+        var (_, _, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        var regionId = project.Objects[0].Surfaces[0].Regions[0].Id;
+
+        var ex = Assert.Throws<LeviathanException>(() => service.SetLineOrder(project, regionId, []));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+        Assert.Contains("exactly once", ex.Error.Message);
+    }
 }

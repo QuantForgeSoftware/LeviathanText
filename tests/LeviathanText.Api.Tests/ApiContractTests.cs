@@ -171,6 +171,46 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Line_order_endpoint_validates_and_returns_the_new_order()
+    {
+        var client = NewClient();
+        await ImportFixtureAsync(client);
+        var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>(
+            $"/api/v1/projects/{await GetProjectIdAsync(client)}");
+        var (regionId, lineIds) = ExtractRegionAndLineIds(projectJson!);
+
+        // The full line set (reversed) is a valid order.
+        var ok = await client.PutAsJsonAsync($"/api/v1/regions/{regionId}/line-order",
+            new { lineIds = lineIds.Reverse().ToArray() });
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        var body = await ok.Content.ReadAsStringAsync();
+        Assert.Contains(lineIds[^1], body); // first in the returned order is the last requested
+
+        // Incomplete set is rejected with the closed code.
+        var bad = await client.PutAsJsonAsync($"/api/v1/regions/{regionId}/line-order",
+            new { lineIds = Array.Empty<string>() });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, bad.StatusCode);
+    }
+
+    private static (string RegionId, string[] LineIds) ExtractRegionAndLineIds(Dictionary<string, object> projectJson)
+    {
+        var objects = (System.Text.Json.JsonElement)projectJson["objects"];
+        var surface = objects[0].GetProperty("surfaces")[0];
+        var region = surface.GetProperty("regions")[0];
+        var regionId = region.GetProperty("id").GetString()!;
+        var lineIds = surface.GetProperty("lines").EnumerateArray()
+            .Select(l => l.GetProperty("id").GetString()!)
+            .ToArray();
+        return (regionId, lineIds);
+    }
+
+    private static async Task<string> GetProjectIdAsync(HttpClient client)
+    {
+        var list = await client.GetFromJsonAsync<Dictionary<string, string>[]>("/api/v1/projects");
+        return list!.Single(p => p["name"] == "geometry-e2e")["id"];
+    }
+
+    [Fact]
     public async Task Reading_order_update_requires_every_region()
     {
         var client = NewClient();

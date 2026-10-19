@@ -96,6 +96,51 @@ public sealed class GeometryService(IProjectStore store)
         validatedBaseline = [.. baseline];
     }
 
+    public (NativeProject Project, NativeSurface Surface) SetLineOrder(
+        NativeProject project, EntityId regionId, IReadOnlyList<EntityId> orderedLineIds)
+    {
+        var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Regions.Any(r => r.Id == regionId))
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = regionId.ToString(),
+                Message = "No such region in the project.",
+            });
+
+        var expected = surface.Lines.Where(l => l.RegionId == regionId).Select(l => l.Id).ToHashSet();
+        var requested = orderedLineIds.ToHashSet();
+        if (expected.Count != requested.Count || !expected.SetEquals(requested))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = regionId.ToString(),
+                Message = "Line order must list every line of the region exactly once.",
+            });
+
+        // Rebuild the surface line list: lines of this region in the requested order,
+        // other regions' lines keep their relative positions.
+        var ordered = new List<NativeLine>();
+        var requestedList = orderedLineIds.ToList();
+        var pointer = 0;
+        foreach (var line in surface.Lines)
+        {
+            if (line.RegionId == regionId)
+            {
+                ordered.Add(surface.Lines.Single(l => l.Id == requestedList[pointer]));
+                pointer++;
+            }
+            else
+            {
+                ordered.Add(line);
+            }
+        }
+
+        var updated = surface with { Lines = ordered };
+        var foundProject = WithSurface(project, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated);
+    }
+
     private static (NativeProject Project, NativeSurface Surface) FindSurface(NativeProject project, EntityId surfaceId)
     {
         foreach (var obj in project.Objects)

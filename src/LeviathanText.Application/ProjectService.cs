@@ -47,6 +47,11 @@ public sealed class ProjectService(IProjectStore store)
         List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
             p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Id == surfaceId));
 
+    /// <summary>Scan all projects for one containing a region.</summary>
+    public NativeProject? LoadProjectForRegion(EntityId regionId) =>
+        List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
+            p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Regions.Any(r => r.Id == regionId)));
+
     public void Save(NativeProject project) => store.SaveProject(project);
 }
 

@@ -194,6 +194,20 @@ api.MapGet("projects/{id}/training-export", (ProjectService projects, string id)
     return Results.Content(TrainingDataExport.ToJson(TrainingDataExport.Export(project)), "application/json");
 });
 
+api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometryService geometry, string regionId, [FromBody] LineOrderRequest request) =>
+{
+    var regionEntityId = EntityId.Parse(regionId, EntityKind.Region);
+    var project = projects.LoadProjectForRegion(regionEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = regionId, Message = "Region not found in any project." });
+
+    var (_, surface) = geometry.SetLineOrder(project, regionEntityId, request.LineIds);
+    return Results.Ok(new
+    {
+        regionId = regionId,
+        order = surface.Lines.Where(l => l.RegionId == regionEntityId).Select(l => l.Id.ToString()),
+    });
+});
+
 // Transcription writes (Phase 2): layer-respecting revisions with revision-based undo,
 // and scholarly annotations with stale-anchor rejection.
 api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService transcription, string lineId) =>
@@ -353,6 +367,8 @@ public sealed record AddAnnotationRequest(
 public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline);
 
 public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds);
+
+public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds);
 
 /// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource
