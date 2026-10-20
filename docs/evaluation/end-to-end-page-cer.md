@@ -1,6 +1,6 @@
 # End-to-end page CER (layout + recognition), held-out manuscript pages
 
-- Date: 2026-10-19T22:51:53.0025420+00:00; contract C0-0.4-draft
+- Date: 2026-10-20T00:25:08.8537810+00:00; contract C0-0.4-draft
 - Pipeline: image-only surface → automatic layout → recognition; control = same model on PAGE boxes
 - Matching: detected↔PAGE line vertical IoU ≥ 0.5; **missed GT lines count as full deletions**
 - Evaluation pages: 6 held-out M02a pages (file split i%5==0); *same books as training — workflow measurement, not a generalization claim*

@@ -115,6 +115,39 @@ public sealed class TrainingDataExportTests
     }
 
     [Fact]
+    public void Retracted_uncertainty_no_longer_affects_the_training_label()
+    {
+        var project = SampleProjectBuilder.Build();
+        var revisionId = RevisionId(project);
+        var annotation = new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "u-retracted"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = revisionId,
+            Range = new ScalarRange(2, 5),
+        };
+        var mutation = MutateSurface(project, surface => surface with
+        {
+            Annotations = [.. surface.Annotations, annotation],
+            AnnotationRetractions =
+            [
+                new AnnotationRetraction
+                {
+                    Id = "ar-1",
+                    AnnotationId = annotation.Id,
+                    Reviewer = "reviewer-a",
+                    At = DateTimeOffset.UtcNow,
+                },
+            ],
+        });
+
+        var line = TrainingDataExport.Export(mutation).Lines.Single(l => l.LineId == Line(project).Id);
+        Assert.Equal("clean", line.Status);
+        Assert.Empty(line.UncertainSpans);
+        Assert.Empty(line.AnnotationKinds);
+    }
+
+    [Fact]
     public void Untranscribed_line_is_excluded_with_reason()
     {
         var project = SampleProjectBuilder.Build();

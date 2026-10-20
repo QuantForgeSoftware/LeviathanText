@@ -138,6 +138,23 @@ public sealed class PatchLayoutModelTests : IDisposable
     }
 
     [Fact]
+    public void Training_data_digest_is_order_independent_and_band_sensitive()
+    {
+        var first = new LayoutTrainingPage("a", "/tmp/a.png", [(10, 20), (30, 40)]);
+        var second = new LayoutTrainingPage("b", "/tmp/b.png", [(50, 60)]);
+        var reordered = new LayoutTrainingPage[]
+        {
+            new("b", "/tmp/b.png", [(50, 60)]),
+            new("a", "/tmp/a.png", [(10, 20), (30, 40)]),
+        };
+
+        Assert.Equal(PatchLayoutModel.DataDigestOf([first, second]),
+            PatchLayoutModel.DataDigestOf(reordered));
+        Assert.NotEqual(PatchLayoutModel.DataDigestOf([first, second]),
+            PatchLayoutModel.DataDigestOf([first with { Bands = [(10, 25)] }, second]));
+    }
+
+    [Fact]
     public void Incompatible_architecture_is_rejected()
     {
         var dir = Path.Combine(_dir, "bad");

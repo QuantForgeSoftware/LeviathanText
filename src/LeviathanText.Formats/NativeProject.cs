@@ -62,6 +62,22 @@ public sealed record NativeSurface
     /// exact text revision that was reviewed, never to "the line" in the abstract.
     /// </summary>
     public IReadOnlyList<ReviewDecision> ReviewDecisions { get; init; } = [];
+
+    /// <summary>
+    /// Append-only retractions of annotations. The original annotation stays in the ledger;
+    /// active views exclude retracted ids. Retraction is not deletion of evidence.
+    /// </summary>
+    public IReadOnlyList<AnnotationRetraction> AnnotationRetractions { get; init; } = [];
+}
+
+public sealed record AnnotationRetraction
+{
+    /// <summary>Surface-scoped audit id (not an EntityId).</summary>
+    public required string Id { get; init; }
+    public required EntityId AnnotationId { get; init; }
+    public required string Reviewer { get; init; }
+    public required DateTimeOffset At { get; init; }
+    public string? Reason { get; init; }
 }
 
 public enum ReviewOutcome

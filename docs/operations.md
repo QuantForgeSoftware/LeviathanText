@@ -79,6 +79,7 @@ restarts. The workspace shows the queue after recognition and on reload.
 leviathan layout train /abs/page-xml-dir --out ./packages/layout-codex --image-ext .png --epochs 100   # augmentation on; --no-augment to disable
 # detect with the learned model (otherwise projection is used)
 leviathan --store pilot.db layout detect <projectId> <surfaceId> --model ./packages/layout-codex
+leviathan --store pilot.db layout inspect ./packages/layout-codex   # metadata, digests, threshold
 ```
 
 The API selects learned models per surface kind from configuration:

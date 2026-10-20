@@ -1,11 +1,11 @@
 # Learned layout (patch/row CNN) vs projection — held-out report
 
-- Date: 2026-10-20T00:10:21.3334880+00:00; contract C0-0.4-draft
+- Date: 2026-10-20T00:44:29.3814920+00:00; contract C0-0.4-draft
 - Model: `patch-row-cnn-v2` v2; input 256px high, max width 256; 100 epochs, seed 31
 - Training: 35 M02a train pages (page-level split); threshold selected on 8 M02a dev pages; **test pages never trained on**
 - Held-out: 17 pages (M02a test i%5==0 + 6 P01 test pages, reported separately as out-of-domain)
 - Matching: vertical-band IoU ≥ 0.5; confidence: none (detector has no calibrated probability claim)
-- Training wall time: 45.0s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
+- Training wall time: 46.9s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
 - Threshold selection table (dev only):
 
 | Threshold | Precision | Recall | F1 |
@@ -78,6 +78,7 @@ measurement makes no locked-test claim.
 | Detector | Precision | Recall |
 | --- | --- | --- |
 | patch CNN (P01-trained) | 0.444 | 0.324 |
+| patch CNN (P01-trained, augmented) | 0.25 | 0.163 |
 | projection | 0.337 | 0.176 |
 
 | Page | GT | Detected | Matches | Precision | Recall |
@@ -103,6 +104,7 @@ threshold selected on dev (0.70).
 | No augmentation | 0.965 | 0.987 | 0.31 | 0.134 | 0.734 | 0.686 |
 | Augmented | 0.988 | 1 | 0.325 | 0.201 | 0.754 | 0.718 |
 
-One seed, one material pair: this is a direction check, not a tuned result. The
-augmentation option is available (`--augment`) but is not the default unless a
-second corpus confirms it does not trade away in-domain accuracy.
+One seed, one material pair: a direction check, not a tuned result. Augmentation
+improved both subsets here, so the **CLI training path enables it by default**
+(`--no-augment` to disable); the library option stays explicit. A second corpus is
+still required before any generalization claim.

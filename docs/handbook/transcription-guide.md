@@ -81,4 +81,17 @@ Closed set — choose the closest status; never guess characters:
    - TEI/EpiDoc (bounded profile; unsupported fields reported),
    - training JSON (L1-only labels; editorial-supply lines excluded; uncertainty spans with exact-span complements).
 
+## 7. Review, adjudication and retraction
+
+- Every decision (accept/correct/dispute) is anchored to the exact revision you reviewed.
+- A **correct** decision creates a new L1 revision (your correction) and keeps the reviewed
+  revision in the ledger; never overwrite history.
+- Two reviewers with different outcomes make a line an **adjudication candidate**; the project
+  page lists those and exports `adjudication.csv`. A specialist resolves the disagreement by
+  recording another decision/correction — the tool does not decide for you.
+- If an annotation was wrong, **retract** it. The record stays visible in exports as retracted;
+  active views and training data exclude it.
+- Reviewers are identified by the account/name you pass; shared deployments authenticate keys
+  and record an audit trail.
+
 Remember: recognition output (L0) is model text, not an edition; only your accepted L1/L2 work is a transcription.

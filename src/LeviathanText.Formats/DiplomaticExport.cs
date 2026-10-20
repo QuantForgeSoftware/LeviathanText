@@ -48,9 +48,9 @@ public static class DiplomaticExport
         {
             new("geometry", surface.Lines.Count(l => l.Baseline.Count > 0) + surface.Regions.Count(r => r.Polygon.Count > 0),
                 "polygons and baselines are not representable in plain text"),
-            new("uncertainty", surface.Annotations.Count(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible or AnnotationKind.Lost),
+            new("uncertainty", Active(surface).Count(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible or AnnotationKind.Lost),
                 "unclear/illegible/lost spans are dropped; bracket conventions are NOT substituted"),
-            new("alternatives", surface.Annotations.Count(a => a.Kind == AnnotationKind.AlternativeReading),
+            new("alternatives", Active(surface).Count(a => a.Kind == AnnotationKind.AlternativeReading),
                 "alternative readings are dropped; only the transcribed reading survives"),
             new("editorial-layer", CountEditorial(revisions), "L2 editorial readings are a separate layer and are not exported"),
             new("provenance", revisions.Count, "revision history and authorship are not representable in plain text"),
@@ -67,4 +67,10 @@ public static class DiplomaticExport
 
     private static int CountEditorial(IReadOnlyList<TextRevision> revisions) =>
         revisions.Count(r => r.Layer == TextLayer.L2Editorial);
+
+    private static IEnumerable<Annotation> Active(NativeSurface surface)
+    {
+        var retracted = surface.AnnotationRetractions.Select(r => r.AnnotationId).ToHashSet();
+        return surface.Annotations.Where(a => !retracted.Contains(a.Id));
+    }
 }

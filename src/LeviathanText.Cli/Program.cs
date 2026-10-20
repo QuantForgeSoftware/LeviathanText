@@ -514,6 +514,21 @@ public static class Program
                 return 0;
             }
 
+            case "layout" when rest.Length >= 3 && rest[1] == "inspect":
+            {
+                var model = PatchLayoutModel.Load(rest[2]);
+                var metadataPath = Path.Combine(rest[2], "layout-metadata.json");
+                var metadata = System.Text.Json.JsonDocument.Parse(File.ReadAllText(metadataPath)).RootElement;
+                Console.WriteLine($"package: {rest[2]}");
+                Console.WriteLine($"architecture: {PatchLayoutModel.Architecture} {PatchLayoutModel.ModelVersion}");
+                Console.WriteLine($"trained pages: {model.TrainedPageNames.Count}; epochs: {model.EpochCount}; threshold: {model.Threshold:0.00}");
+                Console.WriteLine($"final loss: {model.FinalTrainingLoss:0.###}");
+                foreach (var field in new[] { "TrainingDataDigest", "WeightsDigest", "AugmentTraining" })
+                    if (metadata.TryGetProperty(field, out var value))
+                        Console.WriteLine($"{field}: {value}");
+                return 0;
+            }
+
             case "layout" when rest.Length >= 4 && rest[1] == "train":
             {
                 // Page-level split (same convention as all pilots): every 5th page test,

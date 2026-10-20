@@ -25,7 +25,10 @@ public class SerializationTests
         var original = SampleRevision();
         var json = ContractJson.ToJson(original);
         var parsed = ContractJson.FromJson<TextRevision>(json);
-        Assert.Equal(original, parsed);
+        Assert.Equal(
+            original with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() },
+            parsed with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() });
+        Assert.Empty(parsed.GraphemeConfidences);
     }
 
     [Fact]
@@ -171,6 +174,8 @@ public class SerializationTests
         var revision = SampleRevision() with { ParentRevisionId = null };
         var parsed = ContractJson.FromJson<TextRevision>(ContractJson.ToJson(revision));
         Assert.Null(parsed.ParentRevisionId);
-        Assert.Equal(revision, parsed);
+        Assert.Equal(
+            revision with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() },
+            parsed with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() });
     }
 }

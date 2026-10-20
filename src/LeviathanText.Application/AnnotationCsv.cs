@@ -13,13 +13,17 @@ public static class AnnotationCsv
     public static string Export(NativeProject project)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("annotation_id,surface_id,line_id,kind,start,end,gap_extent,alternative_text,hand_label,description,anchored_revision");
+        builder.AppendLine("annotation_id,surface_id,line_id,kind,start,end,gap_extent,alternative_text,hand_label,description,anchored_revision,retracted,retracted_by,retraction_reason");
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {
             var lineByRevision = surface.Revisions.ToDictionary(r => r.Id, r => r.ScopeId);
+            var retractions = surface.AnnotationRetractions
+                .GroupBy(r => r.AnnotationId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.At).First());
             foreach (var annotation in surface.Annotations.OrderBy(a => a.Id.Suffix, StringComparer.Ordinal))
             {
+                var retraction = retractions.GetValueOrDefault(annotation.Id);
                 var lineId = lineByRevision.GetValueOrDefault(annotation.AnchoredRevisionId);
                 Append(builder, new[]
                 {
@@ -34,6 +38,9 @@ public static class AnnotationCsv
                     annotation.HandLabel ?? "",
                     annotation.Description ?? "",
                     annotation.AnchoredRevisionId.ToString(),
+                    retraction is null ? "false" : "true",
+                    retraction?.Reviewer ?? "",
+                    retraction?.Reason ?? "",
                 });
             }
         }

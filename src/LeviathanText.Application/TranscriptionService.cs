@@ -69,12 +69,61 @@ public sealed class TranscriptionService(IProjectStore store)
         return [.. surface.Revisions.Where(r => r.ScopeId == lineId).OrderBy(r => r.CreatedAt)];
     }
 
-    /// <summary>All annotations of a line's revisions (any layer), oldest first.</summary>
+    /// <summary>Active (non-retracted) annotations of a line's revisions, oldest first.</summary>
     public IReadOnlyList<Annotation> AnnotationsFor(NativeProject project, EntityId lineId)
     {
         var (_, surface, _) = FindLine(project, lineId);
         var revisionIds = surface.Revisions.Where(r => r.ScopeId == lineId).Select(r => r.Id).ToHashSet();
-        return [.. surface.Annotations.Where(a => revisionIds.Contains(a.AnchoredRevisionId))];
+        var retracted = surface.AnnotationRetractions.Select(r => r.AnnotationId).ToHashSet();
+        return [.. surface.Annotations.Where(a => revisionIds.Contains(a.AnchoredRevisionId) && !retracted.Contains(a.Id))];
+    }
+
+    /// <summary>Retract an annotation (append-only; the annotation record itself is preserved).</summary>
+    public (NativeProject Project, NativeSurface Surface, AnnotationRetraction Retraction) RetractAnnotation(
+        NativeProject project, EntityId annotationId, string reviewer, string? reason = null)
+    {
+        if (string.IsNullOrWhiteSpace(reviewer))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotationId.ToString(),
+                Message = "A reviewer identity is required.",
+            });
+
+        foreach (var obj in project.Objects)
+            foreach (var surface in obj.Surfaces)
+            {
+                var annotation = surface.Annotations.FirstOrDefault(a => a.Id == annotationId);
+                if (annotation is null) continue;
+
+                if (surface.AnnotationRetractions.Any(r => r.AnnotationId == annotationId))
+                    throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.StageContractViolation,
+                        Scope = annotationId.ToString(),
+                        Message = "Annotation is already retracted.",
+                    });
+
+                var retraction = new AnnotationRetraction
+                {
+                    Id = $"ar-{Guid.NewGuid().ToString("N")[..12]}",
+                    AnnotationId = annotationId,
+                    Reviewer = reviewer,
+                    At = DateTimeOffset.UtcNow,
+                    Reason = string.IsNullOrWhiteSpace(reason) ? null : reason,
+                };
+                var updated = surface with { AnnotationRetractions = [.. surface.AnnotationRetractions, retraction] };
+                var updatedProject = WithSurface(project, updated);
+                store.SaveProject(updatedProject);
+                return (updatedProject, updated, retraction);
+            }
+
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = annotationId.ToString(),
+            Message = "No such annotation in the project.",
+        });
     }
 
     public (NativeProject Project, NativeSurface Surface, Annotation Annotation) AddAnnotation(

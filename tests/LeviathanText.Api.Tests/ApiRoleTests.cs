@@ -104,6 +104,11 @@ public sealed class ApiRoleTests
         var newAnnotator = WithKey(factory.CreateClient(), rotatedJson.RootElement.GetProperty("apiKey").GetString()!);
         Assert.Equal(HttpStatusCode.OK, (await newAnnotator.GetAsync("/api/v1/projects")).StatusCode);
 
+        var me = await newAnnotator.GetStringAsync("/api/v1/me");
+        Assert.Contains("\"authenticated\":true", me);
+        Assert.Contains("\"name\":\"annotator\"", me);
+        Assert.Contains("Annotator", me);
+
         // Auth audit: admin can read it; annotators cannot.
         Assert.Equal(HttpStatusCode.Forbidden, (await newAnnotator.GetAsync("/api/v1/audit")).StatusCode);
         var audit = await admin.GetStringAsync("/api/v1/audit?limit=100");

@@ -168,6 +168,7 @@ public sealed class PatchLayoutModel
         var metadata = new TrainedMetadata
         {
             Architecture = Architecture,
+            TrainingDataDigest = DataDigestOf(pages),
             InputHeight = options.InputHeight,
             MinInputWidth = options.MinInputWidth,
             MaxInputWidth = options.MaxInputWidth,
@@ -421,6 +422,16 @@ public sealed class PatchLayoutModel
         return tensor(mask).reshape(count, options.InputHeight);
     }
 
+    /// <summary>
+    /// Reproducibility digest of the training list: sorted page name, image byte size and line
+    /// band ranges. It identifies the data without copying it; it is not an image checksum.
+    /// </summary>
+    public static string DataDigestOf(IReadOnlyList<LayoutTrainingPage> pages) =>
+        HashOf(string.Join("\n", pages
+            .OrderBy(p => p.Name, StringComparer.Ordinal)
+            .Select(p => $"{p.Name}|{new FileInfo(p.ImagePath).Length}|{p.Bands.Count}|" +
+                         string.Join(';', p.Bands.OrderBy(b => b.Top).Select(b => $"{b.Top}-{b.Bottom}")))));
+
     private static string DigestOf(string path) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)))
             .ToLowerInvariant();
@@ -442,6 +453,7 @@ public sealed class PatchLayoutModel
             - Training: {metadata.TrainedPages} pages; seed {metadata.Seed}; {metadata.Epochs} epochs; final weighted BCE {metadata.FinalLoss:0.###}
             - Augmentation: {(metadata.AugmentTraining ? $"vertical scale {metadata.AugmentScaleMin:0.00}–{metadata.AugmentScaleMax:0.00}, shift ±{metadata.AugmentShiftRows} rows, noise {metadata.AugmentNoise:0.000}" : "none")}
             - Weights digest (SHA-256): `{metadata.WeightsDigest}`
+            - Training-data digest (SHA-256 over sorted page names, image sizes and band ranges): `{metadata.TrainingDataDigest}`
             - Training pages: {pages}
 
             ## Scope and limitations
@@ -614,6 +626,7 @@ public sealed class PatchLayoutModel
         public double CoreFraction { get; init; }
         public double ExpansionFactor { get; init; }
         public string WeightsDigest { get; init; } = "";
+        public string TrainingDataDigest { get; init; } = "";
         public bool AugmentTraining { get; init; }
         public double AugmentScaleMin { get; init; }
         public double AugmentScaleMax { get; init; }

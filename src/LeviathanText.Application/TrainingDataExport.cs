@@ -51,7 +51,10 @@ public static class TrainingDataExport
             foreach (var line in surface.Lines)
             {
                 var revision = line.DiplomaticRevisionId is { } id && revisionById.TryGetValue(id, out var r) ? r : null;
-                var annotations = surface.Annotations.Where(a => a.AnchoredRevisionId == (revision?.Id ?? default)).ToList();
+                var retracted = surface.AnnotationRetractions.Select(r => r.AnnotationId).ToHashSet();
+                var annotations = surface.Annotations
+                    .Where(a => a.AnchoredRevisionId == (revision?.Id ?? default) && !retracted.Contains(a.Id))
+                    .ToList();
 
                 if (revision is null || string.IsNullOrWhiteSpace(revision.Text))
                 {

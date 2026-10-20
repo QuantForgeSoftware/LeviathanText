@@ -58,7 +58,7 @@ public sealed class EpiDocBootstrapTests : IDisposable
             Assert.Empty(l.Polygon);
         });
         Assert.Equal(2, surface.Revisions.Count(r => r.Layer == TextLayer.L2Editorial));
-        Assert.Empty(surface.Revisions.Where(r => r.Layer == TextLayer.L1Diplomatic));
+        Assert.DoesNotContain(surface.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
         Assert.Equal(300, surface.Captures[0].WidthPx);
         Assert.Equal("ISic001151.jpg", imageUrl);
         Assert.NotEmpty(notes);

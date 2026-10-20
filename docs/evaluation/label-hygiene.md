@@ -1,13 +1,13 @@
 # Label hygiene: out-of-profile training lines (P01 dev)
 
-- Date: 2026-10-19T22:49:41.5772930+00:00; profile `greek-diplomatic-pilot@1.0`
+- Date: 2026-10-20T00:22:55.2846590+00:00; profile `greek-diplomatic-pilot@1.0`
 - Same architecture (CRNN h=64), seed 99, 60 epochs, identical label set; only the training list differs
 - Out-of-profile = any scalar classified `Other` (e.g. PAGE markup `<`, `>`, `&`, brackets leaked into labels)
 - Training lines: 176 baseline vs 169 clean (7 excluded); dev: 50 vs 46
 
 | Variant | Dev CER |
 | --- | --- |
-| All training lines | 0.806 |
+| All training lines | 0.805 |
 | Out-of-profile lines excluded | 0.802 |
 
 ## Reading

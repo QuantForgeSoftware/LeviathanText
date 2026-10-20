@@ -33,6 +33,14 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Local_mode_reports_an_unauthenticated_identity()
+    {
+        var body = await NewClient().GetStringAsync("/api/v1/me");
+        Assert.Contains("\"authenticated\":false", body);
+        Assert.Contains("\"name\":\"local\"", body);
+    }
+
+    [Fact]
     public async Task Create_and_list_and_load_project()
     {
         var client = NewClient();
@@ -491,6 +499,32 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Annotation_retraction_hides_it_from_active_views_and_is_audited_in_csv()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "retraction-e2e");
+
+        var added = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/annotations", new
+        {
+            kind = "unclear",
+            range = new { start = 1, end = 3 },
+            description = "misread",
+        });
+        Assert.Equal(HttpStatusCode.OK, added.StatusCode);
+        using var addedJson = System.Text.Json.JsonDocument.Parse(await added.Content.ReadAsStringAsync());
+        var annotationId = addedJson.RootElement.GetProperty("annotationId").GetString()!;
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/v1/annotations/{annotationId}/retract",
+            new { reviewer = "reviewer-a", reason = "wrong span" })).StatusCode);
+        Assert.DoesNotContain("misread", await client.GetStringAsync($"/api/v1/lines/{lineId}/annotations"));
+        Assert.Contains("retracted", await client.GetStringAsync($"/api/v1/projects/{await GetProjectIdAsync(client, "retraction-e2e")}/annotations.csv"));
+
+        var again = await client.PostAsJsonAsync($"/api/v1/annotations/{annotationId}/retract",
+            new { reviewer = "reviewer-b" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, again.StatusCode);
     }
 
     [Fact]

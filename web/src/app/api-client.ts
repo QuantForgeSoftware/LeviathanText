@@ -232,6 +232,10 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
   }
 
+  me(): Observable<{ authenticated: boolean; name: string; role: string }> {
+    return this.http.get<{ authenticated: boolean; name: string; role: string }>('/api/v1/me');
+  }
+
   reviewSummary(projectId: string): Observable<{
     transcribedLines: number;
     reviewedLines: number;

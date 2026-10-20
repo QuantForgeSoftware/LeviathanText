@@ -764,6 +764,15 @@ api.MapGet("projects/{id}/adjudication.csv", (ProjectService projects, ReviewSer
     return Results.Text(reviews.ExportAdjudicationCsv(project), "text/csv");
 });
 
+api.MapPost("annotations/{annotationId}/retract", (ProjectService projects, TranscriptionService transcription, string annotationId, [FromBody] RetractAnnotationRequest request) =>
+{
+    var id = EntityId.Parse(annotationId, EntityKind.Annotation);
+    var project = projects.LoadProjectForAnnotation(id)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = annotationId, Message = "Annotation not found in any project." });
+    var (_, _, retraction) = transcription.RetractAnnotation(project, id, request.Reviewer, request.Reason);
+    return Results.Ok(new { retractionId = retraction.Id, annotationId = annotationId });
+});
+
 api.MapGet("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
@@ -804,6 +813,14 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 
 // Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
 // with the job resource remaining authoritative.
+api.MapGet("me", (HttpContext http) =>
+{
+    var user = http.Items["user"] as UserAccount;
+    return Results.Ok(user is null
+        ? new { authenticated = false, name = "local", role = "admin" }
+        : new { authenticated = true, name = user.Name, role = user.Role.ToString() });
+});
+
 api.MapGet("audit", (LocalStore store, int? limit) => Results.Ok(store.LoadAuthAudit(limit ?? 100)));
 
 api.MapGet("users", (LocalStore store) => Results.Ok(store.LoadUsers()));
@@ -943,6 +960,8 @@ public sealed record CreateJobRequest(string Type, string OwnerId, string? Idemp
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public sealed record CreateUserRequest(string Name, UserRole Role);
+
+public sealed record RetractAnnotationRequest(string Reviewer, string? Reason = null);
 
 public sealed record ReviewRequest(string Reviewer, ReviewOutcome Outcome, string? Note = null, string? CorrectionText = null);
 

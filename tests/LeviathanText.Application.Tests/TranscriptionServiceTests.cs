@@ -219,4 +219,30 @@ public sealed class TranscriptionServiceTests
             Range = new ScalarRange(0, 2),
         }));
     }
+
+    [Fact]
+    public void Retraction_hides_an_annotation_without_deleting_it()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (withAnnotation, _, annotation) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "ann-retract"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(1, 3),
+        });
+        Assert.Single(service.AnnotationsFor(withAnnotation, lineId));
+
+        var (retracted, surface, retraction) = service.RetractAnnotation(withAnnotation, annotation.Id, "reviewer-a", "misread");
+        Assert.Equal(annotation.Id, retraction.AnnotationId);
+        Assert.Contains(surface.Annotations, a => a.Id == annotation.Id); // evidence preserved
+        Assert.Empty(service.AnnotationsFor(retracted, lineId));
+        Assert.Single(surface.AnnotationRetractions);
+
+        Assert.Throws<LeviathanException>(() =>
+            service.RetractAnnotation(retracted, annotation.Id, "reviewer-b"));
+        Assert.Throws<LeviathanException>(() =>
+            service.RetractAnnotation(retracted, new EntityId(EntityKind.Annotation, "missing"), "reviewer-a"));
+    }
 }

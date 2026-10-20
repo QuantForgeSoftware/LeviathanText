@@ -1,6 +1,7 @@
 /** API key entry for shared deployments (local-only mode when empty). */
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { apiKey, hasApiKey, setApiKey } from './auth';
+import { ApiClient } from './api-client';
 
 @Component({
   selector: 'app-auth-panel',
@@ -9,7 +10,7 @@ import { apiKey, hasApiKey, setApiKey } from './auth';
     <section>
       <h2>API key</h2>
       @if (hasKey()) {
-        <p class="hint">A key is configured (sent as X-Api-Key; SSE uses a query token).</p>
+        <p class="hint">Key configured — {{ identity() }}</p>
       } @else {
         <p class="hint">No key configured — local-only server.</p>
       }
@@ -26,10 +27,28 @@ import { apiKey, hasApiKey, setApiKey } from './auth';
     .hint { color: #667; font-size: 0.85rem; }
   `],
 })
-export class AuthPanel {
+export class AuthPanel implements OnInit {
   protected readonly draft = signal('');
   protected readonly hasKey = signal(hasApiKey());
   protected readonly status = signal('');
+  protected readonly identity = signal('checking identity…');
+
+  private readonly api: ApiClient;
+
+  constructor(api: ApiClient) {
+    this.api = api;
+  }
+
+  ngOnInit(): void {
+    if (this.hasKey()) this.loadIdentity();
+  }
+
+  private loadIdentity(): void {
+    this.api.me().subscribe({
+      next: (me) => this.identity.set(me.authenticated ? `${me.name} (${me.role})` : 'local-only'),
+      error: () => this.identity.set('key rejected or server unreachable'),
+    });
+  }
 
   protected onInput(event: Event): void {
     this.draft.set((event.target as HTMLInputElement).value);
@@ -40,6 +59,7 @@ export class AuthPanel {
     this.draft.set('');
     this.hasKey.set(hasApiKey());
     this.status.set('saved; reload data to use the new credentials');
+    if (this.hasKey()) this.loadIdentity();
   }
 
   protected clear(): void {

@@ -42,7 +42,12 @@ public class ContractRoundTripTests
             };
 
             var parsed = ContractJson.FromJson<TextRevision>(ContractJson.ToJson(revision));
-            Assert.Equal(revision, parsed);
+            // GraphemeConfidences is an empty collection on both sides; normalize the instance
+            // so record equality does not compare list instances.
+            Assert.Equal(
+                revision with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() },
+                parsed with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() });
+            Assert.Empty(parsed.GraphemeConfidences);
 
             // Content-bearing offsets remain valid against the round-tripped text — no normalization drift.
             // Empty ranges (e.g. a Lost gap anchored at the line start) have no slice and are valid as-is.

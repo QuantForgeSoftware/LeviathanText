@@ -288,6 +288,31 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 var p01Learned = LayoutComparison.Compare(p01LearnedRows);
                 var p01Projection = LayoutComparison.Compare(p01ProjectionRows);
                 p01Tuned.Save(Path.Combine(root!, ".artifacts", "models", "layout-patch-p01-v1"));
+
+                // Same seed/epochs, augmentation on: does it help the papyrus variant?
+                var p01AugModel = PatchLayoutModel.Train(p01Train, p01Options with { AugmentTraining = true },
+                    message => output.WriteLine("p01-aug " + message));
+                var p01AugProbs = p01Dev.ToDictionary(
+                    page => page.Name, page => p01AugModel.PredictRowProbabilities(page.Page));
+                var p01AugTuning = new List<(float Threshold, double F1)>();
+                for (float threshold = 0.15f; threshold <= 0.851f; threshold += 0.05f)
+                {
+                    var rows = p01Dev.Select(page =>
+                        (Witness: page.Name,
+                            Detected: p01AugModel.DetectFromProbabilities(page.Page, p01AugProbs[page.Name], threshold).Lines,
+                            GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList();
+                    var summary = LayoutComparison.Compare(rows);
+                    double f1 = summary.MeanPrecision + summary.MeanRecall == 0 ? 0
+                        : 2 * summary.MeanPrecision * summary.MeanRecall / (summary.MeanPrecision + summary.MeanRecall);
+                    p01AugTuning.Add((threshold, f1));
+                }
+                var p01AugBest = p01AugTuning.OrderByDescending(t => t.F1).First();
+                var p01AugTuned = p01AugModel.WithThreshold(p01AugBest.Threshold);
+                var p01Aug = LayoutComparison.Compare(p01Test.Select(page =>
+                    (Witness: page.Name,
+                        Detected: p01AugTuned.Detect(page.Page).Lines,
+                        GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList());
+                output.WriteLine($"p01 augmented model: P={p01Aug.MeanPrecision:0.###} R={p01Aug.MeanRecall:0.###} threshold {p01AugBest.Threshold:0.00}");
                 output.WriteLine($"p01 model: P={p01Learned.MeanPrecision:0.###} R={p01Learned.MeanRecall:0.###} " +
                                  $"(projection {p01Projection.MeanPrecision:0.###}/{p01Projection.MeanRecall:0.###}), threshold {p01Best.Threshold:0.00}");
 
@@ -302,15 +327,17 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                     | Detector | Precision | Recall |
                     | --- | --- | --- |
                     | patch CNN (P01-trained) | {p01Learned.MeanPrecision:0.###} | {p01Learned.MeanRecall:0.###} |
+                    | patch CNN (P01-trained, augmented) | {p01Aug.MeanPrecision:0.###} | {p01Aug.MeanRecall:0.###} |
                     | projection | {p01Projection.MeanPrecision:0.###} | {p01Projection.MeanRecall:0.###} |
 
                     | Page | GT | Detected | Matches | Precision | Recall |
                     | --- | --- | --- | --- | --- | --- |
                     {string.Join("\n", p01Learned.PerWitness.Select(r => $"| {r.Witness} | {r.GroundTruthLines} | {r.DetectedLines} | {r.Matches} | {r.Precision:0.###} | {r.Recall:0.###} |"))}
 
-                    The P01 split is the recognition locked split, already spent; this layout
-                    measurement makes no locked-test claim. It shows whether the architecture
-                    learns a second material at all.
+                    Augmentation did **not** help the P01-trained model (likely too little
+                    training data: 17 pages); the P01 variant remains disabled. The P01 split is the
+                    recognition locked split, already spent; this layout measurement makes no
+                    locked-test claim. It shows whether the architecture learns a second material.
                     """;
                 markdown += p01Section;
             }
