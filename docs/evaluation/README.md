@@ -19,7 +19,9 @@
   vs the corrected projection baseline: measured negative result with diagnosis.
 - [layout-patch-learning.md](layout-patch-learning.md) — patch/row CNN line detector:
   M02a held-out **P 0.965 / R 0.987** vs projection 0.523/0.545; a P01-trained variant is
-  measured separately (aggregate improvement, per-page failures; not adopted).
+  measured separately (aggregate improvement, per-page failures; not adopted). Augmentation
+  A/B is in the same record: vertical scale/shift/noise improved M02a and P01 subsets; enabled
+  by default in CLI training with `--no-augment` as the opt-out.
 - [layout-impact-page-cer.md](layout-impact-page-cer.md) — same recognition model, projection
   vs learned layout: page CER 0.971 → 0.942 and detection recall ~0.54 → ~0.996 on held-out
   M02a pages (one-to-one matching).

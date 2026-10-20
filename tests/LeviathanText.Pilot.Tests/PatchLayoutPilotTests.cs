@@ -315,6 +315,67 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 markdown += p01Section;
             }
 
+            // Augmentation A/B (same seed/epochs; vertical scale/shift + noise).
+            var augmentedOptions = options with { AugmentTraining = true };
+            var augmented = PatchLayoutModel.Train(train, augmentedOptions, message => output.WriteLine("aug " + message));
+            var augProbabilities = dev.ToDictionary(
+                page => page.Name, page => augmented.PredictRowProbabilities(page.Page));
+            var augTuning = new List<(float Threshold, double Precision, double Recall, double F1)>();
+            for (float threshold = 0.15f; threshold <= 0.851f; threshold += 0.05f)
+            {
+                var rows = dev.Select(page =>
+                    (Witness: page.Name,
+                        Detected: augmented.DetectFromProbabilities(page.Page, augProbabilities[page.Name], threshold).Lines,
+                        GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList();
+                var summary = LayoutComparison.Compare(rows);
+                double f1 = summary.MeanPrecision + summary.MeanRecall == 0 ? 0
+                    : 2 * summary.MeanPrecision * summary.MeanRecall / (summary.MeanPrecision + summary.MeanRecall);
+                augTuning.Add((threshold, summary.MeanPrecision, summary.MeanRecall, f1));
+            }
+            var augBest = augTuning.OrderByDescending(t => t.F1).First();
+            var augTuned = augmented.WithThreshold(augBest.Threshold);
+
+            var augAll = LayoutComparison.Compare(test.Select(page =>
+            {
+                var detected = augTuned.Detect(page.Page).Lines;
+                return (Witness: page.Name, Detected: detected,
+                    GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth);
+            }).ToList());
+            var augM02a = LayoutComparison.Compare(test.Where(p => p.Name.StartsWith("m02a:")).Select(page =>
+            {
+                var detected = augTuned.Detect(page.Page).Lines;
+                return (Witness: page.Name, Detected: detected,
+                    GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth);
+            }).ToList());
+            var augP01 = LayoutComparison.Compare(test.Where(p => p.Name.StartsWith("p01:")).Select(page =>
+            {
+                var detected = augTuned.Detect(page.Page).Lines;
+                return (Witness: page.Name, Detected: detected,
+                    GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth);
+            }).ToList());
+            output.WriteLine($"augmented: P={augAll.MeanPrecision:0.###} R={augAll.MeanRecall:0.###} " +
+                             $"(M02a {augM02a.MeanPrecision:0.###}/{augM02a.MeanRecall:0.###}, " +
+                             $"P01 {augP01.MeanPrecision:0.###}/{augP01.MeanRecall:0.###})");
+
+            markdown += $"""
+
+                ## Augmentation A/B (same seed and epochs)
+
+                Augmentation: vertical scale {augmentedOptions.AugmentScaleMin:0.00}–{augmentedOptions.AugmentScaleMax:0.00},
+                shift ±{augmentedOptions.AugmentShiftRows} rows, intensity noise {augmentedOptions.AugmentNoise:0.000};
+                threshold selected on dev ({augBest.Threshold:0.00}).
+
+                | Detector | M02a P | M02a R | P01 P | P01 R | All P | All R |
+                | --- | --- | --- | --- | --- | --- | --- |
+                | No augmentation | {learnedM02a.MeanPrecision:0.###} | {learnedM02a.MeanRecall:0.###} | {learnedP01.MeanPrecision:0.###} | {learnedP01.MeanRecall:0.###} | {learnedSummary.MeanPrecision:0.###} | {learnedSummary.MeanRecall:0.###} |
+                | Augmented | {augM02a.MeanPrecision:0.###} | {augM02a.MeanRecall:0.###} | {augP01.MeanPrecision:0.###} | {augP01.MeanRecall:0.###} | {augAll.MeanPrecision:0.###} | {augAll.MeanRecall:0.###} |
+
+                One seed, one material pair: a direction check, not a tuned result. Augmentation
+                improved both subsets here, so the **CLI training path enables it by default**
+                (`--no-augment` to disable); the library option stays explicit. A second corpus is
+                still required before any generalization claim.
+                """;
+
             var report = Path.Combine(root!, "docs", "evaluation", "layout-patch-learning.md");
             Directory.CreateDirectory(Path.GetDirectoryName(report)!);
             File.WriteAllText(report, markdown);

@@ -76,7 +76,7 @@ restarts. The workspace shows the queue after recognition and on reload.
 
 ```bash
 # train a per-material layout package (page-level split; threshold tuned on dev pages)
-leviathan layout train /abs/page-xml-dir --out ./packages/layout-codex --image-ext .png --epochs 100
+leviathan layout train /abs/page-xml-dir --out ./packages/layout-codex --image-ext .png --epochs 100   # augmentation on; --no-augment to disable
 # detect with the learned model (otherwise projection is used)
 leviathan --store pilot.db layout detect <projectId> <surfaceId> --model ./packages/layout-codex
 ```

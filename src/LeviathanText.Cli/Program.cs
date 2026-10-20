@@ -485,7 +485,12 @@ public static class Program
                     return 1;
                 }
 
-                var options = new LeviathanText.Layout.PatchLayoutOptions { Epochs = epochs, Seed = seed };
+                var options = new LeviathanText.Layout.PatchLayoutOptions
+                {
+                    Epochs = epochs,
+                    Seed = seed,
+                    AugmentTraining = !rest.Contains("--no-augment"),
+                };
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 var model = LeviathanText.Layout.PatchLayoutModel.Train(train, options,
                     message => Console.Error.WriteLine(message));

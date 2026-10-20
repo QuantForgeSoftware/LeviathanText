@@ -330,3 +330,13 @@ Blockers recorded so far:
   `GET /surfaces/{id}/unplaced-lines`.
 - **Smoke:** real ISic001151 + w800 image → 3 reference lines split correctly (including a
   `break="no"` hyphenation), 0 L1 revisions. Expert transcription/geometry work remains.
+
+### Handoff revision 16 — 2026-10-19 (layout augmentation)
+
+- Added explicit training augmentation to `PatchLayoutModel`: vertical scale 0.85–1.15,
+  shift ±8 rows, intensity/noise jitter; image and mask transformed together. Metadata/model
+  card record the settings; `--no-augment` opts out; CLI training enables it by default.
+- Measured A/B (same seed/epochs): M02a P 0.965→0.988, R 0.987→1.0; P01 P 0.31→0.325,
+  R 0.134→0.201; all-held-out P 0.734→0.754, R 0.686→0.718. Single seed/material pair —
+  direction, not a generalization claim.
+- Report updated; unit test covers augmented training on synthetic bands.

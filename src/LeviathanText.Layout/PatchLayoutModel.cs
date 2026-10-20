@@ -46,6 +46,18 @@ public sealed record PatchLayoutOptions
 
     /// <summary>Row-probability threshold selected on a dev split.</summary>
     public float Threshold { get; init; } = 0.5f;
+
+    /// <summary>
+    /// Training augmentation: random vertical scale/shift and intensity/noise. Aims to reduce
+    /// dependence on one book's line pitch and scan tone (cross-material layout).
+    /// </summary>
+    public bool AugmentTraining { get; init; }
+    public double AugmentScaleMin { get; init; } = 0.85;
+    public double AugmentScaleMax { get; init; } = 1.15;
+    public int AugmentShiftRows { get; init; } = 8;
+    public double AugmentIntensityMin { get; init; } = 0.9;
+    public double AugmentIntensityMax { get; init; } = 1.1;
+    public double AugmentNoise { get; init; } = 0.03;
 }
 
 /// <summary>
@@ -116,8 +128,16 @@ public sealed class PatchLayoutModel
                 while (j < order.Count && j - i < options.BatchSize && prepared[order[j]].Width == width) j++;
                 var batch = order.GetRange(i, j - i);
                 i = j;
-                using var input = BuildInputs(prepared, batch, options);
-                using var target = BuildTargets(prepared, batch, options);
+                Tensor input, target;
+                if (options.AugmentTraining)
+                {
+                    (input, target) = BuildAugmentedBatch(prepared, batch, options, rng);
+                }
+                else
+                {
+                    input = BuildInputs(prepared, batch, options);
+                    target = BuildTargets(prepared, batch, options);
+                }
 
                 optimizer.zero_grad();
                 using var logits = model.forward(input);
@@ -253,6 +273,11 @@ public sealed class PatchLayoutModel
         {
             Threshold = _options.Threshold,
             WeightsDigest = digest,
+            AugmentTraining = _options.AugmentTraining,
+            AugmentScaleMin = _options.AugmentScaleMin,
+            AugmentScaleMax = _options.AugmentScaleMax,
+            AugmentShiftRows = _options.AugmentShiftRows,
+            AugmentNoise = _options.AugmentNoise,
         };
         File.WriteAllText(Path.Combine(directory, MetadataFileName),
             JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
@@ -327,6 +352,49 @@ public sealed class PatchLayoutModel
         return bands;
     }
 
+    /// <summary>One augmented batch; image and mask are transformed with the same geometry.</summary>
+    private static (Tensor Inputs, Tensor Targets) BuildAugmentedBatch(
+        IReadOnlyList<PreparedPage> prepared, IReadOnlyList<int> indices,
+        PatchLayoutOptions options, Random rng)
+    {
+        int count = indices.Count;
+        int height = options.InputHeight;
+        int width = prepared[indices[0]].Width;
+        var pixels = new float[count * height * width];
+        var masks = new float[count * height];
+
+        for (int b = 0; b < count; b++)
+        {
+            var page = prepared[indices[b]];
+            double scale = options.AugmentScaleMin + rng.NextDouble() * (options.AugmentScaleMax - options.AugmentScaleMin);
+            int shift = rng.Next(-options.AugmentShiftRows, options.AugmentShiftRows + 1);
+            double intensity = options.AugmentIntensityMin + rng.NextDouble() * (options.AugmentIntensityMax - options.AugmentIntensityMin);
+            double centre = height / 2.0;
+
+            for (int y = 0; y < height; y++)
+            {
+                int sourceY = (int)Math.Round((y - shift - centre) / scale + centre);
+                bool valid = sourceY >= 0 && sourceY < height;
+                masks[b * height + y] = valid && page.Mask[sourceY] >= 0.5f ? 1f : 0f;
+                for (int x = 0; x < width; x++)
+                {
+                    float value = valid ? page.Pixels[sourceY * width + x] * (float)intensity : 0f;
+                    if (options.AugmentNoise > 0)
+                    {
+                        // Box-Muller for a bounded Gaussian noise sample.
+                        double u1 = 1.0 - rng.NextDouble();
+                        double u2 = rng.NextDouble();
+                        value += (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2 * Math.PI * u2) * options.AugmentNoise);
+                    }
+                    pixels[(b * height + y) * width + x] = value;
+                }
+            }
+        }
+
+        return (tensor(pixels).reshape(count, 1, height, width),
+                tensor(masks).reshape(count, height));
+    }
+
     private static Tensor BuildInputs(
         IReadOnlyList<PreparedPage> prepared, IReadOnlyList<int> indices, PatchLayoutOptions options)
     {
@@ -372,6 +440,7 @@ public sealed class PatchLayoutModel
               minimum band {metadata.MinBandBins} rows, core fraction {metadata.CoreFraction:0.00},
               box expansion ×{metadata.ExpansionFactor:0.00}
             - Training: {metadata.TrainedPages} pages; seed {metadata.Seed}; {metadata.Epochs} epochs; final weighted BCE {metadata.FinalLoss:0.###}
+            - Augmentation: {(metadata.AugmentTraining ? $"vertical scale {metadata.AugmentScaleMin:0.00}–{metadata.AugmentScaleMax:0.00}, shift ±{metadata.AugmentShiftRows} rows, noise {metadata.AugmentNoise:0.000}" : "none")}
             - Weights digest (SHA-256): `{metadata.WeightsDigest}`
             - Training pages: {pages}
 
@@ -545,6 +614,11 @@ public sealed class PatchLayoutModel
         public double CoreFraction { get; init; }
         public double ExpansionFactor { get; init; }
         public string WeightsDigest { get; init; } = "";
+        public bool AugmentTraining { get; init; }
+        public double AugmentScaleMin { get; init; }
+        public double AugmentScaleMax { get; init; }
+        public int AugmentShiftRows { get; init; }
+        public double AugmentNoise { get; init; }
         public int Seed { get; init; }
         public int Epochs { get; init; }
         public double FinalLoss { get; init; }

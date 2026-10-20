@@ -67,6 +67,29 @@ public sealed class PatchLayoutModelTests : IDisposable
     }
 
     [Fact]
+    public void Augmented_training_still_learns_synthetic_bands()
+    {
+        var pages = new List<LayoutTrainingPage>();
+        for (int variant = 0; variant < 4; variant++)
+        {
+            var bands = new (int, int)[] { (25 + variant * 2, 50 + variant * 2), (130, 160), (240, 270) };
+            using var bitmap = Page(300, 340, bands);
+            pages.Add(new LayoutTrainingPage($"aug-{variant}", SavePage($"aug-{variant}", bitmap), bands));
+        }
+
+        var model = PatchLayoutModel.Train(pages, new PatchLayoutOptions
+        {
+            Epochs = 60, BatchSize = 2, InputHeight = 160, MaxInputWidth = 200, Seed = 13,
+            AugmentTraining = true, AugmentShiftRows = 5,
+        });
+
+        using var target = Page(300, 340, (55, 85), (165, 195));
+        var result = model.Detect(target);
+        Assert.NotEmpty(result.Lines);
+        Assert.True(result.Lines.Count <= 4);
+    }
+
+    [Fact]
     public void Save_and_load_roundtrip_reproduces_detection()
     {
         using var page = Page(240, 300, (40, 70), (150, 180));
