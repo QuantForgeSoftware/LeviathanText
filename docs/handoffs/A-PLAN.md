@@ -460,6 +460,7 @@ Blockers recorded so far:
 - **PDF ingestion:** bounded PDFtoImage/PDFium page rasterization (200 MB, 500 pages, 12k px /
   50 MP per page) into one capture-only surface per page; CLI `import pdf` and
   `POST /projects/{id}/import-pdf`. No PDF text/layout extraction.
+- **Run regression gate:** `runs regress` compares stored metrics with an absolute tolerance and exits nonzero on regression.
 - **Evaluation drilldown:** `evaluate lines` scores a packaged model on dev/train, writes per-line
   CER/base/mark/confusion CSV/JSON + Markdown report and records an `evaluation` run with a split digest; locked
   test labels are not available to routine evaluation.

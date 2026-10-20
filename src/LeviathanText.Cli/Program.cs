@@ -512,6 +512,30 @@ public static class Program
                 return 0;
             }
 
+            case "runs" when rest.Length >= 5 && rest[1] == "regress":
+            {
+                var metric = rest[2];
+                var baseline = store.LoadRun(rest[3])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[3], Message = "No such baseline run." });
+                var candidate = store.LoadRun(rest[4])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[4], Message = "No such candidate run." });
+                if (!baseline.Metrics.TryGetValue(metric, out var baselineValue))
+                    throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[3], Message = $"Baseline has no '{metric}' metric." });
+                if (!candidate.Metrics.TryGetValue(metric, out var candidateValue))
+                    throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[4], Message = $"Candidate has no '{metric}' metric." });
+
+                bool higher = Array.IndexOf(rest, "--higher") >= 0;
+                var toleranceIndex = Array.IndexOf(rest, "--max-regression");
+                double tolerance = toleranceIndex >= 0 && toleranceIndex + 1 < rest.Length
+                    ? double.Parse(rest[toleranceIndex + 1], System.Globalization.CultureInfo.InvariantCulture)
+                    : 0;
+                double regression = higher ? baselineValue - candidateValue : candidateValue - baselineValue;
+                bool pass = regression <= tolerance + 1e-12;
+                Console.WriteLine($"metric {metric}: baseline={baselineValue:0.######} candidate={candidateValue:0.######} " +
+                                  $"regression={regression:0.######} tolerance={tolerance:0.######} -> {(pass ? "PASS" : "FAIL")}");
+                return pass ? 0 : 1;
+            }
+
             case "runs" when rest.Length >= 3 && rest[1] == "compare":
             {
                 var metric = rest[2];

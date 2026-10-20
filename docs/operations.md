@@ -76,6 +76,7 @@ Training commands record a comparable run in the store:
 leviathan --store pilot.db runs list [--kind recognition|layout] [--limit N]
 leviathan --store pilot.db runs show <runId>
 leviathan --store pilot.db runs compare bestDevCer            # ascending; --higher for metrics like devF1
+leviathan --store pilot.db runs regress cer <baselineRunId> <candidateRunId> --max-regression 0.01
 ```
 
 Each run stores kind/name/created/by, the **dataset digest** (split hash or layout data digest),
