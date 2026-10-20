@@ -25,12 +25,12 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
 | Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link |
-| Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, **opt-in per-project membership + admin member panel**, workspace key panel, admin accounts panel, read-only; no SSO/invitation tokens/presence |
+| Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, **opt-in per-project membership + admin member panel**, workspace key panel, admin accounts + auth-audit panels, read-only; no SSO/invitation tokens/presence |
 
 ## Verification
 
 - 542 tests (540 passed + 2 opt-in skips), 0 failed, 13 suites; Release build 0 warnings/0 errors.
-- 39 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
+- 40 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
 ## Measured numbers (pilot scale)

@@ -7,10 +7,11 @@ import { AuthPanel } from './auth-panel';
 import { OfflineBanner } from './offline-banner';
 import { RunsPanel } from './runs-panel';
 import { UsersPanel } from './users-panel';
+import { AuditPanel } from './audit-panel';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel, AuthPanel, OfflineBanner, RunsPanel, UsersPanel],
+  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel, AuthPanel, OfflineBanner, RunsPanel, UsersPanel, AuditPanel],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

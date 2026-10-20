@@ -64,6 +64,18 @@ export interface LinePayload {
   reviews?: ReviewPayload[];
 }
 
+export interface AuthAuditEntry {
+  id: number;
+  at: string;
+  userId?: string;
+  userName?: string;
+  role?: string;
+  action: string;
+  method: string;
+  path: string;
+  status?: number;
+}
+
 export interface UserAccount {
   id: string;
   name: string;
@@ -311,6 +323,10 @@ export class ApiClient {
 
   disableUser(userId: string): Observable<void> {
     return this.http.post<void>(`/api/v1/users/${userId}/disable`, {});
+  }
+
+  audit(limit = 50): Observable<AuthAuditEntry[]> {
+    return this.http.get<AuthAuditEntry[]>('/api/v1/audit', { params: { limit: String(limit) } });
   }
 
   projectMembers(projectId: string): Observable<string[]> {

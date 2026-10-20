@@ -13,6 +13,7 @@ set: C0-0.4-draft.
 
 ### Added
 
+- **Admin audit panel:** recent authenticated/denied/unauthorized events are visible in the workspace.
 - **Admin accounts panel:** workspace UI creates accounts, shows new/rotated keys once, and disables accounts.
 - **Source evidence link:** the line editor opens the selected capture in a new tab; task-specific evidence excerpts remain open.
 - **Correction-sequence capture:** editor records `CorrectionSequence` and `DifferentHand` annotations with a hand/sequence label; replay/ordering visualization remains open.
