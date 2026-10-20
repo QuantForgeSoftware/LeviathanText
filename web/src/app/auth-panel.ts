@@ -2,6 +2,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { apiKey, hasApiKey, setApiKey } from './auth';
 import { ApiClient } from './api-client';
+import { clearCache } from './offline-cache';
 
 @Component({
   selector: 'app-auth-panel',
@@ -57,6 +58,7 @@ export class AuthPanel implements OnInit {
   protected save(): void {
     setApiKey(this.draft());
     this.draft.set('');
+    clearCache();
     this.hasKey.set(hasApiKey());
     this.status.set('saved; reload data to use the new credentials');
     if (this.hasKey()) this.loadIdentity();
@@ -64,6 +66,7 @@ export class AuthPanel implements OnInit {
 
   protected clear(): void {
     setApiKey('');
+    clearCache();
     this.hasKey.set(false);
     this.status.set('cleared');
   }

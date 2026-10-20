@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { eventsUrlWithKey } from './auth';
+import { cachedRequest } from './offline-cache';
 import { Observable } from 'rxjs';
 
 /**
@@ -126,7 +127,7 @@ export class ApiClient {
   }
 
   listProjects(): Observable<ProjectSummary[]> {
-    return this.http.get<ProjectSummary[]>('/api/v1/projects');
+    return cachedRequest('projects', this.http.get<ProjectSummary[]>('/api/v1/projects'));
   }
 
   createProject(name: string): Observable<ProjectSummary> {
@@ -134,7 +135,7 @@ export class ApiClient {
   }
 
   loadProject(id: string): Observable<ProjectPayload> {
-    return this.http.get<ProjectPayload>(`/api/v1/projects/${id}`);
+    return cachedRequest(`project:${id}`, this.http.get<ProjectPayload>(`/api/v1/projects/${id}`));
   }
 
   diplomaticExport(projectId: string, surfaceId: string): Observable<DiplomaticExport> {
@@ -143,7 +144,7 @@ export class ApiClient {
   }
 
   line(lineId: string): Observable<LinePayload> {
-    return this.http.get<LinePayload>(`/api/v1/lines/${lineId}`);
+    return cachedRequest(`line:${lineId}`, this.http.get<LinePayload>(`/api/v1/lines/${lineId}`));
   }
 
   lineLayerHistory(lineId: string, layer: string): Observable<RevisionPayload[]> {

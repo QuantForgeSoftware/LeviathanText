@@ -107,6 +107,14 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Offline use
+
+The workspace caches successful reads (project list/payloads, line payloads, diplomatic exports)
+in browser localStorage and shows an **offline banner** when a read falls back to cache. Editing
+still requires the server: drafts stay local and mutations are never replayed automatically.
+Caches are cleared when the API key changes. Do not rely on cached data for decisions after
+reconnecting.
+
 ## Bulk line-text import
 
 ```bash
