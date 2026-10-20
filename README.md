@@ -93,6 +93,8 @@ The workspace includes the line editor (polytonic input, revisions, uncertainty/
 
 ## Status and operations
 
+- [CHANGELOG.md](CHANGELOG.md) — what changed in the current work block.
+
 - [docs/STATUS.md](docs/STATUS.md) — one-page status: what works, measured numbers, blockers.
 - [docs/architecture.md](docs/architecture.md) — module map, data flow, storage, contracts.
 - [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations, review and inscription imports.
