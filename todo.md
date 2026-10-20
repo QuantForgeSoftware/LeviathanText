@@ -89,7 +89,7 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 - [ ] Add printed Greek editions/critical apparatus layouts and other scripts according to user priorities.
 - [~] Add explicit RTL/BiDi/vertical direction and script metadata per region/line, and use it in editing/display/interchange without guessing from language. *(native fields + PAGE readingDirection/primaryScript + hOCR dir/ocr_vertical + bounded TEI rend round-trip; API orientation endpoints; editor/display support. Remaining: full BiDi layout, vertical recognition, ALTO direction mapping.)*
-- [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization + optional coordinate-bearing PDF text extraction as L2 reference are implemented; PDF layout inference and ABBYY XML remain.)*
+- [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization + optional coordinate-bearing PDF text as L2 reference with gap-based line segmentation are implemented; PDF reading-order/column inference and ABBYY XML remain.)*
 - [ ] Extend AI to translation, structured extraction, optional lexical/morphological annotations and bulk workflows with source references.
 - [ ] Reconcile every reference capability row against acceptance evidence before claiming full parity.
 - [ ] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions.

@@ -46,7 +46,7 @@ public static class PdfTextExtractor
                 var words = page.GetWords()
                     .Where(w => !string.IsNullOrWhiteSpace(w.Text))
                     .ToList();
-                var groups = GroupLines(words);
+                var groups = GroupLines(words, page.Width);
                 var lines = groups.Select(group =>
                 {
                     var left = group.Min(w => w.BoundingBox.Left);
@@ -78,25 +78,46 @@ public static class PdfTextExtractor
         return pages;
     }
 
-    private static List<List<Word>> GroupLines(IReadOnlyList<Word> words)
+    private static List<List<Word>> GroupLines(IReadOnlyList<Word> words, double pageWidth)
     {
         var ordered = words
             .OrderByDescending(w => w.BoundingBox.Bottom + w.BoundingBox.Height / 2)
             .ThenBy(w => w.BoundingBox.Left)
             .ToList();
-        var groups = new List<List<Word>>();
+        var rows = new List<List<Word>>();
         foreach (var word in ordered)
         {
             var center = word.BoundingBox.Bottom + word.BoundingBox.Height / 2;
             var tolerance = Math.Max(2.0, word.BoundingBox.Height * 0.6);
-            var group = groups.LastOrDefault(g =>
+            var group = rows.LastOrDefault(g =>
             {
                 var groupCenter = g.Average(w => w.BoundingBox.Bottom + w.BoundingBox.Height / 2);
                 return Math.Abs(groupCenter - center) <= tolerance;
             });
-            if (group is null) groups.Add([word]);
+            if (group is null) rows.Add([word]);
             else group.Add(word);
         }
-        return groups;
+
+        // Split large horizontal gaps into separate candidate lines (for example facing
+        // columns). This is line segmentation only; it does not claim reading order.
+        var gapThreshold = Math.Max(8.0, pageWidth * 0.04);
+        var lines = new List<List<Word>>();
+        foreach (var row in rows)
+        {
+            var current = new List<Word>();
+            Word? previous = null;
+            foreach (var word in row.OrderBy(w => w.BoundingBox.Left))
+            {
+                if (previous is not null && word.BoundingBox.Left - previous.BoundingBox.Right > gapThreshold)
+                {
+                    if (current.Count > 0) lines.Add(current);
+                    current = [];
+                }
+                current.Add(word);
+                previous = word;
+            }
+            if (current.Count > 0) lines.Add(current);
+        }
+        return lines;
     }
 }

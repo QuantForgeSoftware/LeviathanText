@@ -458,6 +458,7 @@ Blockers recorded so far:
   direction/vertical display. No BiDi layout or vertical recognition claim; ALTO direction is
   not mapped.
 - **Banded line extraction:** large JPEG pages (>25 MP) use bounded scanline bands for line crops; PNG/TIFF still full-frame. Tests compare banded crops/pixels to full decode.
+- **PDF line segmentation:** large horizontal gaps separate candidate L2 lines; reading order/columns remain uninferred.
 - **PDF ingestion:** bounded PDFtoImage/PDFium page rasterization (200 MB, 500 pages, 12k px /
   50 MP per page) into one capture-only surface per page; optional PdfPig text extraction is
   imported as coordinate-bearing **L2 reference** (never L1). CLI `import pdf --text` and

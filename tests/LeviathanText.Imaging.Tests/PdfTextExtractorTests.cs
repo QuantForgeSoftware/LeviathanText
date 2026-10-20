@@ -19,6 +19,8 @@ public class PdfTextExtractorTests : IDisposable
         using var font = new SKFont(SKTypeface.FromFamilyName("serif"), 20);
         canvas.DrawText("alpha beta", 20, 50, SKTextAlign.Left, font, paint);
         canvas.DrawText("gamma delta", 20, 100, SKTextAlign.Left, font, paint);
+        canvas.DrawText("left column", 20, 150, SKTextAlign.Left, font, paint);
+        canvas.DrawText("right column", 260, 150, SKTextAlign.Left, font, paint);
         document.EndPage();
         document.Close();
         return path;
@@ -29,9 +31,11 @@ public class PdfTextExtractorTests : IDisposable
     {
         var pages = PdfTextExtractor.Extract(MakePdf());
         var page = Assert.Single(pages);
-        Assert.Equal(2, page.Lines.Count);
+        Assert.Equal(4, page.Lines.Count);
         Assert.Contains(page.Lines, l => l.Text.Contains("alpha beta", StringComparison.Ordinal));
         Assert.Contains(page.Lines, l => l.Text.Contains("gamma delta", StringComparison.Ordinal));
+        Assert.Contains(page.Lines, l => l.Text.Contains("left column", StringComparison.Ordinal));
+        Assert.Contains(page.Lines, l => l.Text.Contains("right column", StringComparison.Ordinal));
         Assert.All(page.Lines, line =>
         {
             Assert.True(line.Right > line.Left);
