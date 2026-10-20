@@ -403,5 +403,22 @@ Blockers recorded so far:
   use exact means and worst spans; the editor renders confidence bands.
 - **Offline reads:** successful project/line/diplomatic reads are cached in localStorage with an
   offline banner; caches clear on key change; mutations are not replayed.
-- **Verification:** **511 tests (509 passed + 2 opt-in skipped), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 33 web specs; demo and fresh-install smokes PASS.
+- **Verification:** **516 tests (514 passed + 2 opt-in skipped), 0 failed across 13 suites;
+  Release 0 warnings/0 errors**; 34 web specs; demo and fresh-install smokes PASS.
+
+### Handoff revision 21 — 2026-10-20 (imports, offline, safety, docs)
+
+- **Bulk imports:** line-text CSV (rows through the revision service) and annotation CSV (rows
+  through range/kind validation); CLI + HTTP + workspace upload; unknown rows reported, never
+  silently dropped. `EntityId.TryParse` added.
+- **Offline reads:** project/line/diplomatic cache with stale-data banner and cache clearing on
+  key change; mutations are never replayed.
+- **Workspace ergonomics:** editor identity (author/reviewer provenance), prev/next line
+  navigation, platform-confidence rendering (high/medium/low bands) and accessibility labels.
+- **Safety/release:** auth audit + role edge tests (accounts without a bootstrap key), malformed
+  JSON client errors, dependency vulnerability snapshot, security threat model, architecture
+  overview, changelog, upgrade/rollback guidance.
+- **Plan reconciliation:** completed model/training items archived (55 total); remaining items
+  annotated with delivered evidence and blockers.
+- **Verification:** **516 tests (514 passed + 2 opt-in skips), 0 failed across 13 suites; Release
+  0 warnings/0 errors**; 34 web specs; demo/fresh-install PASS; locked P01 evaluation remains opt-in.
