@@ -66,6 +66,7 @@ builder.Services.AddSingleton(sp =>
     return new AiProviderRegistry(settings, new HttpClient(), new EnvironmentCredentialSource());
 });
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
+builder.Services.AddSingleton<PresenceService>();
 
 var app = builder.Build();
 
@@ -500,6 +501,26 @@ api.MapPost("projects/{id}/import-epidoc", (ProjectService projects, string id, 
         notes,
     });
 });
+
+api.MapPost("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceService presence, string surfaceId,
+    [FromBody] PresenceRequest request) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    _ = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    return Results.Ok(new { editors = presence.Touch(surfaceEntityId, request.EditorId) });
+});
+
+api.MapGet("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceService presence, string surfaceId) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    _ = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    return Results.Ok(new { editors = presence.List(surfaceEntityId) });
+});
+
+api.MapDelete("surfaces/{surfaceId}/presence/{editorId}", (PresenceService presence, string surfaceId, string editorId) =>
+    Results.Ok(new { editors = presence.Leave(EntityId.Parse(surfaceId, EntityKind.Surface), editorId) }));
 
 api.MapGet("surfaces/{surfaceId}/unplaced-lines", (ProjectService projects, string surfaceId) =>
 {
@@ -1166,6 +1187,8 @@ public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
+
+public sealed record PresenceRequest(string EditorId);
 
 public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = null, string? Kind = null,
     int Dpi = 200, int MaxPages = 500, bool ExtractText = false);

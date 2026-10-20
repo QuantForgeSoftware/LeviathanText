@@ -238,6 +238,21 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Presence_heartbeats_are_scoped_to_a_surface()
+    {
+        var client = NewClient();
+        var (_, _, surfaceId) = await ImportFixtureAsync(client, "presence-e2e");
+
+        var touch = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/presence", new { editorId = "anna" });
+        Assert.Equal(HttpStatusCode.OK, touch.StatusCode);
+        Assert.Contains("anna", await touch.Content.ReadAsStringAsync());
+
+        Assert.Contains("anna", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/presence"));
+        Assert.Equal(HttpStatusCode.OK, (await client.DeleteAsync($"/api/v1/surfaces/{surfaceId}/presence/anna")).StatusCode);
+        Assert.DoesNotContain("anna", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/presence"));
+    }
+
+    [Fact]
     public async Task Line_order_endpoint_validates_and_returns_the_new_order()
     {
         var client = NewClient();

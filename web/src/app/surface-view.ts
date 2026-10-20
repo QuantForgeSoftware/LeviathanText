@@ -3,7 +3,7 @@
  * with grapheme-aware line rows. Clicking a line shows its scalar span; the display is
  * Unicode-scalar-aware so combining sequences never break (todo Phase 2 gate).
  */
-import { Component, computed, effect, signal, OnInit, input } from '@angular/core';
+import { Component, computed, effect, signal, OnInit, OnDestroy, input } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { authorId } from './identity';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
@@ -62,6 +62,10 @@ import { GeometryEditor } from './geometry-editor';
             [imageUrl]="imageLink()"
             [readOnly]="!showGeometry()"
             (lineSelected)="editingLineId.set($event)" />
+        }
+
+        @if (presence().length > 0) {
+          <p class="hint">Editing now: {{ presence().join(', ') }}</p>
         }
 
         <p class="hint">
@@ -135,7 +139,7 @@ import { GeometryEditor } from './geometry-editor';
   `],
   imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe],
 })
-export class SurfaceView {
+export class SurfaceView implements OnDestroy {
   projectId = input.required<string>();
   surfaceId = input.required<string>();
   focusLineId = input<string>('');
@@ -159,6 +163,8 @@ export class SurfaceView {
   protected readonly recognizeBusy = signal(false);
   protected readonly reviewQueue = signal<{ lineId: string; meanConfidence: number | null; emptyOutput: boolean }[]>([]);
   protected readonly editorName = authorId();
+  protected readonly presence = signal<string[]>([]);
+  private presenceTimer: ReturnType<typeof setInterval> | null = null;
 
   protected hasNeighbour(delta: number): boolean {
     const ids = this.lineIdsByIndex();
@@ -281,6 +287,8 @@ export class SurfaceView {
   }
 
   ngOnInit(): void {
+    this.heartbeatPresence();
+    this.presenceTimer = setInterval(() => this.heartbeatPresence(), 20_000);
     this.api.diplomaticExport(this.projectId(), this.surfaceId())
       .subscribe({
         next: (data) => {
@@ -337,6 +345,20 @@ export class SurfaceView {
       this.captures.set(captureList);
       this.captureIndex.set(0);
       this.imageLink.set(captureList[0]?.imageLocation ?? '');
+    });
+  }
+
+  private heartbeatPresence(): void {
+    this.api.touchPresence(this.surfaceId(), this.editorName).subscribe({
+      next: result => this.presence.set(result.editors),
+      error: () => { /* presence is advisory */ },
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.presenceTimer) clearInterval(this.presenceTimer);
+    this.api.leavePresence(this.surfaceId(), this.editorName).subscribe({
+      error: () => { /* presence is advisory */ },
     });
   }
 

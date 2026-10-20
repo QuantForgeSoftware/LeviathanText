@@ -325,6 +325,18 @@ export class ApiClient {
     return this.http.post<void>(`/api/v1/users/${userId}/disable`, {});
   }
 
+  touchPresence(surfaceId: string, editorId: string): Observable<{ editors: string[] }> {
+    return this.http.post<{ editors: string[] }>(`/api/v1/surfaces/${surfaceId}/presence`, { editorId });
+  }
+
+  presence(surfaceId: string): Observable<{ editors: string[] }> {
+    return this.http.get<{ editors: string[] }>(`/api/v1/surfaces/${surfaceId}/presence`);
+  }
+
+  leavePresence(surfaceId: string, editorId: string): Observable<{ editors: string[] }> {
+    return this.http.delete<{ editors: string[] }>(`/api/v1/surfaces/${surfaceId}/presence/${encodeURIComponent(editorId)}`);
+  }
+
   audit(limit = 50): Observable<AuthAuditEntry[]> {
     return this.http.get<AuthAuditEntry[]>('/api/v1/audit', { params: { limit: String(limit) } });
   }

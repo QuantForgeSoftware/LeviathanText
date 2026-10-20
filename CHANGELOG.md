@@ -19,6 +19,7 @@ set: C0-0.4-draft.
 - **Correction-sequence capture:** editor records `CorrectionSequence` and `DifferentHand` annotations with a hand/sequence label; replay/ordering visualization remains open.
 - **Workspace deep links and surface navigation:** project/surface/line query parameters restore and update workspace state; previous/next surface controls move through the collection.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
+- **Presence heartbeat:** per-surface editor presence with a 60-second TTL and workspace display; advisory and single-process only.
 - **Acceptance gate:** `evaluate lines --acceptance criteria.json` applies caller-supplied thresholds and exits nonzero on failure.
 - **Run regression gate:** `runs regress <metric> <baseline> <candidate>` compares stored metrics with an absolute tolerance and exits nonzero on regression.
 - **Evaluation error drilldown:** `evaluate lines` scores a packaged model on dev/train,
