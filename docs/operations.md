@@ -107,6 +107,18 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Bulk line-text import
+
+```bash
+leviathan --store pilot.db import line-text <projectId> lines.csv [--layer L1Diplomatic|L2Editorial] [--author id]
+```
+
+CSV needs `line_id` and `text` columns (quoted commas/quotes/newlines supported). Each row is
+applied through the normal revision service (parent chain, provenance, conflict rules), so an
+external review/adjudication sheet can be merged without bypassing history. Unknown ids and
+empty rows are reported and skipped, never silently dropped. CSV remains lossy; the project
+document is authoritative.
+
 ## Inscription bootstrap (EpiDoc)
 
 ```bash

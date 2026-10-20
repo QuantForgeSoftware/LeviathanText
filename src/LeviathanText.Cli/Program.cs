@@ -216,6 +216,24 @@ public static class Program
                 return imported > 0 ? 0 : 1;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "line-text":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var layerIndex = Array.IndexOf(rest, "--layer");
+                var layer = layerIndex >= 0 && layerIndex + 1 < rest.Length
+                    ? Enum.Parse<TextLayer>(rest[layerIndex + 1], ignoreCase: true)
+                    : TextLayer.L1Diplomatic;
+                var authorIndex = Array.IndexOf(rest, "--author");
+                var author = authorIndex >= 0 && authorIndex + 1 < rest.Length ? rest[authorIndex + 1] : "csv-import";
+
+                var result = LineTextImport.Import(project, File.ReadAllText(rest[3]), layer, author,
+                    new TranscriptionService(store), store);
+                foreach (var row in result.Rows.Where(r => !r.Applied).Take(10))
+                    Console.Error.WriteLine($"skipped {row.LineId}: {row.Reason}");
+                Console.WriteLine($"applied {result.Applied} revision(s), skipped {result.Skipped} row(s), layer {layer}");
+                return 0;
+            }
+
             case "import" when rest.Length >= 5 && rest[1] == "epidoc":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
