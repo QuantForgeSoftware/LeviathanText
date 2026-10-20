@@ -11,7 +11,7 @@ Date: 2026-10-20. This records what was **actually run**, not a release claim.
 Result: **PASS** (no source-tree or network dependency in the published paths).
 
 Dependency inventory: all runtime dependencies resolve through NuGet (SkiaSharp, TorchSharp +
-native libtorch, PDFtoImage/PDFium, ASP.NET/SQLite); no Python or Kraken package/runtime appears
+native libtorch, PDFtoImage/PDFium, PdfPig, ASP.NET/SQLite); no Python or Kraken package/runtime appears
 in the graph.
 Published outputs are large (~600 MB per binary set) because native libtorch is bundled; a
 distribution should ship one shared runtime, not duplicate it.
@@ -27,7 +27,7 @@ Verified on this machine:
 
 | Target | Status | Evidence / limits |
 | --- | --- | --- |
-| osx-arm64 | **built + CLI smoke PASS** | 146 files / ~829 MB directory; 196 MB `.tar.gz`; manifest records runtime/commit/dotnet; CLI creates and lists a project from the packaged binary. |
+| osx-arm64 | **built + CLI smoke PASS** | 170 files / ~847 MB directory; 202 MB `.tar.gz`; manifest records runtime/commit/dotnet; CLI creates and lists a project from the packaged binary. |
 | osx-x64 | not built/tested | requires a matching .NET runtime and native libtorch/PDFium assets. |
 | linux-x64 | not built/tested | no Linux host in this environment. |
 | win-x64 | not built/tested | no Windows host in this environment. |
