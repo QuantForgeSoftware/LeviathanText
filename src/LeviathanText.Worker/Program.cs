@@ -25,10 +25,13 @@ public static class Program
         var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
         var imageResolver = new ImageResolver(store, imageCache);
         var jobStore = new LocalStoreJobStore(store);
+        var layoutModels = LoadLayoutModels(storePath);
+        Func<string, LeviathanText.Layout.PatchLayoutModel?> resolveLayoutModel =
+            kind => layoutModels.GetValueOrDefault(kind) ?? layoutModels.GetValueOrDefault("*");
         var host = new WorkerHost(jobStore,
             [new NoOpHandler(),
-             new LayoutDetectHandler(store, imageResolver),
-             new LayoutProjectHandler(store, imageResolver, jobStore),
+             new LayoutDetectHandler(store, imageResolver, resolveLayoutModel),
+             new LayoutProjectHandler(store, imageResolver, jobStore, resolveLayoutModel),
              new RecognizeSurfaceHandler(store, imageResolver),
              new RecognizeProjectHandler(store, imageResolver, jobStore),
              new ImportDirectoryHandler(store, jobStore)]);
@@ -62,6 +65,34 @@ public static class Program
     }
 
     /// <summary>Placeholder handler proving the claim/execute/finalize protocol end to end.</summary>
+    /// <summary>
+    /// Optional learned layout packages for worker jobs. Environment variable
+    /// LEVIATHANTEXT_LAYOUT_MODEL_DIR points at a directory whose subdirectories are named by
+    /// surface kind (or "*"), each containing a layout package. Broken packages are skipped.
+    /// </summary>
+    static Dictionary<string, LeviathanText.Layout.PatchLayoutModel> LoadLayoutModels(string storePath)
+    {
+        var models = new Dictionary<string, LeviathanText.Layout.PatchLayoutModel>(StringComparer.OrdinalIgnoreCase);
+        var root = Environment.GetEnvironmentVariable("LEVIATHANTEXT_LAYOUT_MODEL_DIR")
+                   ?? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "layout-models");
+        if (!Directory.Exists(root)) return models;
+
+        foreach (var directory in Directory.GetDirectories(root))
+        {
+            try
+            {
+                var kind = Path.GetFileName(directory);
+                models[kind] = LeviathanText.Layout.PatchLayoutModel.Load(directory);
+                Console.Error.WriteLine($"layout model loaded for kind {kind}: {directory}");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"layout model skipped ({Path.GetFileName(directory)}): {ex.Message}");
+            }
+        }
+        return models;
+    }
+
     public sealed class NoOpHandler : IJobHandler
     {
         public string Type => "noop";

@@ -1,6 +1,7 @@
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
+using LeviathanText.Layout;
 
 namespace LeviathanText.Worker;
 
@@ -9,7 +10,8 @@ namespace LeviathanText.Worker;
 /// capture and no regions is detected; surfaces that already have layout are skipped (never
 /// overwritten). Failures are isolated per surface and reported in the output counts.
 /// </summary>
-public sealed class LayoutProjectHandler(IProjectStore store, ImageResolver? imageResolver = null, IJobStore? jobs = null) : IJobHandler
+public sealed class LayoutProjectHandler(IProjectStore store, ImageResolver? imageResolver = null, IJobStore? jobs = null,
+    Func<string, PatchLayoutModel?>? modelResolver = null) : IJobHandler
 {
     public const string JobType = "layout.project";
 
@@ -60,7 +62,7 @@ public sealed class LayoutProjectHandler(IProjectStore store, ImageResolver? ima
             try
             {
                 var current = store.LoadProject(input.Entity) ?? project;
-                var outcome = service.Detect(current, surface.Id);
+                var outcome = service.Detect(current, surface.Id, model: modelResolver?.Invoke(surface.Kind));
                 detected++;
                 lines += outcome.LineCount;
             }

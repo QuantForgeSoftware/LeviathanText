@@ -295,9 +295,10 @@ Blockers recorded so far:
   detection could match several GT lines, precision > 1). Matching is now greedy one-to-one;
   all layout/e2e reports were regenerated under the corrected metric.
 - **Integration:** opt-in per-material selection — CLI `layout train` / `layout detect --model`,
-  API configuration `LeviathanText:Layout:Models:<kind>`, and an Application-level detector
-  parameter; projection remains the default. Model packages are validated (architecture match,
-  weights present) before use.
+  API configuration `LeviathanText:Layout:Models:<kind>`, worker
+  `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>/`, and an Application-level detector parameter;
+  projection remains the default. Model packages are validated (architecture match, weights
+  digest) and carry a model card; broken packages are skipped with a warning.
 - **Verification:** 482 tests (481 passed + 1 opt-in skipped), 0 failed across 13 suites;
   Release build 0 warnings/0 errors; 26 web specs; `scripts/pilot-demo.sh` PASS. The first
   solution-level run reported 39/45 ML tests once (test-host anomaly, no failures); rerun with

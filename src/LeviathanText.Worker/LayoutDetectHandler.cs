@@ -1,6 +1,7 @@
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
+using LeviathanText.Layout;
 
 namespace LeviathanText.Worker;
 
@@ -9,7 +10,8 @@ namespace LeviathanText.Worker;
 /// (checksum fields are informational for this job type). Runs the projection detector,
 /// refuses to overwrite existing layout, and finalizes idempotently through the host.
 /// </summary>
-public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imageResolver = null) : IJobHandler
+public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imageResolver = null,
+    Func<string, PatchLayoutModel?>? modelResolver = null) : IJobHandler
 {
     public const string JobType = "layout.detect";
 
@@ -41,7 +43,8 @@ public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imag
             });
 
         var service = new LayoutService(store, imageResolver);
-        var outcome = service.Detect(project, input.Entity);
+        var target = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == input.Entity);
+        var outcome = service.Detect(project, input.Entity, model: modelResolver?.Invoke(target.Kind));
 
         return job with
         {

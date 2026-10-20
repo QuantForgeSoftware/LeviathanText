@@ -91,6 +91,27 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.Equal(first, second);
         Assert.True(File.Exists(Path.Combine(dir, "model.pt")));
         Assert.True(File.Exists(Path.Combine(dir, "layout-metadata.json")));
+        Assert.True(File.Exists(Path.Combine(dir, "model-card.md")));
+        var card = File.ReadAllText(Path.Combine(dir, "model-card.md"));
+        Assert.Contains("Layout model card", card);
+        Assert.Contains("SHA-256", card);
+    }
+
+    [Fact]
+    public void Tampered_weights_are_rejected_by_the_recorded_digest()
+    {
+        using var page = Page(240, 300, (40, 70));
+        var path = SavePage("tamper", page);
+        var model = PatchLayoutModel.Train(
+            [new LayoutTrainingPage("a", path, [(40, 70)])],
+            new PatchLayoutOptions { Epochs = 10, InputHeight = 128, MaxInputWidth = 128, Seed = 6 });
+        var dir = Path.Combine(_dir, "tamper-package");
+        model.Save(dir);
+
+        var weights = Path.Combine(dir, "model.pt");
+        File.AppendAllText(weights, "tampered");
+        var ex = Assert.Throws<InvalidDataException>(() => PatchLayoutModel.Load(dir));
+        Assert.Contains("digest", ex.Message);
     }
 
     [Fact]

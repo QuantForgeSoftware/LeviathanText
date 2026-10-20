@@ -64,6 +64,7 @@ public sealed class PatchLayoutModel
     public const string ModelVersion = "v2";
     private const string MetadataFileName = "layout-metadata.json";
     private const string WeightsFileName = "model.pt";
+    private const string ModelCardFileName = "model-card.md";
 
     private readonly PatchCnn _model;
     private readonly PatchLayoutOptions _options;
@@ -241,14 +242,21 @@ public sealed class PatchLayoutModel
         return Detect(decoded.Bitmap);
     }
 
-    /// <summary>Save weights + metadata into a package directory.</summary>
+    /// <summary>Save weights + metadata + model card into a package directory.</summary>
     public void Save(string directory)
     {
         Directory.CreateDirectory(directory);
-        _model.save(Path.Combine(directory, WeightsFileName));
-        var metadata = _metadata with { Threshold = _options.Threshold };
+        var weightsPath = Path.Combine(directory, WeightsFileName);
+        _model.save(weightsPath);
+        var digest = DigestOf(weightsPath);
+        var metadata = _metadata with
+        {
+            Threshold = _options.Threshold,
+            WeightsDigest = digest,
+        };
         File.WriteAllText(Path.Combine(directory, MetadataFileName),
             JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(directory, ModelCardFileName), BuildModelCard(metadata));
     }
 
     public static PatchLayoutModel Load(string directory)
@@ -266,6 +274,9 @@ public sealed class PatchLayoutModel
         var weights = Path.Combine(directory, WeightsFileName);
         if (!File.Exists(weights))
             throw new InvalidDataException($"Layout model weights not found at {weights}.");
+        if (!string.IsNullOrEmpty(metadata.WeightsDigest)
+            && !string.Equals(DigestOf(weights), metadata.WeightsDigest, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Layout model weights do not match the digest recorded in the metadata.");
         model.load(weights);
         model.eval();
 
@@ -340,6 +351,38 @@ public sealed class PatchLayoutModel
         foreach (var index in indices)
             Array.Copy(prepared[index].Mask, 0, mask, (cursor++) * options.InputHeight, options.InputHeight);
         return tensor(mask).reshape(count, options.InputHeight);
+    }
+
+    private static string DigestOf(string path) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)))
+            .ToLowerInvariant();
+
+    private string BuildModelCard(TrainedMetadata metadata)
+    {
+        var pages = metadata.PageNames.Count <= 8
+            ? string.Join(", ", metadata.PageNames)
+            : $"{string.Join(", ", metadata.PageNames.Take(4))} … ({metadata.PageNames.Count} pages)";
+        return $"""
+            # Layout model card — {metadata.Architecture}
+
+            - Version: {ModelVersion}; created {metadata.CreatedAt:O}
+            - Input: height {metadata.InputHeight}px, aspect-preserving width clamped to
+              {metadata.MinInputWidth}–{metadata.MaxInputWidth}px; per-page ink normalization
+            - Output: text-row probability per output row; threshold **{metadata.Threshold:0.00}**,
+              minimum band {metadata.MinBandBins} rows, core fraction {metadata.CoreFraction:0.00},
+              box expansion ×{metadata.ExpansionFactor:0.00}
+            - Training: {metadata.TrainedPages} pages; seed {metadata.Seed}; {metadata.Epochs} epochs; final weighted BCE {metadata.FinalLoss:0.###}
+            - Weights digest (SHA-256): `{metadata.WeightsDigest}`
+            - Training pages: {pages}
+
+            ## Scope and limitations
+
+            Single-column, horizontal pages. The width axis is collapsed, so columns are not
+            modeled. Metrics depend on the material and split; see the evaluation records under
+            `docs/evaluation/layout-*.md`. This model is not a scholarly layout claim and does not
+            replace manual correction. Threshold and expansion were selected on a development
+            split; re-tune for a different material.
+            """;
     }
 
     private static string HashOf(string value) =>
@@ -501,6 +544,7 @@ public sealed class PatchLayoutModel
         public int MinBandBins { get; init; }
         public double CoreFraction { get; init; }
         public double ExpansionFactor { get; init; }
+        public string WeightsDigest { get; init; } = "";
         public int Seed { get; init; }
         public int Epochs { get; init; }
         public double FinalLoss { get; init; }

@@ -84,7 +84,9 @@ leviathan --store pilot.db layout detect <projectId> <surfaceId> --model ./packa
 The API selects learned models per surface kind from configuration:
 `LeviathanText:Layout:Models:codex-page=/abs/packages/layout-codex` (and optionally `*` as a
 default). Unknown kinds fall back to projection. Learned layout is opt-in and single-column
-only; the P01-trained variant is measured but not enabled (per-page failures).
+only; the P01-trained variant is measured but not enabled (per-page failures). Worker jobs
+read the same kind-named directories from `LEVIATHANTEXT_LAYOUT_MODEL_DIR` (default
+`<store-dir>/layout-models`).
 
 ## Models
 
