@@ -33,6 +33,12 @@ interface UndoStack {
         @if (draftRestored()) {
           <p class="hint">Unsaved draft restored after reload (⌘/Ctrl+S saves, ⌘/Ctrl+Z undoes).</p>
         }
+        @if (conflict()) {
+          <p class="conflict">
+            A newer revision exists. Reload the latest parent, keep your text, then Save again.
+            <button type="button" (click)="reloadAfterConflict()">Reload latest</button>
+          </p>
+        }
         @if (latestL0(); as l0) {
           <p class="l0" aria-label="model output">
             <span class="hint">L0 raw (may be stale):</span>
@@ -188,6 +194,7 @@ interface UndoStack {
     .tools { margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: center; }
     .orientation { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .hint { color: #667; font-size: 0.85rem; }
+    .conflict { background: #fff4d6; padding: 0.4rem; }
   `],
 })
 export class LineEditor {
@@ -203,6 +210,7 @@ export class LineEditor {
   protected readonly direction = signal<string | null>(null);
   protected readonly script = signal('');
   protected readonly orientationStatus = signal('');
+  protected readonly conflict = signal(false);
   private readonly undoStack = signal<UndoStack[]>([]);
 
   constructor(api: ApiClient) {
@@ -452,10 +460,27 @@ export class LineEditor {
     this.api.appendRevision(this.lineId(), 'L1Diplomatic', this.text(), this.authorId(), parent ?? undefined)
       .subscribe({
         next: () => {
+          this.conflict.set(false);
           this.clearDraft();
           this.refresh();
         },
+        error: (error: { status?: number }) => {
+          if (error.status === 409) this.conflict.set(true);
+        },
       });
+  }
+
+  /** Keep the user's draft text but advance the parent revision after a 409. */
+  protected reloadAfterConflict(): void {
+    this.api.line(this.lineId()).subscribe({
+      next: data => {
+        this.payload.set(data);
+        this.history.set([...data.history]);
+        this.conflict.set(false);
+        this.loadAnnotations();
+      },
+      error: () => { /* surfaced by the API; keep the draft */ },
+    });
   }
 
   private currentRevisionId(): string | null {

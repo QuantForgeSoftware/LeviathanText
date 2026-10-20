@@ -464,6 +464,7 @@ Blockers recorded so far:
   imported as coordinate-bearing **L2 reference** (never L1). CLI `import pdf --text` and
   `POST /projects/{id}/import-pdf`; no PDF layout inference.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
+- **Revision-conflict prompt:** 409 responses surface a reload/rebase action in the editor while preserving the draft.
 - **Invite audit:** successful/rejected acceptances are recorded in the auth audit.
 - **Invitation tokens/UI:** admin-issued one-time project invites (SHA-256 hashed, 1–168 h expiry) create a normal account and membership; member and public acceptance panels are live.
 - **Presence:** per-surface heartbeat/display with 60 s TTL, now persisted in the shared SQLite store (schema v6); advisory, not a lock, and never authorization-bearing.

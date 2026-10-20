@@ -26,7 +26,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
 | Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link |
 | Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, opt-in per-project membership + admin panels, hashed one-time invite tokens, workspace key panel, read-only; advisory store-backed presence |
-| Collaboration limits | per-surface presence heartbeat/display + invitation UI/API | no distributed session registry or concurrent-edit merge |
+| Collaboration limits | per-surface presence heartbeat/display + invitation UI/API + revision-conflict rebase prompt | no distributed session registry or automatic concurrent-edit merge |
 
 ## Verification
 
