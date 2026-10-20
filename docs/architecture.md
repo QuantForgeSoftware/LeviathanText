@@ -40,7 +40,9 @@ is the record of record.
 ## Storage
 
 SQLite tables: `projects` (native JSON + contract version), `jobs` (durable state/lease/
-idempotency), `users` (hashed keys/roles), `auth_audit` (mutations/denials). Schema version is
+idempotency), `users` (hashed keys/roles), `auth_audit` (mutations/denials),
+`project_members` (opt-in per-project access), `runs` (experiment registry: dataset digest,
+config/metrics, curve, artifacts). Schema version is
 enforced (`user_version`); newer stores are refused, older stores migrate in place. Binary
 artifacts (images/crops/checkpoints) live on disk or a configured cache with checksums.
 

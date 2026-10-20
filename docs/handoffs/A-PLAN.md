@@ -432,3 +432,14 @@ Blockers recorded so far:
   denials.
 - Limits: no invitation UI, project-owner role or high-throughput entity→project index (the
   membership lookup scans projects at pilot scale).
+
+### Handoff revision 23 — 2026-10-20 (experiment/run registry)
+
+- Store schema v5 adds `runs`: kind/name/creator, dataset digest, config/metrics maps,
+  learning-curve series and artifact paths. CLI `train lines` and `layout train` record runs
+  automatically; layout loss history is persisted.
+- CLI `runs list/show/compare`; API `GET /runs` and `/runs/{id}`; workspace runs panel with a
+  sparkline and config details.
+- Fixed `layout train` flag parsing (out/image-ext/epochs/seed were positional and fragile).
+- Limits: no error-analysis drilldown, run deletion, or automatic report publishing; runs are an
+  index, not acceptance evidence.

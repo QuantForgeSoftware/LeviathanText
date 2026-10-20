@@ -375,7 +375,7 @@ Gate: users can transcribe, review, train from corrections and export selected e
 
 ### Phase 3 — expanded Greek training and generalization
 
-- [~] Expand C# training into a complete experiment workflow: dataset versions, comparable runs, learning curves, error analysis and reproducible reports. *(recognition run manifests/checkpoints/model cards and layout data/weights digests exist; no unified experiment index/UI, learning-curve view or automated error analysis.)*
+- [~] Expand C# training into a complete experiment workflow: dataset versions, comparable runs, learning curves, error analysis and reproducible reports. *(dataset digests, configs/metrics/curves/artifacts now recorded in a run registry with CLI/API/UI; missing: error-analysis drilldown and automated report publishing.)*
 - [~] Deliver trainable segmentation and hierarchical reading order, class/taxonomy changes and recovery. Keep region-based alternatives available where line extraction is unsuitable. *(line-band segmentation delivered as an opt-in learned detector; hierarchical reading order, column/region segmentation and recovery remain)*
 - [ ] Expand recognition to new hands, fragment conditions and inscription styles using additional real data; evaluate unseen-object and unseen-hand generalization separately.
 - [~] Add annotation prioritization/active learning and optional advanced pretraining; quantify regression on previously supported profiles when models change. *(persisted confidence review queue and double-review dashboard exist; no automated prioritization model, no regression gate across model versions.)*

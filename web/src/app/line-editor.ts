@@ -46,7 +46,7 @@ interface UndoStack {
         <div class="tools">
           <button type="button" (click)="markUnclear()" [disabled]="caret() === 0 && text().length === 0">Mark unclear (at caret)</button>
           <button type="button" (click)="markLost()">Insert lost gap (position)</button>
-          <span class="hint">position {{ caret() }} (scalars: {{ scalarTotal() }})</span>
+          <span class="hint" role="status">position {{ caret() }} (scalars: {{ scalarTotal() }})</span>
           <button type="button" (click)="copyLatestL0()" [disabled]="!latestL0()">Copy latest L0</button>
         </div>
 

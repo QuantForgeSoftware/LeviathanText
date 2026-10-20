@@ -910,6 +910,17 @@ api.MapDelete("projects/{id}/members/{userId}", (ProjectService projects, LocalS
     return Results.NoContent();
 });
 
+api.MapGet("runs", (LocalStore store, string? kind, int? limit) =>
+    Results.Ok(store.LoadRuns(kind, limit ?? 100)));
+
+api.MapGet("runs/{runId}", (LocalStore store, string runId) =>
+{
+    var run = store.LoadRun(runId);
+    return run is null
+        ? Results.NotFound(new { code = "inputMissing", message = "No such run." })
+        : Results.Ok(run);
+});
+
 api.MapGet("users", (LocalStore store) => Results.Ok(store.LoadUsers()));
 
 api.MapPost("users", (LocalStore store, [FromBody] CreateUserRequest request) =>

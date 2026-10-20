@@ -174,6 +174,35 @@ public class LocalStoreTests : IDisposable
         Assert.False(store.IsProjectMember(project.Id, "usr-a"));
     }
 
+    [Fact]
+    public void Runs_roundtrip_filter_and_sort_newest_first()
+    {
+        using var store = new LocalStore(_path);
+        store.SaveRun(new RunRecord
+        {
+            Id = "run-old", Kind = "recognition", Name = "old", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            DatasetDigest = "hash-a",
+            Config = new Dictionary<string, string> { ["epochs"] = "10" },
+            Metrics = new Dictionary<string, double> { ["bestDevCer"] = 0.5 },
+            History = [0.9, 0.7, 0.5],
+            Artifacts = ["package-a"],
+        });
+        store.SaveRun(new RunRecord
+        {
+            Id = "run-new", Kind = "layout", Name = "new", CreatedAt = DateTimeOffset.UtcNow,
+            Metrics = new Dictionary<string, double> { ["devF1"] = 0.8 },
+        });
+
+        var all = store.LoadRuns();
+        Assert.Equal(["run-new", "run-old"], all.Select(r => r.Id));
+        var recognition = store.LoadRun("run-old")!;
+        Assert.Equal("recognition", recognition.Kind);
+        Assert.Equal(0.5, recognition.Metrics["bestDevCer"]);
+        Assert.Equal([0.9, 0.7, 0.5], recognition.History);
+        Assert.Single(store.LoadRuns("layout"));
+        Assert.Null(store.LoadRun("missing"));
+    }
+
     private static NativeProject MinimalProject() => new()
     {
         Id = new EntityId(EntityKind.Collection, "c1"),
@@ -336,6 +365,35 @@ public sealed class LocalStoreUserTests : IDisposable
 
         store.RemoveProjectMember(project.Id, "usr-a");
         Assert.False(store.IsProjectMember(project.Id, "usr-a"));
+    }
+
+    [Fact]
+    public void Runs_roundtrip_filter_and_sort_newest_first()
+    {
+        using var store = new LocalStore(_path);
+        store.SaveRun(new RunRecord
+        {
+            Id = "run-old", Kind = "recognition", Name = "old", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            DatasetDigest = "hash-a",
+            Config = new Dictionary<string, string> { ["epochs"] = "10" },
+            Metrics = new Dictionary<string, double> { ["bestDevCer"] = 0.5 },
+            History = [0.9, 0.7, 0.5],
+            Artifacts = ["package-a"],
+        });
+        store.SaveRun(new RunRecord
+        {
+            Id = "run-new", Kind = "layout", Name = "new", CreatedAt = DateTimeOffset.UtcNow,
+            Metrics = new Dictionary<string, double> { ["devF1"] = 0.8 },
+        });
+
+        var all = store.LoadRuns();
+        Assert.Equal(["run-new", "run-old"], all.Select(r => r.Id));
+        var recognition = store.LoadRun("run-old")!;
+        Assert.Equal("recognition", recognition.Kind);
+        Assert.Equal(0.5, recognition.Metrics["bestDevCer"]);
+        Assert.Equal([0.9, 0.7, 0.5], recognition.History);
+        Assert.Single(store.LoadRuns("layout"));
+        Assert.Null(store.LoadRun("missing"));
     }
 
     private static NativeProject MinimalProject() => new()

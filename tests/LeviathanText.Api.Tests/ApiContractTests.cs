@@ -598,6 +598,14 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Runs_can_be_listed_and_read()
+    {
+        var client = NewClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/runs")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/runs/run-missing")).StatusCode);
+    }
+
+    [Fact]
     public async Task Jobs_listing_returns_records_and_filters_by_status()
     {
         var client = NewClient();

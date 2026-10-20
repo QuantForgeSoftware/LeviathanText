@@ -17,7 +17,7 @@ import { authorId, setAuthorId } from './identity';
         <p class="hint">No key configured — local-only server.</p>
       }
       <div class="tools">
-        <input [value]="draft()" (input)="onInput($event)" placeholder="paste API key" type="password" />
+        <input [value]="draft()" (input)="onInput($event)" placeholder="paste API key" type="password" aria-label="API key" />
         <button type="button" (click)="save()">Save</button>
         <button type="button" (click)="clear()">Clear</button>
         <span class="hint">{{ status() }}</span>

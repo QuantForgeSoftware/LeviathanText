@@ -96,6 +96,7 @@ public sealed class PatchLayoutModel
     public IReadOnlyList<string> TrainedPageNames => _metadata.PageNames;
     public int EpochCount => _metadata.Epochs;
     public double FinalTrainingLoss => _metadata.FinalLoss;
+    public IReadOnlyList<double> LossHistory => _metadata.LossHistory;
 
     /// <summary>Train a model. Pages are preprocessed (content crop + resize + normalization) once.</summary>
     public static PatchLayoutModel Train(
@@ -115,6 +116,7 @@ public sealed class PatchLayoutModel
 
         model.train();
         double lastLoss = 0;
+        var lossHistory = new List<double>();
         for (int epoch = 0; epoch < options.Epochs; epoch++)
         {
             var order = Enumerable.Range(0, prepared.Count).OrderBy(_ => rng.Next()).ToList();
@@ -160,6 +162,7 @@ public sealed class PatchLayoutModel
             }
 
             lastLoss = batches == 0 ? 0 : total / batches;
+            lossHistory.Add(lastLoss);
             if (log is not null && ((epoch + 1) % 20 == 0 || epoch == 0))
                 log($"epoch {epoch + 1}/{options.Epochs}: bce={lastLoss:0.###}");
         }
@@ -179,6 +182,7 @@ public sealed class PatchLayoutModel
             Seed = options.Seed,
             Epochs = options.Epochs,
             FinalLoss = lastLoss,
+            LossHistory = lossHistory,
             TrainedPages = prepared.Count,
             PageNames = [.. pages.Select(p => p.Name)],
             CreatedAt = DateTimeOffset.UtcNow,
@@ -635,6 +639,7 @@ public sealed class PatchLayoutModel
         public int Seed { get; init; }
         public int Epochs { get; init; }
         public double FinalLoss { get; init; }
+        public IReadOnlyList<double> LossHistory { get; init; } = [];
         public int TrainedPages { get; init; }
         public IReadOnlyList<string> PageNames { get; init; } = [];
         public DateTimeOffset CreatedAt { get; init; }

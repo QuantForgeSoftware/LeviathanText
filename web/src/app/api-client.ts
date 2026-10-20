@@ -94,6 +94,20 @@ export interface RevisionPayload {
   graphemeConfidences?: { start: number; end: number; confidence: ConfidenceValue | 'none' }[];
 }
 
+export interface RunRecord {
+  id: string;
+  kind: string;
+  name: string;
+  createdAt: string;
+  createdBy?: string;
+  datasetDigest?: string;
+  config: Record<string, string>;
+  metrics: Record<string, number>;
+  history: number[];
+  artifacts: string[];
+  notes?: string;
+}
+
 export interface JobSummary {
   id: string;
   type: string;
@@ -246,6 +260,16 @@ export class ApiClient {
 
   tei(projectId: string, surfaceId: string): Observable<string> {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
+  }
+
+  runs(kind?: string, limit = 100): Observable<RunRecord[]> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (kind) params['kind'] = kind;
+    return this.http.get<RunRecord[]>('/api/v1/runs', { params });
+  }
+
+  run(id: string): Observable<RunRecord> {
+    return this.http.get<RunRecord>(`/api/v1/runs/${id}`);
   }
 
   me(): Observable<{ authenticated: boolean; name: string; role: string }> {

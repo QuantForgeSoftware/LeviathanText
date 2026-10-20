@@ -13,7 +13,7 @@ namespace LeviathanText.Infrastructure;
 /// </summary>
 public sealed class LocalStore : IDisposable, IProjectStore
 {
-    public const int SchemaVersion = 4;
+    public const int SchemaVersion = 5;
 
     private readonly SqliteConnection _connection;
 
@@ -94,6 +94,19 @@ public sealed class LocalStore : IDisposable, IProjectStore
                     user_id TEXT NOT NULL,
                     added_at TEXT NOT NULL,
                     PRIMARY KEY (project_id, user_id)
+                );
+                CREATE TABLE IF NOT EXISTS runs (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    created_by TEXT,
+                    dataset_digest TEXT,
+                    config_json TEXT NOT NULL,
+                    metrics_json TEXT NOT NULL,
+                    history_json TEXT NOT NULL,
+                    artifacts_json TEXT NOT NULL,
+                    notes TEXT
                 );
                 """;
             ddl.ExecuteNonQuery();
@@ -250,6 +263,71 @@ public sealed class LocalStore : IDisposable, IProjectStore
         }
         return null;
     }
+
+    // ---- experiment runs ----
+
+    public void SaveRun(RunRecord run)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO runs (id, kind, name, created_at, created_by, dataset_digest,
+                              config_json, metrics_json, history_json, artifacts_json, notes)
+            VALUES ($id, $kind, $name, $created, $by, $digest, $config, $metrics, $history, $artifacts, $notes)
+            ON CONFLICT(id) DO UPDATE SET kind = $kind, name = $name, created_at = $created,
+                created_by = $by, dataset_digest = $digest, config_json = $config,
+                metrics_json = $metrics, history_json = $history, artifacts_json = $artifacts, notes = $notes
+            """;
+        cmd.Parameters.AddWithValue("$id", run.Id);
+        cmd.Parameters.AddWithValue("$kind", run.Kind);
+        cmd.Parameters.AddWithValue("$name", run.Name);
+        cmd.Parameters.AddWithValue("$created", run.CreatedAt.ToString("O"));
+        cmd.Parameters.AddWithValue("$by", (object?)run.CreatedBy ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$digest", (object?)run.DatasetDigest ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$config", ContractJson.ToJson(run.Config));
+        cmd.Parameters.AddWithValue("$metrics", ContractJson.ToJson(run.Metrics));
+        cmd.Parameters.AddWithValue("$history", ContractJson.ToJson(run.History));
+        cmd.Parameters.AddWithValue("$artifacts", ContractJson.ToJson(run.Artifacts));
+        cmd.Parameters.AddWithValue("$notes", (object?)run.Notes ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<RunRecord> LoadRuns(string? kind = null, int limit = 100)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = kind is null
+            ? "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs ORDER BY created_at DESC LIMIT $limit"
+            : "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs WHERE kind = $kind ORDER BY created_at DESC LIMIT $limit";
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 5000));
+        if (kind is not null) cmd.Parameters.AddWithValue("$kind", kind);
+        using var reader = cmd.ExecuteReader();
+        var runs = new List<RunRecord>();
+        while (reader.Read()) runs.Add(ReadRun(reader));
+        return runs;
+    }
+
+    public RunRecord? LoadRun(string id)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", id);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? ReadRun(reader) : null;
+    }
+
+    private static RunRecord ReadRun(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetString(0),
+        Kind = reader.GetString(1),
+        Name = reader.GetString(2),
+        CreatedAt = DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
+        CreatedBy = reader.IsDBNull(4) ? null : reader.GetString(4),
+        DatasetDigest = reader.IsDBNull(5) ? null : reader.GetString(5),
+        Config = ContractJson.FromJson<Dictionary<string, string>>(reader.GetString(6)),
+        Metrics = ContractJson.FromJson<Dictionary<string, double>>(reader.GetString(7)),
+        History = ContractJson.FromJson<List<double>>(reader.GetString(8)),
+        Artifacts = ContractJson.FromJson<List<string>>(reader.GetString(9)),
+        Notes = reader.IsDBNull(10) ? null : reader.GetString(10),
+    };
 
     // ---- auth audit ----
 

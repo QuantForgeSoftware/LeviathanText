@@ -46,7 +46,7 @@ interface ProjectRow {
             <summary>Import line text (CSV)</summary>
             <p class="hint">Header must contain <code>line_id,text</code>. Rows become normal revisions.</p>
             <div class="tools">
-              <input type="file" accept=".csv,text/csv" (change)="onCsvFile($event)" />
+              <label>CSV file <input type="file" accept=".csv,text/csv" (change)="onCsvFile($event)" /></label>
               <select [value]="importLayer()" (change)="onImportLayer($event)">
                 <option value="L1Diplomatic">L1 diplomatic</option>
                 <option value="L2Editorial">L2 editorial</option>
@@ -94,7 +94,7 @@ interface ProjectRow {
       <section>
         <h3>Search</h3>
         <div class="tools">
-          <input [value]="query()" (input)="onQuery($event)" placeholder="word or phrase" />
+          <input [value]="query()" (input)="onQuery($event)" placeholder="word or phrase" aria-label="Search text" />
           <select [value]="searchMode()" (change)="onMode($event)">
             <option value="literal">literal (marks significant)</option>
             <option value="base">base (ignore marks/case)</option>

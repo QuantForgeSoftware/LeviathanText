@@ -372,6 +372,54 @@ public static class Program
                 return 0;
             }
 
+            case "runs" when rest.Length >= 2 && rest[1] == "list":
+            {
+                var kindIndex = Array.IndexOf(rest, "--kind");
+                var kind = kindIndex >= 0 && kindIndex + 1 < rest.Length ? rest[kindIndex + 1] : null;
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 50;
+                foreach (var run in store.LoadRuns(kind, limit))
+                {
+                    var metrics = string.Join(' ', run.Metrics
+                        .Where(m => m.Key is "bestDevCer" or "devF1" or "devPrecision" or "devRecall")
+                        .Select(m => $"{m.Key}={m.Value:0.###}"));
+                    Console.WriteLine($"{run.Id}\t{run.Kind}\t{run.Name}\t{run.CreatedAt:O}\t{metrics}");
+                }
+                return 0;
+            }
+
+            case "runs" when rest.Length >= 3 && rest[1] == "show":
+            {
+                var run = store.LoadRun(rest[2])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[2], Message = "No such run." });
+                Console.WriteLine($"id: {run.Id}\nkind: {run.Kind}\nname: {run.Name}\ncreated: {run.CreatedAt:O}");
+                Console.WriteLine($"dataset digest: {run.DatasetDigest ?? "-"}");
+                Console.WriteLine("config:");
+                foreach (var pair in run.Config.OrderBy(p => p.Key)) Console.WriteLine($"  {pair.Key}: {pair.Value}");
+                Console.WriteLine("metrics:");
+                foreach (var pair in run.Metrics.OrderBy(p => p.Key)) Console.WriteLine($"  {pair.Key}: {pair.Value:0.######}");
+                if (run.History.Count > 0)
+                    Console.WriteLine($"history ({run.History.Count} points): {string.Join(", ", run.History.Take(10).Select(v => v.ToString("0.###")))}");
+                Console.WriteLine("artifacts:");
+                foreach (var artifact in run.Artifacts) Console.WriteLine($"  {artifact}");
+                if (!string.IsNullOrEmpty(run.Notes)) Console.WriteLine($"notes: {run.Notes}");
+                return 0;
+            }
+
+            case "runs" when rest.Length >= 3 && rest[1] == "compare":
+            {
+                var metric = rest[2];
+                var higherIndex = Array.IndexOf(rest, "--higher");
+                bool higher = higherIndex >= 0;
+                var runs = store.LoadRuns()
+                    .Where(r => r.Metrics.ContainsKey(metric))
+                    .OrderBy(r => higher ? -r.Metrics[metric] : r.Metrics[metric])
+                    .ToList();
+                foreach (var run in runs)
+                    Console.WriteLine($"{run.Metrics[metric]:0.######}\t{run.Id}\t{run.Kind}\t{run.Name}");
+                return runs.Count > 0 ? 0 : 1;
+            }
+
             case "user" when rest.Length >= 3 && rest[1] == "add":
             {
                 var roleIndex = Array.IndexOf(rest, "--role");
@@ -590,11 +638,13 @@ public static class Program
                 // Page-level split (same convention as all pilots): every 5th page test,
                 // every 6th dev; training never sees test pages. Threshold is selected on dev.
                 var dataDir = rest[2];
-                var outDir = rest.Length >= 6 && rest[3] == "--out" ? rest[4] : Path.Combine(
+                string? Flag(string name) =>
+                    Array.IndexOf(rest, name) is var index && index >= 0 && index + 1 < rest.Length ? rest[index + 1] : null;
+                var outDir = Flag("--out") ?? Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "layout-patch");
-                var imageExt = rest.Length >= 8 && rest[5] == "--image-ext" ? rest[6] : null;
-                var epochs = rest.Length >= 10 && rest[7] == "--epochs" ? int.Parse(rest[8]) : 100;
-                var seed = rest.Length >= 12 && rest[9] == "--seed" ? int.Parse(rest[10]) : 31;
+                var imageExt = Flag("--image-ext");
+                var epochs = Flag("--epochs") is { } e ? int.Parse(e) : 100;
+                var seed = Flag("--seed") is { } s ? int.Parse(s) : 31;
 
                 var xmlFiles = Directory.GetFiles(dataDir, "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
                 if (xmlFiles.Count == 0) { Console.Error.WriteLine("no PAGE XML files found"); return 1; }
@@ -673,9 +723,43 @@ public static class Program
                     }
                     var tuned = model.WithThreshold(bestThreshold);
                     tuned.Save(outDir);
+                    double bestF1Value = bestP + bestR == 0 ? 0 : 2 * bestP * bestR / (bestP + bestR);
+                    var layoutRunId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
+                    store.SaveRun(new RunRecord
+                    {
+                        Id = layoutRunId,
+                        Kind = "layout",
+                        Name = Path.GetFileName(Path.TrimEndingDirectorySeparator(outDir)),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        CreatedBy = "cli",
+                        DatasetDigest = PatchLayoutModel.DataDigestOf(train),
+                        Config = new Dictionary<string, string>
+                        {
+                            ["model"] = PatchLayoutModel.Architecture,
+                            ["epochs"] = epochs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["seed"] = seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["augmentTraining"] = options.AugmentTraining.ToString(),
+                            ["threshold"] = bestThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["inputHeight"] = options.InputHeight.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["maxInputWidth"] = options.MaxInputWidth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        },
+                        Metrics = new Dictionary<string, double>
+                        {
+                            ["devPrecision"] = bestP,
+                            ["devRecall"] = bestR,
+                            ["devF1"] = bestF1Value,
+                            ["finalLoss"] = tuned.FinalTrainingLoss,
+                            ["threshold"] = bestThreshold,
+                        },
+                        History = tuned.LossHistory,
+                        Artifacts = [outDir],
+                        Notes = "PAGE-derived layout labels; single-column training. No test pages used in training.",
+                    });
+
                     Console.WriteLine($"trained patch layout: train={train.Count} dev={dev.Count} test(held out)={testPages} " +
                                       $"epochs={epochs} time={watch.Elapsed.TotalSeconds:0.0}s");
                     Console.WriteLine($"threshold {bestThreshold:0.00}: dev P={bestP:0.###} R={bestR:0.###}; package: {outDir}");
+                    Console.WriteLine($"recorded run: {layoutRunId}");
                     return 0;
                 }
                 finally
@@ -776,7 +860,41 @@ public static class Program
                 var package = ModelPackageWriter.Write(outDir, checkpointDir, config.ModelName, manifest,
                     "Pilot model trained from a PAGE/image corpus; labels not expert-adjudicated.");
 
+                var recognitionRunId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
+                store.SaveRun(new RunRecord
+                {
+                    Id = recognitionRunId,
+                    Kind = "recognition",
+                    Name = config.ModelName,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    CreatedBy = "cli",
+                    DatasetDigest = splitHash,
+                    Config = new Dictionary<string, string>
+                    {
+                        ["epochs"] = config.Epochs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["batchSize"] = config.BatchSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["learningRate"] = config.LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["weightDecay"] = config.WeightDecay.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["seed"] = config.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["hiddenSize"] = config.HiddenSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["augmentTraining"] = config.AugmentTraining.ToString(),
+                        ["labels"] = labels.NumClasses.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    },
+                    Metrics = new Dictionary<string, double>
+                    {
+                        ["bestDevCer"] = run.BestValidationCer,
+                        ["epochsCompleted"] = run.EpochsCompleted,
+                        ["trainLines"] = snapshot.Train.Count,
+                        ["devLines"] = snapshot.Dev.Count,
+                        ["testLockedLines"] = snapshot.TestLocked.Count,
+                    },
+                    History = [.. run.History.Select(h => h.ValidationCer)],
+                    Artifacts = [package.Directory, package.ModelPath, package.ManifestPath],
+                    Notes = "PAGE-derived labels; not specialist-adjudicated. Locked test split was not used.",
+                });
+
                 Console.WriteLine($"trained {config.ModelName}: best dev CER {run.BestValidationCer:0.###} over {run.EpochsCompleted} epochs");
+                Console.WriteLine($"recorded run: {recognitionRunId}");
                 Console.WriteLine($"package: {package.Directory}");
                 return 0;
             }

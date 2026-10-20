@@ -66,6 +66,21 @@ Checks the declared schema, contract version, change log and the required per-so
 not verify rights — it verifies the ledger says what it must. Warnings flag `unverified`
 license values.
 
+## Experiment runs
+
+Training commands record a comparable run in the store:
+
+```bash
+leviathan --store pilot.db runs list [--kind recognition|layout] [--limit N]
+leviathan --store pilot.db runs show <runId>
+leviathan --store pilot.db runs compare bestDevCer            # ascending; --higher for metrics like devF1
+```
+
+Each run stores kind/name/created/by, the **dataset digest** (split hash or layout data digest),
+config map, metrics map, learning-curve series and artifact paths. The workspace lists runs and
+renders the curve; `GET /runs` / `GET /runs/{id}` expose the same. This is an experiment index,
+not an acceptance claim: runs retain their own labels/caveats.
+
 ## Review queue
 
 `GET /api/v1/projects/{id}/review-queue[?surfaceId=…]` orders lines by stored L0 confidence

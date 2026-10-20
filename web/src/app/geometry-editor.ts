@@ -28,9 +28,9 @@ interface DragState {
         <p class="hint">Click a line, drag to move it, then save. Region order controls reading order.</p>
       }
       <p class="tools">
-        <button type="button" (click)="zoomBy(-0.25)">−</button>
-        <button type="button" (click)="zoom.set(1)">Fit</button>
-        <button type="button" (click)="zoomBy(0.25)">+</button>
+        <button type="button" aria-label="Zoom out" (click)="zoomBy(-0.25)">−</button>
+        <button type="button" aria-label="Fit page" (click)="zoom.set(1)">Fit</button>
+        <button type="button" aria-label="Zoom in" (click)="zoomBy(0.25)">+</button>
         <span class="hint">{{ (zoom() * 100).toFixed(0) }}%</span>
       </p>
 
@@ -85,7 +85,7 @@ interface DragState {
         <button type="button" (click)="mergeSelectedWithNext()" [disabled]="!selectedId()">Merge with next</button>
         <button type="button" (click)="deleteSelected()" [disabled]="!selectedId()">Delete line</button>
         <button type="button" (click)="reset()" [disabled]="!dirty()">Reset</button>
-        <span class="hint">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
+        <span class="hint" role="status">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
         @if (actionStatus()) { <span class="hint">{{ actionStatus() }}</span> }
       </div>
       }
@@ -110,8 +110,8 @@ interface DragState {
         @for (region of regions(); track region.id) {
           <li>
             <code>{{ region.id }}</code>
-            <button type="button" (click)="move(region.id, -1)">↑</button>
-            <button type="button" (click)="move(region.id, 1)">↓</button>
+            <button type="button" aria-label="Move region earlier" (click)="move(region.id, -1)">↑</button>
+            <button type="button" aria-label="Move region later" (click)="move(region.id, 1)">↓</button>
           </li>
         }
       </ol>
@@ -122,8 +122,8 @@ interface DragState {
         @for (line of orderedLines(); track line.id) {
           <li>
             <code>{{ line.id }}</code>
-            <button type="button" (click)="moveLine(line.id, -1)">↑</button>
-            <button type="button" (click)="moveLine(line.id, 1)">↓</button>
+            <button type="button" aria-label="Move line earlier" (click)="moveLine(line.id, -1)">↑</button>
+            <button type="button" aria-label="Move line later" (click)="moveLine(line.id, 1)">↓</button>
           </li>
         } @empty {
           <li>No lines in this region.</li>
