@@ -179,3 +179,16 @@ public class SerializationTests
             parsed with { GraphemeConfidences = Array.Empty<GraphemeConfidenceSpan>() });
     }
 }
+
+public class EntityIdTryParseTests
+{
+    [Fact]
+    public void TryParse_accepts_valid_ids_and_rejects_wrong_kinds()
+    {
+        Assert.True(LeviathanText.Contracts.EntityId.TryParse("ln-abc", out var id));
+        Assert.Equal(LeviathanText.Contracts.EntityKind.Line, id.Kind);
+        Assert.False(LeviathanText.Contracts.EntityId.TryParse("ln-abc", LeviathanText.Contracts.EntityKind.Region, out _));
+        Assert.False(LeviathanText.Contracts.EntityId.TryParse("not-an-id", out _));
+        Assert.False(LeviathanText.Contracts.EntityId.TryParse("", out _));
+    }
+}

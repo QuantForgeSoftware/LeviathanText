@@ -115,6 +115,17 @@ still requires the server: drafts stay local and mutations are never replayed au
 Caches are cleared when the API key changes. Do not rely on cached data for decisions after
 reconnecting.
 
+## Bulk annotation import
+
+```bash
+leviathan --store pilot.db import annotations <projectId> annotations.csv
+```
+
+Header needs `line_id,kind,start,end`; optional `gap_extent`, `alternative_text`, `hand_label`,
+`description` are honored. Rows pass through the normal annotation validation (ranges, lost-gap
+extents, alternative text) and invalid rows are reported and skipped. The exporter's CSV can be
+edited externally and re-imported; annotation ids are always minted by the server.
+
 ## Bulk line-text import
 
 ```bash

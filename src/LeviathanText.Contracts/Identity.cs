@@ -62,6 +62,23 @@ public readonly record struct EntityId
 
     public override string ToString() => $"{Prefix}-{Suffix}";
 
+    public static bool TryParse(string? value, out EntityId id) => TryParse(value, null, out id);
+
+    public static bool TryParse(string? value, EntityKind? expectedKind, out EntityId id)
+    {
+        id = default;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        try
+        {
+            id = Parse(value, expectedKind);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     public static EntityId Parse(string value, EntityKind? expectedKind = null)
     {
         var dash = value.IndexOf('-');

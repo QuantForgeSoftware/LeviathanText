@@ -216,6 +216,17 @@ public static class Program
                 return imported > 0 ? 0 : 1;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "annotations":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var result = AnnotationCsvImport.Import(project, File.ReadAllText(rest[3]),
+                    new TranscriptionService(store), store);
+                foreach (var row in result.Rows.Where(r => !r.Applied).Take(10))
+                    Console.Error.WriteLine($"skipped {row.LineId} ({row.Kind}): {row.Reason}");
+                Console.WriteLine($"applied {result.Applied} annotation(s), skipped {result.Skipped} row(s)");
+                return 0;
+            }
+
             case "import" when rest.Length >= 4 && rest[1] == "line-text":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
