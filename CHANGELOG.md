@@ -24,6 +24,7 @@ set: C0-0.4-draft.
 - **Revision-conflict prompt:** a 409 now surfaces a reload/rebase action in the editor while keeping the draft text.
 - **Invite audit:** successful and rejected acceptances are recorded in the auth audit.
 - **Invitation tokens/UI:** admin-issued one-time project invites with hashed storage, expiry and membership-on-accept; member panel creates invites and a public panel accepts them.
+- **Job ownership binding:** authenticated job creation ignores client-supplied `ownerId` for ownership/quota.
 - **Job priority/quota:** jobs persist priority (0–100) and creation time; workers claim highest priority first, and an optional per-owner active-job quota is enforced on creation.
 - **Presence heartbeat:** per-surface editor presence with a 60-second TTL and workspace display; advisory, stored in the shared SQLite store (schema v6).
 - **Acceptance gate:** `evaluate lines --acceptance criteria.json` applies caller-supplied thresholds and exits nonzero on failure.

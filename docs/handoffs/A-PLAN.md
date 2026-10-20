@@ -463,6 +463,7 @@ Blockers recorded so far:
   50 MP per page) into one capture-only surface per page; optional PdfPig text extraction is
   imported as coordinate-bearing **L2 reference** (never L1). CLI `import pdf --text` and
   `POST /projects/{id}/import-pdf`; no PDF layout inference.
+- **Job ownership binding:** authenticated creation binds jobs to the principal, closing a quota/provenance spoofing path.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
 - **Revision-conflict prompt:** 409 responses surface a reload/rebase action in the editor while preserving the draft.
 - **Invite audit:** successful/rejected acceptances are recorded in the auth audit.

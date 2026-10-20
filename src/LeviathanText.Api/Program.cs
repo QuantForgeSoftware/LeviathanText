@@ -1187,7 +1187,7 @@ api.MapPost("users/{userId}/rotate", (LocalStore store, string userId) =>
     return Results.Ok(new { apiKey = key });
 });
 
-api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) =>
+api.MapPost("jobs", (JobEnqueuer enqueuer, HttpContext http, [FromBody] CreateJobRequest request) =>
 {
     // Jobs may carry one input artifact: a surface (layout/recognition) or a project
     // (bulk import). Recognition jobs also name the model package; the worker verifies it
@@ -1220,7 +1220,10 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) 
             new Checksum { Algorithm = "page-xml-directory", Digest = "dir:" + request.SourceDirectory })];
     }
 
-    var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
+    // Authenticated callers own their jobs; a client-supplied owner id is only a local-mode
+    // convenience and must not be used to evade a per-owner quota.
+    var ownerId = (http.Items["user"] as UserAccount)?.Id ?? request.OwnerId;
+    var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = ownerId, IsModel = false },
         inputs: inputs, idempotencyKey: request.IdempotencyKey, priority: request.Priority);
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
