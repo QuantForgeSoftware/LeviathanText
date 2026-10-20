@@ -89,12 +89,13 @@ cd web && npx ng serve --proxy-config proxy.conf.json   # http://localhost:4200
 cd web && npx ng test --watch=false --browsers=ChromeHeadless
 ```
 
-The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations, draft recovery), a dual-pane L1/L2 view, a geometry/reading-order overlay editor, jobs with live progress, exports, and an opt-in AI assistance panel.
+The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations with retraction, draft recovery), a dual-pane L1/L2 diff, a geometry/reading-order overlay with manual placement for text-first imports, double-review/adjudication, search, jobs, exports, an API-key panel, and an opt-in AI assistance panel.
 
 ## Status and operations
 
 - [docs/STATUS.md](docs/STATUS.md) — one-page status: what works, measured numbers, blockers.
-- [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations.
+- [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations, review and inscription imports.
+- [docs/release/parity.md](docs/release/parity.md) — honest reference-capability matrix (not a parity claim).
 - [docs/handbook/transcription-guide.md](docs/handbook/transcription-guide.md) — annotator workflow.
 
 ## Measured pilot baselines (honest status)
