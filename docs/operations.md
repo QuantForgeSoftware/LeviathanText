@@ -310,7 +310,8 @@ curl -X POST http://127.0.0.1:5000/api/v1/invites/accept -H 'Content-Type: appli
 Acceptance creates a normal account, returns its API key once, and adds the account to the
 project. Tokens are stored as SHA-256 hashes, expire after 1–168 hours, are single-use, and only
 admins can issue them. Admin invitations are refused. The workspace provides **Project members →
-Create invitation** plus a public **Have an invitation?** acceptance panel.
+Create invitation** plus a public **Have an invitation?** acceptance panel. Successful and
+rejected acceptances are written to the auth audit (`invite.accepted` / `invite.rejected`).
 
 **Presence (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from
@@ -322,8 +323,9 @@ at pilot scale but not a high-throughput design. Authentication/authorization ev
 `leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
 denials, never key material). The Angular workspace has an **API key panel**: paste
 a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after
-changing keys. Opt-in per-project membership exists; concurrent editing/presence and an
-invitation UI are not implemented.
+changing keys. Opt-in per-project membership, invitation panels and advisory presence exist;
+distributed session state, invitation email delivery and concurrent-edit merge are not
+implemented.
 
 ## Known limits to communicate
 
