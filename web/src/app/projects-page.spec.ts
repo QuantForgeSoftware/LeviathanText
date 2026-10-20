@@ -62,3 +62,45 @@ describe('ProjectsPage (search)', () => {
     expect(text).toContain('ἄνθρωπος');
   });
 });
+
+describe('ProjectsPage (deep links)', () => {
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    window.history.replaceState(null, '', '/?project=col-1');
+    await TestBed.configureTestingModule({
+      imports: [ProjectsPage],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('restores and resolves a project from ?project=', () => {
+    const fixture = TestBed.createComponent(ProjectsPage);
+    fixture.detectChanges();
+    http.expectOne('/api/v1/projects').flush([{ id: 'col-1', name: 'demo' }]);
+    fixture.detectChanges();
+
+    http.expectOne('/api/v1/projects/col-1/stats').flush({
+      objects: 0, surfaces: 0, captures: 0, regions: 0, lines: 0,
+      transcribedLines: 0, linesWithL0: 0, l0Revisions: 0, l2Revisions: 0,
+      annotations: 0, flaggedLines: 0,
+    });
+    http.expectOne('/api/v1/projects/col-1/review-summary').flush({
+      transcribedLines: 0, reviewedLines: 0, doubleReviewedLines: 0, disputedLines: 0,
+      needsAdjudication: 0, lines: [],
+    });
+    http.expectOne('/api/v1/projects/col-1').flush({
+      id: 'col-1', name: 'demo', objects: [],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('demo');
+    expect(window.location.search).toContain('project=col-1');
+  });
+});

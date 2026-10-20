@@ -473,4 +473,4 @@ Blockers recorded so far:
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
 - **Verification:** **538 tests (536 passed + 2 opt-in skips), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 37 web specs; package and backup/restore rehearsals PASS.
+  Release 0 warnings/0 errors**; 38 web specs; package and backup/restore rehearsals PASS.
