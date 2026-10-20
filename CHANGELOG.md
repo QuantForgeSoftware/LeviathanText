@@ -29,6 +29,8 @@ set: C0-0.4-draft.
   migration/rollback guidance, adjudication runbook, known-issues consolidation.
 - Per-grapheme confidence persisted on L0 revisions; editor confidence rendering; persisted
   review queue with worst-span reporting.
+- **Experiment registry (schema v5):** comparable recognition/layout runs with dataset digests,
+  configs, metrics, learning curves and artifact paths; CLI/API/workspace panel.
 - Local/codex layout model card, data digest and `layout inspect`.
 - Bulk PAGE/EpiDoc import failure isolation; annotation/line CSVs in export bundles; review
   summary/adjudication artifacts in bundles.
