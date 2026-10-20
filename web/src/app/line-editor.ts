@@ -99,6 +99,7 @@ interface UndoStack {
                   — alt: {{ annotation.alternativeText }}
                   <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
                 }
+                <button type="button" (click)="retractAnnotation(annotation)">Retract</button>
               </li>
             } @empty {
               <li>No annotations on this line.</li>
@@ -229,6 +230,13 @@ export class LineEditor {
 
   protected onEstimatedCount(event: Event): void {
     this.formEstimatedCount.set(Math.max(1, Number((event.target as HTMLInputElement).value) || 1));
+  }
+
+  protected retractAnnotation(annotation: AnnotationView): void {
+    this.api.retractAnnotation(annotation.id, this.authorId()).subscribe({
+      next: () => this.loadAnnotations(),
+      error: () => { /* surfaced by the API; state kept */ },
+    });
   }
 
   /** Compose an L2 editorial revision from the current L1 text and an alternative span. */

@@ -43,6 +43,7 @@ Collection
 - Accepted AI proposals are revisions of L2 with provenance; raw L0 output is preserved alongside regardless of acceptance (todo §2).
 - Geometry and reading-order corrections are recorded in an append-only surface-level `GeometryEdits` audit (kind, author, timestamp, bounded before/after snapshots). These are not text revisions; promoting them to revisioned entities is a candidate for a future contract increment.
 - Review decisions (`Accept`/`Correct`/`Dispute`) are an append-only surface ledger anchored to the reviewed revision. A correction creates a new L1 revision; the decision records both ids. Disagreement between reviewers is exposed for adjudication and is never resolved automatically.
+- Annotation retractions are append-only records; active views (editor, training export, loss reports) exclude retracted ids while the annotation itself remains in the ledger as evidence of the correction.
 
 ## 2. Stage pipeline contracts
 

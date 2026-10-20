@@ -168,3 +168,48 @@ describe('LineEditor (review ledger)', () => {
     expect(lineLoads).toBeGreaterThan(1); // refresh after recording
   });
 });
+
+describe('LineEditor (annotation retraction)', () => {
+  it('retracts an annotation and reloads the active list', () => {
+    const calls: string[] = [];
+    let annotationLoads = 0;
+    const stub = {
+      line: () => of({
+        line: 'ln-retract', diplomatic: 'αβγ',
+        history: [{ id: 'rev-1', layer: 'L1Diplomatic', text: 'αβγ', author: 'human', at: '' }],
+        revisions: [{ id: 'rev-1', layer: 'L1Diplomatic', text: 'αβγ', author: 'human', at: '' }],
+      }),
+      annotations: () => {
+        annotationLoads++;
+        return annotationLoads === 1
+          ? of([{ id: 'ann-1', kind: 'Unclear', anchoredRevisionId: 'rev-1', range: { start: 1, end: 2 } }])
+          : of([]);
+      },
+      retractAnnotation: (id: string) => {
+        calls.push(id);
+        return of({ retractionId: 'ar-1', annotationId: id });
+      },
+      appendRevision: () => of({}),
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-retract');
+    fixture.componentRef.setInput('authorId', 'reviewer-a');
+    fixture.detectChanges();
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find(b => (b as HTMLButtonElement).textContent?.trim() === 'Retract') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+    fixture.detectChanges();
+
+    expect(calls).toEqual(['ann-1']);
+    expect(annotationLoads).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('No annotations on this line');
+  });
+});

@@ -219,6 +219,11 @@ export class ApiClient {
       `/api/v1/lines/${lineId}/review`, body);
   }
 
+  retractAnnotation(annotationId: string, reviewer: string, reason?: string | null): Observable<{ retractionId: string; annotationId: string }> {
+    return this.http.post<{ retractionId: string; annotationId: string }>(
+      `/api/v1/annotations/${annotationId}/retract`, { reviewer, reason: reason ?? null });
+  }
+
   annotations(lineId: string): Observable<AnnotationView[]> {
     return this.http.get<AnnotationView[]>(`/api/v1/lines/${lineId}/annotations`);
   }

@@ -365,3 +365,10 @@ Blockers recorded so far:
   the missing `provideHttpClient` in the app config fixed.
 - **Verified:** infrastructure user/audit tests, role authorization test extended, interceptor
   spec; counts recorded after the closing run.
+
+### Handoff revision 19 — 2026-10-20 (annotation retraction, capability matrix)
+
+- Annotation retractions are append-only; active views, training export and loss reports exclude
+  retracted ids; annotation CSV records the retraction and reviewer; editor action + API + tests.
+- Added `docs/release/parity.md`: an honest reference-capability matrix with evidence and
+  blockers. It explicitly does **not** claim full parity.

@@ -27,6 +27,7 @@
 | Error vocabulary (§6) | Closed `ErrorCode` set mapped to HTTP; transport-level auth/read-only errors use separate `code` strings | **documented deviation** (auth is transport, not pipeline) |
 | Greek profile (§1–§6): layers, marks, offsets, uncertainty | Scalar offsets in annotations; no folding in L1; mark rendering; gap extent; alternatives; profile inspector | **conforms** for implemented kinds; **profile definitions await specialist** |
 | Abbreviations / historical correction sequences | Annotations cover erasures/additions/overwritten; no dedicated abbreviation expansion kind or editor for historical correction order | **open gap** |
+| Annotation correction | Append-only retraction ledger; active views/training exports exclude retracted ids; CSV marks them | **conforms (pilot)** |
 | Double review / adjudication (DATA-03 readiness) | Append-only review ledger anchored to revisions; corrections create L1 revisions; disagreement summary + adjudication CSV; CLI/API/UI | **conforms (pilot)**; reviewer identity is a free string — no accounts/roles yet |
 | Scoring (examples §1–2) | `RecognitionScorer` (scalar+grapheme+mark attribution); explicit uncertainty spans in training export; blank/missed-line cases covered by page-CER matching | **conforms** to the documented semantics |
 | Corpus manifest fields | Ledgers use the documented fields; no new required fields added | **conforms** |

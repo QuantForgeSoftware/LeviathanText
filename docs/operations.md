@@ -128,6 +128,10 @@ leviathan --store pilot.db review summary <projectId> [--surface <surfaceId>]
 leviathan --store pilot.db export adjudication <projectId> adjudication.csv
 ```
 
+Annotations can be retracted from the editor (or `POST /api/v1/annotations/{id}/retract`); the
+original record stays in the ledger, active views and training exports exclude it, and the
+annotation CSV marks it as retracted.
+
 Decisions are append-only and anchored to the exact reviewed revision. A `correct` decision
 creates a new L1 revision (the correction) and records both revision ids. Two reviewers with
 different outcomes make the line an adjudication candidate; the tooling never forces agreement
