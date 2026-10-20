@@ -3,10 +3,11 @@ import { RouterOutlet } from '@angular/router';
 import { ProjectsPage } from './projects-page';
 import { RenderingCheck } from './rendering-check';
 import { JobsPanel } from './jobs-panel';
+import { AuthPanel } from './auth-panel';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel],
+  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel, AuthPanel],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

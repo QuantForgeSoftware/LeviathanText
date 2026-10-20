@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { eventsUrlWithKey } from './auth';
 import { Observable } from 'rxjs';
 
 /**
@@ -147,7 +148,7 @@ export class ApiClient {
   }
 
   jobEventsUrl(jobId: string): string {
-    return `/api/v1/jobs/${jobId}/events`;
+    return eventsUrlWithKey(`/api/v1/jobs/${jobId}/events`);
   }
 
   jobs(): Observable<JobSummary[]> {
@@ -224,6 +225,36 @@ export class ApiClient {
 
   tei(projectId: string, surfaceId: string): Observable<string> {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/tei`, { responseType: 'text' });
+  }
+
+  reviewSummary(projectId: string): Observable<{
+    transcribedLines: number;
+    reviewedLines: number;
+    doubleReviewedLines: number;
+    disputedLines: number;
+    needsAdjudication: number;
+    lines: {
+      lineId: string; surfaceId: string; text: string; decisions: number;
+      reviewers: string[]; outcomes: string[]; latestOutcome: string | null;
+      doubleReviewed: boolean; needsAdjudication: boolean;
+    }[];
+  }> {
+    return this.http.get<{
+      transcribedLines: number;
+      reviewedLines: number;
+      doubleReviewedLines: number;
+      disputedLines: number;
+      needsAdjudication: number;
+      lines: {
+        lineId: string; surfaceId: string; text: string; decisions: number;
+        reviewers: string[]; outcomes: string[]; latestOutcome: string | null;
+        doubleReviewed: boolean; needsAdjudication: boolean;
+      }[];
+    }>(`/api/v1/projects/${projectId}/review-summary`);
+  }
+
+  adjudicationUrl(projectId: string): string {
+    return `/api/v1/projects/${projectId}/adjudication.csv`;
   }
 
   reviewQueue(projectId: string, surfaceId: string): Observable<{

@@ -174,9 +174,9 @@ blocks all mutations regardless of role. Without a bootstrap key and without acc
 runs local-only and logs a warning.
 
 Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
-`POST /api/v1/users/{id}/disable|rotate`). **The Angular workspace does not prompt for a key**:
-run it locally or put it behind a proxy that injects the header. Concurrent edit handling and
-per-object workspace membership are not implemented yet.
+`POST /api/v1/users/{id}/disable|rotate`). The Angular workspace has an **API key panel**: paste
+a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after
+changing keys. Concurrent edit handling and per-object workspace membership are not implemented.
 
 ## Known limits to communicate
 

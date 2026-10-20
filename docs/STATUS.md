@@ -23,7 +23,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | Export bundle | native + training + 4 formats + manifest |
 | Backup/restore | consistent snapshot; checksummed restore (db + images) |
 | Workspace | editor with mark rendering + L1/L2 diff, annotations (all kinds), alternatives→L2, geometry (draw/resize/delete/order), jobs history, search, models + recognition, exports, QA badge |
-| Shared deployment | local accounts + roles (reader/annotator/reviewer/admin), hashed keys, rotation/disable, read-only; no SSO/workspace membership |
+| Shared deployment | local accounts + roles (reader/annotator/reviewer/admin), hashed keys, rotation/disable, workspace key panel, read-only; no SSO/workspace membership |
 
 ## Verification
 

@@ -29,6 +29,10 @@ describe('ProjectsPage (search)', () => {
       transcribedLines: 1, linesWithL0: 0, l0Revisions: 0, l2Revisions: 0,
       annotations: 0, flaggedLines: 0,
     });
+    http.expectOne('/api/v1/projects/col-1/review-summary').flush({
+      transcribedLines: 0, reviewedLines: 0, doubleReviewedLines: 0, disputedLines: 0,
+      needsAdjudication: 0, lines: [],
+    });
     http.expectOne('/api/v1/projects/col-1').flush({
       id: 'col-1', name: 'demo',
       objects: [{ id: 'obj-1', surfaces: [{ id: 'surf-1', kind: 'page', lines: [], regions: [], captures: [] }] }],

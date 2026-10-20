@@ -42,6 +42,26 @@ interface ProjectRow {
               {{ s.annotations }} annotation(s) · {{ s.flaggedLines }} flagged by profile QA
             </p>
           }
+          @if (review(); as r) {
+            <p class="hint">
+              Review: {{ r.reviewedLines }}/{{ r.transcribedLines }} reviewed ·
+              {{ r.doubleReviewedLines }} double-reviewed · {{ r.disputedLines }} disputed ·
+              <b>{{ r.needsAdjudication }}</b> need adjudication
+              <a [href]="adjudicationUrl()" download>adjudication.csv</a>
+            </p>
+            @if (r.needsAdjudication > 0) {
+              <ul>
+                @for (entry of adjudicationLines(); track entry.lineId) {
+                  <li>
+                    <button type="button" class="link" (click)="openReviewLine(entry)">
+                      {{ entry.lineId }}
+                    </button>
+                    <span class="hint">{{ entry.reviewers.join(', ') }} → {{ entry.outcomes.join(', ') }} · {{ entry.text }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          }
           <ul>
             @for (object of payload.objects; track object.id) {
               @for (surface of object.surfaces; track surface.id) {
@@ -106,6 +126,18 @@ export class ProjectsPage {
   protected readonly stats = signal<{
     surfaces: number; lines: number; transcribedLines: number; annotations: number; flaggedLines: number;
   } | null>(null);
+  protected readonly review = signal<{
+    transcribedLines: number;
+    reviewedLines: number;
+    doubleReviewedLines: number;
+    disputedLines: number;
+    needsAdjudication: number;
+    lines: {
+      lineId: string; surfaceId: string; text: string; decisions: number;
+      reviewers: string[]; outcomes: string[]; latestOutcome: string | null;
+      doubleReviewed: boolean; needsAdjudication: boolean;
+    }[];
+  } | null>(null);
   protected readonly focusLineId = signal('');
   protected readonly query = signal('');
   protected readonly searchMode = signal<'literal' | 'base'>('literal');
@@ -143,6 +175,20 @@ export class ProjectsPage {
     this.focusLineId.set(hit.lineId);
   }
 
+  protected adjudicationLines(): {
+    lineId: string; surfaceId: string; text: string; reviewers: string[]; outcomes: string[];
+  }[] {
+    return (this.review()?.lines ?? []).filter(l => l.needsAdjudication).slice(0, 10);
+  }
+
+  protected openReviewLine(entry: { surfaceId: string; lineId: string }): void {
+    this.openHit(entry);
+  }
+
+  protected adjudicationUrl(): string {
+    return this.api.adjudicationUrl(this.selectedId() ?? '');
+  }
+
   constructor(http: HttpClient) {
     this.api = new ApiClient(http);
     this.api.listProjects().subscribe({
@@ -163,9 +209,14 @@ export class ProjectsPage {
     this.selectedId.set(id);
     this.openSurfaceId.set(null);
     this.stats.set(null);
+    this.review.set(null);
     this.api.stats(id).subscribe({
       next: counts => this.stats.set(counts),
       error: () => this.stats.set(null),
+    });
+    this.api.reviewSummary(id).subscribe({
+      next: summary => this.review.set(summary),
+      error: () => this.review.set(null),
     });
     if (!this.payloads()[id]) {
       this.api.loadProject(id).subscribe(payload =>
