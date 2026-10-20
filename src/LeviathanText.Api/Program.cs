@@ -248,6 +248,35 @@ api.MapPost("projects/{id}/import-image", (ProjectService projects, string id, [
     });
 });
 
+api.MapPost("projects/{id}/import-epidoc", (ProjectService projects, string id, [FromBody] ImportEpiDocRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var (imported, notes, imageUrl) = new InterchangeService(projects)
+        .ImportEpiDoc(project, request.DocumentPath, request.ImagePath, request.Kind ?? "inscription-face");
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceId = imported.Surfaces[0].Id.ToString(),
+        lineCount = imported.Surfaces[0].Lines.Count,
+        imageUrl,
+        notes,
+    });
+});
+
+api.MapGet("surfaces/{surfaceId}/unplaced-lines", (ProjectService projects, string surfaceId) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    var unplaced = new InterchangeService(projects).UnplacedLines(project, surfaceEntityId);
+    return Results.Ok(unplaced.Select((entry, index) => new
+    {
+        lineId = entry.Line.Id.ToString(),
+        order = index,
+        referenceText = entry.ReferenceText,
+    }));
+});
+
 api.MapPost("projects/{id}/import-legacy", (ProjectService projects, string id, [FromBody] ImportLegacyRequest request) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -789,6 +818,8 @@ public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
+
+public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
 public sealed record RecognizeRequest(string Model);
 
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);

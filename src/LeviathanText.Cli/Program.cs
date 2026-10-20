@@ -204,6 +204,18 @@ public static class Program
                 return 0;
             }
 
+            case "import" when rest.Length >= 5 && rest[1] == "epidoc":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var kind = rest.Length >= 7 && rest[5] == "--kind" ? rest[6] : "inscription-face";
+                var (imported, notes, imageUrl) = interchange.ImportEpiDoc(project, rest[3], rest[4], kind);
+                foreach (var note in notes)
+                    Console.Error.WriteLine($"{note.Severity}: {note.Element}: {note.Description}");
+                Console.WriteLine($"imported {imported.Surfaces[0].Lines.Count} reference line(s) as L2; " +
+                                  $"surface {imported.Surfaces[0].Id}; draw geometry in the editor (image URL: {imageUrl ?? "none"})");
+                return 0;
+            }
+
             case "import" when rest.Length >= 5 && rest[1] is "alto" or "hocr":
             {
                 // Legacy OCR migration: bounded ALTO/hOCR subset + the page image.

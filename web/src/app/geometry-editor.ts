@@ -90,6 +90,20 @@ interface DragState {
       </div>
       }
 
+      @if (!readOnly() && unplaced().length > 0) {
+        <h4>Unplaced text lines ({{ unplaced().length }})</h4>
+        <p class="hint">Select a line, choose “Draw new line”, then drag its box on the image.</p>
+        <ol>
+          @for (entry of unplaced(); track entry.lineId) {
+            <li>
+              <button type="button" class="link" (click)="selectUnplaced(entry.lineId)">
+                {{ entry.referenceText || entry.lineId }}
+              </button>
+            </li>
+          }
+        </ol>
+      }
+
       @if (!readOnly()) {
       <h4>Region order</h4>
       <ol>
@@ -140,6 +154,7 @@ interface DragState {
     .baseline { fill: none; stroke: #dc3c28; stroke-width: 2; pointer-events: none; }
     .handle { fill: #fff; stroke: #dc7828; stroke-width: 2; cursor: nwse-resize; }
     .draft { fill: rgba(40, 160, 80, 0.2); stroke: #28a050; stroke-width: 2; stroke-dasharray: 5 3; pointer-events: none; }
+    .link { background: none; border: none; color: #334; cursor: pointer; text-decoration: underline; padding: 0; text-align: left; }
     .tools { margin-top: 0.5rem; display: flex; gap: 0.75rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
@@ -163,6 +178,8 @@ export class GeometryEditor implements OnInit {
   protected readonly drawRect = signal<{ x: number; y: number; width: number; height: number } | null>(null);
   protected readonly actionStatus = signal('');
   protected readonly zoom = signal(1);
+  protected readonly unplaced = signal<{ lineId: string; order: number; referenceText: string }[]>([]);
+  protected readonly placingLineId = signal<string | null>(null);
   protected readonly historyEdits = signal<{
     id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
   }[]>([]);
@@ -189,6 +206,16 @@ export class GeometryEditor implements OnInit {
       next: edits => this.historyEdits.set(edits),
       error: () => this.historyEdits.set([]),
     });
+    this.api.unplacedLines(this.surfaceId()).subscribe({
+      next: lines => this.unplaced.set(lines),
+      error: () => this.unplaced.set([]),
+    });
+  }
+
+  protected selectUnplaced(lineId: string): void {
+    this.placingLineId.set(lineId);
+    this.actionStatus.set('draw a box for the selected text line');
+    this.setMode('draw');
   }
 
   private loadFrom(payload: ProjectPayload): void {
@@ -369,12 +396,26 @@ export class GeometryEditor implements OnInit {
   private createLine(rect: { x: number; y: number; width: number; height: number }): void {
     const right = rect.x + rect.width;
     const bottom = rect.y + rect.height;
-    this.api.addLine(this.surfaceId(),
-      [
-        { x: rect.x, y: rect.y }, { x: right, y: rect.y },
-        { x: right, y: bottom }, { x: rect.x, y: bottom },
-      ],
-      [{ x: rect.x, y: bottom }, { x: right, y: bottom }])
+    const polygon = [
+      { x: rect.x, y: rect.y }, { x: right, y: rect.y },
+      { x: right, y: bottom }, { x: rect.x, y: bottom },
+    ];
+    const baseline = [{ x: rect.x, y: bottom }, { x: right, y: bottom }];
+    const placing = this.placingLineId();
+
+    if (placing) {
+      this.api.updateLineGeometry(placing, polygon, baseline).subscribe({
+        next: () => {
+          this.actionStatus.set('text line placed');
+          this.placingLineId.set(null);
+          this.reload();
+        },
+        error: () => this.actionStatus.set('could not place the text line'),
+      });
+      return;
+    }
+
+    this.api.addLine(this.surfaceId(), polygon, baseline)
       .subscribe({
         next: () => {
           this.actionStatus.set('line added');

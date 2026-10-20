@@ -7,7 +7,8 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - Labels are **not specialist-adjudicated**; measured CER is pilot-scale and cannot support an
   acceptance claim. The P01 locked split is **spent** — new claims need fresh held-out witnesses.
 - M02a is one codex; M01 adds a second book but no hand-level holdout. Inscription labels are
-  blocked on image-aligned adjudication.
+  still blocked on image-aligned adjudication, though the EpiDoc text-first bootstrap and manual
+  box placement now exist.
 - Out-of-profile labels (PAGE markup leakage) exist in imported corpora; use
   `train lines --profile-strict` and `validate text` before training.
 

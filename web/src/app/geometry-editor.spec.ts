@@ -48,6 +48,7 @@ describe('GeometryEditor (undo)', () => {
       updateReadingOrder: () => of({}),
       updateLineOrder: () => of({}),
       geometryHistory: () => of([]),
+      unplacedLines: () => of([]),
     };
     TestBed.configureTestingModule({
       imports: [GeometryEditor],
@@ -85,6 +86,7 @@ describe('GeometryEditor (read-only view)', () => {
         objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', readingOrderIndex: 0 }], captures: [] }] }],
       }),
       geometryHistory: () => of([]),
+      unplacedLines: () => of([]),
     };
     TestBed.configureTestingModule({
       imports: [GeometryEditor],

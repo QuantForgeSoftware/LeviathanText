@@ -427,6 +427,73 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task EpiDoc_bootstrap_imports_l2_reference_lines_and_places_geometry()
+    {
+        var client = NewClient();
+        var project = await (await client.PostAsJsonAsync("/api/v1/projects", new { name = "epidoc-e2e" }))
+            .Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var dir = Path.Combine(Path.GetTempPath(), $"lt-epidoc-api-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var xml = Path.Combine(dir, "record.xml");
+        await File.WriteAllTextAsync(xml, """
+            <TEI xmlns="http://www.tei-c.org/ns/1.0">
+              <facsimile><graphic n="screen" url="ISic001151.jpg"/></facsimile>
+              <text><body><div type="edition" subtype="primary"><ab>
+                <lb n="1"/>Ὀπετρηία Λητώι χαῖρε
+                <lb n="2"/>χρηστὴ καὶ εὐσεβής
+              </ab></div></body></text>
+            </TEI>
+            """);
+        var image = Path.Combine(dir, "stone.png");
+        using (var bitmap = new SkiaSharp.SKBitmap(240, 160))
+        {
+            using var canvas = new SkiaSharp.SKCanvas(bitmap);
+            canvas.Clear(SkiaSharp.SKColors.LightGray);
+            using var paint = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Black };
+            canvas.DrawRect(new SkiaSharp.SKRect(10, 30, 230, 55), paint);
+            canvas.DrawRect(new SkiaSharp.SKRect(10, 90, 230, 115), paint);
+            using var data = SkiaSharp.SKImage.FromBitmap(bitmap).Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            using var stream = File.OpenWrite(image);
+            data.SaveTo(stream);
+        }
+
+        try
+        {
+            var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-epidoc",
+                new { documentPath = xml, imagePath = image, kind = "inscription-face" });
+            Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
+            using var importedJson = System.Text.Json.JsonDocument.Parse(await imported.Content.ReadAsStringAsync());
+            var surfaceId = importedJson.RootElement.GetProperty("surfaceId").GetString()!;
+            Assert.Equal(2, importedJson.RootElement.GetProperty("lineCount").GetInt32());
+
+            var unplacedJson = await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/unplaced-lines");
+            Assert.Contains("χρηστὴ", unplacedJson);
+            using var unplaced = System.Text.Json.JsonDocument.Parse(unplacedJson);
+            var lineId = unplaced.RootElement[0].GetProperty("lineId").GetString()!;
+
+            var placed = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
+            {
+                polygon = new[]
+                {
+                    new { x = 10.0, y = 25.0 }, new { x = 230.0, y = 25.0 },
+                    new { x = 230.0, y = 60.0 }, new { x = 10.0, y = 60.0 },
+                },
+                baseline = new[] { new { x = 10.0, y = 58.0 }, new { x = 230.0, y = 58.0 } },
+            });
+            Assert.Equal(HttpStatusCode.OK, placed.StatusCode);
+
+            using var after = System.Text.Json.JsonDocument.Parse(
+                await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/unplaced-lines"));
+            Assert.Equal(1, after.RootElement.GetArrayLength());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Review_ledger_supports_double_review_correction_and_adjudication_export()
     {
         var client = NewClient();

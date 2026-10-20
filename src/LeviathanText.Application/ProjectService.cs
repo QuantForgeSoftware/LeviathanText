@@ -1,5 +1,6 @@
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
+using LeviathanText.Imaging;
 
 namespace LeviathanText.Application;
 
@@ -152,6 +153,109 @@ public sealed class InterchangeService(ProjectService projects)
         };
         projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
         return imported;
+    }
+
+    /// <summary>
+    /// Bootstrap an inscription record from EpiDoc: the published edition is imported as L2
+    /// reference lines (no L1!), the image becomes the capture, and every line starts without
+    /// geometry. A human draws the boxes and transcribes the visible text; the edition must
+    /// never be presented as the diplomatic reading. Line ids are namespaced per import.
+    /// </summary>
+    public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Notes, string? ImageUrl)
+        ImportEpiDoc(NativeProject project, string epdocPath, string imagePath, string surfaceKind = "inscription-face")
+    {
+        if (!File.Exists(epdocPath))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = epdocPath, Message = "EpiDoc file is not readable." });
+        if (!File.Exists(imagePath))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = imagePath, Message = "Inscription image is not readable." });
+
+        var parsed = EpiDocImport.Parse(File.ReadAllText(epdocPath));
+        using var decoded = ImageDecoder.Decode(imagePath);
+        var token = Guid.NewGuid().ToString("N")[..8];
+        var captureId = NewCaptureId(project);
+        var regionId = NewId(EntityKind.Region, project, "reg");
+        var revisions = new List<TextRevision>();
+        var lines = new List<NativeLine>();
+
+        for (int i = 0; i < parsed.Lines.Count; i++)
+        {
+            var lineId = new EntityId(EntityKind.Line, $"epi-{token}-{i + 1}");
+            var revision = new TextRevision
+            {
+                Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-epi-{token}-{i + 1}"),
+                ScopeId = lineId,
+                Layer = TextLayer.L2Editorial,
+                Author = new AgentRef { Id = "epidoc-import", IsModel = false },
+                CreatedAt = DateTimeOffset.UtcNow,
+                Text = parsed.Lines[i].Text,
+            };
+            revisions.Add(revision);
+            lines.Add(new NativeLine
+            {
+                Id = lineId,
+                RegionId = regionId,
+                FrameRef = captureId,
+                Polygon = [],
+                Baseline = [],
+            });
+        }
+
+        var surface = new NativeSurface
+        {
+            Id = NewId(EntityKind.Surface, project, "surf"),
+            Kind = surfaceKind,
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = decoded.SourceChecksum },
+                ImageLocation = Path.GetFullPath(imagePath),
+                WidthPx = decoded.Bitmap.Width,
+                HeightPx = decoded.Bitmap.Height,
+            }],
+            Regions = [new NativeRegion
+            {
+                Id = regionId,
+                FrameRef = captureId,
+                Polygon =
+                [
+                    new PointD(0, 0),
+                    new PointD(decoded.Bitmap.Width, 0),
+                    new PointD(decoded.Bitmap.Width, decoded.Bitmap.Height),
+                    new PointD(0, decoded.Bitmap.Height),
+                ],
+                LayoutSource = LayoutSource.Manual,
+                ReadingOrderIndex = 0,
+            }],
+            Lines = lines,
+            Revisions = revisions,
+        };
+
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Surfaces = [surface],
+        };
+        projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
+        return (imported, parsed.Notes, parsed.ImageUrl);
+    }
+
+    /// <summary>
+    /// Lines with no geometry yet (text-first imports such as EpiDoc), with their latest L2
+    /// reference text so the editor can offer a placement list.
+    /// </summary>
+    public IReadOnlyList<(NativeLine Line, string ReferenceText)> UnplacedLines(NativeProject project, EntityId surfaceId)
+    {
+        var surface = FindSurface(project, surfaceId);
+        var latestL2 = surface.Revisions
+            .Where(r => r.Layer == TextLayer.L2Editorial)
+            .GroupBy(r => r.ScopeId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.CreatedAt).First().Text);
+        return
+        [
+            .. surface.Lines
+                .Where(l => l.Polygon.Count < 3)
+                .Select(l => (l, latestL2.GetValueOrDefault(l.Id, ""))),
+        ];
     }
 
     /// <summary>

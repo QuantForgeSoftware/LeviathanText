@@ -106,6 +106,18 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Inscription bootstrap (EpiDoc)
+
+```bash
+leviathan --store pilot.db import epidoc <projectId> <record.xml> <photo.jpg>
+```
+
+The ISicily-style published edition is split at `<lb/>` and imported as **L2 editorial
+reference**, never as L1. Lines start without geometry; the editor lists them under
+"Unplaced text lines", where a human selects a line and draws its box. Notes/gap markup is
+reported and not presented as visible evidence. `GET /surfaces/{id}/unplaced-lines` exposes
+the same list.
+
 ## Double review and adjudication
 
 ```bash

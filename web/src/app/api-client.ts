@@ -162,6 +162,11 @@ export class ApiClient {
     return this.http.put(`/api/v1/surfaces/${surfaceId}/reading-order`, { regionIds });
   }
 
+  unplacedLines(surfaceId: string): Observable<{ lineId: string; order: number; referenceText: string }[]> {
+    return this.http.get<{ lineId: string; order: number; referenceText: string }[]>(
+      `/api/v1/surfaces/${surfaceId}/unplaced-lines`);
+  }
+
   geometryHistory(surfaceId: string): Observable<{
     id: string; kind: string; at: string; author: string; lineId?: string; regionId?: string;
   }[]> {

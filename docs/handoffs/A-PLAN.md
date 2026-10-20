@@ -317,3 +317,16 @@ Blockers recorded so far:
 - **Contract:** review decisions documented in domain-and-pipeline §1.3 as an audit ledger, not
   text revisions. Reviewer identity is a free string; accounts/roles remain open.
 - **Verified:** service + HTTP + UI tests; CLI smoke (accept + dispute → adjudication row).
+
+### Handoff revision 15 — 2026-10-19 (inscription bootstrap)
+
+- **EpiDoc bootstrap:** ISicily-style records import the primary edition split at `<lb/>` as
+  **L2 reference** lines (never L1), with the image as capture, no geometry, and explicit
+  notes for flattened markup/edition normalization. Line ids are namespaced per import.
+- **Manual placement workflow:** `GET /surfaces/{id}/unplaced-lines` plus a geometry-editor
+  list ("Unplaced text lines"); selecting a line and drawing assigns its geometry through the
+  existing validated geometry endpoint. Read-only view remains available.
+- **CLI/API:** `import epidoc`, `POST /projects/{id}/import-epidoc`,
+  `GET /surfaces/{id}/unplaced-lines`.
+- **Smoke:** real ISic001151 + w800 image → 3 reference lines split correctly (including a
+  `break="no"` hyphenation), 0 L1 revisions. Expert transcription/geometry work remains.
