@@ -608,6 +608,22 @@ public static class Program
                 return 0;
             }
 
+            case "review" when rest.Length >= 4 && rest[1] == "packet":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var output = rest[3];
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 0;
+                var surfaceIndex = Array.IndexOf(rest, "--surface");
+                EntityId? surfaceId = surfaceIndex >= 0 && surfaceIndex + 1 < rest.Length
+                    ? EntityId.Parse(rest[surfaceIndex + 1], EntityKind.Surface)
+                    : null;
+                var result = ReviewPacketBuilder.Build(project, output, limit, surfaceId);
+                Console.WriteLine($"review packet: {result.IndexPath} ({result.LineCount} line(s), {result.Skipped} skipped)");
+                Console.WriteLine($"decisions: {result.DecisionsPath}");
+                return 0;
+            }
+
             case "review" when rest.Length >= 4 && rest[1] == "line":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1183,6 +1199,7 @@ public static class Program
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
+              leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]

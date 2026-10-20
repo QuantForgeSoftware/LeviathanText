@@ -222,6 +222,19 @@ published edition is split at `<lb/>` and imported as **L2 editorial reference**
 reported and not presented as visible evidence. `GET /surfaces/{id}/unplaced-lines` exposes
 the same list.
 
+## Reviewer packets
+
+For known-transcription corpora, generate a self-contained review packet:
+
+```bash
+leviathan --store review.db review packet <projectId> .artifacts/review/p01 --limit 50
+```
+
+`index.html` shows each line crop, current L1, and L2 reference; the reviewer marks
+agree/correct/unclear/not-visible, edits corrected text, and downloads `decisions.csv`. The page
+does not mutate the project. Apply returned corrections deliberately; do not treat the existing
+transcription as adjudicated until that review is complete.
+
 ## Double review and adjudication
 
 ```bash
