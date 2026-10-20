@@ -195,6 +195,29 @@ public static class Program
                 return ok == files.Count ? 0 : 1;
             }
 
+            case "import" when rest.Length >= 4 && rest[1] == "pdf":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                string? Flag(string name) =>
+                    Array.IndexOf(rest, name) is var index && index >= 0 && index + 1 < rest.Length ? rest[index + 1] : null;
+                var kind = Flag("--kind") ?? "page";
+                var dpi = Flag("--dpi") is { } d ? int.Parse(d) : PdfRenderer.DefaultDpi;
+                var maxPages = Flag("--max-pages") is { } m ? int.Parse(m) : PdfRenderer.MaxPages;
+                var outputDirectory = Flag("--out") ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".leviathantext", "pdf", project.Id.Suffix,
+                    $"{Path.GetFileNameWithoutExtension(rest[3])}-{Guid.NewGuid().ToString("N")[..8]}");
+
+                var (imported, pages, warnings) = interchange.ImportPdf(project, rest[3], outputDirectory, kind, dpi, maxPages);
+                Console.WriteLine($"imported object {imported.Id}, surfaces {imported.Surfaces.Count}, " +
+                                  $"page images in {outputDirectory}");
+                foreach (var page in pages.Take(3))
+                    Console.WriteLine($"  page {page.PageNumber}: {page.WidthPx}x{page.HeightPx} {page.ImagePath}");
+                if (pages.Count > 3) Console.WriteLine($"  … {pages.Count - 3} more page(s)");
+                foreach (var warning in warnings) Console.WriteLine($"note: {warning}");
+                return 0;
+            }
+
             case "import" when rest.Length >= 4 && rest[1] == "image":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1029,6 +1052,7 @@ public static class Program
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
+              leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500]
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>

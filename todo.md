@@ -88,17 +88,16 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 ### Phase 4 — wider replacement scope
 
 - [ ] Add printed Greek editions/critical apparatus layouts and other scripts according to user priorities.
-- [x] Implement bounded ALTO v4 and hOCR import/export (line boxes + line text; unsupported elements reported; external entities refused; legacy import path). *(adapters + round-trip tests + CLI/API/bundle exports; no word-segmentation synthesis)*
-- [~] Add explicit RTL/BiDi/vertical direction and script metadata per region/line, and use it in editing/display/interchange without guessing from language. *(native fields + PAGE readingDirection/primaryScript + hOCR dir/ocr_vertical round-trip; API orientation endpoints; editor/display support. Remaining: full BiDi layout, vertical recognition, ALTO/TEI direction mapping.)*
-- [ ] Add ABBYY XML and PDF/document ingestion needed for Kraken parity.
+- [~] Add explicit RTL/BiDi/vertical direction and script metadata per region/line, and use it in editing/display/interchange without guessing from language. *(native fields + PAGE readingDirection/primaryScript + hOCR dir/ocr_vertical + bounded TEI rend round-trip; API orientation endpoints; editor/display support. Remaining: full BiDi layout, vertical recognition, ALTO direction mapping.)*
+- [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization is implemented with bounded DPI/page/size and one capture per page; PDF text/layout extraction and ABBYY XML remain.)*
 - [ ] Extend AI to translation, structured extraction, optional lexical/morphological annotations and bulk workflows with source references.
 - [ ] Reconcile every reference capability row against acceptance evidence before claiming full parity.
 - [ ] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions.
 
 ### Release checklist — applies before every usable release
 
-- [ ] Package CLI, server, workers, Angular assets and required model artifacts for the supported target matrix; verify operation without Kraken or Python.
-- [ ] Complete throughput/resource profiling, backup/restore, schema migrations, install/update/rollback checks and dependency inventory.
+- [~] Package CLI, server, workers, Angular assets and required model artifacts for the supported target matrix; verify operation without Kraken or Python. *(osx-arm64 framework-dependent package + manifest + CLI smoke verified; web assets served at /ui when WebRoot is set. Other targets untested; model weights are intentionally not bundled.)*
+- [~] Complete throughput/resource profiling, backup/restore, schema migrations, install/update/rollback checks and dependency inventory. *(backup/restore rehearsal PASS; v2/v3/v4→v5 migration tests pass; dependency inventory includes PDFium; throughput, installers/updaters and rollback rehearsal remain.)*
 - [ ] Publish supported materials/hands/captures, annotation conventions, model cards, benchmark results and known failure conditions.
 - [ ] Publish installation, transcription, training, provider-configuration and migration instructions; verify a fresh offline installation with installed models.
 

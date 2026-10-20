@@ -1,6 +1,6 @@
 # Packaging and independence evidence (pilot)
 
-Date: 2026-10-19. This records what was **actually run**, not a release claim.
+Date: 2026-10-20. This records what was **actually run**, not a release claim.
 
 ## Fresh-install verification (2026-10-19)
 
@@ -11,9 +11,31 @@ Date: 2026-10-19. This records what was **actually run**, not a release claim.
 Result: **PASS** (no source-tree or network dependency in the published paths).
 
 Dependency inventory: all runtime dependencies resolve through NuGet (SkiaSharp, TorchSharp +
-native libtorch, ASP.NET/SQLite); no Python or Kraken package/runtime appears in the graph.
+native libtorch, PDFtoImage/PDFium, ASP.NET/SQLite); no Python or Kraken package/runtime appears
+in the graph.
 Published outputs are large (~600 MB per binary set) because native libtorch is bundled; a
 distribution should ship one shared runtime, not duplicate it.
+
+## Reproducible release directory (2026-10-20)
+
+`scripts/package-release.sh [rid] [output-dir]` publishes the CLI, API and worker for one
+framework-dependent runtime identifier, builds the Angular assets, refuses an existing output
+directory, checks first-party source for Kraken/Python references, and writes a SHA-256
+`release-manifest.json` plus a `README.txt`. It does **not** bundle model weights.
+
+Verified on this machine:
+
+| Target | Status | Evidence / limits |
+| --- | --- | --- |
+| osx-arm64 | **built + CLI smoke PASS** | 146 files / ~829 MB directory; 196 MB `.tar.gz`; manifest records runtime/commit/dotnet; CLI creates and lists a project from the packaged binary. |
+| osx-x64 | not built/tested | requires a matching .NET runtime and native libtorch/PDFium assets. |
+| linux-x64 | not built/tested | no Linux host in this environment. |
+| win-x64 | not built/tested | no Windows host in this environment. |
+
+The target matrix is deliberately a table of **tested vs untested**, not a compatibility claim.
+The package is framework-dependent (the .NET runtime is not bundled). Model packages and corpus
+images are separate artifacts. Set `LeviathanText:WebRoot=.../web` to serve the Angular workspace
+from the API at `/ui` (SPA fallback; `/` remains the service/version endpoint).
 
 ## Publish outputs (verified)
 
@@ -22,7 +44,7 @@ dotnet publish src/LeviathanText.Cli -c Release -o dist/cli    # succeeded
 dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 ```
 
-- Both outputs are self-contained framework-dependent builds for `net10.0`; each is ~600 MB because the ML packages carry native libtorch binaries. The CLI starts and creates/loads a store from the publish directory (smoke: `project new` → `col-…`, `project list` → row).
+- Both outputs are framework-dependent builds for `net10.0`; each is ~600 MB because the ML packages carry native libtorch binaries. PDF ingestion adds PDFium native assets per runtime. The CLI starts and creates/loads a store from the publish directory (smoke: `project new` → `col-…`, `project list` → row).
 - `dist/` is a local build artifact (gitignored), not a distribution commitment.
 
 ## Independence checks performed
@@ -32,13 +54,25 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 
 ## Not yet done (release checklist remains open)
 
-- Installers/updaters, versioned migration tests, backup/restore rehearsal, rollback checks.
-- Target-matrix packaging (Windows/Linux) and non-macOS libtorch/runtime validation.
+- Installers/updaters and full versioned migration/rollback rehearsal with old binaries.
+- Backup/restore rehearsal: **PASS** (2026-10-20, `scripts/backup-restore-rehearsal.sh`: snapshot, mutate, restore into a fresh store, verify pre-snapshot only).
+- Store migration coverage: v1→v5 and v2/v3/v4→v5 tests create users/membership/runs after migration; newer schema is refused.
+- Target-matrix packaging on Windows/Linux and non-macOS libtorch/PDFium/runtime validation (osx-arm64 is the only packaged target verified here).
 - Throughput/peak-RAM profiling under sustained collection load (pilot measurements exist in the evaluation records).
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
-- Shared-server authentication: a **pilot-grade opt-in guard** exists (`LeviathanText:Auth:ApiKey` → Bearer/`X-Api-Key` required under `/api/v1`; `Auth:ReadOnly=true` blocks mutations). It is **not** a user system: no accounts, roles, per-user audit or key rotation. Without a key the API logs a local-only warning — do not expose it beyond localhost.
+- Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
+  SHA-256 hashed keys, rotation/disable, auth audit and opt-in per-project membership exist.
+  SSO/session policy and invitation/presence UI remain open; do not expose an unconfigured
+  instance beyond localhost.
 
+
+## Backup/restore rehearsal
+
+`scripts/backup-restore-rehearsal.sh` creates a store, snapshots it with
+`leviathan backup`, adds post-snapshot state, restores into a **different** store, and checks
+that only the pre-snapshot project survives. Result: **PASS** (2026-10-20). This exercises the
+manifest/checksum restore path; it is not a substitute for a full pre-upgrade backup on real data.
 
 ## Upgrade, migration and rollback (pilot)
 
@@ -46,7 +80,7 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 2. **Back up first:** `leviathan --store pilot.db backup ./snapshots/pre-upgrade`
    (`VACUUM INTO` + checksummed image copies).
 3. Replace binaries/assets, then start the new API. Store schema migrations run on open:
-   - v1/v2 → v3 adds the `users` and `auth_audit` tables in place;
+   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`;
    - a store written by a **newer** schema is refused with `SchemaVersionUnsupported` (downgrades
      are unsupported).
 4. Verify `/`, `/api/v1/projects`, a login (`/api/v1/me`) and one read/export before resuming work.

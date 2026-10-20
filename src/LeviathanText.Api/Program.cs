@@ -11,7 +11,9 @@ using LeviathanText.Formats;
 using LeviathanText.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using System.Net.ServerSentEvents;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -100,6 +102,58 @@ app.Use(async (context, next) =>
         }));
     }
 });
+
+// Optional static workspace hosting for packaged releases. The API keeps `/` as the
+// service/version endpoint; Angular is served under WebPath (default `/ui`) with an SPA
+// fallback for client routes. WebRoot is deliberately opt-in so a bare API does not
+// accidentally expose a filesystem directory.
+var webRoot = builder.Configuration["LeviathanText:WebRoot"];
+var webPath = builder.Configuration["LeviathanText:WebPath"] ?? "/ui";
+if (!string.IsNullOrWhiteSpace(webRoot) && Directory.Exists(webRoot))
+{
+    var fullRoot = Path.GetFullPath(webRoot);
+    var provider = new PhysicalFileProvider(fullRoot);
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider, RequestPath = webPath });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider, RequestPath = webPath });
+
+    var indexPath = Path.Combine(fullRoot, "index.html");
+    IResult ServeWebFile(string? path)
+    {
+        var relative = (path ?? string.Empty).TrimStart('/');
+        var candidate = Path.GetFullPath(Path.Combine(fullRoot, relative));
+        if (!candidate.Equals(fullRoot, StringComparison.Ordinal)
+            && !candidate.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return Results.NotFound();
+        if (Directory.Exists(candidate)) candidate = Path.Combine(candidate, "index.html");
+        if (File.Exists(candidate))
+        {
+            var contentTypes = new FileExtensionContentTypeProvider();
+            return Results.File(candidate,
+                contentTypes.TryGetContentType(candidate, out var contentType) ? contentType : "application/octet-stream");
+        }
+        return Path.HasExtension(relative)
+            ? Results.NotFound()
+            : Results.File(indexPath, "text/html");
+    }
+
+    if (File.Exists(indexPath))
+    {
+        app.Use(async (context, next) =>
+        {
+            if ((!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+                || !context.Request.Path.StartsWithSegments(webPath))
+            {
+                await next();
+                return;
+            }
+
+            var relative = context.Request.Path.Value![webPath.Length..];
+            var result = ServeWebFile(relative);
+            await result.ExecuteAsync(context);
+        });
+    }
+}
+
 // Shared-deployment guard (opt-in). Authentication is required when an admin bootstrap key
 // or any user accounts exist. Roles: reader (GET only), annotator (mutations), reviewer
 // (+ review decisions), admin (+ user management and project deletion). The configured key is
@@ -375,6 +429,42 @@ api.MapPost("projects/{id}/import-image", (ProjectService projects, string id, [
         objectId = imported.Id.ToString(),
         surfaceId = imported.Surfaces[0].Id.ToString(),
         captureId = imported.Surfaces[0].Captures[0].Id.ToString(),
+    });
+});
+
+api.MapPost("projects/{id}/import-pdf", (ProjectService projects, string id, [FromBody] ImportPdfRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    if (!Path.IsPathRooted(request.PdfPath) || !File.Exists(request.PdfPath))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.PdfPath,
+            Message = "PDF path must be absolute and readable on the server host.",
+        });
+
+    var outputDirectory = request.OutputDirectory ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".leviathantext", "pdf", project.Id.Suffix,
+        $"{Path.GetFileNameWithoutExtension(request.PdfPath)}-{Guid.NewGuid().ToString("N")[..8]}");
+    if (!Path.IsPathRooted(outputDirectory))
+        return Results.BadRequest(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = outputDirectory,
+            Message = "PDF output directory must be absolute on the server host.",
+        });
+
+    var (imported, pages, warnings) = new InterchangeService(projects).ImportPdf(
+        project, request.PdfPath, outputDirectory, request.Kind ?? "page",
+        request.Dpi, request.MaxPages);
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceIds = imported.Surfaces.Select(s => s.Id.ToString()),
+        pageCount = pages.Count,
+        outputDirectory,
+        warnings,
     });
 });
 
@@ -1075,6 +1165,9 @@ public sealed record ImportIiifRequest(string ManifestPath);
 public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, string Format, string? Kind = null);
 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
+
+public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = null, string? Kind = null,
+    int Dpi = 200, int MaxPages = 500);
 
 public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
 

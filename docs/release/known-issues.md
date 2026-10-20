@@ -40,8 +40,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 ## Imaging
 
-- TIFF is unsupported by the current SkiaSharp build (clean `RejectedArchive`); PDF/ABBYY are
-  not implemented.
+- TIFF is unsupported by the current SkiaSharp build (clean `RejectedArchive`). PDF page
+  rasterization is implemented (PDFtoImage/PDFium; bounded DPI/page count/size) but no PDF text
+  extraction or layout inference is claimed. ABBYY XML remains unimplemented.
 - Very large PNGs are resampled after a full decode (memory bounded by the 12000 px limit, not
   by tiling).
 
@@ -59,10 +60,12 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
   entries exist (mutations/denials). The workspace has an API-key panel
   (localStorage; X-Api-Key + SSE query token); local-only mode remains the default.
 - Provider credentials are read from environment variables; hosted provider calls are unproven.
+- PDF rendering uses native PDFium against files readable by the server process; size/page limits
+  are enforced, but PDFium itself is not sandboxed. Treat PDFs as untrusted input.
 
 ## Interchange
 
-- PAGE and hOCR carry per-region/line direction and script metadata (PAGE `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical`); native JSON preserves it. ALTO/TEI exports do not yet map direction, and recognition remains LTR.
+- PAGE and hOCR carry per-region/line direction and script metadata (PAGE `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical`); native JSON preserves it and TEI uses a bounded `@rend` mapping. ALTO does not yet map direction, and recognition remains LTR.
 - ALTO/hOCR are bounded subsets (line boxes + line text; no word segmentation synthesis).
 - TEI/EpiDoc is a bounded profile; unsupported markup is reported, not mapped.
 - Plain-text and CSV exports are lossy by design; the native project JSON is authoritative.

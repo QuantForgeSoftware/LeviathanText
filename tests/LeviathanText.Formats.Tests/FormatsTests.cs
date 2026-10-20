@@ -235,6 +235,32 @@ public class TeiXmlTests
     }
 
     [Fact]
+    public void Direction_and_script_roundtrip_in_the_bounded_tei_rend_attribute()
+    {
+        var lineId = new EntityId(EntityKind.Line, "line-1");
+        var revision = new TextRevision
+        {
+            Id = new EntityId(EntityKind.TranscriptionRevision, "rev-1"),
+            ScopeId = lineId,
+            Layer = TextLayer.L1Diplomatic,
+            Author = SampleProject.Agent,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Text = "αβγ",
+        };
+        var orientations = new Dictionary<EntityId, TeiXml.TeiLineOrientation>
+        {
+            [lineId] = new(lineId, TextDirection.Rtl, "Grek"),
+        };
+        var xml = TeiXml.Export([(lineId, revision, (IReadOnlyList<Annotation>)[])], "orientation", orientations);
+        Assert.Contains("rend=\"direction:right-to-left;script:Grek\"", xml);
+
+        var reparsed = TeiXml.Import(xml);
+        var orientation = Assert.Single(reparsed.Orientations!);
+        Assert.Equal(TextDirection.Rtl, orientation.Direction);
+        Assert.Equal("Grek", orientation.Script);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE TEI [<!ENTITY x SYSTEM \"http://evil/x\">]><TEI xmlns=\"http://www.tei-c.org/ns/1.0\"><text/></TEI>";

@@ -5,9 +5,9 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-10-19 (archive run from `28e8f0a`).
+Archive build: 2026-10-20 (archive run from `64ee002`).
 `9810e57`.
-Entries are verbatim, including commit references and links. 49 items.
+Entries are verbatim, including commit references and links. 56 items.
 
 
 ## 1. Request and boundaries
@@ -93,3 +93,7 @@ Entries are verbatim, including commit references and links. 49 items.
 - [x] Add augmentation suited to scans and handwriting; keep synthetic/AI-generated examples labeled and evaluate on held-out real documents. *(LineAugmenter stretch/shift/salt-pepper + P01 A/B; layout CNN scale/shift/noise + augmentation A/B on real M02a/P01 pages; no synthetic training examples were introduced.)*
 ### Corpus acquisition and annotation deliverable
 - [x] Provide a bootstrap path using imported or manually labeled lines before the complete Angular editor exists. Minimal annotation and C# training must precede any release that depends on new models. *(PAGE/EpiDoc/ALTO/hOCR import, manual line placement/geometry, CLI `train lines` and `layout train` produce verified packages without requiring the full review UI.)*
+
+## 6. Delivery backlog and acceptance gates
+### Phase 4 — wider replacement scope
+- [x] Implement bounded ALTO v4 and hOCR import/export (line boxes + line text; unsupported elements reported; external entities refused; legacy import path). *(adapters + round-trip tests + CLI/API/bundle exports; no word-segmentation synthesis)*

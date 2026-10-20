@@ -449,3 +449,20 @@ Blockers recorded so far:
   index, not acceptance evidence.
 - **Verification:** 522 tests (520 passed + 2 opt-in skips), 0 failed; Release 0 warnings/0 errors;
   35 web specs.
+### Handoff revision 24 — 2026-10-20 (orientation, PDF, release hardening)
+
+- **Direction/script metadata:** per-region/line optional `direction` and `script` fields in the
+  native model; PAGE `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical` and bounded
+  TEI `rend` round-trip; API `PUT /lines|regions/{id}/orientation`; editor controls and
+  direction/vertical display. No BiDi layout or vertical recognition claim; ALTO direction is
+  not mapped.
+- **PDF ingestion:** bounded PDFtoImage/PDFium page rasterization (200 MB, 500 pages, 12k px /
+  50 MP per page) into one capture-only surface per page; CLI `import pdf` and
+  `POST /projects/{id}/import-pdf`. No PDF text/layout extraction.
+- **Packaged workspace:** optional `LeviathanText:WebRoot` serves the Angular build under `/ui`
+  with SPA fallback; `/` and `/api/v1` stay separate.
+- **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
+  SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
+  tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
+- **Verification:** **535 tests (533 passed + 2 opt-in skips), 0 failed across 13 suites;
+  Release 0 warnings/0 errors**; 36 web specs; package and backup/restore rehearsals PASS.

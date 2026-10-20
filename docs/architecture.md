@@ -10,7 +10,7 @@ is the record of record.
 | --- | --- | --- |
 | `LeviathanText.Contracts` | entity ids, revisions, annotations, errors, serialization conventions | — |
 | `LeviathanText.Core` | Unicode/scalar helpers, Greek text profile | Contracts |
-| `LeviathanText.Formats` | native project JSON, PAGE/TEI/EpiDoc/ALTO/hOCR/IIIF, loss reports | Contracts/Core |
+| `LeviathanText.Formats` | native project JSON, PAGE/TEI/EpiDoc/ALTO/hOCR/IIIF, direction/script metadata, loss reports | Contracts/Core |
 | `LeviathanText.Imaging` | decode limits, crops, transforms, line extraction | Contracts/Core |
 | `LeviathanText.Layout` | projection detector, learned patch/row CNN, comparison | Contracts/Core/Imaging |
 | `LeviathanText.Recognition` | CRNN+CTC, labels, decoding, recognizer | Contracts/Core |
@@ -26,7 +26,7 @@ is the record of record.
 
 ## Data flow
 
-1. **Ingest** — PAGE/TEI/EpiDoc/ALTO/hOCR/IIIF → native project (regions/lines/captures,
+1. **Ingest** — PAGE/TEI/EpiDoc/ALTO/hOCR/IIIF and bounded PDF page rasterization → native project (regions/lines/captures,
    L1 import or L2 reference for editions). Unsupported markup is reported, not flattened.
 2. **Layout** — imported geometry or automatic detection (projection default; learned model
    opt-in per material). Manual corrections produce a surface-level geometry audit.

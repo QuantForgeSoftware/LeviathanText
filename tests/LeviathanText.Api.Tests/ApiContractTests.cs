@@ -227,6 +227,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         Assert.Contains("\"direction\":\"rtl\"", await client.GetStringAsync($"/api/v1/lines/{lineId}"));
         Assert.Contains("\"script\":\"Grek\"", await client.GetStringAsync($"/api/v1/projects/{projectId}"));
         Assert.Contains("lineOrientation", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history"));
+        Assert.Contains("direction:right-to-left", await client.GetStringAsync($"/api/v1/projects/{projectId}/surfaces/{surfaceId}/tei"));
 
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/regions/{regionId}/orientation",
             new { direction = "verticalTopToBottom", script = "Grek" })).StatusCode);

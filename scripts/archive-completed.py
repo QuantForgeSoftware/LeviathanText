@@ -97,6 +97,9 @@ def main() -> int:
     today = datetime.date.today().isoformat()
     text = "\n".join(archive_lines).rstrip() + "\n"
     text = re.sub(r"Archive build: .*?\n", f"Archive build: {today} (archive run from `{sha}`).\n", text, count=1)
+    count = len(re.findall(r"^- \[x\] ", text, flags=re.MULTILINE))
+    text = re.sub(r"(Entries are verbatim, including commit references and links\. )\d+ items\.",
+                  rf"\g<1>{count} items.", text, count=1)
 
     # Section notes where a section's items are all archived.
     out = []

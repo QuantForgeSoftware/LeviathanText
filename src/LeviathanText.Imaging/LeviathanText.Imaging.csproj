@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="PDFtoImage" Version="5.4.0" />
   </ItemGroup>
 
   <ItemGroup>

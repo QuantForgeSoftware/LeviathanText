@@ -13,10 +13,19 @@ set: C0-0.4-draft.
 
 ### Added
 
+- **PDF page ingestion (Phase 4 partial):** bounded PDFtoImage/PDFium rendering to PNG
+  captures (DPI/page/size limits; one surface per page; no text/layout inference), exposed by
+  CLI `import pdf` and `POST /projects/{id}/import-pdf`.
+- **Packaged workspace hosting:** optional `LeviathanText:WebRoot` serves the Angular build at
+  `/ui` with SPA fallback; `/` and `/api/v1` remain separate.
+- **Release rehearsal:** `scripts/package-release.sh` (target-specific framework-dependent
+  package + SHA-256 manifest) and `scripts/backup-restore-rehearsal.sh`; v2/v3/v4→v5 migration
+  tests.
 - **Direction/script metadata (Phase 4 partial):** per-region and per-line logical direction
   (`ltr`, `rtl`, vertical top-to-bottom/bottom-to-top) and script code; PAGE
-  `readingDirection`/`primaryScript` and hOCR `dir`/`ocr_vertical` round-trips; API orientation
-  endpoints; editor controls and direction-aware surface rendering. Recognition remains LTR.
+  `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical` and bounded TEI `rend`
+  round-trips; API orientation endpoints; editor controls and direction-aware surface rendering.
+  Recognition remains LTR.
 - **Trainable layout (`patch-row-cnn-v2`)**: aspect-preserving preprocessing, line-core targets,
   dev-tuned threshold/expansion, augmentation, per-material opt-in (CLI `layout train/detect/
   inspect`, API `Layout:Models:<kind>`, worker `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>`), SHA-256

@@ -12,7 +12,7 @@ Source requirements: project-plan Section 3 (scholarly interchange, bounded TEI/
 | --- | --- | --- | --- |
 | Native JSON | both | Full-fidelity project interchange | — |
 | Diplomatic plain text (UTF-8) | export (import: labeled plain text) | L1 text, linearized in reading order | No geometry, layers, or uncertainty; loss report mandatory |
-| TEI P5 / EpiDoc (bounded profile) | both | See §1.2 | Unsupported markup → attachment + report |
+| TEI P5 / EpiDoc (bounded profile) | both | See §1.2; bounded `rend="direction:…;script:…"` orientation mapping | Unsupported markup → attachment + report |
 | PAGE XML (supported subset) | both | Regions/lines, polygons, baselines, text, optional `readingDirection`/`primaryScript` | Unsupported elements → report |
 | IIIF Presentation 3.0 | import (bounded) | Canvas/image references into workspace | No IIIF hosting; caching rules in §1.3 |
 | ALTO (v4 subset) / hOCR (XHTML subset) | both (pilot) | Line boxes + line text; polygons/bbox and baselines; hOCR direction (`dir`, `ocr_vertical`); unsupported elements → report; no word segmentation is synthesized | ABBYY XML and PDF remain unsupported (recorded if offered input); ALTO direction is not mapped |

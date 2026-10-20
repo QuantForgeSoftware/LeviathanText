@@ -107,6 +107,47 @@ public class LocalStoreTests : IDisposable
 
     public void Dispose() => File.Delete(_path);
 
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void Store_migrates_forward_to_v5_from_older_schemas(int fromVersion)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"leviathan-migrate-{fromVersion}-{Guid.NewGuid():N}.db");
+        NativeProject saved;
+        using (var store = new LocalStore(path))
+            store.SaveProject(saved = MinimalProject());
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}"))
+        {
+            connection.Open();
+            var cmd = connection.CreateCommand();
+            var drops = fromVersion switch
+            {
+                2 => "DROP TABLE IF EXISTS auth_audit; DROP TABLE IF EXISTS users; "
+                     + "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs;",
+                3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs;",
+                _ => "DROP TABLE IF EXISTS runs;",
+            };
+            cmd.CommandText = drops + $" PRAGMA user_version={fromVersion};";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var migrated = new LocalStore(path))
+        {
+            Assert.NotNull(migrated.LoadProject(saved.Id));
+            migrated.CreateUser("migrated", UserRole.Reader, "hash");
+            migrated.AddProjectMember(saved.Id, "usr-migrated");
+            Assert.True(migrated.IsProjectMember(saved.Id, "usr-migrated"));
+            migrated.SaveRun(new RunRecord
+            {
+                Id = "run-migrated", Kind = "recognition", Name = "migrated",
+                CreatedAt = DateTimeOffset.UtcNow, Metrics = new Dictionary<string, double> { ["cer"] = 1 },
+            });
+            Assert.Single(migrated.LoadRuns());
+        }
+    }
+
     [Fact]
     public void Auth_audit_entries_are_appended_and_read_newest_first()
     {

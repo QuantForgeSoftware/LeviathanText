@@ -161,6 +161,61 @@ public sealed class InterchangeService(ProjectService projects)
     }
 
     /// <summary>
+    /// Import a PDF as one physical object with one capture-only surface per rendered page.
+    /// Rendering is bounded (DPI/page count/size) and produces traceable PNG derivatives;
+    /// no text or layout is guessed from the PDF. Callers must provide a persistent output
+    /// directory so captures remain readable after the import.
+    /// </summary>
+    public (NativeObject Imported, IReadOnlyList<PdfRenderer.RenderedPage> Pages, IReadOnlyList<string> Warnings)
+        ImportPdf(NativeProject project, string pdfPath, string outputDirectory,
+            string surfaceKind = "page", int dpi = PdfRenderer.DefaultDpi, int maxPages = PdfRenderer.MaxPages)
+    {
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = "pdf-output",
+                Message = "A persistent output directory is required for rendered PDF pages.",
+            });
+
+        var pages = PdfRenderer.Render(pdfPath, outputDirectory, dpi, maxPages);
+        var surfaces = new List<NativeSurface>(pages.Count);
+        foreach (var page in pages)
+        {
+            var captureId = NewCaptureId(project);
+            surfaces.Add(new NativeSurface
+            {
+                Id = NewId(EntityKind.Surface, project, "surf"),
+                Kind = surfaceKind,
+                Captures = [new NativeCapture
+                {
+                    Id = captureId,
+                    Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = page.Checksum },
+                    ImageLocation = page.ImagePath,
+                    WidthPx = page.WidthPx,
+                    HeightPx = page.HeightPx,
+                }],
+                Regions = [],
+                Lines = [],
+            });
+        }
+
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Metadata = new Dictionary<string, string>
+            {
+                ["source"] = "pdf",
+                ["pdf:file"] = Path.GetFileName(pdfPath),
+                ["pdf:pages"] = pages.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            },
+            Surfaces = surfaces,
+        };
+        projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
+        return (imported, pages, [$"rendered {pages.Count} PDF page(s); no text/layout was inferred"]);
+    }
+
+    /// <summary>
     /// Bootstrap an inscription record from EpiDoc: the published edition is imported as L2
     /// reference lines (no L1!), the image becomes the capture, and every line starts without
     /// geometry. A human draws the boxes and transcribes the visible text; the edition must
@@ -525,7 +580,8 @@ public sealed class InterchangeService(ProjectService projects)
         return TeiXml.Export(
             surface.Lines.Select(l => (l.Id, l.DiplomaticRevisionId is { } rid ? surface.Revisions.FirstOrDefault(r => r.Id == rid) : null,
                 (IReadOnlyList<Annotation>)surface.Annotations.Where(a => a.AnchoredRevisionId == l.DiplomaticRevisionId).ToList())),
-            title);
+            title,
+            surface.Lines.ToDictionary(l => l.Id, l => new TeiXml.TeiLineOrientation(l.Id, l.Direction, l.Script)));
     }
 
     private static NativeSurface FindSurface(NativeProject project, EntityId surfaceId) =>

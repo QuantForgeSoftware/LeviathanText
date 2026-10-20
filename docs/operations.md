@@ -31,8 +31,10 @@ Image-only paths (IIIF or scanned pages without PAGE layout):
 
 ```bash
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import iiif <projectId> manifest.json
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db import pdf <projectId> document.pdf --out ./pdf-pages --dpi 200
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db layout detect <projectId> <surfaceId>
 # remote captures are fetched once into <store-dir>/images with a sha256 record
+# PDF pages become PNG captures; no PDF text/layout is imported
 ```
 
 Batch flows (durable jobs):
@@ -128,9 +130,23 @@ Direction/script are declared metadata, not inferred. `PUT /lines/{id}/orientati
 `PUT /regions/{id}/orientation` accept `{direction, script}` where `direction` is `ltr`,
 `rtl`, `verticalTopToBottom`, `verticalBottomToTop` or null (inherit/undeclared); `script` is a
 short ISO 15924 code such as `Grek`. The editor exposes line-level controls and the surface view
-applies logical direction/vertical display. PAGE and hOCR imports/exports preserve direction;
-native JSON preserves both. ALTO/TEI exports do not yet map direction, and recognition remains
-LTR.
+applies logical direction/vertical display. PAGE, hOCR and TEI imports/exports preserve
+direction; native JSON preserves both. ALTO does not yet map direction, and recognition
+remains LTR.
+
+## Packaged workspace hosting
+
+A packaged release can serve the immutable Angular assets from the API instead of requiring a
+second static server:
+
+```bash
+LeviathanText__WebRoot=/abs/release/web LeviathanText__WebPath=/ui \
+  /abs/release/api/LeviathanText.Api --urls http://127.0.0.1:5000
+```
+
+The workspace is then at `/ui`; `/` remains the service/contract endpoint and `/api/v1` remains
+the API. `WebRoot` is opt-in; no filesystem directory is exposed without it. The SPA fallback
+returns `index.html` for non-file client routes and 404 for missing assets.
 
 ## Offline use
 
@@ -255,11 +271,15 @@ at pilot scale but not a high-throughput design. Authentication/authorization ev
 `leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
 denials, never key material). The Angular workspace has an **API key panel**: paste
 a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after
-changing keys. Concurrent edit handling and per-object workspace membership are not implemented.
+changing keys. Opt-in per-project membership exists; concurrent editing/presence and an
+invitation UI are not implemented.
 
 ## Known limits to communicate
 
-- TIFF is not supported by the current imaging backend (clean `RejectedArchive`).
+- TIFF is not supported by the current imaging backend (clean `RejectedArchive`). PDF pages can
+  be rasterized into captures (bounded DPI/page count/size), but PDF text/layout is not imported.
+- Region/line direction and script metadata is stored and displayed; BiDi layout and vertical
+  recognition are not implemented (recognition remains LTR).
 - Automatic layout handles single-column pages; multi-column/curved/rotated pages are unsupported.
 - Geometry edits are stored directly (no server-side geometry revision history); the editor
   has undo, and backups are the recovery path.

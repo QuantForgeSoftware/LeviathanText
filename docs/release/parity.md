@@ -10,7 +10,7 @@ are not specialist-adjudicated.
 | TEI/EpiDoc import/export | implemented (bounded) | format tests; ISicily records parse | bounded profile; no full TEI coverage |
 | ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import | no word segmentation synthesis; ALTO does not carry direction |
 | IIIF Presentation 3 import | implemented (bounded) | real manifest test; remote image cache | no IIIF hosting |
-| PDF / ABBYY XML | not implemented | — | ingestion/backends undecided |
+| PDF / ABBYY XML | PDF pages: partial; ABBYY: not implemented | `PdfRenderer` tests + CLI/API smoke | page rasterization only; no PDF text/layout; ABBYY undecided |
 | Plain text + loss report | implemented | export tests | lossy by design |
 | Automatic layout | projection baseline + opt-in CNN | P 0.403/R 0.473; learned M02a 0.965/0.987; page CER 0.971→0.942 | single-column only; out-of-domain P01 weak; no columns/rotation |
 | Manual layout | move/resize/draw/delete/split/merge/order + audit | API/UI tests | no entity-level geometry revisions |
@@ -24,12 +24,12 @@ are not specialist-adjudicated.
 | Active learning/review | persisted queue + double review/adjudication | tests + UI | no automatic prioritization model beyond confidence |
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
 | Durable jobs | layout/import/recognize jobs, leases, cancel | worker/API tests + live smoke | no scheduler/priority/quota |
-| Web workspace | editor, geometry, review, search, jobs, auth | 29 specs | no concurrent workspaces, no deep links |
+| Web workspace | editor, geometry, review, search, jobs, auth; optional packaged static hosting at /ui | 36 specs | no concurrent workspaces, no deep links |
 | Auth/roles | accounts + roles + audit + opt-in per-project membership | role/audit/membership tests | no SSO/session policy or invitation/presence UI |
 | Backup/restore | checksummed snapshot/restore | infra tests + smoke | no automated restore rehearsal/rollback UI |
-| Packaging | publish + fresh-install smoke | script PASS | no installers/updaters; target matrix untested |
+| Packaging | publish + fresh-install smoke + osx-arm64 package/manifest | `scripts/package-release.sh` PASS; backup rehearsal PASS | no installers/updaters; Linux/Windows untested; models not bundled |
 | Migration from Kraken | public formats only | import paths | no automatic project migration |
-| RTL/vertical metadata | partial | native/PAGE/hOCR direction+script fields, API/UI, tests | no full BiDi layout or vertical recognition; ALTO/TEI direction unmapped |
+| RTL/vertical metadata | partial | native/PAGE/hOCR/TEI direction+script fields, API/UI, tests | no full BiDi layout or vertical recognition; ALTO direction unmapped |
 | Searchable PDF / distributed execution | not implemented | — | separately estimated extensions |
 
 **Verdict:** usable pilot for Greek transcription on curated data; not a drop-in Kraken

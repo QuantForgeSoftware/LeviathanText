@@ -18,16 +18,20 @@ public static class TeiXml
     public sealed record TeiImportResult(
         IReadOnlyList<TextRevision> Revisions,
         IReadOnlyList<Annotation> Annotations,
-        IReadOnlyList<PageXml.ImportIssue> Unsupported);
+        IReadOnlyList<PageXml.ImportIssue> Unsupported,
+        IReadOnlyList<TeiLineOrientation>? Orientations = null);
+
+    public sealed record TeiLineOrientation(EntityId LineId, TextDirection? Direction, string? Script);
 
     // ---- Export ----
 
     public static string Export(IEnumerable<(EntityId LineId, TextRevision? Revision, IReadOnlyList<Annotation> Annotations)> lines,
-        string title)
+        string title, IReadOnlyDictionary<EntityId, TeiLineOrientation>? orientations = null)
     {
         var edition = new XElement(Tei + "div",
             new XAttribute("type", "edition"),
-            lines.Select(l => ExportLine(l.Revision, l.Annotations)));
+            lines.Select(l => ExportLine(l.LineId, l.Revision, l.Annotations,
+                orientations?.GetValueOrDefault(l.LineId))));
         var body = new XElement(Tei + "body", edition);
         var text = new XElement(Tei + "text", body);
         var header = new XElement(Tei + "teiHeader",
@@ -39,16 +43,40 @@ public static class TeiXml
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), tei).ToString();
     }
 
-    private static XElement ExportLine(TextRevision? revision, IReadOnlyList<Annotation> annotations)
+    private static XElement ExportLine(EntityId lineId, TextRevision? revision,
+        IReadOnlyList<Annotation> annotations, TeiLineOrientation? orientation)
     {
         var lb = new XElement(Tei + "lb");
-        if (revision is null) return new XElement(Tei + "ab", lb, new XComment("not-yet-transcribed"));
+        if (revision is null)
+        {
+            var empty = new XElement(Tei + "ab", lb, new XComment("not-yet-transcribed"));
+            AddOrientation(empty, orientation);
+            return empty;
+        }
 
         var content = MarkupWithAnnotations(revision.Text, annotations.Where(a => a.AnchoredRevisionId == revision.Id).ToList(), out var dropped);
         var ab = new XElement(Tei + "ab", lb, content);
+        AddOrientation(ab, orientation);
         foreach (var drop in dropped)
             ab.Add(new XComment($"lost-in-export: {drop.Category} x{drop.Count} ({drop.Description})"));
         return ab;
+    }
+
+    private static void AddOrientation(XElement ab, TeiLineOrientation? orientation)
+    {
+        if (orientation is null) return;
+        var rend = new List<string>();
+        if (orientation.Direction is { } direction)
+            rend.Add($"direction:{direction switch
+            {
+                TextDirection.Ltr => "left-to-right",
+                TextDirection.Rtl => "right-to-left",
+                TextDirection.VerticalTopToBottom => "top-to-bottom",
+                TextDirection.VerticalBottomToTop => "bottom-to-top",
+                _ => throw new ArgumentOutOfRangeException(nameof(orientation)),
+            }}");
+        if (!string.IsNullOrWhiteSpace(orientation.Script)) rend.Add($"script:{orientation.Script.Trim()}");
+        if (rend.Count > 0) ab.Add(new XAttribute("rend", string.Join(';', rend)));
     }
 
     private static List<object> MarkupWithAnnotations(string text, List<Annotation> annotations, out List<LossEntry> dropped)
@@ -116,6 +144,7 @@ public static class TeiXml
         var revisions = new List<TextRevision>();
         var annotations = new List<Annotation>();
         var unsupported = new List<PageXml.ImportIssue>();
+        var orientations = new List<TeiLineOrientation>();
 
         var body = doc.Descendants(Tei + "body").FirstOrDefault()
             ?? throw new InvalidDataException("Missing TEI body.");
@@ -128,6 +157,7 @@ public static class TeiXml
             {
                 lineIndex++;
                 var lineId = new EntityId(EntityKind.Line, $"tei{lineIndex}");
+                orientations.Add(ParseOrientation(lineId, ab));
                 int annotationCountBefore = annotations.Count;
                 var text = BuildLine(ab, lineId, revisions, annotations, unsupported);
                 var revision = new TextRevision
@@ -152,7 +182,29 @@ public static class TeiXml
             unsupported.Add(new PageXml.ImportIssue(element.Name.LocalName, "outside the bounded EpiDoc profile"));
         }
 
-        return new TeiImportResult(revisions, annotations, unsupported);
+        return new TeiImportResult(revisions, annotations, unsupported, orientations);
+    }
+
+    private static TeiLineOrientation ParseOrientation(EntityId lineId, XElement ab)
+    {
+        TextDirection? direction = null;
+        string? script = null;
+        foreach (var part in ((string?)ab.Attribute("rend") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split(':', 2, StringSplitOptions.TrimEntries);
+            if (pair.Length != 2) continue;
+            if (pair[0] == "direction")
+                direction = pair[1] switch
+                {
+                    "left-to-right" or "ltr" => TextDirection.Ltr,
+                    "right-to-left" or "rtl" => TextDirection.Rtl,
+                    "top-to-bottom" or "ttb" => TextDirection.VerticalTopToBottom,
+                    "bottom-to-top" or "btt" => TextDirection.VerticalBottomToTop,
+                    _ => null,
+                };
+            else if (pair[0] == "script") script = pair[1];
+        }
+        return new TeiLineOrientation(lineId, direction, script);
     }
 
     private static string BuildLine(XElement ab, EntityId lineId, List<TextRevision> revisions,
