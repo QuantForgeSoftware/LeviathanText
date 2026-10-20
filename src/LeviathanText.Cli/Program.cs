@@ -432,6 +432,32 @@ public static class Program
                 return 0;
             }
 
+            case "data" when rest.Length >= 4 && rest[1] == "inventory-inscriptions":
+            {
+                var records = rest[2];
+                var imageIndex = Array.IndexOf(rest, "--images");
+                var images = imageIndex >= 0 && imageIndex + 1 < rest.Length ? rest[imageIndex + 1] : null;
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 0;
+                var outIndex = Array.IndexOf(rest, "--out");
+                var outFile = outIndex >= 0 && outIndex + 1 < rest.Length ? rest[outIndex + 1] : null;
+
+                var summary = InscriptionInventory.Scan(records, images, limit);
+                var csv = InscriptionInventory.ToCsv(summary.Items);
+                if (outFile is not null)
+                {
+                    File.WriteAllText(outFile, csv);
+                    Console.WriteLine($"wrote {outFile}");
+                }
+                else Console.Write(csv);
+
+                Console.Error.WriteLine($"records={summary.Records} edition={summary.WithEdition} greek={summary.WithGreekText} " +
+                                        $"active-graphic={summary.WithActiveGraphic} greek+graphic={summary.WithGreekAndGraphic} " +
+                                        $"screen={summary.WithScreenGraphic} local-image={summary.WithLocalImage} " +
+                                        $"edition-lines={summary.TotalEditionLines}");
+                return 0;
+            }
+
             case "validate" when rest.Length >= 3 && rest[1] == "manifests":
             {
                 var directory = rest[2];

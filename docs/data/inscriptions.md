@@ -169,3 +169,31 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 - **Real EpiDoc through the bounded TEI profile (green tests):** ISic001151 and ISic003785 import without throwing; outside-profile elements are reported, not flattened; no literal brackets leak into produced text.
 - **No paired lines yet (honest):** `paired_line_counts: 0` — line geometry and visible-text labels are future expert/annotation construction work; the published edition text is preserved separately from any future visual label (register warning kept).
 - **Corpus status:** intersection counted, image path proven; representative pilot selection (from the 448 subset, with date/material distribution) and label construction remain pending. No release claim.
+
+## 11. Inventory command and count reconciliation (2026-10-19 evening)
+
+`leviathan data inventory-inscriptions .artifacts/datasets/i01/repo/inscriptions --images <dir> --out i01.csv`
+scans every EpiDoc record (no network) and reports edition/Greek/graphic/local-image status.
+
+Measured on the current snapshot:
+
+| Measure | Inventory | Manifest record |
+| --- | --- | --- |
+| Records | 5,136 | 5,136 |
+| Edition div present | 5,136 | — |
+| Greek edition text (letters only, parsed lines) | **3,267** | 3,135 |
+| Active graphics (non-commented `<graphic>`) | 871 | — |
+| Greek **and** active graphic | **477** | 448 |
+| Edition lines | 17,163 | — |
+| Local images available | 1 (smoke only) | smoke counted |
+
+The 477 vs 448 difference (and 3,267 vs 3,135 Greek) is **unreconciled**: the manifest scan
+used a comment-aware regex over record text; this inventory parses edition lines and counts
+Greek letters only. Likely causes are language-tag scope, records whose Greek appears only in
+non-edition elements, and character-range differences. Treat 448 as the conservative selection
+floor until a specialist reconciles the two scans; do not silently adopt the larger number for
+planning.
+
+The blocker remains **image acquisition and expert line geometry/visible-text labels**, not
+record selection: only the smoke image is local. The EpiDoc text-first import + manual
+placement workflow (operations guide) is the intended label-construction path.
