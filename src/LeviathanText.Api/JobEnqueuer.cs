@@ -10,14 +10,45 @@ namespace LeviathanText.Api;
 /// announced on the SSE event bus (interchange-and-api.md §2.2: events are advisory;
 /// the job resource remains authoritative).
 /// </summary>
-public sealed class JobEnqueuer(LocalStore store, JobEventBus bus)
+public sealed class JobEnqueuer(LocalStore store, JobEventBus bus, IConfiguration configuration)
 {
-    public JobRecord Enqueue(string type, AgentRef owner, IReadOnlyList<StageArtifact>? inputs = null, string? idempotencyKey = null)
+    public JobRecord Enqueue(string type, AgentRef owner, IReadOnlyList<StageArtifact>? inputs = null,
+        string? idempotencyKey = null, int priority = 0, int maxActivePerOwner = 0)
     {
         if (idempotencyKey is not null)
         {
             var existing = store.FindJobByIdempotencyKey(idempotencyKey);
             if (existing is not null) return existing; // duplicate creation returns the existing job
+        }
+
+        if (priority is < 0 or > 100)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = "jobs",
+                Message = "Job priority must be between 0 and 100.",
+            });
+
+        maxActivePerOwner = maxActivePerOwner > 0
+            ? maxActivePerOwner
+            : configuration.GetValue<int>("LeviathanText:Jobs:MaxActivePerOwner");
+        if (maxActivePerOwner > 0)
+        {
+            int active = store.LoadJobs().Count(j => j.Owner.Id == owner.Id
+                && j.Status is JobStatus.Pending or JobStatus.Running);
+            if (active >= maxActivePerOwner)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = "jobs",
+                    Details = new Dictionary<string, string>
+                    {
+                        ["owner"] = owner.Id,
+                        ["active"] = active.ToString(),
+                        ["max"] = maxActivePerOwner.ToString(),
+                    },
+                    Message = "Per-owner active-job quota exceeded.",
+                });
         }
 
         var job = new JobRecord
@@ -27,6 +58,8 @@ public sealed class JobEnqueuer(LocalStore store, JobEventBus bus)
             Inputs = inputs ?? [],
             IdempotencyKey = idempotencyKey,
             Owner = owner,
+            Priority = priority,
+            CreatedAt = DateTimeOffset.UtcNow,
             Status = JobStatus.Pending,
         };
         store.SaveJob(job);

@@ -22,7 +22,10 @@ public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handl
     {
         var now = DateTimeOffset.UtcNow;
         return [.. store.PendingJobs()
-            .Where(j => j.Lease is null || j.Lease.ExpiresAt <= now)];
+            .Where(j => j.Lease is null || j.Lease.ExpiresAt <= now)
+            .OrderByDescending(j => j.Priority)
+            .ThenBy(j => j.CreatedAt)
+            .ThenBy(j => j.Id.ToString(), StringComparer.Ordinal)];
     }
 
     /// <summary>Claim a job for this worker (timed lease). Returns null when someone else holds it.

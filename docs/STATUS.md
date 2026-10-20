@@ -18,7 +18,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |
 | End-to-end page CER (layout+recognition) | **0.944 mean** vs 0.905 PAGE-box control across 3 seeds on 6 held-out M02a pages (control range 0.878–0.953: layout effect not separable from training variance at this scale) |
 | Training CLI | `train lines` → verified package (manifest + card) |
-| Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir (cooperative cancellation) |
+| Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir; priority ordering + optional per-owner quota (cooperative cancellation) |
 | Review/ops | persisted review queue, double-review/adjudication ledger, **experiment/run registry + per-line evaluation drilldown (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
 | Export bundle | native + training + 4 formats + manifest |
@@ -30,7 +30,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Verification
 
-- 546 tests (544 passed + 2 opt-in skips), 0 failed, 13 suites; Release build 0 warnings/0 errors.
+- 548 tests (546 passed + 2 opt-in skips), 0 failed, 13 suites; Release build 0 warnings/0 errors.
 - 40 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 

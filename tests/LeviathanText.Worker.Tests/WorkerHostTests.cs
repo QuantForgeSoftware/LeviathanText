@@ -95,6 +95,19 @@ public class WorkerHostTests
     }
 
     [Fact]
+    public void Claimable_jobs_order_by_priority_then_creation_time()
+    {
+        var (store, host) = NewHost();
+        var t0 = DateTimeOffset.UtcNow;
+        var lowOld = NewJob() with { Id = new EntityId(EntityKind.Job, "j-low-old"), Priority = 1, CreatedAt = t0 };
+        var highNew = NewJob() with { Id = new EntityId(EntityKind.Job, "j-high-new"), Priority = 9, CreatedAt = t0.AddMinutes(1) };
+        var highOld = NewJob() with { Id = new EntityId(EntityKind.Job, "j-high-old"), Priority = 9, CreatedAt = t0 };
+        store.Save(lowOld); store.Save(highNew); store.Save(highOld);
+
+        Assert.Equal([highOld.Id, highNew.Id, lowOld.Id], host.ClaimableJobs().Select(j => j.Id));
+    }
+
+    [Fact]
     public void RunNext_executes_and_finalizes()
     {
         var (store, host) = NewHost();

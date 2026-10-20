@@ -57,6 +57,10 @@ curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/jso
 Check jobs with `leviathan jobs list` or `GET /api/v1/jobs`; watch with
 `GET /api/v1/jobs/{id}/events` (SSE; events are advisory, the job resource is authoritative).
 
+Job creation accepts `priority` (0–100; higher claimed first, ties by creation time). Set
+`LeviathanText:Jobs:MaxActivePerOwner` to cap pending+running jobs per owner; `0` is
+unlimited. Idempotent duplicate creation still returns the existing job.
+
 ## Data-ledger audit
 
 ```bash

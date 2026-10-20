@@ -49,7 +49,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 ## Jobs and operations
 
 - Cancellation is cooperative **between** batch items, not mid-image.
-- Job leases/heartbeats exist; there is no scheduler, priority queue or per-tenant quota.
+- Job leases/heartbeats, persisted priority and an optional per-owner active quota exist; there is no distributed scheduler or per-tenant rate limiter.
 - SQLite single-writer store; the worker runs one job at a time per process.
 
 ## Security

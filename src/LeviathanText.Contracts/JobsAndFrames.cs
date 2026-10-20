@@ -67,6 +67,12 @@ public sealed record JobRecord
     public string? IdempotencyKey { get; init; }
 
     public required AgentRef Owner { get; init; }
+
+    /// <summary>Higher values are claimed first; ties use creation time (older first).</summary>
+    public int Priority { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
     public LeaseInfo? Lease { get; init; }
 
     /// <summary>Bounded progress; semantics are job-type-defined (percent or stage counters).</summary>

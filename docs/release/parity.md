@@ -23,7 +23,7 @@ are not specialist-adjudicated.
 | Experiment registry | recognition/layout/evaluation runs with digests, configs, metrics, curves, artifacts; per-line error CSV/JSON + Markdown report; `runs regress` and caller-supplied acceptance gates | CLI/API/UI + tests | no specialist-owned frozen threshold sheet |
 | Active learning/review | persisted queue + double review/adjudication | tests + UI | no automatic prioritization model beyond confidence |
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
-| Durable jobs | layout/import/recognize jobs, leases, cancel | worker/API tests + live smoke | no scheduler/priority/quota |
+| Durable jobs | layout/import/recognize jobs, leases, cancel, persisted priority, optional per-owner quota | worker/API tests + live smoke | no distributed scheduler or rate limiter |
 | Web workspace | editor, geometry, review, search, jobs, auth, deep links; optional packaged static hosting at /ui | 40 specs | no concurrent-edit merge; advisory single-process presence |
 | Auth/roles | accounts + roles + audit + opt-in per-project membership + admin panels | role/audit/membership/UI tests | no SSO/session policy or invitation tokens |
 | Presence | advisory per-surface heartbeat + display, 60 s TTL | service/API/UI tests | single API process; not durable/cross-instance; no merge |

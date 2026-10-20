@@ -16,7 +16,8 @@ public sealed class JobTable
     private int _nextId;
 
     /// <summary>Create a job. Same idempotency key returns the existing job, not a new one.</summary>
-    public JobRecord Create(string type, AgentRef owner, IReadOnlyList<StageArtifact>? inputs = null, string? idempotencyKey = null)
+    public JobRecord Create(string type, AgentRef owner, IReadOnlyList<StageArtifact>? inputs = null,
+        string? idempotencyKey = null, int priority = 0)
     {
         if (idempotencyKey is not null && _byIdempotencyKey.TryGetValue(idempotencyKey, out var existing))
             return _jobs[existing];
@@ -28,6 +29,8 @@ public sealed class JobTable
             Inputs = inputs ?? [],
             IdempotencyKey = idempotencyKey,
             Owner = owner,
+            Priority = priority,
+            CreatedAt = DateTimeOffset.UtcNow,
             Status = JobStatus.Pending,
         };
         _jobs[job.Id] = job;

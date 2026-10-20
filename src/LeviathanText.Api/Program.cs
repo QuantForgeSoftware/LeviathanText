@@ -1116,7 +1116,7 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) 
     }
 
     var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = request.OwnerId, IsModel = false },
-        inputs: inputs, idempotencyKey: request.IdempotencyKey);
+        inputs: inputs, idempotencyKey: request.IdempotencyKey, priority: request.Priority);
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
 
@@ -1198,7 +1198,8 @@ public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, 
 public sealed record ImportLineTextRequest(string CsvText, TextLayer Layer = TextLayer.L1Diplomatic, string? AuthorId = null);
 public sealed record RecognizeRequest(string Model);
 
-public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);
+public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null,
+    string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null, int Priority = 0);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public sealed record CreateUserRequest(string Name, UserRole Role);
