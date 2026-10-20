@@ -10,7 +10,7 @@ are not specialist-adjudicated.
 | TEI/EpiDoc import/export | implemented (bounded) | format tests; ISicily records parse | bounded profile; no full TEI coverage |
 | ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import | no word segmentation synthesis; ALTO does not carry direction |
 | IIIF Presentation 3 import | implemented (bounded) | real manifest test; remote image cache | no IIIF hosting |
-| PDF / ABBYY XML | PDF pages: partial; ABBYY: not implemented | `PdfRenderer` tests + CLI/API smoke | page rasterization only; no PDF text/layout; ABBYY undecided |
+| PDF / ABBYY XML | PDF pages + optional L2 text: partial; ABBYY: not implemented | `PdfRenderer`/`PdfTextExtractor` tests + CLI/API smoke | page rasterization and L2 text reference only; no PDF layout inference; ABBYY undecided |
 | Plain text + loss report | implemented | export tests | lossy by design |
 | Automatic layout | projection baseline + opt-in CNN | P 0.403/R 0.473; learned M02a 0.965/0.987; page CER 0.971→0.942 | single-column only; out-of-domain P01 weak; no columns/rotation |
 | Manual layout | move/resize/draw/delete/split/merge/order + audit | API/UI tests | no entity-level geometry revisions |

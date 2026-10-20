@@ -62,7 +62,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
   (localStorage; X-Api-Key + SSE query token); local-only mode remains the default.
 - Provider credentials are read from environment variables; hosted provider calls are unproven.
 - PDF rendering uses native PDFium against files readable by the server process; size/page limits
-  are enforced, but PDFium itself is not sandboxed. Treat PDFs as untrusted input.
+  are enforced, but PDFium itself is not sandboxed. Treat PDFs as untrusted input. PDF text is
+  imported as **L2 reference**, never as visible-text/L1 labels; line grouping does not infer
+  columns or handle rotation.
 
 ## Interchange
 

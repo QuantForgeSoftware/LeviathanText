@@ -457,12 +457,13 @@ api.MapPost("projects/{id}/import-pdf", (ProjectService projects, string id, [Fr
 
     var (imported, pages, warnings) = new InterchangeService(projects).ImportPdf(
         project, request.PdfPath, outputDirectory, request.Kind ?? "page",
-        request.Dpi, request.MaxPages);
+        request.Dpi, request.MaxPages, request.ExtractText);
     return Results.Ok(new
     {
         objectId = imported.Id.ToString(),
         surfaceIds = imported.Surfaces.Select(s => s.Id.ToString()),
         pageCount = pages.Count,
+        lineCount = imported.Surfaces.Sum(s => s.Lines.Count),
         outputDirectory,
         warnings,
     });
@@ -1167,7 +1168,7 @@ public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
 
 public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = null, string? Kind = null,
-    int Dpi = 200, int MaxPages = 500);
+    int Dpi = 200, int MaxPages = 500, bool ExtractText = false);
 
 public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
 

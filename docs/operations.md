@@ -31,10 +31,10 @@ Image-only paths (IIIF or scanned pages without PAGE layout):
 
 ```bash
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import iiif <projectId> manifest.json
-dotnet run --project src/LeviathanText.Cli -- --store pilot.db import pdf <projectId> document.pdf --out ./pdf-pages --dpi 200
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db import pdf <projectId> document.pdf --out ./pdf-pages --dpi 200 --text
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db layout detect <projectId> <surfaceId>
 # remote captures are fetched once into <store-dir>/images with a sha256 record
-# PDF pages become PNG captures; no PDF text/layout is imported
+# PDF pages become PNG captures; --text adds coordinate-bearing L2 reference lines (never L1)
 ```
 
 Batch flows (durable jobs):

@@ -39,15 +39,17 @@ public sealed class PdfImportApiTests : IClassFixture<ApiFactory>
         var output = Path.Combine(Path.GetTempPath(), $"leviathan-api-pdf-out-{Guid.NewGuid():N}");
 
         var response = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-pdf",
-            new { pdfPath = pdf, outputDirectory = output, dpi = 72 });
+            new { pdfPath = pdf, outputDirectory = output, dpi = 72, extractText = true });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(2, json.RootElement.GetProperty("pageCount").GetInt32());
         Assert.Equal(2, json.RootElement.GetProperty("surfaceIds").GetArrayLength());
+        Assert.True(json.RootElement.GetProperty("lineCount").GetInt32() >= 2);
         Assert.True(Directory.GetFiles(output, "*.png").Length == 2);
 
         var projectJson = await client.GetStringAsync($"/api/v1/projects/{project["id"]}");
         Assert.Contains("\"pdf:pages\":\"2\"", projectJson);
+        Assert.Contains("l2Editorial", projectJson);
     }
 
     [Fact]

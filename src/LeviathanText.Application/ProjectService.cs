@@ -168,7 +168,8 @@ public sealed class InterchangeService(ProjectService projects)
     /// </summary>
     public (NativeObject Imported, IReadOnlyList<PdfRenderer.RenderedPage> Pages, IReadOnlyList<string> Warnings)
         ImportPdf(NativeProject project, string pdfPath, string outputDirectory,
-            string surfaceKind = "page", int dpi = PdfRenderer.DefaultDpi, int maxPages = PdfRenderer.MaxPages)
+            string surfaceKind = "page", int dpi = PdfRenderer.DefaultDpi, int maxPages = PdfRenderer.MaxPages,
+            bool extractText = false)
     {
         if (string.IsNullOrWhiteSpace(outputDirectory))
             throw new LeviathanException(new LeviathanError
@@ -180,6 +181,7 @@ public sealed class InterchangeService(ProjectService projects)
 
         var pages = PdfRenderer.Render(pdfPath, outputDirectory, dpi, maxPages);
         var surfaces = new List<NativeSurface>(pages.Count);
+        var warnings = new List<string> { $"rendered {pages.Count} PDF page(s)" };
         foreach (var page in pages)
         {
             var captureId = NewCaptureId(project);
@@ -200,6 +202,78 @@ public sealed class InterchangeService(ProjectService projects)
             });
         }
 
+        int l2Lines = 0;
+        if (extractText)
+        {
+            var textPages = PdfTextExtractor.Extract(pdfPath, maxPages);
+            for (int i = 0; i < Math.Min(surfaces.Count, textPages.Count); i++)
+            {
+                var textPage = textPages[i];
+                var surface = surfaces[i];
+                var capture = surface.Captures[0];
+                if (textPage.Lines.Count == 0 || capture.WidthPx is not { } width || capture.HeightPx is not { } height)
+                    continue;
+
+                double scaleX = width / Math.Max(1, textPage.Width);
+                double scaleY = height / Math.Max(1, textPage.Height);
+                var regionId = NewId(EntityKind.Region, project, "reg");
+                var lines = new List<NativeLine>();
+                var revisions = new List<TextRevision>();
+                foreach (var textLine in textPage.Lines)
+                {
+                    double left = Math.Clamp(textLine.Left * scaleX, 0, width);
+                    double right = Math.Clamp(textLine.Right * scaleX, 0, width);
+                    double top = Math.Clamp((textPage.Height - textLine.Top) * scaleY, 0, height);
+                    double bottom = Math.Clamp((textPage.Height - textLine.Bottom) * scaleY, 0, height);
+                    if (right - left < 1 || bottom - top < 1) continue;
+
+                    var lineId = NewId(EntityKind.Line, project, "ln");
+                    var revision = new TextRevision
+                    {
+                        Id = NewId(EntityKind.TranscriptionRevision, project, "rev-pdf"),
+                        ScopeId = lineId,
+                        Layer = TextLayer.L2Editorial,
+                        Author = new AgentRef { Id = "pdf-text-import", IsModel = false },
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Text = textLine.Text,
+                    };
+                    revisions.Add(revision);
+                    lines.Add(new NativeLine
+                    {
+                        Id = lineId,
+                        RegionId = regionId,
+                        FrameRef = capture.Id,
+                        Polygon = [new(left, top), new(right, top), new(right, bottom), new(left, bottom)],
+                        Baseline = [new(left, bottom), new(right, bottom)],
+                    });
+                }
+
+                if (lines.Count == 0) continue;
+                l2Lines += lines.Count;
+                surfaces[i] = surface with
+                {
+                    Regions = [new NativeRegion
+                    {
+                        Id = regionId,
+                        FrameRef = capture.Id,
+                        Polygon = [new(0, 0), new(width, 0), new(width, height), new(0, height)],
+                        LayoutSource = LayoutSource.Imported,
+                        ReadingOrderIndex = 0,
+                    }],
+                    Lines = lines,
+                    Revisions = revisions,
+                };
+            }
+
+            warnings.Add(l2Lines > 0
+                ? $"extracted {l2Lines} PDF text line(s) as L2 reference; PDF text is not visible-text evidence"
+                : "no extractable PDF text was found; page captures only");
+        }
+        else
+        {
+            warnings.Add("no text/layout was inferred");
+        }
+
         var imported = new NativeObject
         {
             Id = NewId(EntityKind.PhysicalObject, project, "obj"),
@@ -208,11 +282,12 @@ public sealed class InterchangeService(ProjectService projects)
                 ["source"] = "pdf",
                 ["pdf:file"] = Path.GetFileName(pdfPath),
                 ["pdf:pages"] = pages.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["pdf:l2Lines"] = l2Lines.ToString(System.Globalization.CultureInfo.InvariantCulture),
             },
             Surfaces = surfaces,
         };
         projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
-        return (imported, pages, [$"rendered {pages.Count} PDF page(s); no text/layout was inferred"]);
+        return (imported, pages, warnings);
     }
 
     /// <summary>
