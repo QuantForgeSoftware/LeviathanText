@@ -61,5 +61,7 @@ public sealed class InviteApiTests
 
         var reused = await factory.CreateClient().PostAsJsonAsync("/api/v1/invites/accept", new { token, name = "second" });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, reused.StatusCode);
+        Assert.Contains("invite.accepted", await admin.GetStringAsync("/api/v1/audit?limit=100"));
+        Assert.Contains("invite.rejected", await admin.GetStringAsync("/api/v1/audit?limit=100"));
     }
 }

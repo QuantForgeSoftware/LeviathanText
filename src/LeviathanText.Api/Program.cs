@@ -1074,12 +1074,22 @@ api.MapPost("invites/accept", (LocalStore store, [FromBody] AcceptInviteRequest 
         });
     var invite = store.FindInviteByTokenHash(LeviathanText.Infrastructure.UserKeys.Hash(request.Token.Trim()));
     if (invite is null || invite.UsedAt is not null || invite.ExpiresAt <= DateTimeOffset.UtcNow)
+    {
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow,
+            Action = "invite.rejected",
+            Method = "POST",
+            Path = "/api/v1/invites/accept",
+            Status = 422,
+        });
         throw new LeviathanException(new LeviathanError
         {
             Code = ErrorCode.StageContractViolation,
             Scope = "invites",
             Message = "Invitation is invalid, expired or already used.",
         });
+    }
 
     var key = LeviathanText.Infrastructure.UserKeys.NewKey();
     var account = store.CreateUser(request.Name.Trim(), invite.Role,
@@ -1095,6 +1105,17 @@ api.MapPost("invites/accept", (LocalStore store, [FromBody] AcceptInviteRequest 
             Message = "Invitation was consumed by another request.",
         });
     }
+    store.AppendAuthAudit(new AuthAuditEntry
+    {
+        At = DateTimeOffset.UtcNow,
+        UserId = account.Id,
+        UserName = account.Name,
+        Role = account.Role,
+        Action = "invite.accepted",
+        Method = "POST",
+        Path = "/api/v1/invites/accept",
+        Status = 200,
+    });
     return Results.Ok(new
     {
         account,
