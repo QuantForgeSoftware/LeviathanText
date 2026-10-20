@@ -24,7 +24,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Export bundle | native + training + 4 formats + manifest |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
-| Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links |
+| Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links |
 | Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, **opt-in per-project membership + admin member panel**, workspace key panel, read-only; no SSO/invitation tokens/presence |
 
 ## Verification

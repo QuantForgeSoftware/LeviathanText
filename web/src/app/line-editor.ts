@@ -99,6 +99,11 @@ interface UndoStack {
           @if (formKind() === 'AlternativeReading') {
             <label>Alternative <input [value]="formAlternative()" (input)="onAlternative($event)" /></label>
           }
+          @if (formKind() === 'DifferentHand' || formKind() === 'CorrectionSequence') {
+            <label>Hand / sequence label
+              <input [value]="formHandLabel()" (input)="onHandLabel($event)" placeholder="unattributed or hand ID" />
+            </label>
+          }
           <label>Note <input [value]="formDescription()" (input)="onDescription($event)" /></label>
           <button type="button" (click)="addAnnotation()" [disabled]="!canAnnotate()">Add</button>
         </fieldset>
@@ -119,6 +124,7 @@ interface UndoStack {
               <li>
                 <b>{{ annotation.kind }}</b>
                 [{{ annotation.range.start }}, {{ annotation.range.end }})
+                @if (annotation.handLabel) { — hand/sequence: {{ annotation.handLabel }} }
                 @if (annotation.description) { — {{ annotation.description }} }
                 @if (annotation.alternativeText) {
                   — alt: {{ annotation.alternativeText }}
@@ -223,14 +229,15 @@ export class LineEditor {
 
   protected readonly annotationKinds = [
     'Unclear', 'Illegible', 'Lost', 'SuppliedEditorial', 'AlternativeReading',
-    'Erased', 'Added', 'Overwritten', 'DifferentHand', 'GlyphForm', 'Sign',
-    'UnidentifiedMark', 'UnannotatedRegion',
+    'Erased', 'Added', 'Overwritten', 'DifferentHand', 'CorrectionSequence',
+    'GlyphForm', 'Sign', 'UnidentifiedMark', 'UnannotatedRegion',
   ];
   protected readonly formKind = signal('Unclear');
   protected readonly formStart = signal(0);
   protected readonly formEnd = signal(0);
   protected readonly formDescription = signal('');
   protected readonly formAlternative = signal('');
+  protected readonly formHandLabel = signal('');
   protected readonly formGapExtent = signal('Unknown');
   protected readonly formEstimatedCount = signal(1);
 
@@ -279,6 +286,10 @@ export class LineEditor {
     this.formAlternative.set((event.target as HTMLInputElement).value);
   }
 
+  protected onHandLabel(event: Event): void {
+    this.formHandLabel.set((event.target as HTMLInputElement).value);
+  }
+
   protected onGapExtent(event: Event): void {
     this.formGapExtent.set((event.target as HTMLSelectElement).value);
   }
@@ -316,6 +327,7 @@ export class LineEditor {
       range: { start: this.formStart(), end: this.formEnd() },
       description: this.formDescription() || null,
       alternativeText: kind === 'AlternativeReading' ? this.formAlternative() || null : null,
+      handLabel: kind === 'DifferentHand' || kind === 'CorrectionSequence' ? this.formHandLabel() || null : null,
       gapExtent: kind === 'Lost' ? this.formGapExtent() : null,
       estimatedScalarCount: kind === 'Lost' && this.formGapExtent() === 'Estimated' ? this.formEstimatedCount() : null,
     }).subscribe({
