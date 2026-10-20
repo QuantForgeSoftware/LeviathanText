@@ -408,6 +408,7 @@ public static class Program
                 var imageExtension = Flag("--image-ext") ?? ".jpg";
                 var csvPath = Flag("--out") ?? "evaluation.csv";
                 var jsonPath = Flag("--json") ?? Path.ChangeExtension(csvPath, ".json");
+                var reportPath = Flag("--report") ?? Path.ChangeExtension(csvPath, ".md");
 
                 var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension);
                 var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
@@ -428,15 +429,17 @@ public static class Program
                 var splitDigest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
                     System.Text.Encoding.UTF8.GetBytes(digestInput)));
 
-                File.WriteAllText(csvPath, LineEvaluationReport.ToCsv(rows));
-                File.WriteAllText(jsonPath, LineEvaluationReport.ToJson(summary, new Dictionary<string, string>
+                var reportContext = new Dictionary<string, string>
                 {
                     ["package"] = Path.GetFullPath(packageDirectory),
                     ["model"] = packageName,
                     ["dataset"] = Path.GetFullPath(datasetDirectory),
                     ["split"] = split,
                     ["splitDigest"] = splitDigest,
-                }));
+                };
+                File.WriteAllText(csvPath, LineEvaluationReport.ToCsv(rows));
+                File.WriteAllText(jsonPath, LineEvaluationReport.ToJson(summary, reportContext));
+                File.WriteAllText(reportPath, LineEvaluationReport.ToMarkdown(rows, summary, reportContext));
 
                 var markErrorRate = summary.ReferenceScalars == 0 ? 0 : (double)summary.MarkErrors / summary.ReferenceScalars;
                 var runId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
@@ -463,13 +466,14 @@ public static class Program
                         ["markErrors"] = summary.MarkErrors,
                         ["markErrorRate"] = markErrorRate,
                     },
-                    Artifacts = [csvPath, jsonPath],
+                    Artifacts = [csvPath, jsonPath, reportPath],
                     Notes = $"{split} split only; locked labels were not used. Labels are not necessarily specialist-adjudicated.",
                 });
 
                 Console.WriteLine($"evaluated {summary.Lines} {split} line(s): CER {summary.ScalarCer:0.###}, mark errors {summary.MarkErrors} ({markErrorRate:0.###})");
                 Console.WriteLine($"csv: {csvPath}");
                 Console.WriteLine($"json: {jsonPath}");
+                Console.WriteLine($"report: {reportPath}");
                 Console.WriteLine($"recorded run: {runId}");
                 return 0;
             }

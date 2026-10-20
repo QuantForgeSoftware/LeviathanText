@@ -35,4 +35,16 @@ public class LineEvaluationReportTests
         Assert.Contains("\"split\": \"dev\"", json);
         Assert.Contains("\"scalarCer\": 0", json);
     }
+
+    [Fact]
+    public void Markdown_report_contains_metrics_caveat_and_worst_lines()
+    {
+        var (rows, summary) = LineEvaluationReport.Build([("αβ", "α"), ("γ", "γ")]);
+        var md = LineEvaluationReport.ToMarkdown(rows, summary, new Dictionary<string, string> { ["split"] = "dev" });
+        Assert.Contains("# Evaluation error report", md);
+        Assert.Contains("Scalar CER", md);
+        Assert.Contains("Worst lines", md);
+        Assert.Contains("not an acceptance claim", md);
+        Assert.Contains("**split**: dev", md);
+    }
 }

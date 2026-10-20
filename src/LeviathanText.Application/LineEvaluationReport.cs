@@ -110,6 +110,54 @@ public static class LineEvaluationReport
         });
     }
 
+
+    public static string ToMarkdown(IReadOnlyList<Row> rows, Summary summary,
+        IReadOnlyDictionary<string, string> context)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# Evaluation error report");
+        sb.AppendLine();
+        sb.AppendLine($"Generated: {DateTimeOffset.UtcNow:O}");
+        foreach (var pair in context.OrderBy(p => p.Key, StringComparer.Ordinal))
+            sb.AppendLine($"- **{pair.Key}**: {pair.Value}");
+        sb.AppendLine();
+        sb.AppendLine($"- Lines: {summary.Lines}");
+        sb.AppendLine($"- Reference scalars: {summary.ReferenceScalars}");
+        sb.AppendLine($"- Scalar CER: {summary.ScalarCer:0.######}");
+        sb.AppendLine($"- Mark errors: {summary.MarkErrors}");
+        sb.AppendLine();
+        sb.AppendLine("## Top confusions");
+        AppendPairs(sb, "Substitutions", summary.TopSubstitutions);
+        AppendPairs(sb, "Insertions", summary.TopInsertions);
+        AppendPairs(sb, "Deletions", summary.TopDeletions);
+        sb.AppendLine();
+        sb.AppendLine("## Worst lines");
+        sb.AppendLine();
+        sb.AppendLine("| # | CER | Reference | Hypothesis |");
+        sb.AppendLine("| ---: | ---: | --- | --- |");
+        foreach (var row in rows.OrderByDescending(r => r.ScalarCer).ThenBy(r => r.Index).Take(10))
+            sb.AppendLine($"| {row.Index} | {row.ScalarCer:0.###} | {MarkdownCell(row.Reference)} | {MarkdownCell(row.Hypothesis)} |");
+        sb.AppendLine();
+        sb.AppendLine("Labels are not necessarily specialist-adjudicated. Locked acceptance sets must not be used for tuning; this report is an analysis aid, not an acceptance claim.");
+        return sb.ToString();
+    }
+
+    private static void AppendPairs(StringBuilder sb, string title, IEnumerable<ConfusionPair> pairs)
+    {
+        sb.AppendLine();
+        sb.AppendLine($"### {title}");
+        var any = false;
+        foreach (var pair in pairs)
+        {
+            any = true;
+            sb.AppendLine($"- `{pair.Expected}` → `{pair.Produced}` × {pair.Count}");
+        }
+        if (!any) sb.AppendLine("- none");
+    }
+
+    private static string MarkdownCell(string value) =>
+        value.Replace("|", "\\|", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+
     private static string Pairs(IEnumerable<ConfusionPair> pairs) =>
         string.Join(" | ", pairs.Select(p => $"{p.Expected}->{p.Produced}×{p.Count}"));
 

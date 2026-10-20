@@ -92,7 +92,7 @@ leviathan --store pilot.db evaluate lines /abs/page-xml-dir --package ./packages
 
 This scores a packaged model on the **development or training** split only (the locked test
 split is deliberately unavailable here), writes per-line CER/base/mark errors and top
-confusions, and records an `evaluation` run with the split digest. Empty hypotheses count as
+confusions (CSV/JSON plus a Markdown report), and records an `evaluation` run with the split digest. Empty hypotheses count as
 full-line deletions. It is an analysis aid, not an acceptance claim: labels may not be
 specialist-adjudicated.
 

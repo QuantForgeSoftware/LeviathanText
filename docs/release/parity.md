@@ -20,7 +20,7 @@ are not specialist-adjudicated.
 | Recognition model distribution | not shipped | — | rights + capability review required |
 | Inscription support | EpiDoc bootstrap + manual placement | ISic001151 smoke | no expert labels; no automated line detection benchmark |
 | Evaluation | harness, per-track reports, page CER, one-to-one matching | docs/evaluation/* | frozen acceptance sheet + fresh witnesses pending |
-| Experiment registry | recognition/layout/evaluation runs with digests, configs, metrics, curves, artifacts; per-line error CSV/JSON | CLI/API/UI + tests | no automated report publishing or acceptance-sheet generation |
+| Experiment registry | recognition/layout/evaluation runs with digests, configs, metrics, curves, artifacts; per-line error CSV/JSON + Markdown report | CLI/API/UI + tests | no acceptance-sheet generation tied to frozen thresholds |
 | Active learning/review | persisted queue + double review/adjudication | tests + UI | no automatic prioritization model beyond confidence |
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
 | Durable jobs | layout/import/recognize jobs, leases, cancel | worker/API tests + live smoke | no scheduler/priority/quota |
