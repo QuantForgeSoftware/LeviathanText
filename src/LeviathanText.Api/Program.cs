@@ -333,6 +333,23 @@ api.MapPost("projects/{id}/import-image", (ProjectService projects, string id, [
     });
 });
 
+api.MapPost("projects/{id}/import-line-text", (ProjectService projects, IProjectStore store, string id, [FromBody] ImportLineTextRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    if (string.IsNullOrWhiteSpace(request.CsvText))
+        throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = "csv", Message = "CSV text is empty." });
+
+    var result = LineTextImport.Import(project, request.CsvText, request.Layer,
+        string.IsNullOrWhiteSpace(request.AuthorId) ? "csv-import" : request.AuthorId,
+        new TranscriptionService(store), store);
+    return Results.Ok(new
+    {
+        applied = result.Applied,
+        skipped = result.Skipped,
+        rows = result.Rows.Take(50),
+    });
+});
+
 api.MapPost("projects/{id}/import-epidoc", (ProjectService projects, string id, [FromBody] ImportEpiDocRequest request) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -954,6 +971,8 @@ public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
 
 public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
+
+public sealed record ImportLineTextRequest(string CsvText, TextLayer Layer = TextLayer.L1Diplomatic, string? AuthorId = null);
 public sealed record RecognizeRequest(string Model);
 
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);

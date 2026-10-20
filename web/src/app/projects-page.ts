@@ -42,6 +42,19 @@ interface ProjectRow {
               {{ s.annotations }} annotation(s) · {{ s.flaggedLines }} flagged by profile QA
             </p>
           }
+          <details class="bulk">
+            <summary>Import line text (CSV)</summary>
+            <p class="hint">Header must contain <code>line_id,text</code>. Rows become normal revisions.</p>
+            <div class="tools">
+              <input type="file" accept=".csv,text/csv" (change)="onCsvFile($event)" />
+              <select [value]="importLayer()" (change)="onImportLayer($event)">
+                <option value="L1Diplomatic">L1 diplomatic</option>
+                <option value="L2Editorial">L2 editorial</option>
+              </select>
+              <span class="hint">{{ importStatus() }}</span>
+            </div>
+          </details>
+
           @if (review(); as r) {
             <p class="hint">
               Review: {{ r.reviewedLines }}/{{ r.transcribedLines }} reviewed ·
@@ -126,6 +139,34 @@ export class ProjectsPage {
   protected readonly stats = signal<{
     surfaces: number; lines: number; transcribedLines: number; annotations: number; flaggedLines: number;
   } | null>(null);
+  protected readonly importLayer = signal<'L1Diplomatic' | 'L2Editorial'>('L1Diplomatic');
+  protected readonly importStatus = signal('');
+
+  protected onImportLayer(event: Event): void {
+    this.importLayer.set((event.target as HTMLSelectElement).value as 'L1Diplomatic' | 'L2Editorial');
+  }
+
+  protected onCsvFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.selectedId()) return;
+    file.text().then(text => {
+      this.api.importLineText(this.selectedId()!, text, this.importLayer()).subscribe({
+        next: (result) => {
+          this.importStatus.set(`applied ${result.applied}, skipped ${result.skipped}`);
+          const id = this.selectedId()!;
+          this.payloads.update(map => {
+            const copy = { ...map };
+            delete copy[id];
+            return copy;
+          });
+          this.select(id);
+        },
+        error: () => this.importStatus.set('import failed (header, ids or revision conflict)'),
+      });
+    });
+  }
+
   protected readonly review = signal<{
     transcribedLines: number;
     reviewedLines: number;

@@ -5,6 +5,7 @@
  */
 import { Component, computed, effect, signal, OnInit, input } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { authorId } from './identity';
 import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
@@ -34,7 +35,12 @@ import { GeometryEditor } from './geometry-editor';
         <p>Selected scalar span: {{ selectedStart() }}–{{ selectedEnd() }} (of {{ totalScalars() }})</p>
 
         @if (editingLineId()) {
-          <app-line-editor [lineId]="editingLineId()!" [authorId]="'workspace-editor'" />
+          <p class="tools">
+            <button type="button" (click)="navigateLine(-1)" [disabled]="!hasNeighbour(-1)">← Previous line</button>
+            <span class="hint">editing as {{ editorName }}</span>
+            <button type="button" (click)="navigateLine(1)" [disabled]="!hasNeighbour(1)">Next line →</button>
+          </p>
+          <app-line-editor [lineId]="editingLineId()!" [authorId]="editorName" />
           <app-dual-pane [lineId]="editingLineId()!" [imageLink]="imageLink()" />
         }
 
@@ -139,6 +145,21 @@ export class SurfaceView {
   protected readonly recognizeStatus = signal('');
   protected readonly recognizeBusy = signal(false);
   protected readonly reviewQueue = signal<{ lineId: string; meanConfidence: number | null; emptyOutput: boolean }[]>([]);
+  protected readonly editorName = authorId();
+
+  protected hasNeighbour(delta: number): boolean {
+    const ids = this.lineIdsByIndex();
+    const index = ids.indexOf(this.editingLineId() ?? '');
+    const target = index + delta;
+    return index >= 0 && target >= 0 && target < ids.length;
+  }
+
+  protected navigateLine(delta: number): void {
+    const ids = this.lineIdsByIndex();
+    const index = ids.indexOf(this.editingLineId() ?? '');
+    const target = index + delta;
+    if (index >= 0 && target >= 0 && target < ids.length) this.editingLineId.set(ids[target]);
+  }
 
   protected onModel(event: Event): void {
     this.selectedModel.set((event.target as HTMLSelectElement).value);

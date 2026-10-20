@@ -171,6 +171,14 @@ export class ApiClient {
     return this.http.put(`/api/v1/surfaces/${surfaceId}/reading-order`, { regionIds });
   }
 
+  importLineText(projectId: string, csvText: string, layer: 'L1Diplomatic' | 'L2Editorial'): Observable<{
+    applied: number; skipped: number; rows: { lineId: string; applied: boolean; reason?: string }[];
+  }> {
+    return this.http.post<{
+      applied: number; skipped: number; rows: { lineId: string; applied: boolean; reason?: string }[];
+    }>(`/api/v1/projects/${projectId}/import-line-text`, { csvText, layer });
+  }
+
   unplacedLines(surfaceId: string): Observable<{ lineId: string; order: number; referenceText: string }[]> {
     return this.http.get<{ lineId: string; order: number; referenceText: string }[]>(
       `/api/v1/surfaces/${surfaceId}/unplaced-lines`);

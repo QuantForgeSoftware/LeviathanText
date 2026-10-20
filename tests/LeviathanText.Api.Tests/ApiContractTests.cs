@@ -435,6 +435,26 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Line_text_csv_import_applies_revisions_and_reports_bad_rows()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "csv-import-e2e");
+        var projectId = await GetProjectIdAsync(client, "csv-import-e2e");
+        var csv = $"line_id,text\n{lineId},\"νεα, γραφη\"\nln-missing,αβγ\n";
+
+        var response = await client.PostAsJsonAsync($"/api/v1/projects/{projectId}/import-line-text",
+            new { csvText = csv, layer = "L1Diplomatic", authorId = "reviewer-a" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"applied\":1", body);
+        Assert.Contains("\"skipped\":1", body);
+
+        var line = await client.GetStringAsync($"/api/v1/lines/{lineId}");
+        Assert.Contains("νεα, γραφη", line);
+        Assert.Contains("reviewer-a", line);
+    }
+
+    [Fact]
     public async Task EpiDoc_bootstrap_imports_l2_reference_lines_and_places_geometry()
     {
         var client = NewClient();

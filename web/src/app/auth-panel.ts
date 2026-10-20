@@ -3,6 +3,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { apiKey, hasApiKey, setApiKey } from './auth';
 import { ApiClient } from './api-client';
 import { clearCache } from './offline-cache';
+import { authorId, setAuthorId } from './identity';
 
 @Component({
   selector: 'app-auth-panel',
@@ -21,6 +22,13 @@ import { clearCache } from './offline-cache';
         <button type="button" (click)="clear()">Clear</button>
         <span class="hint">{{ status() }}</span>
       </div>
+      <div class="tools">
+        <label>Editor name
+          <input [value]="author()" (input)="onAuthor($event)" placeholder="name recorded on revisions/reviews" />
+        </label>
+        <button type="button" (click)="saveAuthor()">Save name</button>
+        <span class="hint">{{ authorStatus() }}</span>
+      </div>
     </section>
   `,
   styles: [`
@@ -33,6 +41,8 @@ export class AuthPanel implements OnInit {
   protected readonly hasKey = signal(hasApiKey());
   protected readonly status = signal('');
   protected readonly identity = signal('checking identity…');
+  protected readonly author = signal(authorId());
+  protected readonly authorStatus = signal('');
 
   private readonly api: ApiClient;
 
@@ -49,6 +59,15 @@ export class AuthPanel implements OnInit {
       next: (me) => this.identity.set(me.authenticated ? `${me.name} (${me.role})` : 'local-only'),
       error: () => this.identity.set('key rejected or server unreachable'),
     });
+  }
+
+  protected onAuthor(event: Event): void {
+    this.author.set((event.target as HTMLInputElement).value);
+  }
+
+  protected saveAuthor(): void {
+    setAuthorId(this.author());
+    this.authorStatus.set('saved; used for revisions and reviews');
   }
 
   protected onInput(event: Event): void {

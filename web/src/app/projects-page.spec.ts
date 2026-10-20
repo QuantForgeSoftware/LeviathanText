@@ -39,7 +39,7 @@ describe('ProjectsPage (search)', () => {
     });
     fixture.detectChanges();
 
-    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    const input = fixture.nativeElement.querySelector('input[placeholder="word or phrase"]') as HTMLInputElement;
     input.value = 'νθρωπ';
     input.dispatchEvent(new Event('input'));
     const searchButton = Array.from(fixture.nativeElement.querySelectorAll('button'))
