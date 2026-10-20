@@ -403,5 +403,5 @@ Blockers recorded so far:
   use exact means and worst spans; the editor renders confidence bands.
 - **Offline reads:** successful project/line/diplomatic reads are cached in localStorage with an
   offline banner; caches clear on key change; mutations are not replayed.
-- **Verification:** **507 tests (505 passed + 2 opt-in skipped), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 29 web specs; demo and fresh-install smokes PASS.
+- **Verification:** **511 tests (509 passed + 2 opt-in skipped), 0 failed across 13 suites;
+  Release 0 warnings/0 errors**; 33 web specs; demo and fresh-install smokes PASS.

@@ -1,11 +1,11 @@
 # Learned layout (patch/row CNN) vs projection — held-out report
 
-- Date: 2026-10-20T01:18:28.1072500+00:00; contract C0-0.4-draft
+- Date: 2026-10-20T01:42:43.9376480+00:00; contract C0-0.4-draft
 - Model: `patch-row-cnn-v2` v2; input 256px high, max width 256; 100 epochs, seed 31
 - Training: 35 M02a train pages (page-level split); threshold selected on 8 M02a dev pages; **test pages never trained on**
 - Held-out: 17 pages (M02a test i%5==0 + 6 P01 test pages, reported separately as out-of-domain)
 - Matching: vertical-band IoU ≥ 0.5; confidence: none (detector has no calibrated probability claim)
-- Training wall time: 77.8s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
+- Training wall time: 75.4s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
 - Threshold selection table (dev only):
 
 | Threshold | Precision | Recall | F1 |
