@@ -1,6 +1,6 @@
 # Layout impact on the image-only page workflow
 
-- Date: 2026-10-20T02:06:03.0313170+00:00; contract C0-0.4-draft
+- Date: 2026-10-20T02:31:47.3272820+00:00; contract C0-0.4-draft
 - Same recognition model/seed, same pages; only the layout detector changes
 - Layout model: `patch-row-cnn-v2` trained on 35 M02a train pages, threshold 0.55
 - Evaluation: 11 held-out M02a pages (one seed; recognition variance is measured separately)

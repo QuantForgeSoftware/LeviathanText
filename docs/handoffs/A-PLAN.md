@@ -403,8 +403,8 @@ Blockers recorded so far:
   use exact means and worst spans; the editor renders confidence bands.
 - **Offline reads:** successful project/line/diplomatic reads are cached in localStorage with an
   offline banner; caches clear on key change; mutations are not replayed.
-- **Verification:** **516 tests (514 passed + 2 opt-in skipped), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 34 web specs; demo and fresh-install smokes PASS.
+- **Verification:** **522 tests (520 passed + 2 opt-in skipped), 0 failed across 13 suites;
+  Release 0 warnings/0 errors**; 35 web specs; demo and fresh-install smokes PASS.
 
 ### Handoff revision 21 — 2026-10-20 (imports, offline, safety, docs)
 
@@ -420,8 +420,8 @@ Blockers recorded so far:
   overview, changelog, upgrade/rollback guidance.
 - **Plan reconciliation:** completed model/training items archived (55 total); remaining items
   annotated with delivered evidence and blockers.
-- **Verification:** **516 tests (514 passed + 2 opt-in skips), 0 failed across 13 suites; Release
-  0 warnings/0 errors**; 34 web specs; demo/fresh-install PASS; locked P01 evaluation remains opt-in.
+- **Verification:** **516 tests (520 passed + 2 opt-in skips), 0 failed across 13 suites; Release
+  0 warnings/0 errors**; 35 web specs; demo/fresh-install PASS; locked P01 evaluation remains opt-in.
 
 ### Handoff revision 22 — 2026-10-20 (per-project membership)
 
@@ -443,3 +443,5 @@ Blockers recorded so far:
 - Fixed `layout train` flag parsing (out/image-ext/epochs/seed were positional and fragile).
 - Limits: no error-analysis drilldown, run deletion, or automatic report publishing; runs are an
   index, not acceptance evidence.
+- **Verification:** 522 tests (520 passed + 2 opt-in skips), 0 failed; Release 0 warnings/0 errors;
+  35 web specs.
