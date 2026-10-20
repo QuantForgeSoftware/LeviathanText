@@ -8,10 +8,11 @@ import { OfflineBanner } from './offline-banner';
 import { RunsPanel } from './runs-panel';
 import { UsersPanel } from './users-panel';
 import { AuditPanel } from './audit-panel';
+import { InviteAcceptPanel } from './invite-accept-panel';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel, AuthPanel, OfflineBanner, RunsPanel, UsersPanel, AuditPanel],
+  imports: [RouterOutlet, ProjectsPage, RenderingCheck, JobsPanel, AuthPanel, OfflineBanner, RunsPanel, UsersPanel, AuditPanel, InviteAcceptPanel],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

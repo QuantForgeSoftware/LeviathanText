@@ -309,7 +309,8 @@ curl -X POST http://127.0.0.1:5000/api/v1/invites/accept -H 'Content-Type: appli
 
 Acceptance creates a normal account, returns its API key once, and adds the account to the
 project. Tokens are stored as SHA-256 hashes, expire after 1–168 hours, are single-use, and only
-admins can issue them. Admin invitations are refused.
+admins can issue them. Admin invitations are refused. The workspace provides **Project members →
+Create invitation** plus a public **Have an invitation?** acceptance panel.
 
 **Presence (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from

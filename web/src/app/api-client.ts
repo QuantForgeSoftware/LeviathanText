@@ -345,6 +345,20 @@ export class ApiClient {
     return this.http.get<string[]>(`/api/v1/projects/${projectId}/members`);
   }
 
+  createInvite(projectId: string, role: string, expiresInHours = 24): Observable<{
+    inviteId: string; token: string; role: string; expiresAt: string;
+  }> {
+    return this.http.post<{ inviteId: string; token: string; role: string; expiresAt: string }>(
+      `/api/v1/projects/${projectId}/invites`, { role, expiresInHours });
+  }
+
+  acceptInvite(token: string, name: string): Observable<{
+    account: UserAccount; apiKey: string; projectId: string; role: string;
+  }> {
+    return this.http.post<{ account: UserAccount; apiKey: string; projectId: string; role: string }>(
+      '/api/v1/invites/accept', { token, name });
+  }
+
   addProjectMember(projectId: string, userId: string): Observable<string[]> {
     return this.http.post<string[]>(`/api/v1/projects/${projectId}/members`, { userId });
   }

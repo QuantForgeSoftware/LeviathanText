@@ -13,6 +13,18 @@ import { ApiClient, UserAccount } from './api-client';
         <span class="hint" role="status">{{ status() }}</span>
       </div>
       @if (loaded()) {
+        <div class="tools invite">
+          <select [value]="inviteRole()" (change)="onInviteRole($event)" aria-label="Invitation role">
+            <option value="reader">reader</option>
+            <option value="annotator">annotator</option>
+            <option value="reviewer">reviewer</option>
+          </select>
+          <input type="number" min="1" max="168" [value]="inviteHours()" (input)="onInviteHours($event)" aria-label="Invitation hours" />
+          <button type="button" (click)="createInvite()">Create invitation</button>
+        </div>
+        @if (inviteToken()) {
+          <p class="key">Invitation token (shown once): <code>{{ inviteToken() }}</code></p>
+        }
         <ul>
           @for (user of users(); track user.id) {
             <li>
@@ -34,6 +46,7 @@ import { ApiClient, UserAccount } from './api-client';
     .members { margin-top: 0.6rem; }
     .tools { display: flex; gap: 0.5rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
+    .key { background: #fff4d6; padding: 0.35rem; }
     li { margin: 0.2rem 0; }
   `],
 })
@@ -43,6 +56,9 @@ export class ProjectMembersPanel implements OnChanges {
   protected readonly members = signal<string[]>([]);
   protected readonly loaded = signal(false);
   protected readonly status = signal('');
+  protected readonly inviteRole = signal('annotator');
+  protected readonly inviteHours = signal(24);
+  protected readonly inviteToken = signal('');
 
   private readonly api: ApiClient;
 
@@ -59,6 +75,24 @@ export class ProjectMembersPanel implements OnChanges {
       this.members.set([]);
       this.status.set('');
     }
+  }
+
+  protected onInviteRole(event: Event): void {
+    this.inviteRole.set((event.target as HTMLSelectElement).value);
+  }
+
+  protected onInviteHours(event: Event): void {
+    this.inviteHours.set(Math.max(1, Math.min(168, Number((event.target as HTMLInputElement).value) || 24)));
+  }
+
+  protected createInvite(): void {
+    this.api.createInvite(this.projectId(), this.inviteRole(), this.inviteHours()).subscribe({
+      next: result => {
+        this.inviteToken.set(result.token);
+        this.status.set(`invitation valid until ${result.expiresAt}`);
+      },
+      error: () => this.status.set('invitation creation failed (admin only)'),
+    });
   }
 
   protected isMember(userId: string): boolean {
