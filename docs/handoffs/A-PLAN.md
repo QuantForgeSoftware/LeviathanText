@@ -478,6 +478,7 @@ Blockers recorded so far:
   opt-in project access; invitation tokens/presence remain open.
 - **Packaged workspace:** optional `LeviathanText:WebRoot` serves the Angular build under `/ui`
   with SPA fallback; `/` and `/api/v1` stay separate.
+- **Migration rehearsal:** old-binary (`226a612`) → current store migration and rollback refusal PASS via `scripts/migration-rehearsal.sh`.
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.

@@ -54,7 +54,7 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 
 ## Not yet done (release checklist remains open)
 
-- Installers/updaters and full versioned migration/rollback rehearsal with old binaries.
+- Installers/updaters; full cross-platform migration/rollback rehearsal (osx-arm64 rehearsal passes).
 - Backup/restore rehearsal: **PASS** (2026-10-20, `scripts/backup-restore-rehearsal.sh`: snapshot, mutate, restore into a fresh store, verify pre-snapshot only).
 - Store migration coverage: v1→v5 and v2/v3/v4→v5 tests create users/membership/runs after migration; newer schema is refused.
 - Target-matrix packaging on Windows/Linux and non-macOS libtorch/PDFium/runtime validation (osx-arm64 is the only packaged target verified here).
@@ -66,6 +66,14 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
   SSO/session policy and invitation UI remain open; presence is advisory and store-backed; do not expose an unconfigured
   instance beyond localhost.
 
+
+## Migration/rollback rehearsal
+
+`scripts/migration-rehearsal.sh` builds the pre-v6 CLI (`226a612`), creates a store with it,
+opens/migrates it with the current CLI, then verifies the old binary **refuses** the newer store
+with `SchemaVersionUnsupported`. Result: **PASS** (2026-10-20). This proves the documented
+rollback boundary: restore the pre-upgrade backup and old binaries, not a downgrade of a migrated
+store.
 
 ## Backup/restore rehearsal
 
