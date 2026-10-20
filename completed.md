@@ -4,7 +4,7 @@ Items checked off in `todo.md`, moved here at the end of each work cycle. `todo.
 open and in-progress work plus reference records (contracts, source register, decisions,
 estimates); completed checklist items live here. Rule recorded in `lessons.md`.
 
-Archive build: 2026-10-19 (archive run from `d233ed5`).
+Archive build: 2026-10-19 (archive run from `28e8f0a`).
 `9810e57`.
 Entries are verbatim, including commit references and links. 49 items.
 
@@ -85,3 +85,10 @@ Entries are verbatim, including commit references and links. 49 items.
 ## 6. Delivery backlog and acceptance gates
 ### Issued two-instance planning briefs
 - [x] B's review of the contract set (I0 gate) — moot while single-instance; substitute with a self-review of all five contract documents against all packages at the next integration checkpoint (I1). *(done: docs/contracts/self-review-2026-10-19.md — conformance matrix, deviations, open actions)*
+
+## 5. Independent model and data strategy
+- [x] Build an initial C# sequence recognizer with a tractable CTC architecture, without mandatory word segmentation or a dictionary. Compare NFC scalar, decomposed scalar or grapheme label strategies on real Greek lines; verify combining-mark coverage, unknown labels, time-step capacity and repeated-symbol decoding. Select the simplest measured approach; retain variable/irregular region extraction as a feasibility question. *(C# CRNN+CTC with grapheme labels; label-strategy/decoding/time-step measurements in docs/evaluation/decoding-comparison.md; unknown graphemes fail loudly; layout extraction researched separately — see learned-layout records.)*
+- [x] Support from-scratch training and fine-tuning, deterministic seeds where possible, resumable optimizer state, early stopping and best-checkpoint selection. *(CtcTrainer: resume from checkpoint, early stopping, best checkpoint, seeded; ML/pilot tests; model package CLI.)*
+- [x] Add augmentation suited to scans and handwriting; keep synthetic/AI-generated examples labeled and evaluate on held-out real documents. *(LineAugmenter stretch/shift/salt-pepper + P01 A/B; layout CNN scale/shift/noise + augmentation A/B on real M02a/P01 pages; no synthetic training examples were introduced.)*
+### Corpus acquisition and annotation deliverable
+- [x] Provide a bootstrap path using imported or manually labeled lines before the complete Angular editor exists. Minimal annotation and C# training must precede any release that depends on new models. *(PAGE/EpiDoc/ALTO/hOCR import, manual line placement/geometry, CLI `train lines` and `layout train` produce verified packages without requiring the full review UI.)*

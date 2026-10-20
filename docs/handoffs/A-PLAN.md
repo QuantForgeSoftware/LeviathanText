@@ -401,5 +401,5 @@ Blockers recorded so far:
   layout timing/RSS, capability matrix (`docs/release/parity.md`).
 - **Confidence:** L0 revisions persist mean and per-grapheme confidence spans; review queues
   use exact means and worst spans.
-- **Verification:** **507 tests (506 passed + 1 opt-in skipped), 0 failed across 13 suites;
+- **Verification:** **507 tests (505 passed + 2 opt-in skipped), 0 failed across 13 suites;
   Release 0 warnings/0 errors**; 29 web specs; demo and fresh-install smokes PASS.
