@@ -24,8 +24,8 @@ are not specialist-adjudicated.
 | Active learning/review | persisted queue + double review/adjudication | tests + UI | no automatic prioritization model beyond confidence |
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
 | Durable jobs | layout/import/recognize jobs, leases, cancel | worker/API tests + live smoke | no scheduler/priority/quota |
-| Web workspace | editor, geometry, review, search, jobs, auth, deep links; optional packaged static hosting at /ui | 38 specs | no concurrent workspaces/presence |
-| Auth/roles | accounts + roles + audit + opt-in per-project membership + admin member panel | role/audit/membership/UI tests | no SSO/session policy or invitation-token/presence UI |
+| Web workspace | editor, geometry, review, search, jobs, auth, deep links; optional packaged static hosting at /ui | 39 specs | no concurrent workspaces/presence |
+| Auth/roles | accounts + roles + audit + opt-in per-project membership + admin member/accounts panels | role/audit/membership/UI tests | no SSO/session policy or invitation-token/presence UI |
 | Backup/restore | checksummed snapshot/restore | infra tests + smoke | no automated restore rehearsal/rollback UI |
 | Packaging | publish + fresh-install smoke + osx-arm64 package/manifest | `scripts/package-release.sh` PASS; backup rehearsal PASS | no installers/updaters; Linux/Windows untested; models not bundled |
 | Migration from Kraken | public formats only | import paths | no automatic project migration |

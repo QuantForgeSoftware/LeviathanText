@@ -467,6 +467,7 @@ Blockers recorded so far:
   CER/base/mark/confusion CSV/JSON + Markdown report and records an `evaluation` run with a split digest; locked
   test labels are not available to routine evaluation.
 - **Deep links:** project/surface/line query parameters restore workspace state; selection updates the URL without adding history entries.
+- **Admin accounts UI:** lazy admin panel creates/rotates/disables accounts and shows one-time keys.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes
   opt-in project access; invitation tokens/presence remain open.
 - **Packaged workspace:** optional `LeviathanText:WebRoot` serves the Angular build under `/ui`
@@ -475,4 +476,4 @@ Blockers recorded so far:
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
 - **Verification:** **542 tests (540 passed + 2 opt-in skips), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 38 web specs; package and backup/restore rehearsals PASS.
+  Release 0 warnings/0 errors**; 39 web specs; package and backup/restore rehearsals PASS.

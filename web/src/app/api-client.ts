@@ -301,6 +301,18 @@ export class ApiClient {
     return this.http.get<UserAccount[]>('/api/v1/users');
   }
 
+  createUser(name: string, role: string): Observable<{ account: UserAccount; apiKey: string }> {
+    return this.http.post<{ account: UserAccount; apiKey: string }>('/api/v1/users', { name, role });
+  }
+
+  rotateUser(userId: string): Observable<{ apiKey: string }> {
+    return this.http.post<{ apiKey: string }>(`/api/v1/users/${userId}/rotate`, {});
+  }
+
+  disableUser(userId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/users/${userId}/disable`, {});
+  }
+
   projectMembers(projectId: string): Observable<string[]> {
     return this.http.get<string[]>(`/api/v1/projects/${projectId}/members`);
   }

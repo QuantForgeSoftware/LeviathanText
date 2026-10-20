@@ -265,7 +265,8 @@ blocks all mutations regardless of role. Without a bootstrap key and without acc
 runs local-only and logs a warning.
 
 Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
-`POST /api/v1/users/{id}/disable|rotate`).
+`POST /api/v1/users/{id}/disable|rotate`) or from the workspace **Accounts (admin)** panel;
+new/rotated keys are shown once.
 
 **Per-project membership (opt-in):** set `LeviathanText:Auth:ProjectMembership=true` to scope
 non-admin access to projects they belong to. A project created through the API automatically
