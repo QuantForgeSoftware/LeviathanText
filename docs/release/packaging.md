@@ -2,6 +2,19 @@
 
 Date: 2026-10-19. This records what was **actually run**, not a release claim.
 
+## Fresh-install verification (2026-10-19)
+
+`scripts/fresh-install-smoke.sh` publishes the CLI, API and worker, then:
+- creates a project from the published CLI binary with a brand-new store;
+- starts the published API on localhost and checks `/` and `/api/v1/projects`;
+- runs the published worker once against the same store.
+Result: **PASS** (no source-tree or network dependency in the published paths).
+
+Dependency inventory: all runtime dependencies resolve through NuGet (SkiaSharp, TorchSharp +
+native libtorch, ASP.NET/SQLite); no Python or Kraken package/runtime appears in the graph.
+Published outputs are large (~600 MB per binary set) because native libtorch is bundled; a
+distribution should ship one shared runtime, not duplicate it.
+
 ## Publish outputs (verified)
 
 ```bash

@@ -44,6 +44,9 @@ public static class ProjectBundle
         Add("profile-report.json", ContractJson.ToJson(ProfileReport.Build(project)));
         Add("lines.csv", LineCsv.Export(project));
         Add("annotations.csv", AnnotationCsv.Export(project));
+        var reviews = new ReviewService(ProjectStoreFree.Instance);
+        Add("review-summary.json", ContractJson.ToJson(reviews.Summarize(project)));
+        Add("adjudication.csv", reviews.ExportAdjudicationCsv(project));
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {

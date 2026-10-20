@@ -13,5 +13,7 @@ Date: 2026-10-19. Pilot machine: macOS arm64, .NET 10, local SQLite. Measured co
 | Batch recognition (`recognize project`, 27 P01 pages / 321 lines) | **~1.3 s** | Tiny 5-epoch pilot package; inference is dominated by process start at this scale |
 | Peak RSS, single-page recognition (CLI) | **200 MB** | `/usr/bin/time -l` on macOS arm64; includes .NET runtime + CPU libtorch |
 | Peak RSS, 27-page batch recognition (CLI) | **~244 MB** | no growth observed across surfaces (models loaded per surface and disposed) |
+| Layout model training (P01, 17 train / 4 dev pages, 100 epochs) | **~24 s** | CPU; package 348 KB incl. metadata/card |
+| Learned layout inference (one P01 page) | **~0.9 s**, **~279 MB peak RSS** | CLI (`layout detect --model`); includes .NET + libtorch startup |
 
 Not measured: sustained collection-scale runs (thousands of pages), peak RSS under load, GPU backends. Those remain release-checklist items.
