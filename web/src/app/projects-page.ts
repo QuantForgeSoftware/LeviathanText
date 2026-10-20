@@ -118,6 +118,10 @@ interface ProjectRow {
     }
 
     @if (openSurfaceId()) {
+      <p class="tools">
+        <button type="button" (click)="navigateSurface(-1)" [disabled]="!hasSurfaceNeighbour(-1)">← Previous surface</button>
+        <button type="button" (click)="navigateSurface(1)" [disabled]="!hasSurfaceNeighbour(1)">Next surface →</button>
+      </p>
       <app-surface-view [projectId]="selectedId()!" [surfaceId]="openSurfaceId()!" [focusLineId]="focusLineId()" />
     }
   `,
@@ -295,6 +299,25 @@ export class ProjectsPage {
     if (surfaceId) params.set('surface', surfaceId);
     if (lineId) params.set('line', lineId);
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  }
+
+  protected surfaceIds(): string[] {
+    const project = this.selectedId() ? this.payloads()[this.selectedId()!] : undefined;
+    return project?.objects.flatMap(object => object.surfaces.map(surface => surface.id)) ?? [];
+  }
+
+  protected hasSurfaceNeighbour(delta: number): boolean {
+    const ids = this.surfaceIds();
+    const index = ids.indexOf(this.openSurfaceId() ?? '');
+    const target = index + delta;
+    return index >= 0 && target >= 0 && target < ids.length;
+  }
+
+  protected navigateSurface(delta: number): void {
+    const ids = this.surfaceIds();
+    const index = ids.indexOf(this.openSurfaceId() ?? '');
+    const target = index + delta;
+    if (index >= 0 && target >= 0 && target < ids.length) this.openSurface(ids[target]);
   }
 
   protected payload(id: string): ProjectPayload | undefined {
