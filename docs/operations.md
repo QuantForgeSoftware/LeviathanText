@@ -270,7 +270,7 @@ Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
 non-admin access to projects they belong to. A project created through the API automatically
 adds its creator; projects created by the CLI start with no members until an admin adds them.
 Admins manage membership with `GET/POST /projects/{id}/members` and
-`DELETE /projects/{id}/members/{userId}`, or:
+`DELETE /projects/{id}/members/{userId}`, from the workspace **Project members** panel, or:
 
 ```bash
 leviathan --store pilot.db project member list <projectId>

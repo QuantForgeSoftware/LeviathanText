@@ -449,6 +449,7 @@ Blockers recorded so far:
   index, not acceptance evidence.
 - **Verification:** 522 tests (520 passed + 2 opt-in skips), 0 failed; Release 0 warnings/0 errors;
   35 web specs.
+
 ### Handoff revision 24 — 2026-10-20 (orientation, PDF, release hardening)
 
 - **Direction/script metadata:** per-region/line optional `direction` and `script` fields in the
@@ -462,10 +463,13 @@ Blockers recorded so far:
 - **Evaluation drilldown:** `evaluate lines` scores a packaged model on dev/train, writes per-line
   CER/base/mark/confusion CSV/JSON and records an `evaluation` run with a split digest; locked
   test labels are not available to routine evaluation.
+- **Deep links:** project/surface/line query parameters restore workspace state; selection updates the URL without adding history entries.
+- **Member management UI:** admin-only project panel loads accounts/members and grants/revokes
+  opt-in project access; invitation tokens/presence remain open.
 - **Packaged workspace:** optional `LeviathanText:WebRoot` serves the Angular build under `/ui`
   with SPA fallback; `/` and `/api/v1` stay separate.
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **532 tests (530 passed + 2 opt-in skips), 0 failed across 13 suites;
-  Release 0 warnings/0 errors**; 36 web specs; package and backup/restore rehearsals PASS.
+- **Verification:** **537 tests (535 passed + 2 opt-in skips), 0 failed across 13 suites;
+  Release 0 warnings/0 errors**; 37 web specs; package and backup/restore rehearsals PASS.

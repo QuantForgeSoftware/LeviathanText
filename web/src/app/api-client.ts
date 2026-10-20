@@ -64,6 +64,14 @@ export interface LinePayload {
   reviews?: ReviewPayload[];
 }
 
+export interface UserAccount {
+  id: string;
+  name: string;
+  role: string;
+  createdAt: string;
+  disabled?: boolean;
+}
+
 export interface OrientationResponse {
   lineId?: string;
   regionId?: string;
@@ -287,6 +295,22 @@ export class ApiClient {
 
   me(): Observable<{ authenticated: boolean; name: string; role: string }> {
     return this.http.get<{ authenticated: boolean; name: string; role: string }>('/api/v1/me');
+  }
+
+  users(): Observable<UserAccount[]> {
+    return this.http.get<UserAccount[]>('/api/v1/users');
+  }
+
+  projectMembers(projectId: string): Observable<string[]> {
+    return this.http.get<string[]>(`/api/v1/projects/${projectId}/members`);
+  }
+
+  addProjectMember(projectId: string, userId: string): Observable<string[]> {
+    return this.http.post<string[]>(`/api/v1/projects/${projectId}/members`, { userId });
+  }
+
+  removeProjectMember(projectId: string, userId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/projects/${projectId}/members/${userId}`);
   }
 
   reviewSummary(projectId: string): Observable<{

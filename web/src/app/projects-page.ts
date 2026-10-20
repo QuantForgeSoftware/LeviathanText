@@ -2,6 +2,7 @@ import { Component, computed, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ApiClient, ProjectPayload } from './api-client';
 import { SurfaceView } from './surface-view';
+import { ProjectMembersPanel } from './project-members-panel';
 
 interface ProjectRow {
   id: string;
@@ -75,6 +76,7 @@ interface ProjectRow {
               </ul>
             }
           }
+          <app-project-members-panel [projectId]="selectedId()!" />
           <ul>
             @for (object of payload.objects; track object.id) {
               @for (surface of object.surfaces; track surface.id) {
@@ -125,7 +127,7 @@ interface ProjectRow {
     .hint { color: #667; font-size: 0.85rem; }
     li { margin: 0.2rem 0; }
   `],
-  imports: [SurfaceView],
+  imports: [SurfaceView, ProjectMembersPanel],
 })
 export class ProjectsPage {
   private readonly api: ApiClient;
@@ -212,8 +214,7 @@ export class ProjectsPage {
   }
 
   protected openHit(hit: { surfaceId: string; lineId: string }): void {
-    this.openSurfaceId.set(hit.surfaceId);
-    this.focusLineId.set(hit.lineId);
+    this.openSurface(hit.surfaceId, hit.lineId);
   }
 
   protected adjudicationLines(): {
@@ -233,7 +234,10 @@ export class ProjectsPage {
   constructor(http: HttpClient) {
     this.api = new ApiClient(http);
     this.api.listProjects().subscribe({
-      next: (rows) => this.projects.set(rows ?? []),
+      next: (rows) => {
+        this.projects.set(rows ?? []);
+        this.restoreDeepLink(rows ?? []);
+      },
       error: () => this.projects.set([]),
     });
   }
@@ -249,6 +253,8 @@ export class ProjectsPage {
   protected select(id: string): void {
     this.selectedId.set(id);
     this.openSurfaceId.set(null);
+    this.focusLineId.set('');
+    this.syncUrl(id);
     this.stats.set(null);
     this.review.set(null);
     this.api.stats(id).subscribe({
@@ -265,8 +271,30 @@ export class ProjectsPage {
     }
   }
 
-  protected openSurface(surfaceId: string): void {
+  protected openSurface(surfaceId: string, lineId = ''): void {
     this.openSurfaceId.set(surfaceId);
+    this.focusLineId.set(lineId);
+    if (this.selectedId()) this.syncUrl(this.selectedId()!, surfaceId, lineId);
+  }
+
+  /** Restore `?project=&surface=&line=` without adding a history entry. */
+  private restoreDeepLink(rows: ProjectRow[]): void {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const project = params.get('project');
+    if (!project || !rows.some(p => p.id === project)) return;
+    this.select(project);
+    const surface = params.get('surface');
+    if (surface) this.openSurface(surface, params.get('line') ?? '');
+  }
+
+  private syncUrl(projectId: string, surfaceId?: string, lineId?: string): void {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams();
+    params.set('project', projectId);
+    if (surfaceId) params.set('surface', surfaceId);
+    if (lineId) params.set('line', lineId);
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
   }
 
   protected payload(id: string): ProjectPayload | undefined {

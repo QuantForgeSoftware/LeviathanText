@@ -38,6 +38,7 @@ describe('ProjectsPage (search)', () => {
       objects: [{ id: 'obj-1', surfaces: [{ id: 'surf-1', kind: 'page', lines: [], regions: [], captures: [] }] }],
     });
     fixture.detectChanges();
+    expect(window.location.search).toContain('project=col-1');
 
     const input = fixture.nativeElement.querySelector('input[placeholder="word or phrase"]') as HTMLInputElement;
     input.value = 'νθρωπ';
