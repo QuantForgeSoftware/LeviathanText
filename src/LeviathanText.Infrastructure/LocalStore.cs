@@ -13,7 +13,7 @@ namespace LeviathanText.Infrastructure;
 /// </summary>
 public sealed class LocalStore : IDisposable, IProjectStore
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private readonly SqliteConnection _connection;
 
@@ -70,6 +70,14 @@ public sealed class LocalStore : IDisposable, IProjectStore
                     retries INTEGER NOT NULL DEFAULT 0,
                     json TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL,
+                    key_hash TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL,
+                    disabled INTEGER NOT NULL DEFAULT 0
+                );
                 """;
             ddl.ExecuteNonQuery();
             var setVersion = _connection.CreateCommand();
@@ -78,6 +86,91 @@ public sealed class LocalStore : IDisposable, IProjectStore
             setVersion.ExecuteNonQuery();
         }
         tx.Commit();
+    }
+
+    // ---- users (shared deployments) ----
+
+    public UserAccount CreateUser(string name, UserRole role, string keyHash)
+    {
+        var id = $"usr-{Guid.NewGuid().ToString("N")[..12]}";
+        var createdAt = DateTimeOffset.UtcNow;
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO users (id, name, role, key_hash, created_at, disabled)
+            VALUES ($id, $name, $role, $hash, $created, 0)
+            """;
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$name", name);
+        cmd.Parameters.AddWithValue("$role", role.ToString());
+        cmd.Parameters.AddWithValue("$hash", keyHash);
+        cmd.Parameters.AddWithValue("$created", createdAt.ToString("O"));
+        try { cmd.ExecuteNonQuery(); }
+        catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+        {
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = name,
+                Message = "A user with that name or key already exists.",
+            });
+        }
+        return new UserAccount { Id = id, Name = name, Role = role, CreatedAt = createdAt };
+    }
+
+    public IReadOnlyList<UserAccount> LoadUsers()
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, name, role, created_at, disabled FROM users ORDER BY name";
+        using var reader = cmd.ExecuteReader();
+        var users = new List<UserAccount>();
+        while (reader.Read())
+        {
+            users.Add(new UserAccount
+            {
+                Id = reader.GetString(0),
+                Name = reader.GetString(1),
+                Role = Enum.Parse<UserRole>(reader.GetString(2)),
+                CreatedAt = DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
+                Disabled = reader.GetInt64(4) != 0,
+            });
+        }
+        return users;
+    }
+
+    /// <summary>Authenticate a key hash; disabled accounts are treated as absent.</summary>
+    public UserAccount? FindUserByKeyHash(string keyHash)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, name, role, created_at, disabled FROM users WHERE key_hash = $hash AND disabled = 0";
+        cmd.Parameters.AddWithValue("$hash", keyHash);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read()) return null;
+        return new UserAccount
+        {
+            Id = reader.GetString(0),
+            Name = reader.GetString(1),
+            Role = Enum.Parse<UserRole>(reader.GetString(2)),
+            CreatedAt = DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
+        };
+    }
+
+    public void DisableUser(string id)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE users SET disabled = 1 WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", id);
+        if (cmd.ExecuteNonQuery() == 0)
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
+    }
+
+    public void UpdateUserKey(string id, string keyHash)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE users SET key_hash = $hash WHERE id = $id";
+        cmd.Parameters.AddWithValue("$hash", keyHash);
+        cmd.Parameters.AddWithValue("$id", id);
+        if (cmd.ExecuteNonQuery() == 0)
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
     }
 
     // ---- projects ----

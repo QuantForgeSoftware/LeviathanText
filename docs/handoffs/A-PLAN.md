@@ -340,3 +340,16 @@ Blockers recorded so far:
   R 0.134→0.201; all-held-out P 0.734→0.754, R 0.686→0.718. Single seed/material pair —
   direction, not a generalization claim.
 - Report updated; unit test covers augmented training on synthetic bands.
+
+### Handoff revision 17 — 2026-10-20 (accounts and roles)
+
+- **Store schema v2:** `users` table (id, unique name, role, hashed key, created, disabled);
+  v1 databases migrate in place; newer schemas are refused (tests cover migration and refusal).
+- **Authentication:** bootstrap admin key plus per-user hashed keys (SHA-256, shown once);
+  Bearer / `X-Api-Key` / SSE `api_key` token. Disabled/rotated keys stop working immediately.
+- **Authorization:** reader (GET), annotator (mutations), reviewer (+ review decisions), admin
+  (+ user management and project deletion). Read-only mode still overrides all roles.
+- **Management:** CLI `user add/list/disable/rotate`; HTTP `GET/POST /users`,
+  `POST /users/{id}/disable|rotate` (admin only).
+- **Limits:** no SSO/refresh tokens, per-object workspace membership, structured auth audit, or
+  a workspace login prompt. Existing local-only tests and behavior remain unchanged.

@@ -31,6 +31,7 @@
 | Scoring (examples §1–2) | `RecognitionScorer` (scalar+grapheme+mark attribution); explicit uncertainty spans in training export; blank/missed-line cases covered by page-CER matching | **conforms** to the documented semantics |
 | Corpus manifest fields | Ledgers use the documented fields; no new required fields added | **conforms** |
 | Interchange formats | PAGE, bounded TEI, IIIF P3, ALTO v4, hOCR; loss reports mandatory; unsupported elements reported; DTD refused | **conforms** to the bounded-profile contract |
+| Shared deployment identity | Local accounts with role-based authorization, hashed API keys, rotation/disable; bootstrap admin key; transport-level 401/403 | **conforms (pilot)**; no SSO, refresh tokens, per-object workspaces or structured auth audit |
 | HTTP/UI contracts (§2/§3) | Implemented inventory recorded in interchange-and-api §2.4; UI dual pane, marks, drafts, geometry, search, jobs, models | **conforms**; search/models/recognize/CSV/profile/bundle routes are pilot surfaces not yet named in the contract body |
 
 ## Open actions (recommendation for the next contract increment)

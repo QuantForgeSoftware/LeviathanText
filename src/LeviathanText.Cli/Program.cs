@@ -334,6 +334,44 @@ public static class Program
                 return 0;
             }
 
+            case "user" when rest.Length >= 3 && rest[1] == "add":
+            {
+                var roleIndex = Array.IndexOf(rest, "--role");
+                var roleText = roleIndex >= 0 && roleIndex + 1 < rest.Length ? rest[roleIndex + 1] : "annotator";
+                if (!Enum.TryParse<UserRole>(roleText, ignoreCase: true, out var role))
+                {
+                    Console.Error.WriteLine("role must be reader, annotator, reviewer or admin");
+                    return 1;
+                }
+                var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+                var account = store.CreateUser(rest[2], role, LeviathanText.Infrastructure.UserKeys.Hash(key));
+                Console.WriteLine($"created {account.Id} ({account.Name}, {account.Role})");
+                Console.WriteLine($"api key (shown once): {key}");
+                return 0;
+            }
+
+            case "user" when rest.Length >= 2 && rest[1] == "list":
+            {
+                foreach (var user in store.LoadUsers())
+                    Console.WriteLine($"{user.Id}\t{user.Name}\t{user.Role}\t{(user.Disabled ? "disabled" : "active")}\t{user.CreatedAt:O}");
+                return 0;
+            }
+
+            case "user" when rest.Length >= 3 && rest[1] == "disable":
+            {
+                store.DisableUser(rest[2]);
+                Console.WriteLine($"disabled {rest[2]}");
+                return 0;
+            }
+
+            case "user" when rest.Length >= 3 && rest[1] == "rotate":
+            {
+                var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+                store.UpdateUserKey(rest[2], LeviathanText.Infrastructure.UserKeys.Hash(key));
+                Console.WriteLine($"rotated key for {rest[2]} (shown once): {key}");
+                return 0;
+            }
+
             case "review" when rest.Length >= 4 && rest[1] == "line":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));

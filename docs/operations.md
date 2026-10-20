@@ -150,17 +150,33 @@ corrupt set leaves no partial target.
 
 ## Shared deployment (opt-in)
 
+LeviathanText can run with local accounts and role-based authorization:
+
 ```bash
-LeviathanText__Auth__ApiKey=… LeviathanText__Auth__ReadOnly=true \
-  dotnet run --project src/LeviathanText.Api
+# bootstrap an admin (prints the key once; keys are stored only as SHA-256 hashes)
+leviathan --store pilot.db user add alice --role admin
+leviathan --store pilot.db user list
+leviathan --store pilot.db user rotate <userId>
+leviathan --store pilot.db user disable <userId>
 ```
 
-Every `/api/v1` request must then send `Authorization: Bearer <key>` or `X-Api-Key`.
-SSE clients that cannot set headers (browser `EventSource`) may use `?api_key=…`; URLs can
-be logged, so use TLS and treat access logs accordingly. Read-only blocks non-GET methods.
-**No accounts/roles/audit** — do not treat this as a complete authentication system. Without
-a key the API logs a local-only warning. The current workspace client does not prompt for a
-key: use it locally, or add a client-side key holder before exposing a UI.
+Start the API with a bootstrap admin key (optional once accounts exist):
+
+```bash
+LeviathanText__Auth__ApiKey=… dotnet run --project src/LeviathanText.Api
+```
+
+Requests send `Authorization: Bearer <key>`, `X-Api-Key: <key>`, or (for SSE) `?api_key=…`.
+Roles: **reader** (GET only), **annotator** (import/edit/jobs/exports), **reviewer**
+(+ review decisions), **admin** (+ user management and project deletion). The configured key is
+an admin bootstrap credential and never replaces account management. `Auth:ReadOnly=true`
+blocks all mutations regardless of role. Without a bootstrap key and without accounts the API
+runs local-only and logs a warning.
+
+Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
+`POST /api/v1/users/{id}/disable|rotate`). **The Angular workspace does not prompt for a key**:
+run it locally or put it behind a proxy that injects the header. Concurrent edit handling and
+per-object workspace membership are not implemented yet.
 
 ## Known limits to communicate
 

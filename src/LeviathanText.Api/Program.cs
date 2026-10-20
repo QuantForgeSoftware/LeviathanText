@@ -100,18 +100,30 @@ app.Use(async (context, next) =>
         }));
     }
 });
-// Pilot shared-deployment guard (opt-in). With an API key configured, every /api/v1
-// request must present it (Bearer or X-Api-Key) and ReadOnly blocks non-GET methods.
-// Without a key the server is LOCAL-ONLY: no accounts, roles or audit — do not expose it.
+// Shared-deployment guard (opt-in). Authentication is required when an admin bootstrap key
+// or any user accounts exist. Roles: reader (GET only), annotator (mutations), reviewer
+// (+ review decisions), admin (+ user management and project deletion). The configured key is
+// an admin bootstrap credential; user keys are stored only as SHA-256 hashes. SSE clients may
+// pass ?api_key= because EventSource cannot set headers. Without any credential the server is
+// LOCAL-ONLY and logs a warning.
 var authApiKey = builder.Configuration["LeviathanText:Auth:ApiKey"];
 var authReadOnly = builder.Configuration.GetValue<bool>("LeviathanText:Auth:ReadOnly");
 if (string.IsNullOrEmpty(authApiKey))
-    app.Logger.LogWarning("authentication disabled: local-only deployment (set LeviathanText:Auth:ApiKey before sharing)");
+    app.Logger.LogWarning("no bootstrap API key configured; authentication applies only once user accounts exist");
 
 app.Use(async (context, next) =>
 {
-    if (string.IsNullOrEmpty(authApiKey) || !context.Request.Path.StartsWithSegments("/api/v1"))
+    if (!context.Request.Path.StartsWithSegments("/api/v1"))
     {
+        await next();
+        return;
+    }
+
+    var store = context.RequestServices.GetRequiredService<LocalStore>();
+    var hasUsers = store.LoadUsers().Count > 0;
+    if (string.IsNullOrEmpty(authApiKey) && !hasUsers)
+    {
+        // Local-only mode (no credentials configured).
         await next();
         return;
     }
@@ -121,31 +133,79 @@ app.Use(async (context, next) =>
         provided = provided["Bearer ".Length..].Trim();
     if (string.IsNullOrEmpty(provided))
         provided = context.Request.Headers["X-Api-Key"].ToString();
-    // EventSource cannot set headers: accept a query token for the SSE endpoint (URLs may
-    // be logged — deploy behind TLS and treat logs accordingly).
     if (string.IsNullOrEmpty(provided))
         provided = context.Request.Query["api_key"].ToString();
 
-    var matches = !string.IsNullOrEmpty(provided)
+    UserAccount? principal = null;
+    if (!string.IsNullOrEmpty(provided) && !string.IsNullOrEmpty(authApiKey)
         && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
             System.Text.Encoding.UTF8.GetBytes(provided),
-            System.Text.Encoding.UTF8.GetBytes(authApiKey));
-    if (!matches)
+            System.Text.Encoding.UTF8.GetBytes(authApiKey)))
+    {
+        principal = new UserAccount
+        {
+            Id = "usr-bootstrap",
+            Name = "bootstrap-admin",
+            Role = UserRole.Admin,
+            CreatedAt = DateTimeOffset.MinValue,
+        };
+    }
+    else if (!string.IsNullOrEmpty(provided))
+    {
+        principal = store.FindUserByKeyHash(LeviathanText.Infrastructure.UserKeys.Hash(provided));
+    }
+
+    if (principal is null)
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new { code = "unauthorized", message = "Missing or invalid API key." });
         return;
     }
 
-    if (authReadOnly && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+    bool readOnlyRequest = HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method);
+    if (authReadOnly && !readOnlyRequest)
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await context.Response.WriteAsJsonAsync(new { code = "read_only", message = "This deployment is read-only." });
         return;
     }
 
+    var path = context.Request.Path.Value ?? string.Empty;
+    bool adminOnly = IsAdminOnly(path, context.Request.Method);
+    bool allowed;
+    if (adminOnly)
+    {
+        allowed = principal.Role == UserRole.Admin;
+    }
+    else if (readOnlyRequest)
+    {
+        allowed = true;
+    }
+    else if (IsReviewDecision(context.Request.Method, path))
+    {
+        allowed = principal.Role is UserRole.Reviewer or UserRole.Admin;
+    }
+    else
+    {
+        allowed = principal.Role is UserRole.Annotator or UserRole.Reviewer or UserRole.Admin;
+    }
+    if (!allowed)
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { code = "forbidden", message = "This account lacks the required role." });
+        return;
+    }
+
+    context.Items["user"] = principal;
     await next();
 });
+
+static bool IsReviewDecision(string method, string path) =>
+    HttpMethods.IsPost(method) && path.EndsWith("/review", StringComparison.OrdinalIgnoreCase);
+
+static bool IsAdminOnly(string path, string method) =>
+    path.StartsWith("/api/v1/users", StringComparison.OrdinalIgnoreCase)
+    || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
 
 app.MapControllers();
 
@@ -713,6 +773,30 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 
 // Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
 // with the job resource remaining authoritative.
+api.MapGet("users", (LocalStore store) => Results.Ok(store.LoadUsers()));
+
+api.MapPost("users", (LocalStore store, [FromBody] CreateUserRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name))
+        throw new LeviathanException(new LeviathanError { Code = ErrorCode.StageContractViolation, Scope = "user", Message = "User name is required." });
+    var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+    var account = store.CreateUser(request.Name, request.Role, LeviathanText.Infrastructure.UserKeys.Hash(key));
+    return Results.Ok(new { account, apiKey = key });
+});
+
+api.MapPost("users/{userId}/disable", (LocalStore store, string userId) =>
+{
+    store.DisableUser(userId);
+    return Results.NoContent();
+});
+
+api.MapPost("users/{userId}/rotate", (LocalStore store, string userId) =>
+{
+    var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+    store.UpdateUserKey(userId, LeviathanText.Infrastructure.UserKeys.Hash(key));
+    return Results.Ok(new { apiKey = key });
+});
+
 api.MapPost("jobs", (JobEnqueuer enqueuer, [FromBody] CreateJobRequest request) =>
 {
     // Jobs may carry one input artifact: a surface (layout/recognition) or a project
@@ -824,6 +908,8 @@ public sealed record RecognizeRequest(string Model);
 
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
+
+public sealed record CreateUserRequest(string Name, UserRole Role);
 
 public sealed record ReviewRequest(string Reviewer, ReviewOutcome Outcome, string? Note = null, string? CorrectionText = null);
 

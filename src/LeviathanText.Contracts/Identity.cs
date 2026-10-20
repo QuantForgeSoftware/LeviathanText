@@ -90,3 +90,27 @@ public readonly record struct EntityId
         return suffix;
     }
 }
+
+
+/// <summary>Role granted to an authenticated account (shared deployments).</summary>
+public enum UserRole
+{
+    /// <summary>Read-only access.</summary>
+    Reader,
+    /// <summary>May import, edit, run jobs and export.</summary>
+    Annotator,
+    /// <summary>May additionally record review decisions.</summary>
+    Reviewer,
+    /// <summary>May manage users and delete projects.</summary>
+    Admin,
+}
+
+/// <summary>Public view of an account; key material is never part of this record.</summary>
+public sealed record UserAccount
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required UserRole Role { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public bool Disabled { get; init; }
+}

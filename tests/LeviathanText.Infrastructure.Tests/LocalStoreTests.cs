@@ -131,3 +131,88 @@ public class LocalStoreTests : IDisposable
         ],
     };
 }
+
+public sealed class LocalStoreUserTests : IDisposable
+{
+    private readonly string _path = Path.Combine(Path.GetTempPath(), $"lt-users-{Guid.NewGuid():N}.db");
+
+    [Fact]
+    public void Users_are_created_authenticated_rotated_and_disabled()
+    {
+        using var store = new LocalStore(_path);
+        var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+        var hash = LeviathanText.Infrastructure.UserKeys.Hash(key);
+
+        var account = store.CreateUser("reviewer-a", UserRole.Reviewer, hash);
+        Assert.Equal(UserRole.Reviewer, account.Role);
+        Assert.Equal(account.Id, store.FindUserByKeyHash(hash)?.Id);
+        Assert.Null(store.FindUserByKeyHash(LeviathanText.Infrastructure.UserKeys.Hash("wrong")));
+        Assert.Single(store.LoadUsers());
+
+        var rotated = LeviathanText.Infrastructure.UserKeys.NewKey();
+        store.UpdateUserKey(account.Id, LeviathanText.Infrastructure.UserKeys.Hash(rotated));
+        Assert.Null(store.FindUserByKeyHash(hash));
+        Assert.NotNull(store.FindUserByKeyHash(LeviathanText.Infrastructure.UserKeys.Hash(rotated)));
+
+        store.DisableUser(account.Id);
+        Assert.Null(store.FindUserByKeyHash(LeviathanText.Infrastructure.UserKeys.Hash(rotated)));
+        Assert.True(store.LoadUsers().Single().Disabled);
+    }
+
+    [Fact]
+    public void Duplicate_user_names_are_rejected()
+    {
+        using var store = new LocalStore(_path);
+        store.CreateUser("same", UserRole.Reader, LeviathanText.Infrastructure.UserKeys.Hash("a"));
+        var ex = Assert.Throws<LeviathanException>(() =>
+            store.CreateUser("same", UserRole.Reader, LeviathanText.Infrastructure.UserKeys.Hash("b")));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+    }
+
+    [Fact]
+    public void Newer_store_schema_is_refused_and_v1_is_migrated()
+    {
+        using (var store = new LocalStore(_path))
+        {
+            store.SaveProject(MinimalProject());
+        }
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path}"))
+        {
+            connection.Open();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = "DROP TABLE users; PRAGMA user_version=1;";
+            cmd.ExecuteNonQuery();
+        }
+
+        using (var migrated = new LocalStore(_path)) // v1 → v2 recreates users
+        {
+            migrated.CreateUser("migrated", UserRole.Reader, "hash");
+            Assert.Single(migrated.LoadUsers());
+            Assert.Single(migrated.ListProjects());
+        }
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path}"))
+        {
+            connection.Open();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA user_version=99;";
+            cmd.ExecuteNonQuery();
+        }
+
+        var ex = Assert.Throws<LeviathanException>(() => new LocalStore(_path));
+        Assert.Equal(ErrorCode.SchemaVersionUnsupported, ex.Error.Code);
+    }
+
+    private static NativeProject MinimalProject() => new()
+    {
+        Id = new EntityId(EntityKind.Collection, "col-users"),
+        Name = "users-fixture",
+        Objects = [],
+    };
+
+    public void Dispose()
+    {
+        if (File.Exists(_path)) File.Delete(_path);
+    }
+}
