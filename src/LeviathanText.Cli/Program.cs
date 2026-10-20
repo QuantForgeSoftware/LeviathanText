@@ -410,6 +410,15 @@ public static class Program
                 var csvPath = Flag("--out") ?? "evaluation.csv";
                 var jsonPath = Flag("--json") ?? Path.ChangeExtension(csvPath, ".json");
                 var reportPath = Flag("--report") ?? Path.ChangeExtension(csvPath, ".md");
+                var acceptancePath = Flag("--acceptance");
+                LineEvaluationReport.AcceptanceCriteria? criteria = null;
+                if (acceptancePath is not null)
+                {
+                    if (!File.Exists(acceptancePath))
+                        throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = acceptancePath, Message = "Acceptance criteria file is not readable." });
+                    criteria = LeviathanText.Contracts.Serialization.ContractJson
+                        .FromJson<LineEvaluationReport.AcceptanceCriteria>(File.ReadAllText(acceptancePath));
+                }
 
                 var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension);
                 var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
@@ -430,6 +439,7 @@ public static class Program
                 var splitDigest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
                     System.Text.Encoding.UTF8.GetBytes(digestInput)));
 
+                var acceptance = criteria is null ? null : LineEvaluationReport.Check(summary, criteria);
                 var reportContext = new Dictionary<string, string>
                 {
                     ["package"] = Path.GetFullPath(packageDirectory),
@@ -438,9 +448,10 @@ public static class Program
                     ["split"] = split,
                     ["splitDigest"] = splitDigest,
                 };
+                if (acceptancePath is not null) reportContext["acceptanceCriteria"] = Path.GetFullPath(acceptancePath);
                 File.WriteAllText(csvPath, LineEvaluationReport.ToCsv(rows));
-                File.WriteAllText(jsonPath, LineEvaluationReport.ToJson(summary, reportContext));
-                File.WriteAllText(reportPath, LineEvaluationReport.ToMarkdown(rows, summary, reportContext));
+                File.WriteAllText(jsonPath, LineEvaluationReport.ToJson(summary, reportContext, acceptance));
+                File.WriteAllText(reportPath, LineEvaluationReport.ToMarkdown(rows, summary, reportContext, acceptance));
 
                 var markErrorRate = summary.ReferenceScalars == 0 ? 0 : (double)summary.MarkErrors / summary.ReferenceScalars;
                 var runId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
@@ -458,6 +469,7 @@ public static class Program
                         ["dataset"] = Path.GetFullPath(datasetDirectory),
                         ["split"] = split,
                         ["imageExtension"] = imageExtension,
+                        ["acceptance"] = acceptancePath ?? "",
                     },
                     Metrics = new Dictionary<string, double>
                     {
@@ -468,15 +480,22 @@ public static class Program
                         ["markErrorRate"] = markErrorRate,
                     },
                     Artifacts = [csvPath, jsonPath, reportPath],
-                    Notes = $"{split} split only; locked labels were not used. Labels are not necessarily specialist-adjudicated.",
+                    Notes = $"{split} split only; locked labels were not used. Labels are not necessarily specialist-adjudicated."
+                        + (acceptance is null ? "" : $" Acceptance: {(acceptance.Passed ? "PASS" : "FAIL")}."),
                 });
 
                 Console.WriteLine($"evaluated {summary.Lines} {split} line(s): CER {summary.ScalarCer:0.###}, mark errors {summary.MarkErrors} ({markErrorRate:0.###})");
                 Console.WriteLine($"csv: {csvPath}");
                 Console.WriteLine($"json: {jsonPath}");
                 Console.WriteLine($"report: {reportPath}");
+                if (acceptance is not null)
+                {
+                    Console.WriteLine($"acceptance: {(acceptance.Passed ? "PASS" : "FAIL")}");
+                    foreach (var check in acceptance.Checks)
+                        Console.WriteLine($"  [{(check.Passed ? "x" : " ")}] {check.Name}: {check.Detail}");
+                }
                 Console.WriteLine($"recorded run: {runId}");
-                return 0;
+                return acceptance is { Passed: false } ? 1 : 0;
             }
 
             case "runs" when rest.Length >= 2 && rest[1] == "list":

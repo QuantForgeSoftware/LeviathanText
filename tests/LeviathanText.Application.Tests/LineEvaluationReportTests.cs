@@ -37,6 +37,25 @@ public class LineEvaluationReportTests
     }
 
     [Fact]
+    public void Acceptance_checks_use_only_caller_supplied_thresholds()
+    {
+        var (_, summary) = LineEvaluationReport.Build([("αβ", "α"), ("γ", "γ")]);
+        var pass = LineEvaluationReport.Check(summary, new LineEvaluationReport.AcceptanceCriteria(
+            MaxCer: 1.0, MaxMarkErrorRate: 1.0, MinLines: 2));
+        Assert.True(pass.Passed);
+        Assert.Equal(3, pass.Checks.Count);
+
+        var fail = LineEvaluationReport.Check(summary, new LineEvaluationReport.AcceptanceCriteria(
+            MaxCer: 0.0, MaxMarkErrorRate: 0.0, MinLines: 10));
+        Assert.False(fail.Passed);
+        Assert.Contains(fail.Checks, c => !c.Passed);
+
+        var md = LineEvaluationReport.ToMarkdown([], summary,
+            new Dictionary<string, string> { ["split"] = "dev" }, fail);
+        Assert.Contains("## Acceptance: FAIL", md);
+    }
+
+    [Fact]
     public void Markdown_report_contains_metrics_caveat_and_worst_lines()
     {
         var (rows, summary) = LineEvaluationReport.Build([("αβ", "α"), ("γ", "γ")]);

@@ -93,9 +93,18 @@ leviathan --store pilot.db evaluate lines /abs/page-xml-dir --package ./packages
 
 This scores a packaged model on the **development or training** split only (the locked test
 split is deliberately unavailable here), writes per-line CER/base/mark errors and top
-confusions (CSV/JSON plus a Markdown report), and records an `evaluation` run with the split digest. Empty hypotheses count as
-full-line deletions. It is an analysis aid, not an acceptance claim: labels may not be
-specialist-adjudicated.
+confusions (CSV/JSON plus a Markdown report), and records an `evaluation` run with the split
+digest. Empty hypotheses count as full-line deletions. It is an analysis aid, not an acceptance
+claim: labels may not be specialist-adjudicated.
+
+To apply frozen thresholds, pass an acceptance file; the command exits nonzero on failure:
+
+```json
+{"maxCer": 0.5, "maxMarkErrorRate": 0.1, "minLines": 100}
+```
+
+`--acceptance criteria.json` records PASS/FAIL in the JSON/Markdown report and run notes. The
+tool never invents threshold values; the project owner/Greek reviewer must freeze them.
 
 ## Review queue
 

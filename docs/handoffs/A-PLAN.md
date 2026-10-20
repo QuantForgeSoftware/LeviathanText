@@ -462,6 +462,7 @@ Blockers recorded so far:
   50 MP per page) into one capture-only surface per page; optional PdfPig text extraction is
   imported as coordinate-bearing **L2 reference** (never L1). CLI `import pdf --text` and
   `POST /projects/{id}/import-pdf`; no PDF layout inference.
+- **Acceptance gate:** `evaluate lines --acceptance` applies caller-supplied thresholds and exits nonzero on failure.
 - **Run regression gate:** `runs regress` compares stored metrics with an absolute tolerance and exits nonzero on regression.
 - **Evaluation drilldown:** `evaluate lines` scores a packaged model on dev/train, writes per-line
   CER/base/mark/confusion CSV/JSON + Markdown report and records an `evaluation` run with a split digest; locked
@@ -476,5 +477,5 @@ Blockers recorded so far:
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **542 tests (540 passed + 2 opt-in skips), 0 failed across 13 suites;
+- **Verification:** **543 tests (541 passed + 2 opt-in skips), 0 failed across 13 suites;
   Release 0 warnings/0 errors**; 40 web specs; package and backup/restore rehearsals PASS.

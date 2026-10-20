@@ -35,6 +35,13 @@ public static class LineEvaluationReport
         IReadOnlyList<ConfusionPair> TopInsertions,
         IReadOnlyList<ConfusionPair> TopDeletions);
 
+    /// <summary>Caller-supplied thresholds; the tool never invents acceptance values.</summary>
+    public sealed record AcceptanceCriteria(double? MaxCer = null, double? MaxMarkErrorRate = null, int? MinLines = null);
+
+    public sealed record AcceptanceCheck(string Name, bool Passed, string Detail);
+
+    public sealed record AcceptanceResult(bool Passed, IReadOnlyList<AcceptanceCheck> Checks);
+
     public static (IReadOnlyList<Row> Rows, Summary Summary) Build(
         IEnumerable<(string Reference, string? Hypothesis)> pairs, int top = 10)
     {
@@ -65,6 +72,24 @@ public static class LineEvaluationReport
         return (rows, summary);
     }
 
+    public static AcceptanceResult Check(Summary summary, AcceptanceCriteria criteria)
+    {
+        var checks = new List<AcceptanceCheck>();
+        if (criteria.MinLines is { } minLines)
+            checks.Add(new AcceptanceCheck("minLines", summary.Lines >= minLines,
+                $"{summary.Lines} >= {minLines}"));
+        if (criteria.MaxCer is { } maxCer)
+            checks.Add(new AcceptanceCheck("maxCer", summary.ScalarCer <= maxCer,
+                $"{summary.ScalarCer:0.######} <= {maxCer:0.######}"));
+        if (criteria.MaxMarkErrorRate is { } maxMarkRate)
+        {
+            double rate = summary.ReferenceScalars == 0 ? 0 : (double)summary.MarkErrors / summary.ReferenceScalars;
+            checks.Add(new AcceptanceCheck("maxMarkErrorRate", rate <= maxMarkRate,
+                $"{rate:0.######} <= {maxMarkRate:0.######}"));
+        }
+        return new AcceptanceResult(checks.Count > 0 && checks.All(c => c.Passed), checks);
+    }
+
     public static string ToCsv(IReadOnlyList<Row> rows)
     {
         var sb = new StringBuilder();
@@ -87,7 +112,8 @@ public static class LineEvaluationReport
         return sb.ToString();
     }
 
-    public static string ToJson(Summary summary, IReadOnlyDictionary<string, string> context)
+    public static string ToJson(Summary summary, IReadOnlyDictionary<string, string> context,
+        AcceptanceResult? acceptance = null)
     {
         var payload = new
         {
@@ -101,6 +127,7 @@ public static class LineEvaluationReport
             topSubstitutions = summary.TopSubstitutions,
             topInsertions = summary.TopInsertions,
             topDeletions = summary.TopDeletions,
+            acceptance,
             note = "Line-level error analysis; labels are not necessarily specialist-adjudicated. Locked acceptance sets must not be used for tuning.",
         };
         return JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -112,7 +139,7 @@ public static class LineEvaluationReport
 
 
     public static string ToMarkdown(IReadOnlyList<Row> rows, Summary summary,
-        IReadOnlyDictionary<string, string> context)
+        IReadOnlyDictionary<string, string> context, AcceptanceResult? acceptance = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine("# Evaluation error report");
@@ -126,6 +153,14 @@ public static class LineEvaluationReport
         sb.AppendLine($"- Scalar CER: {summary.ScalarCer:0.######}");
         sb.AppendLine($"- Mark errors: {summary.MarkErrors}");
         sb.AppendLine();
+        if (acceptance is not null)
+        {
+            sb.AppendLine($"## Acceptance: {(acceptance.Passed ? "PASS" : "FAIL")}");
+            sb.AppendLine();
+            foreach (var check in acceptance.Checks)
+                sb.AppendLine($"- [{(check.Passed ? "x" : " ")}] `{check.Name}` {check.Detail}");
+            sb.AppendLine();
+        }
         sb.AppendLine("## Top confusions");
         AppendPairs(sb, "Substitutions", summary.TopSubstitutions);
         AppendPairs(sb, "Insertions", summary.TopInsertions);
