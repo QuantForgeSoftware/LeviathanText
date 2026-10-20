@@ -24,7 +24,7 @@ are not specialist-adjudicated.
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
 | Durable jobs | layout/import/recognize jobs, leases, cancel | worker/API tests + live smoke | no scheduler/priority/quota |
 | Web workspace | editor, geometry, review, search, jobs, auth | 29 specs | no concurrent workspaces, no deep links |
-| Auth/roles | accounts + roles + audit | role/audit tests | no SSO/session policy; no per-object membership |
+| Auth/roles | accounts + roles + audit + opt-in per-project membership | role/audit/membership tests | no SSO/session policy or invitation/presence UI |
 | Backup/restore | checksummed snapshot/restore | infra tests + smoke | no automated restore rehearsal/rollback UI |
 | Packaging | publish + fresh-install smoke | script PASS | no installers/updaters; target matrix untested |
 | Migration from Kraken | public formats only | import paths | no automatic project migration |

@@ -210,7 +210,23 @@ blocks all mutations regardless of role. Without a bootstrap key and without acc
 runs local-only and logs a warning.
 
 Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
-`POST /api/v1/users/{id}/disable|rotate`). Authentication/authorization events are recorded:
+`POST /api/v1/users/{id}/disable|rotate`).
+
+**Per-project membership (opt-in):** set `LeviathanText:Auth:ProjectMembership=true` to scope
+non-admin access to projects they belong to. A project created through the API automatically
+adds its creator; projects created by the CLI start with no members until an admin adds them.
+Admins manage membership with `GET/POST /projects/{id}/members` and
+`DELETE /projects/{id}/members/{userId}`, or:
+
+```bash
+leviathan --store pilot.db project member list <projectId>
+leviathan --store pilot.db project member add <projectId> <userId>
+leviathan --store pilot.db project member remove <projectId> <userId>
+```
+
+Membership covers project routes and indirect entity routes (`/lines`, `/surfaces`, `/regions`,
+`/annotations`); admins bypass it. Entity→project resolution scans projects, which is acceptable
+at pilot scale but not a high-throughput design. Authentication/authorization events are recorded:
 `leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
 denials, never key material). The Angular workspace has an **API key panel**: paste
 a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after

@@ -13,7 +13,7 @@ namespace LeviathanText.Infrastructure;
 /// </summary>
 public sealed class LocalStore : IDisposable, IProjectStore
 {
-    public const int SchemaVersion = 3;
+    public const int SchemaVersion = 4;
 
     private readonly SqliteConnection _connection;
 
@@ -88,6 +88,12 @@ public sealed class LocalStore : IDisposable, IProjectStore
                     method TEXT NOT NULL,
                     path TEXT NOT NULL,
                     status INTEGER
+                );
+                CREATE TABLE IF NOT EXISTS project_members (
+                    project_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    added_at TEXT NOT NULL,
+                    PRIMARY KEY (project_id, user_id)
                 );
                 """;
             ddl.ExecuteNonQuery();
@@ -182,6 +188,67 @@ public sealed class LocalStore : IDisposable, IProjectStore
         cmd.Parameters.AddWithValue("$id", id);
         if (cmd.ExecuteNonQuery() == 0)
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
+    }
+
+    // ---- project membership ----
+
+    public void AddProjectMember(EntityId projectId, string userId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO project_members (project_id, user_id, added_at) VALUES ($project, $user, $at)
+            ON CONFLICT(project_id, user_id) DO NOTHING
+            """;
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        cmd.Parameters.AddWithValue("$user", userId);
+        cmd.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+    }
+
+    public void RemoveProjectMember(EntityId projectId, string userId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM project_members WHERE project_id = $project AND user_id = $user";
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        cmd.Parameters.AddWithValue("$user", userId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<string> LoadProjectMembers(EntityId projectId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT user_id FROM project_members WHERE project_id = $project ORDER BY user_id";
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        using var reader = cmd.ExecuteReader();
+        var members = new List<string>();
+        while (reader.Read()) members.Add(reader.GetString(0));
+        return members;
+    }
+
+    public bool IsProjectMember(EntityId projectId, string userId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM project_members WHERE project_id = $project AND user_id = $user LIMIT 1";
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        cmd.Parameters.AddWithValue("$user", userId);
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>Find the project containing a line/surface/region/annotation id (membership checks).</summary>
+    public EntityId? FindProjectForEntity(EntityId entityId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, json FROM projects";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var project = NativeJson.Load(reader.GetString(1));
+            bool found = project.Objects.SelectMany(o => o.Surfaces).Any(s =>
+                s.Id == entityId || s.Lines.Any(l => l.Id == entityId) || s.Regions.Any(r => r.Id == entityId)
+                || s.Annotations.Any(a => a.Id == entityId));
+            if (found) return project.Id;
+        }
+        return null;
     }
 
     // ---- auth audit ----

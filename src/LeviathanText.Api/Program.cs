@@ -206,6 +206,20 @@ app.Use(async (context, next) =>
         return;
     }
 
+    var membershipEnabled = context.RequestServices.GetRequiredService<IConfiguration>()
+        .GetValue<bool>("LeviathanText:Auth:ProjectMembership");
+    if (membershipEnabled && principal.Role != UserRole.Admin)
+    {
+        var projectId = ProjectIdForMembership(context, store);
+        if (projectId is { } scoped && !store.IsProjectMember(scoped, principal.Id))
+        {
+            store.AppendAuthAudit(AuditOf(context, principal, "denied", StatusCodes.Status403Forbidden));
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { code = "forbidden", message = "You are not a member of this project." });
+            return;
+        }
+    }
+
     context.Items["user"] = principal;
     await next();
     if (!readOnlyRequest)
@@ -230,19 +244,50 @@ static bool IsReviewDecision(string method, string path) =>
 static bool IsAdminOnly(string path, string method) =>
     path.StartsWith("/api/v1/users", StringComparison.OrdinalIgnoreCase)
     || path.StartsWith("/api/v1/audit", StringComparison.OrdinalIgnoreCase)
+    || path.Contains("/members", StringComparison.OrdinalIgnoreCase)
     || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
+
+static EntityId? ProjectIdForMembership(HttpContext context, LocalStore store)
+{
+    var segments = (context.Request.Path.Value ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
+    if (segments.Length >= 4 && segments[0] == "api" && segments[1] == "v1" && segments[2] == "projects")
+        return EntityId.TryParse(segments[3], EntityKind.Collection, out var projectId) ? projectId : null;
+
+    if (segments.Length >= 4 && segments[0] == "api" && segments[1] == "v1"
+        && segments[2] is "lines" or "surfaces" or "regions" or "annotations")
+    {
+        var kind = segments[2] switch
+        {
+            "lines" => EntityKind.Line,
+            "surfaces" => EntityKind.Surface,
+            "regions" => EntityKind.Region,
+            _ => EntityKind.Annotation,
+        };
+        if (EntityId.TryParse(segments[3], kind, out var entity)) return store.FindProjectForEntity(entity);
+    }
+    return null;
+}
 
 app.MapControllers();
 
 // Versioned REST (interchange-and-api.md §2). All bodies use the contract JSON conventions.
 var api = app.MapGroup("/api/v1");
 
-api.MapGet("projects", (ProjectService projects) =>
-    Results.Ok(projects.List().Select(p => new { id = p.Id.ToString(), name = p.Name })));
+api.MapGet("projects", (ProjectService projects, LocalStore store, HttpContext http, IConfiguration configuration) =>
+{
+    var principal = http.Items["user"] as UserAccount;
+    bool scope = configuration.GetValue<bool>("LeviathanText:Auth:ProjectMembership")
+                 && principal is not null && principal.Role != UserRole.Admin;
+    var rows = projects.List()
+        .Where(p => !scope || store.IsProjectMember(p.Id, principal!.Id))
+        .Select(p => new { id = p.Id.ToString(), name = p.Name });
+    return Results.Ok(rows);
+});
 
-api.MapPost("projects", (ProjectService projects, [FromBody] CreateProjectRequest request) =>
+api.MapPost("projects", (ProjectService projects, LocalStore store, HttpContext http, [FromBody] CreateProjectRequest request) =>
 {
     var project = projects.Create(request.Name, track: request.Track);
+    if (http.Items["user"] is UserAccount principal) store.AddProjectMember(project.Id, principal.Id);
     return Results.Created($"/api/v1/projects/{project.Id}", new { id = project.Id.ToString(), name = project.Name });
 });
 
@@ -840,6 +885,31 @@ api.MapGet("me", (HttpContext http) =>
 
 api.MapGet("audit", (LocalStore store, int? limit) => Results.Ok(store.LoadAuthAudit(limit ?? 100)));
 
+api.MapGet("projects/{id}/members", (ProjectService projects, LocalStore store, string id) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    return Results.Ok(store.LoadProjectMembers(projectId));
+});
+
+api.MapPost("projects/{id}/members", (ProjectService projects, LocalStore store, string id, [FromBody] AddProjectMemberRequest request) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    if (string.IsNullOrWhiteSpace(request.UserId))
+        throw new LeviathanException(new LeviathanError { Code = ErrorCode.StageContractViolation, Scope = "members", Message = "userId is required." });
+    store.AddProjectMember(projectId, request.UserId);
+    return Results.Ok(store.LoadProjectMembers(projectId));
+});
+
+api.MapDelete("projects/{id}/members/{userId}", (ProjectService projects, LocalStore store, string id, string userId) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    store.RemoveProjectMember(projectId, userId);
+    return Results.NoContent();
+});
+
 api.MapGet("users", (LocalStore store) => Results.Ok(store.LoadUsers()));
 
 api.MapPost("users", (LocalStore store, [FromBody] CreateUserRequest request) =>
@@ -979,6 +1049,8 @@ public sealed record CreateJobRequest(string Type, string OwnerId, string? Idemp
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
 
 public sealed record CreateUserRequest(string Name, UserRole Role);
+
+public sealed record AddProjectMemberRequest(string UserId);
 
 public sealed record RetractAnnotationRequest(string Reviewer, string? Reason = null);
 

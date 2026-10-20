@@ -129,6 +129,51 @@ public class LocalStoreTests : IDisposable
         Assert.Equal(403, entries[1].Status);
     }
 
+    [Fact]
+    public void Project_membership_roundtrips_and_resolves_entity_owner()
+    {
+        using var store = new LocalStore(_path);
+        var project = MinimalProject() with
+        {
+            Objects =
+            [
+                new NativeObject
+                {
+                    Id = new EntityId(EntityKind.PhysicalObject, "obj-1"),
+                    Surfaces =
+                    [
+                        new NativeSurface
+                        {
+                            Id = new EntityId(EntityKind.Surface, "surf-1"),
+                            Kind = "page",
+                            Captures = [],
+                            Regions = [],
+                            Lines = [new NativeLine
+                            {
+                                Id = new EntityId(EntityKind.Line, "ln-1"),
+                                RegionId = new EntityId(EntityKind.Region, "reg-1"),
+                                FrameRef = new EntityId(EntityKind.Capture, "cap-1"),
+                            }],
+                        },
+                    ],
+                },
+            ],
+        };
+        store.SaveProject(project);
+
+        store.AddProjectMember(project.Id, "usr-a");
+        store.AddProjectMember(project.Id, "usr-b");
+        store.AddProjectMember(project.Id, "usr-a"); // idempotent
+        Assert.Equal(["usr-a", "usr-b"], store.LoadProjectMembers(project.Id));
+        Assert.True(store.IsProjectMember(project.Id, "usr-a"));
+        Assert.False(store.IsProjectMember(project.Id, "usr-c"));
+        Assert.Equal(project.Id, store.FindProjectForEntity(new EntityId(EntityKind.Line, "ln-1")));
+        Assert.Null(store.FindProjectForEntity(new EntityId(EntityKind.Line, "missing")));
+
+        store.RemoveProjectMember(project.Id, "usr-a");
+        Assert.False(store.IsProjectMember(project.Id, "usr-a"));
+    }
+
     private static NativeProject MinimalProject() => new()
     {
         Id = new EntityId(EntityKind.Collection, "c1"),
@@ -246,6 +291,51 @@ public sealed class LocalStoreUserTests : IDisposable
         Assert.Null(entries[0].UserName);
         Assert.Equal(UserRole.Reader, entries[1].Role);
         Assert.Equal(403, entries[1].Status);
+    }
+
+    [Fact]
+    public void Project_membership_roundtrips_and_resolves_entity_owner()
+    {
+        using var store = new LocalStore(_path);
+        var project = MinimalProject() with
+        {
+            Objects =
+            [
+                new NativeObject
+                {
+                    Id = new EntityId(EntityKind.PhysicalObject, "obj-1"),
+                    Surfaces =
+                    [
+                        new NativeSurface
+                        {
+                            Id = new EntityId(EntityKind.Surface, "surf-1"),
+                            Kind = "page",
+                            Captures = [],
+                            Regions = [],
+                            Lines = [new NativeLine
+                            {
+                                Id = new EntityId(EntityKind.Line, "ln-1"),
+                                RegionId = new EntityId(EntityKind.Region, "reg-1"),
+                                FrameRef = new EntityId(EntityKind.Capture, "cap-1"),
+                            }],
+                        },
+                    ],
+                },
+            ],
+        };
+        store.SaveProject(project);
+
+        store.AddProjectMember(project.Id, "usr-a");
+        store.AddProjectMember(project.Id, "usr-b");
+        store.AddProjectMember(project.Id, "usr-a"); // idempotent
+        Assert.Equal(["usr-a", "usr-b"], store.LoadProjectMembers(project.Id));
+        Assert.True(store.IsProjectMember(project.Id, "usr-a"));
+        Assert.False(store.IsProjectMember(project.Id, "usr-c"));
+        Assert.Equal(project.Id, store.FindProjectForEntity(new EntityId(EntityKind.Line, "ln-1")));
+        Assert.Null(store.FindProjectForEntity(new EntityId(EntityKind.Line, "missing")));
+
+        store.RemoveProjectMember(project.Id, "usr-a");
+        Assert.False(store.IsProjectMember(project.Id, "usr-a"));
     }
 
     private static NativeProject MinimalProject() => new()

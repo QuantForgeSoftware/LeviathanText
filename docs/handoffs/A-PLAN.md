@@ -422,3 +422,13 @@ Blockers recorded so far:
   annotated with delivered evidence and blockers.
 - **Verification:** **516 tests (514 passed + 2 opt-in skips), 0 failed across 13 suites; Release
   0 warnings/0 errors**; 34 web specs; demo/fresh-install PASS; locked P01 evaluation remains opt-in.
+
+### Handoff revision 22 — 2026-10-20 (per-project membership)
+
+- Store schema v4 adds `project_members`; migration from v3 is in place (newer schemas refused).
+- Optional `Auth:ProjectMembership=true` scopes non-admin access to member projects, including
+  indirect entity routes; admins bypass; creators auto-join on API creation.
+- Admin API/CLI membership management; membership revocation is immediate; auth audit records
+  denials.
+- Limits: no invitation UI, project-owner role or high-throughput entity→project index (the
+  membership lookup scans projects at pilot scale).

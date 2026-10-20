@@ -523,6 +523,33 @@ public static class Program
                 return strict && report.FlaggedTotal > 0 ? 1 : 0;
             }
 
+            case "project" when rest.Length >= 4 && rest[1] == "member" && rest[2] == "list":
+            {
+                var project = EntityId.Parse(rest[3], EntityKind.Collection);
+                _ = projects.Load(project);
+                foreach (var member in store.LoadProjectMembers(project))
+                    Console.WriteLine(member);
+                return 0;
+            }
+
+            case "project" when rest.Length >= 5 && rest[1] == "member" && rest[2] == "add":
+            {
+                var project = EntityId.Parse(rest[3], EntityKind.Collection);
+                _ = projects.Load(project);
+                store.AddProjectMember(project, rest[4]);
+                Console.WriteLine($"added {rest[4]} to {rest[3]}");
+                return 0;
+            }
+
+            case "project" when rest.Length >= 5 && rest[1] == "member" && rest[2] == "remove":
+            {
+                var project = EntityId.Parse(rest[3], EntityKind.Collection);
+                _ = projects.Load(project);
+                store.RemoveProjectMember(project, rest[4]);
+                Console.WriteLine($"removed {rest[4]} from {rest[3]}");
+                return 0;
+            }
+
             case "project" when rest.Length >= 3 && rest[1] == "delete":
             {
                 if (!rest.Contains("--force"))
