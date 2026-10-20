@@ -56,3 +56,9 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 Model packages are independent of the store schema: recognition packages verify labels,
 architecture and manifest digest; layout packages verify architecture, weights digest and data
 digest, and carry a model card. A package that fails verification is rejected, not guessed at.
+
+
+## Dependency vulnerability check (2026-10-20)
+
+`dotnet list LeviathanText.slnx package --vulnerable --include-transitive` reported **no known
+vulnerable packages** at that time. Re-run before a release; this is a snapshot, not a guarantee.

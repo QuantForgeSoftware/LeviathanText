@@ -61,6 +61,15 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Malformed_json_body_is_a_client_error()
+    {
+        var client = NewClient();
+        var response = await client.PostAsync("/api/v1/projects",
+            new StringContent("{not-json", System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Malformed_identifier_is_a_client_error_not_a_server_fault()
     {
         var response = await NewClient().GetAsync("/api/v1/projects/not-an-entity-id");

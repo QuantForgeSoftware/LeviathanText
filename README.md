@@ -99,6 +99,7 @@ The workspace includes the line editor (polytonic input, revisions, uncertainty/
 - [docs/architecture.md](docs/architecture.md) — module map, data flow, storage, contracts.
 - [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations, review and inscription imports.
 - [docs/release/parity.md](docs/release/parity.md) — honest reference-capability matrix (not a parity claim).
+- [docs/release/security.md](docs/release/security.md) — trust model, controls and known security gaps.
 - [docs/handbook/transcription-guide.md](docs/handbook/transcription-guide.md) — annotator workflow.
 
 ## Measured pilot baselines (honest status)

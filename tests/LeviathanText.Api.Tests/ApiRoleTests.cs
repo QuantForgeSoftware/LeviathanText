@@ -120,4 +120,33 @@ public sealed class ApiRoleTests
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/v1/projects/{project["id"]}")).StatusCode);
         Assert.NotNull(surfaceId);
     }
+
+    private sealed class NoBootstrapFactory(string storePath) : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseSetting("LeviathanText:StorePath", storePath);
+        }
+    }
+
+    [Fact]
+    public async Task Accounts_without_a_bootstrap_key_still_require_authentication()
+    {
+        var storePath = Path.Combine(Path.GetTempPath(), $"leviathan-no-bootstrap-{Guid.NewGuid():N}.db");
+        string annotatorKey;
+        using (var store = new LeviathanText.Infrastructure.LocalStore(storePath))
+        {
+            annotatorKey = LeviathanText.Infrastructure.UserKeys.NewKey();
+            store.CreateUser("annotator", LeviathanText.Contracts.UserRole.Annotator,
+                LeviathanText.Infrastructure.UserKeys.Hash(annotatorKey));
+        }
+
+        using var factory = new NoBootstrapFactory(storePath);
+        var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/v1/projects")).StatusCode);
+
+        var annotator = WithKey(factory.CreateClient(), annotatorKey);
+        Assert.Equal(HttpStatusCode.OK, (await annotator.GetAsync("/api/v1/projects")).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await annotator.PostAsJsonAsync("/api/v1/projects", new { name = "no-bootstrap" })).StatusCode);
+    }
 }
