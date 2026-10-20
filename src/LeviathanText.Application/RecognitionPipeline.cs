@@ -153,6 +153,14 @@ public sealed class RecognitionPipeline
                     CreatedAt = DateTimeOffset.UtcNow,
                     Text = line.L0Text,
                     Confidence = confidence,
+                    GraphemeConfidences =
+                    [
+                        .. line.Confidence.Select(g => new GraphemeConfidenceSpan
+                        {
+                            Range = new ScalarRange(g.StartScalar, g.EndScalar),
+                            Confidence = g.Confidence,
+                        }),
+                    ],
                 };
             }).Where(r => !existing.Contains(r.Id)).ToList();
 

@@ -16,7 +16,8 @@ public static class PersistedReviewQueue
         EntityId RevisionId,
         double? MeanConfidence,
         bool EmptyOutput,
-        string Text);
+        string Text,
+        ScalarRange? WorstSpan);
 
     public static IReadOnlyList<Entry> Build(NativeProject project, EntityId? surfaceId = null)
     {
@@ -33,12 +34,23 @@ public static class PersistedReviewQueue
                     .FirstOrDefault();
                 if (latest is null) continue;
 
+                var spans = latest.GraphemeConfidences
+                    .Where(c => !c.Confidence.IsNone)
+                    .ToList();
+                double? mean = spans.Count > 0
+                    ? spans.Average(c => c.Confidence.Value)
+                    : latest.Confidence.IsNone ? null : latest.Confidence.Value;
+                var worst = spans.Count > 0
+                    ? spans.OrderBy(c => c.Confidence.Value).First().Range
+                    : (ScalarRange?)null;
+
                 entries.Add(new Entry(
                     line.Id,
                     latest.Id,
-                    latest.Confidence.IsNone ? null : latest.Confidence.Value,
+                    mean,
                     string.IsNullOrWhiteSpace(latest.Text),
-                    latest.Text));
+                    latest.Text,
+                    worst));
             }
         }
 

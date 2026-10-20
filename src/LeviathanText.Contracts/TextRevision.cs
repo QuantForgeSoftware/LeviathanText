@@ -77,4 +77,18 @@ public sealed record TextRevision
     /// <see cref="Confidence.None"/> for human revisions. The scale travels with the value.
     /// </summary>
     public Confidence Confidence { get; init; } = Confidence.None;
+
+    /// <summary>
+    /// Per-grapheme confidence spans for model revisions (scalar ranges into <see cref="Text"/>).
+    /// Empty for human revisions. Bounded by the text; consumers must not fabricate values.
+    /// </summary>
+    public IReadOnlyList<GraphemeConfidenceSpan> GraphemeConfidences { get; init; } = [];
+}
+
+
+/// <summary>Confidence for one grapheme span of a revision (scalar offset range).</summary>
+public sealed record GraphemeConfidenceSpan
+{
+    public required ScalarRange Range { get; init; }
+    public required Confidence Confidence { get; init; }
 }

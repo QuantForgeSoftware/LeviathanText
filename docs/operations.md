@@ -174,7 +174,9 @@ blocks all mutations regardless of role. Without a bootstrap key and without acc
 runs local-only and logs a warning.
 
 Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
-`POST /api/v1/users/{id}/disable|rotate`). The Angular workspace has an **API key panel**: paste
+`POST /api/v1/users/{id}/disable|rotate`). Authentication/authorization events are recorded:
+`leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
+denials, never key material). The Angular workspace has an **API key panel**: paste
 a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after
 changing keys. Concurrent edit handling and per-object workspace membership are not implemented.
 

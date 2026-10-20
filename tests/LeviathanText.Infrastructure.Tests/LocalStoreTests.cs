@@ -107,6 +107,28 @@ public class LocalStoreTests : IDisposable
 
     public void Dispose() => File.Delete(_path);
 
+    [Fact]
+    public void Auth_audit_entries_are_appended_and_read_newest_first()
+    {
+        using var store = new LocalStore(_path);
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow.AddSeconds(-2), UserName = "reader", Role = UserRole.Reader,
+            Action = "denied", Method = "POST", Path = "/api/v1/projects", Status = 403,
+        });
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow, Action = "unauthorized", Method = "GET", Path = "/api/v1/projects", Status = 401,
+        });
+
+        var entries = store.LoadAuthAudit();
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("unauthorized", entries[0].Action);
+        Assert.Null(entries[0].UserName);
+        Assert.Equal(UserRole.Reader, entries[1].Role);
+        Assert.Equal(403, entries[1].Status);
+    }
+
     private static NativeProject MinimalProject() => new()
     {
         Id = new EntityId(EntityKind.Collection, "c1"),
@@ -202,6 +224,28 @@ public sealed class LocalStoreUserTests : IDisposable
 
         var ex = Assert.Throws<LeviathanException>(() => new LocalStore(_path));
         Assert.Equal(ErrorCode.SchemaVersionUnsupported, ex.Error.Code);
+    }
+
+    [Fact]
+    public void Auth_audit_entries_are_appended_and_read_newest_first()
+    {
+        using var store = new LocalStore(_path);
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow.AddSeconds(-2), UserName = "reader", Role = UserRole.Reader,
+            Action = "denied", Method = "POST", Path = "/api/v1/projects", Status = 403,
+        });
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow, Action = "unauthorized", Method = "GET", Path = "/api/v1/projects", Status = 401,
+        });
+
+        var entries = store.LoadAuthAudit();
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("unauthorized", entries[0].Action);
+        Assert.Null(entries[0].UserName);
+        Assert.Equal(UserRole.Reader, entries[1].Role);
+        Assert.Equal(403, entries[1].Status);
     }
 
     private static NativeProject MinimalProject() => new()

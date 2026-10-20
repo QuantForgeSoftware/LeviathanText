@@ -21,7 +21,7 @@
 | Model package (§3): architecture, weights, tokenizer, provenance, hashes | `ModelPackageWriter`/`RecognitionModelLoader` verify labels, arch, digest; package from `train lines`; model card | **conforms** |
 | Layout model package (analogue of §3) | `patch-row-cnn-v2` package checks architecture, weights **SHA-256 digest**, and writes a model card with scope/limitations; metadata records threshold, counts, seed | **conforms (pilot)** |
 | Reject executable payloads / path limits | Loader reads only named files; no script/exec loading; archive/encoded size and dimension limits | **conforms** (checkpoint format is data-only) |
-| Confidence semantics (§4) | Confidence carries scale and source; layout/geometry use `None`; L0 revisions persist the **mean raw probability** with its scale (per-grapheme detail remains in-memory for review queues) | **conforms** (mean persisted; per-grapheme persistence open) |
+| Confidence semantics (§4) | Confidence carries scale and source; layout/geometry use `None`; L0 revisions persist the **mean and per-grapheme raw probabilities** with scalar ranges | **conforms** |
 | Jobs (§5): durable, leases, heartbeats, idempotency, cancellation | SQLite-backed jobs, timed leases, API key idempotency, DB pickup, cancellation between batch items | **conforms** (cancellation granularity documented) |
 | At-least-once execution with idempotent output | Recognition uses a stable run id (job id); re-running the same run appends no duplicate L0 revisions | **conforms** |
 | Error vocabulary (§6) | Closed `ErrorCode` set mapped to HTTP; transport-level auth/read-only errors use separate `code` strings | **documented deviation** (auth is transport, not pipeline) |
@@ -31,7 +31,7 @@
 | Scoring (examples §1–2) | `RecognitionScorer` (scalar+grapheme+mark attribution); explicit uncertainty spans in training export; blank/missed-line cases covered by page-CER matching | **conforms** to the documented semantics |
 | Corpus manifest fields | Ledgers use the documented fields; no new required fields added | **conforms** |
 | Interchange formats | PAGE, bounded TEI, IIIF P3, ALTO v4, hOCR; loss reports mandatory; unsupported elements reported; DTD refused | **conforms** to the bounded-profile contract |
-| Shared deployment identity | Local accounts with role-based authorization, hashed API keys, rotation/disable; bootstrap admin key; transport-level 401/403 | **conforms (pilot)**; no SSO, refresh tokens, per-object workspaces or structured auth audit |
+| Shared deployment identity | Local accounts with role-based authorization, hashed API keys, rotation/disable; bootstrap admin key; auth audit (mutations/denials); transport-level 401/403 | **conforms (pilot)**; no SSO, refresh tokens or per-object workspaces |
 | HTTP/UI contracts (§2/§3) | Implemented inventory recorded in interchange-and-api §2.4; UI dual pane, marks, drafts, geometry, search, jobs, models | **conforms**; search/models/recognize/CSV/profile/bundle routes are pilot surfaces not yet named in the contract body |
 
 ## Open actions (recommendation for the next contract increment)

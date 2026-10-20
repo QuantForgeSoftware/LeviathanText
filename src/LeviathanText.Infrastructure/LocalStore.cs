@@ -13,7 +13,7 @@ namespace LeviathanText.Infrastructure;
 /// </summary>
 public sealed class LocalStore : IDisposable, IProjectStore
 {
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     private readonly SqliteConnection _connection;
 
@@ -77,6 +77,17 @@ public sealed class LocalStore : IDisposable, IProjectStore
                     key_hash TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL,
                     disabled INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS auth_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    at TEXT NOT NULL,
+                    user_id TEXT,
+                    user_name TEXT,
+                    role TEXT,
+                    action TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    status INTEGER
                 );
                 """;
             ddl.ExecuteNonQuery();
@@ -171,6 +182,54 @@ public sealed class LocalStore : IDisposable, IProjectStore
         cmd.Parameters.AddWithValue("$id", id);
         if (cmd.ExecuteNonQuery() == 0)
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
+    }
+
+    // ---- auth audit ----
+
+    public void AppendAuthAudit(AuthAuditEntry entry)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO auth_audit (at, user_id, user_name, role, action, method, path, status)
+            VALUES ($at, $uid, $name, $role, $action, $method, $path, $status)
+            """;
+        cmd.Parameters.AddWithValue("$at", entry.At.ToString("O"));
+        cmd.Parameters.AddWithValue("$uid", (object?)entry.UserId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$name", (object?)entry.UserName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$role", entry.Role is { } role ? role.ToString() : DBNull.Value);
+        cmd.Parameters.AddWithValue("$action", entry.Action);
+        cmd.Parameters.AddWithValue("$method", entry.Method);
+        cmd.Parameters.AddWithValue("$path", entry.Path);
+        cmd.Parameters.AddWithValue("$status", (object?)entry.Status ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<AuthAuditEntry> LoadAuthAudit(int limit = 100)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, at, user_id, user_name, role, action, method, path, status
+            FROM auth_audit ORDER BY id DESC LIMIT $limit
+            """;
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 5000));
+        using var reader = cmd.ExecuteReader();
+        var entries = new List<AuthAuditEntry>();
+        while (reader.Read())
+        {
+            entries.Add(new AuthAuditEntry
+            {
+                Id = reader.GetInt64(0),
+                At = DateTimeOffset.Parse(reader.GetString(1), System.Globalization.CultureInfo.InvariantCulture),
+                UserId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                UserName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Role = reader.IsDBNull(4) ? null : Enum.Parse<UserRole>(reader.GetString(4)),
+                Action = reader.GetString(5),
+                Method = reader.GetString(6),
+                Path = reader.GetString(7),
+                Status = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+            });
+        }
+        return entries;
     }
 
     // ---- projects ----

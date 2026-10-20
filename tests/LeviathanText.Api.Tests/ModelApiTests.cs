@@ -113,6 +113,7 @@ public sealed class ModelApiTests : IDisposable
         var revisions = await client.GetStringAsync($"/api/v1/lines/{lineId}/revisions?layer=L0RawRecognition");
         Assert.Contains("L0RawRecognition", revisions);
         Assert.Contains("model:tiny", revisions);
+        Assert.Contains("\"graphemeConfidences\"", await client.GetStringAsync($"/api/v1/lines/{lineId}"));
 
         var queue = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/review-queue");
         Assert.Contains(lineId, queue);

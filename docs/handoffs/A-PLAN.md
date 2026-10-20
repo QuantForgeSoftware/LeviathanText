@@ -353,3 +353,15 @@ Blockers recorded so far:
   `POST /users/{id}/disable|rotate` (admin only).
 - **Limits:** no SSO/refresh tokens, per-object workspace membership, structured auth audit, or
   a workspace login prompt. Existing local-only tests and behavior remain unchanged.
+
+### Handoff revision 18 — 2026-10-20 (confidence detail, auth audit, workspace auth)
+
+- **Per-grapheme confidence persisted** on L0 revisions (`GraphemeConfidenceSpan` with scalar
+  ranges and explicit scale); the review queue now uses exact means and reports the worst span.
+  Line payloads expose the spans.
+- **Auth audit** (store schema v3): mutations and denials recorded with user/role/status and no
+  key material; `audit list` / `GET /audit` (admin). Migration v1→v3 tested; newer schemas refused.
+- **Workspace auth:** API-key panel + HTTP interceptor (`X-Api-Key`), SSE query-token helper, and
+  the missing `provideHttpClient` in the app config fixed.
+- **Verified:** infrastructure user/audit tests, role authorization test extended, interceptor
+  spec; counts recorded after the closing run.

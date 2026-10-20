@@ -334,6 +334,15 @@ public static class Program
                 return 0;
             }
 
+            case "audit" when rest.Length >= 2 && rest[1] == "list":
+            {
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 50;
+                foreach (var entry in store.LoadAuthAudit(limit))
+                    Console.WriteLine($"{entry.At:O}\t{entry.Action}\t{entry.UserName ?? "-"}\t{entry.Role?.ToString() ?? "-"}\t{entry.Method} {entry.Path}\t{entry.Status}");
+                return 0;
+            }
+
             case "user" when rest.Length >= 3 && rest[1] == "add":
             {
                 var roleIndex = Array.IndexOf(rest, "--role");

@@ -114,3 +114,20 @@ public sealed record UserAccount
     public required DateTimeOffset CreatedAt { get; init; }
     public bool Disabled { get; init; }
 }
+
+
+/// <summary>Structured authentication/authorization audit entry (mutations and denials).</summary>
+public sealed record AuthAuditEntry
+{
+    public long Id { get; init; }
+    public required DateTimeOffset At { get; init; }
+    public string? UserId { get; init; }
+    public string? UserName { get; init; }
+    public UserRole? Role { get; init; }
+
+    /// <summary>authenticated | denied | unauthorized</summary>
+    public required string Action { get; init; }
+    public required string Method { get; init; }
+    public required string Path { get; init; }
+    public int? Status { get; init; }
+}

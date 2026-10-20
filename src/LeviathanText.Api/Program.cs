@@ -157,6 +157,14 @@ app.Use(async (context, next) =>
 
     if (principal is null)
     {
+        store.AppendAuthAudit(new AuthAuditEntry
+        {
+            At = DateTimeOffset.UtcNow,
+            Action = "unauthorized",
+            Method = context.Request.Method,
+            Path = context.Request.Path,
+            Status = StatusCodes.Status401Unauthorized,
+        });
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new { code = "unauthorized", message = "Missing or invalid API key." });
         return;
@@ -165,6 +173,7 @@ app.Use(async (context, next) =>
     bool readOnlyRequest = HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method);
     if (authReadOnly && !readOnlyRequest)
     {
+        store.AppendAuthAudit(AuditOf(context, principal, "denied", StatusCodes.Status403Forbidden));
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await context.Response.WriteAsJsonAsync(new { code = "read_only", message = "This deployment is read-only." });
         return;
@@ -191,6 +200,7 @@ app.Use(async (context, next) =>
     }
     if (!allowed)
     {
+        store.AppendAuthAudit(AuditOf(context, principal, "denied", StatusCodes.Status403Forbidden));
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await context.Response.WriteAsJsonAsync(new { code = "forbidden", message = "This account lacks the required role." });
         return;
@@ -198,13 +208,28 @@ app.Use(async (context, next) =>
 
     context.Items["user"] = principal;
     await next();
+    if (!readOnlyRequest)
+        store.AppendAuthAudit(AuditOf(context, principal, "authenticated", context.Response.StatusCode));
 });
+
+static AuthAuditEntry AuditOf(HttpContext context, UserAccount principal, string action, int status) => new()
+{
+    At = DateTimeOffset.UtcNow,
+    UserId = principal.Id,
+    UserName = principal.Name,
+    Role = principal.Role,
+    Action = action,
+    Method = context.Request.Method,
+    Path = context.Request.Path,
+    Status = status,
+};
 
 static bool IsReviewDecision(string method, string path) =>
     HttpMethods.IsPost(method) && path.EndsWith("/review", StringComparison.OrdinalIgnoreCase);
 
 static bool IsAdminOnly(string path, string method) =>
     path.StartsWith("/api/v1/users", StringComparison.OrdinalIgnoreCase)
+    || path.StartsWith("/api/v1/audit", StringComparison.OrdinalIgnoreCase)
     || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
 
 app.MapControllers();
@@ -667,6 +692,12 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
             author = r.Author.Id,
             at = r.CreatedAt,
             confidence = r.Confidence,
+            graphemeConfidences = r.GraphemeConfidences.Select(c => new
+            {
+                start = c.Range.Start,
+                end = c.Range.End,
+                confidence = c.Confidence,
+            }),
         }),
     });
 });
@@ -773,6 +804,8 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 
 // Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
 // with the job resource remaining authoritative.
+api.MapGet("audit", (LocalStore store, int? limit) => Results.Ok(store.LoadAuthAudit(limit ?? 100)));
+
 api.MapGet("users", (LocalStore store) => Results.Ok(store.LoadUsers()));
 
 api.MapPost("users", (LocalStore store, [FromBody] CreateUserRequest request) =>

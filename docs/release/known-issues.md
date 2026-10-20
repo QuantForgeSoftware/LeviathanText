@@ -53,7 +53,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 - Shared deployment has **local accounts with roles** (reader/annotator/reviewer/admin), hashed
   keys, rotation/disable and a read-only mode. There are no refresh tokens, SSO, per-object
-  workspace membership or structured auth audit logs. The workspace has an API-key panel
+  workspace membership. Basic auth audit entries exist (mutations/denials). The workspace has an API-key panel
   (localStorage; X-Api-Key + SSE query token); local-only mode remains the default.
 - Provider credentials are read from environment variables; hosted provider calls are unproven.
 

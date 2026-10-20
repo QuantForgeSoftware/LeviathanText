@@ -104,6 +104,12 @@ public sealed class ApiRoleTests
         var newAnnotator = WithKey(factory.CreateClient(), rotatedJson.RootElement.GetProperty("apiKey").GetString()!);
         Assert.Equal(HttpStatusCode.OK, (await newAnnotator.GetAsync("/api/v1/projects")).StatusCode);
 
+        // Auth audit: admin can read it; annotators cannot.
+        Assert.Equal(HttpStatusCode.Forbidden, (await newAnnotator.GetAsync("/api/v1/audit")).StatusCode);
+        var audit = await admin.GetStringAsync("/api/v1/audit?limit=100");
+        Assert.Contains("unauthorized", audit);
+        Assert.Contains("authenticated", audit);
+
         // Project deletion is admin-only.
         Assert.Equal(HttpStatusCode.Forbidden, (await newAnnotator.DeleteAsync($"/api/v1/projects/{project["id"]}")).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/v1/projects/{project["id"]}")).StatusCode);
