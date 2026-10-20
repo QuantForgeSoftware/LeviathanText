@@ -427,6 +427,47 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Review_ledger_supports_double_review_correction_and_adjudication_export()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "review-e2e");
+        var projectId = await GetProjectIdAsync(client, "review-e2e");
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
+            new { reviewer = "reviewer-a", outcome = "accept", note = "clear" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
+            new { reviewer = "reviewer-b", outcome = "dispute", note = "damaged" })).StatusCode);
+
+        var line = await client.GetStringAsync($"/api/v1/lines/{lineId}");
+        Assert.Contains("\"reviews\"", line);
+        Assert.Contains("reviewer-b", line);
+        Assert.Contains("dispute", line);
+
+        var summary = await client.GetStringAsync($"/api/v1/projects/{projectId}/review-summary");
+        Assert.Contains("\"needsAdjudication\":1", summary);
+        Assert.Contains("\"doubleReviewedLines\":1", summary);
+
+        var adjudication = await client.GetStringAsync($"/api/v1/projects/{projectId}/adjudication.csv");
+        Assert.Contains(lineId, adjudication);
+        Assert.Contains("reviewer-a=Accept", adjudication);
+
+        var corrected = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
+            new { reviewer = "reviewer-c", outcome = "correct", correctionText = "νεα γραφη" });
+        Assert.Equal(HttpStatusCode.OK, corrected.StatusCode);
+        using var correctedJson = System.Text.Json.JsonDocument.Parse(await corrected.Content.ReadAsStringAsync());
+        Assert.False(string.IsNullOrEmpty(correctedJson.RootElement.GetProperty("correctedRevisionId").GetString()));
+
+        var afterCorrection = await client.GetStringAsync($"/api/v1/lines/{lineId}");
+        Assert.Contains("νεα γραφη", afterCorrection);
+        Assert.Contains("correct", afterCorrection);
+
+        // Wrong payloads are rejected.
+        var invalid = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
+            new { reviewer = "reviewer-a", outcome = "correct" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, invalid.StatusCode);
+    }
+
+    [Fact]
     public async Task Jobs_listing_returns_records_and_filters_by_status()
     {
         var client = NewClient();

@@ -106,6 +106,26 @@ interface UndoStack {
           </ul>
         </details>
 
+        <details open>
+          <summary>Reviews ({{ reviews().length }})</summary>
+          <ul>
+            @for (review of reviews(); track review.id) {
+              <li>
+                <b>{{ review.outcome }}</b> · {{ review.reviewer }}
+                @if (review.note) { — {{ review.note }} }
+              </li>
+            } @empty {
+              <li>No reviews yet (double review: one accept/dispute per reviewer).</li>
+            }
+          </ul>
+          <div class="tools">
+            <button type="button" (click)="recordReview('accept')" [disabled]="!currentRevision()">Accept</button>
+            <button type="button" (click)="recordReview('dispute')" [disabled]="!currentRevision()">Dispute</button>
+            <button type="button" (click)="recordReview('correct')" [disabled]="!currentRevision()">Correct with current text</button>
+            <span class="hint">reviewer: {{ authorId() }}</span>
+          </div>
+        </details>
+
         @if (currentRevision(); as revision) {
           <app-proposal-panel
             [lineId]="lineId()"
@@ -241,6 +261,19 @@ export class LineEditor {
         this.formAlternative.set('');
         this.loadAnnotations();
       },
+      error: () => { /* surfaced by the API; state kept */ },
+    });
+  }
+
+  protected readonly reviews = computed(() => this.payload()?.reviews ?? []);
+
+  protected recordReview(outcome: 'accept' | 'correct' | 'dispute'): void {
+    this.api.recordReview(this.lineId(), {
+      reviewer: this.authorId(),
+      outcome,
+      correctionText: outcome === 'correct' ? this.text() : null,
+    }).subscribe({
+      next: () => this.refresh(),
       error: () => { /* surfaced by the API; state kept */ },
     });
   }

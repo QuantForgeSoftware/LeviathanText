@@ -126,3 +126,45 @@ describe('LineEditor (L0 copy)', () => {
     expect(fixture.nativeElement.textContent).toContain('unsaved');
   });
 });
+
+describe('LineEditor (review ledger)', () => {
+  it('records an accept decision with the reviewer identity and refreshes', () => {
+    const calls: { reviewer: string; outcome: string; correctionText?: string | null }[] = [];
+    let lineLoads = 0;
+    const stub = {
+      line: () => {
+        lineLoads++;
+        return of({
+          line: 'ln-review', diplomatic: 'αβγ',
+          history: [{ id: 'rev-1', layer: 'L1Diplomatic', text: 'αβγ', author: 'human', at: '' }],
+          revisions: [{ id: 'rev-1', layer: 'L1Diplomatic', text: 'αβγ', author: 'human', at: '' }],
+          reviews: [{ id: 'rv-1', reviewer: 'reviewer-a', outcome: 'accept', at: '', revisionId: 'rev-1' }],
+        });
+      },
+      annotations: () => of([]),
+      appendRevision: () => of({}),
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+      recordReview: (_line: string, body: { reviewer: string; outcome: string; correctionText?: string | null }) => {
+        calls.push(body);
+        return of({ reviewId: 'rv-2', outcome: body.outcome });
+      },
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-review');
+    fixture.componentRef.setInput('authorId', 'reviewer-b');
+    fixture.detectChanges();
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find(b => (b as HTMLButtonElement).textContent?.trim() === 'Accept') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+
+    expect(calls).toEqual([{ reviewer: 'reviewer-b', outcome: 'accept', correctionText: null }]);
+    expect(lineLoads).toBeGreaterThan(1); // refresh after recording
+  });
+});

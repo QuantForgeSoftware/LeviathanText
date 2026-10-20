@@ -305,3 +305,15 @@ Blockers recorded so far:
   TRX logging executed all 45 and reproduced the green result.
 - **Not claimed:** multi-column/rotated layout, papyrus layout production use, or broader
   manuscript generalization from one codex; the P01 split remains spent.
+
+### Handoff revision 14 — 2026-10-19 (double review / adjudication)
+
+- **Review ledger:** append-only `ReviewDecision` records on surfaces, anchored to the exact
+  reviewed revision; `Accept`/`Correct`/`Dispute`; a correction creates a new L1 revision and
+  records both revision ids.
+- **Adjudication:** per-project summary (transcribed/reviewed/double-reviewed/disputed/needs
+  adjudication) and an adjudication CSV with each reviewer's decision; exposed via
+  `review line` / `review summary` / `export adjudication`, HTTP endpoints, and the line editor.
+- **Contract:** review decisions documented in domain-and-pipeline §1.3 as an audit ledger, not
+  text revisions. Reviewer identity is a free string; accounts/roles remain open.
+- **Verified:** service + HTTP + UI tests; CLI smoke (accept + dispute → adjudication row).

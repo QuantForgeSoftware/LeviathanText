@@ -106,6 +106,19 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Double review and adjudication
+
+```bash
+leviathan --store pilot.db review line <projectId> <lineId> --reviewer <id> --outcome accept|correct|dispute [--note …] [--text …]
+leviathan --store pilot.db review summary <projectId> [--surface <surfaceId>]
+leviathan --store pilot.db export adjudication <projectId> adjudication.csv
+```
+
+Decisions are append-only and anchored to the exact reviewed revision. A `correct` decision
+creates a new L1 revision (the correction) and records both revision ids. Two reviewers with
+different outcomes make the line an adjudication candidate; the tooling never forces agreement
+and does not adjudicate automatically. The line editor exposes the same actions.
+
 ## Backup and restore
 
 ```bash

@@ -41,6 +41,7 @@ builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<InterchangeService>();
 builder.Services.AddSingleton<TranscriptionService>();
 builder.Services.AddSingleton<GeometryService>();
+builder.Services.AddSingleton<ReviewService>();
 builder.Services.AddSingleton(sp =>
 {
     var cache = builder.Configuration["LeviathanText:ImageCache"]
@@ -549,10 +550,25 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
     var history = transcription.RevisionHistory(project, lineEntityId, TextLayer.L1Diplomatic);
     var all = transcription.AllRevisions(project, lineEntityId);
+    var surfaceForReviews = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Lines.Any(l => l.Id == lineEntityId));
+    var reviews = surfaceForReviews.ReviewDecisions
+        .Where(d => d.LineId == lineEntityId)
+        .OrderBy(d => d.At)
+        .Select(d => new
+        {
+            id = d.Id,
+            reviewer = d.Reviewer,
+            outcome = d.Outcome,
+            at = d.At,
+            note = d.Note,
+            revisionId = d.RevisionId.ToString(),
+            correctedRevisionId = d.CorrectedRevisionId?.ToString(),
+        });
     return Results.Ok(new
     {
         line = lineId,
         diplomatic = history.LastOrDefault()?.Text,
+        reviews,
         history = history.Select(r => new { id = r.Id.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt }),
         revisions = all.Select(r => new
         {
@@ -596,6 +612,36 @@ api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionSe
     {
         id = r.Id.ToString(), layer = r.Layer.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt,
     }));
+});
+
+api.MapPost("lines/{lineId}/review", (ProjectService projects, ReviewService reviews, string lineId, [FromBody] ReviewRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var (_, _, decision, correction) = reviews.Record(project, lineEntityId, request.Reviewer,
+        request.Outcome, request.Note, request.CorrectionText);
+    return Results.Ok(new
+    {
+        reviewId = decision.Id,
+        outcome = decision.Outcome.ToString(),
+        revisionId = decision.RevisionId.ToString(),
+        correctedRevisionId = correction?.Id.ToString(),
+    });
+});
+
+api.MapGet("projects/{id}/review-summary", (ProjectService projects, ReviewService reviews, string id, string? surfaceId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var wanted = string.IsNullOrEmpty(surfaceId) ? (EntityId?)null : EntityId.Parse(surfaceId, EntityKind.Surface);
+    return Results.Ok(reviews.Summarize(project, wanted));
+});
+
+api.MapGet("projects/{id}/adjudication.csv", (ProjectService projects, ReviewService reviews, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(reviews.ExportAdjudicationCsv(project), "text/csv");
 });
 
 api.MapGet("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId) =>
@@ -747,6 +793,8 @@ public sealed record RecognizeRequest(string Model);
 
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null, string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null);
 public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
+
+public sealed record ReviewRequest(string Reviewer, ReviewOutcome Outcome, string? Note = null, string? CorrectionText = null);
 
 public sealed record AddAnnotationRequest(
     AnnotationKind Kind,

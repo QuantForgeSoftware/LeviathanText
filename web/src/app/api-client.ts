@@ -42,11 +42,22 @@ export interface SurfaceSummary {
   lineCount: number;
 }
 
+export interface ReviewPayload {
+  id: string;
+  reviewer: string;
+  outcome: string;
+  at: string;
+  note?: string;
+  revisionId: string;
+  correctedRevisionId?: string;
+}
+
 export interface LinePayload {
   line: string;
   diplomatic: string | null;
   history: RevisionPayload[];
   revisions?: RevisionPayload[];
+  reviews?: ReviewPayload[];
 }
 
 export interface GeometryPoint {
@@ -190,6 +201,16 @@ export class ApiClient {
 
   addAnnotation(lineId: string, annotation: unknown): Observable<AnnotationPayload> {
     return this.http.post<AnnotationPayload>(`/api/v1/lines/${lineId}/annotations`, annotation);
+  }
+
+  recordReview(lineId: string, body: {
+    reviewer: string;
+    outcome: 'accept' | 'correct' | 'dispute';
+    note?: string | null;
+    correctionText?: string | null;
+  }): Observable<{ reviewId: string; outcome: string; correctedRevisionId?: string }> {
+    return this.http.post<{ reviewId: string; outcome: string; correctedRevisionId?: string }>(
+      `/api/v1/lines/${lineId}/review`, body);
   }
 
   annotations(lineId: string): Observable<AnnotationView[]> {

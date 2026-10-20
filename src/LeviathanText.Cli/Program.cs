@@ -310,6 +310,57 @@ public static class Program
                 return 0;
             }
 
+            case "review" when rest.Length >= 4 && rest[1] == "line":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var lineId = EntityId.Parse(rest[3], EntityKind.Line);
+                var reviewerIndex = Array.IndexOf(rest, "--reviewer");
+                var outcomeIndex = Array.IndexOf(rest, "--outcome");
+                var noteIndex = Array.IndexOf(rest, "--note");
+                var textIndex = Array.IndexOf(rest, "--text");
+                if (reviewerIndex < 0 || reviewerIndex + 1 >= rest.Length || outcomeIndex < 0 || outcomeIndex + 1 >= rest.Length)
+                {
+                    Console.Error.WriteLine("usage: review line <projectId> <lineId> --reviewer <id> --outcome accept|correct|dispute [--note ...] [--text ...]");
+                    return 1;
+                }
+                if (!Enum.TryParse<ReviewOutcome>(rest[outcomeIndex + 1], ignoreCase: true, out var outcome))
+                {
+                    Console.Error.WriteLine("outcome must be accept, correct or dispute");
+                    return 1;
+                }
+                var note = noteIndex >= 0 && noteIndex + 1 < rest.Length ? rest[noteIndex + 1] : null;
+                var correction = textIndex >= 0 && textIndex + 1 < rest.Length ? rest[textIndex + 1] : null;
+                var (_, _, decision, revision) = new ReviewService(store).Record(project, lineId,
+                    rest[reviewerIndex + 1], outcome, note, correction);
+                Console.WriteLine($"recorded {decision.Outcome} by {decision.Reviewer} for {lineId}" +
+                                  (revision is null ? "" : $" (new revision {revision.Id})"));
+                return 0;
+            }
+
+            case "review" when rest.Length >= 3 && rest[1] == "summary":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var surfaceIndex = Array.IndexOf(rest, "--surface");
+                EntityId? surfaceId = surfaceIndex >= 0 && surfaceIndex + 1 < rest.Length
+                    ? EntityId.Parse(rest[surfaceIndex + 1], EntityKind.Surface)
+                    : null;
+                var summary = new ReviewService(store).Summarize(project, surfaceId);
+                Console.WriteLine($"transcribed={summary.TranscribedLines} reviewed={summary.ReviewedLines} " +
+                                  $"double-reviewed={summary.DoubleReviewedLines} disputed={summary.DisputedLines} " +
+                                  $"needs-adjudication={summary.NeedsAdjudication}");
+                foreach (var line in summary.Lines.Where(l => l.NeedsAdjudication).Take(20))
+                    Console.WriteLine($"  {line.LineId}: {string.Join(", ", line.Reviewers)} -> {string.Join(", ", line.Outcomes)}");
+                return 0;
+            }
+
+            case "export" when rest.Length >= 4 && rest[1] == "adjudication":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                File.WriteAllText(rest[3], new ReviewService(store).ExportAdjudicationCsv(project));
+                Console.WriteLine($"wrote {rest[3]} (lines needing adjudication)");
+                return 0;
+            }
+
             case "validate" when rest.Length >= 3 && rest[1] == "manifests":
             {
                 var directory = rest[2];

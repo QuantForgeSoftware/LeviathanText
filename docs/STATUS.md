@@ -18,7 +18,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | End-to-end page CER (layout+recognition) | **0.944 mean** vs 0.905 PAGE-box control across 3 seeds on 6 held-out M02a pages (control range 0.878–0.953: layout effect not separable from training variance at this scale) |
 | Training CLI | `train lines` → verified package (manifest + card) |
 | Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir (cooperative cancellation) |
-| Review/ops | persisted review queue, model discovery + recognition, project stats/deletion, manifest audit CLI |
+| Review/ops | persisted review queue, **double-review/adjudication ledger (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
 | Export bundle | native + training + 4 formats + manifest |
 | Backup/restore | consistent snapshot; checksummed restore (db + images) |

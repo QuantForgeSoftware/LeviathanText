@@ -56,6 +56,32 @@ public sealed record NativeSurface
     /// (before/after as compact JSON) are for recovery and review, not for replay.
     /// </summary>
     public IReadOnlyList<GeometryEdit> GeometryEdits { get; init; } = [];
+
+    /// <summary>
+    /// Append-only review decisions (double review / adjudication ledger). Anchored to the
+    /// exact text revision that was reviewed, never to "the line" in the abstract.
+    /// </summary>
+    public IReadOnlyList<ReviewDecision> ReviewDecisions { get; init; } = [];
+}
+
+public enum ReviewOutcome
+{
+    Accept,
+    Correct,
+    Dispute,
+}
+
+public sealed record ReviewDecision
+{
+    /// <summary>Surface-scoped audit id (not an EntityId).</summary>
+    public required string Id { get; init; }
+    public required EntityId LineId { get; init; }
+    public required EntityId RevisionId { get; init; }
+    public required string Reviewer { get; init; }
+    public required ReviewOutcome Outcome { get; init; }
+    public required DateTimeOffset At { get; init; }
+    public string? Note { get; init; }
+    public EntityId? CorrectedRevisionId { get; init; }
 }
 
 public enum GeometryEditKind
