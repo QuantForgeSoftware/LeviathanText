@@ -1,6 +1,8 @@
 # Evaluation records
 
 - [acceptance-plan.md](acceptance-plan.md) — evaluation design, per-track template, roles and gates.
+- [adjudication-runbook.md](adjudication-runbook.md) — development-pilot double review, adjudication,
+  sheet freezing and fresh-witness discipline.
 - Acceptance-sheet drafts (not frozen; thresholds and sign-off pending):
   [papyri](acceptance-papyri-draft.md) · [manuscripts](acceptance-manuscripts-draft.md) ·
   [inscriptions](acceptance-inscriptions-draft.md) (blocked: no image-aligned labels).

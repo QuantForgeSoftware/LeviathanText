@@ -1,32 +1,32 @@
 # Learned layout (patch/row CNN) vs projection — held-out report
 
-- Date: 2026-10-20T00:44:29.3814920+00:00; contract C0-0.4-draft
+- Date: 2026-10-20T00:49:14.0435950+00:00; contract C0-0.4-draft
 - Model: `patch-row-cnn-v2` v2; input 256px high, max width 256; 100 epochs, seed 31
 - Training: 35 M02a train pages (page-level split); threshold selected on 8 M02a dev pages; **test pages never trained on**
 - Held-out: 17 pages (M02a test i%5==0 + 6 P01 test pages, reported separately as out-of-domain)
 - Matching: vertical-band IoU ≥ 0.5; confidence: none (detector has no calibrated probability claim)
-- Training wall time: 46.9s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
+- Training wall time: 82.9s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
 - Threshold selection table (dev only):
 
 | Threshold | Precision | Recall | F1 |
 | --- | --- | --- | --- |
-| 0.20 | 0.989 | 1 | 0.994 |
-| 0.30 | 0.989 | 1 | 0.994 |
-| 0.40 | 0.989 | 1 | 0.994 |
-| 0.50 | 0.989 | 1 | 0.994 |
-| 0.60 | 0.989 | 1 | 0.994 |
-| 0.70 | 0.989 | 1 | 0.994 |
-| 0.80 | 0.989 | 1 | 0.994 |
+| 0.20 | 0.981 | 0.98 | 0.981 |
+| 0.30 | 0.981 | 0.98 | 0.981 |
+| 0.40 | 0.994 | 1 | 0.997 |
+| 0.50 | 0.994 | 1 | 0.997 |
+| 0.60 | 0.994 | 1 | 0.997 |
+| 0.70 | 0.994 | 1 | 0.997 |
+| 0.80 | 0.994 | 1 | 0.997 |
 
-Selected on dev: **0.20**.
+Selected on dev: **0.40**.
 
 | Subset | Detector | Precision | Recall |
 | --- | --- | --- | --- |
-| All held-out | patch CNN | 0.734 | 0.686 |
+| All held-out | patch CNN | 0.744 | 0.692 |
 | All held-out | projection | 0.457 | 0.415 |
-| M02a held-out | patch CNN | 0.965 | 0.987 |
+| M02a held-out | patch CNN | 0.983 | 1 |
 | M02a held-out | projection | 0.523 | 0.545 |
-| P01 (out-of-domain) | patch CNN | 0.31 | 0.134 |
+| P01 (out-of-domain) | patch CNN | 0.306 | 0.126 |
 | P01 (out-of-domain) | projection | 0.337 | 0.176 |
 
 Per-page learned results:
@@ -35,21 +35,21 @@ Per-page learned results:
 | --- | --- | --- | --- | --- | --- |
 | m02a:15_01_0053_0006_f_3r_res | 13 | 16 | 13 | 0.813 | 1 |
 | m02a:15_01_0053_0011_f_5v_res | 19 | 19 | 19 | 1 | 1 |
-| m02a:15_01_0053_0016_f_8r_res | 19 | 20 | 19 | 0.95 | 1 |
+| m02a:15_01_0053_0016_f_8r_res | 19 | 19 | 19 | 1 | 1 |
 | m02a:15_01_0053_0021_f_10v_res | 19 | 19 | 19 | 1 | 1 |
 | m02a:15_01_0053_0026_f_13r_res | 19 | 19 | 19 | 1 | 1 |
 | m02a:15_01_0053_0031_f_15v_res | 19 | 19 | 19 | 1 | 1 |
 | m02a:15_01_0053_0036_f_18r_res | 19 | 19 | 19 | 1 | 1 |
-| m02a:15_01_0053_0041_f_20v_res | 20 | 19 | 18 | 0.947 | 0.9 |
-| m02a:15_01_0053_0046_f_23r_res | 20 | 21 | 20 | 0.952 | 1 |
-| m02a:15_01_0053_0051_f_25v_res | 21 | 21 | 20 | 0.952 | 0.952 |
+| m02a:15_01_0053_0041_f_20v_res | 20 | 20 | 20 | 1 | 1 |
+| m02a:15_01_0053_0046_f_23r_res | 20 | 20 | 20 | 1 | 1 |
+| m02a:15_01_0053_0051_f_25v_res | 21 | 21 | 21 | 1 | 1 |
 | m02a:15_01_0053_0056_f_28r_res | 19 | 19 | 19 | 1 | 1 |
-| p01:P.Cair.Zen.II.59263r | 6 | 6 | 0 | 0 | 0 |
+| p01:P.Cair.Zen.II.59263r | 6 | 3 | 0 | 0 | 0 |
 | p01:P.Cair.Zen.III.59391 | 7 | 6 | 0 | 0 | 0 |
-| p01:P.Cair.Zen.III.59412 | 26 | 12 | 7 | 0.583 | 0.269 |
-| p01:P.Cair.Zen.III.59420 | 2 | 2 | 0 | 0 | 0 |
+| p01:P.Cair.Zen.III.59412 | 26 | 14 | 9 | 0.643 | 0.346 |
+| p01:P.Cair.Zen.III.59420 | 2 | 1 | 0 | 0 | 0 |
 | p01:P.Cair.Zen.III.59428 | 21 | 3 | 1 | 0.333 | 0.048 |
-| p01:P.Cair.Zen.III.59433 | 33 | 17 | 16 | 0.941 | 0.485 |
+| p01:P.Cair.Zen.III.59433 | 33 | 14 | 12 | 0.857 | 0.364 |
 
 ## Decision
 
@@ -90,9 +90,10 @@ measurement makes no locked-test claim.
 | p01:P.Cair.Zen.III.59428 | 21 | 1 | 0 | 0 | 0 |
 | p01:P.Cair.Zen.III.59433 | 33 | 2 | 0 | 0 | 0 |
 
-The P01 split is the recognition locked split, already spent; this layout
-measurement makes no locked-test claim. It shows whether the architecture
-learns a second material at all.
+Augmentation did **not** help the P01-trained model (likely too little
+training data: 17 pages); the P01 variant remains disabled. The P01 split is the
+recognition locked split, already spent; this layout measurement makes no
+locked-test claim. It shows whether the architecture learns a second material.
 ## Augmentation A/B (same seed and epochs)
 
 Augmentation: vertical scale 0.85–1.15,
@@ -101,7 +102,7 @@ threshold selected on dev (0.70).
 
 | Detector | M02a P | M02a R | P01 P | P01 R | All P | All R |
 | --- | --- | --- | --- | --- | --- | --- |
-| No augmentation | 0.965 | 0.987 | 0.31 | 0.134 | 0.734 | 0.686 |
+| No augmentation | 0.983 | 1 | 0.306 | 0.126 | 0.744 | 0.692 |
 | Augmented | 0.988 | 1 | 0.325 | 0.201 | 0.754 | 0.718 |
 
 One seed, one material pair: a direction check, not a tuned result. Augmentation

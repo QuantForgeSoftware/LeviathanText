@@ -372,3 +372,29 @@ Blockers recorded so far:
   retracted ids; annotation CSV records the retraction and reviewer; editor action + API + tests.
 - Added `docs/release/parity.md`: an honest reference-capability matrix with evidence and
   blockers. It explicitly does **not** claim full parity.
+
+### Handoff revision 20 — 2026-10-20 (evening block: layout learning, data tooling, shared deployment)
+
+- **Trainable layout:** patch/row CNN (`patch-row-cnn-v2`) with aspect-preserving preprocessing,
+  core-target decoding, dev-tuned threshold, augmentation, SHA-256 weights digest, data digest
+  and model card; opt-in per material via CLI (`layout train/detect/inspect`), API
+  `Layout:Models:<kind>`, and worker `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>`. Measured M02a
+  P 0.965/R 0.987, page CER 0.971→0.942; P01 out-of-domain weak (a P01-trained variant is
+  measured but not enabled).
+- **Metric correction:** layout and page-CER matching are one-to-one greedy by IoU; all layout
+  and page reports were regenerated (earlier non-one-to-one reports are superseded).
+- **Inscription bootstrap:** EpiDoc edition split at `<lb/>` imported as L2 reference (never L1)
+  with manual unplaced-line placement; batch import by record directory; inventory scanner
+  (records/Greek/graphics/local images) with manifest-count reconciliation recorded. ISic001151
+  smoke green; expert labels remain the blocker.
+- **Review workflow:** append-only accept/correct/dispute decisions anchored to revisions,
+  correction revisions, project review dashboard, adjudication CSV, annotation retraction.
+- **Shared deployment:** schema v3 (users + auth audit), local accounts with
+  reader/annotator/reviewer/admin roles, hashed keys, rotation/disable, admin endpoints/CLI,
+  auth audit, workspace API-key panel + interceptor; `provideHttpClient` fixed. SSO/workspace
+  membership remain open.
+- **Release:** fresh-install publish/run smoke script (PASS), dependency/no-Kraken evidence,
+  layout timing/RSS, capability matrix (`docs/release/parity.md`).
+- **Confidence:** L0 revisions persist mean and per-grapheme confidence spans; review queues
+  use exact means and worst spans.
+- **Verification:** counts below after the closing run; 29 web specs; demo/fresh-install smokes.
