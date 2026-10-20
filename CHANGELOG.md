@@ -13,6 +13,10 @@ set: C0-0.4-draft.
 
 ### Added
 
+- **Direction/script metadata (Phase 4 partial):** per-region and per-line logical direction
+  (`ltr`, `rtl`, vertical top-to-bottom/bottom-to-top) and script code; PAGE
+  `readingDirection`/`primaryScript` and hOCR `dir`/`ocr_vertical` round-trips; API orientation
+  endpoints; editor controls and direction-aware surface rendering. Recognition remains LTR.
 - **Trainable layout (`patch-row-cnn-v2`)**: aspect-preserving preprocessing, line-core targets,
   dev-tuned threshold/expansion, augmentation, per-material opt-in (CLI `layout train/detect/
   inspect`, API `Layout:Models:<kind>`, worker `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>`), SHA-256

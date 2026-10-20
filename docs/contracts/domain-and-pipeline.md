@@ -15,8 +15,8 @@ Collection
             └─ Fragment        (physically separate piece sharing a surface record when useful)
             └─ Capture         (one imaging event of a surface/fragment)
                  └─ Derivative (crop, deskew, dewarp, tile — traceable to a capture)
-            └─ Region          (layout unit on a surface, in one coordinate frame)
-                 └─ Line       (text line, with optional baseline/polygon)
+            └─ Region          (layout unit on a surface, in one coordinate frame; optional direction/script)
+                 └─ Line       (text line, with optional baseline/polygon; optional direction/script)
                       └─ GraphemeSpan  (character-level annotation anchor)
             └─ TranscriptionRevision  (per layer L1/L2; see greek-transcription.md)
                  └─ Annotation (anchored to a revision by scalar offsets)
@@ -30,6 +30,7 @@ Collection
 | Primary keys | Opaque stable IDs minted by the project (e.g. `obj-…`, `surf-…`, `ln-…`). Never derived from mutable source data. |
 | External IDs | TM numbers, inventory numbers, shelfmarks, ISicily IDs, IIIF canvas IDs are recorded as **references** on the entity, never used as primary keys. |
 | Surface typing | A book page is one surface type, not the mandatory shape (project-plan §4). `surface_kind` ∈ `codex-page`, `papyrus-side`, `inscription-face`, `other:<text>`. |
+| Direction/script | Optional per-region/line `direction` (`ltr`, `rtl`, vertical top-to-bottom/bottom-to-top) and `script` (ISO 15924 such as `Grek`). Null means inherit/undeclared; never inferred from language. Direction metadata is not a recognition-support claim. |
 | Fragments | A fragment belongs to a surface; its geometry may be in the fragment's own capture frame. Joining fragments is a recorded relationship, never a silent merge. |
 | Capture identity | Every capture records: device/imaging profile where known, original file checksum, capture date where known, rights evidence reference (manifest link). |
 | Coordinate frames | Every geometry-bearing entity names its **frame**: which capture or derivative it is expressed against. Geometry never transfers between frames without an explicit registration record; unregistered multi-capture geometry stays frame-local (project-plan §4). |

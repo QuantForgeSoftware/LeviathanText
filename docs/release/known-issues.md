@@ -62,6 +62,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 ## Interchange
 
+- PAGE and hOCR carry per-region/line direction and script metadata (PAGE `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical`); native JSON preserves it. ALTO/TEI exports do not yet map direction, and recognition remains LTR.
 - ALTO/hOCR are bounded subsets (line boxes + line text; no word segmentation synthesis).
 - TEI/EpiDoc is a bounded profile; unsupported markup is reported, not mapped.
 - Plain-text and CSV exports are lossy by design; the native project JSON is authoritative.

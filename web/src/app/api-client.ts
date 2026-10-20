@@ -57,9 +57,18 @@ export interface ReviewPayload {
 export interface LinePayload {
   line: string;
   diplomatic: string | null;
+  direction?: string | null;
+  script?: string | null;
   history: RevisionPayload[];
   revisions?: RevisionPayload[];
   reviews?: ReviewPayload[];
+}
+
+export interface OrientationResponse {
+  lineId?: string;
+  regionId?: string;
+  direction?: string | null;
+  script?: string | null;
 }
 
 export interface GeometryPoint {
@@ -179,6 +188,10 @@ export class ApiClient {
 
   updateLineGeometry(lineId: string, polygon: GeometryPoint[], baseline: GeometryPoint[]): Observable<unknown> {
     return this.http.put(`/api/v1/lines/${lineId}/geometry`, { polygon, baseline });
+  }
+
+  setLineOrientation(lineId: string, direction: string | null, script: string | null): Observable<OrientationResponse> {
+    return this.http.put<OrientationResponse>(`/api/v1/lines/${lineId}/orientation`, { direction, script });
   }
 
   updateReadingOrder(surfaceId: string, regionIds: string[]): Observable<unknown> {
@@ -412,8 +425,15 @@ export interface ProjectPayload {
         regionId: string;
         polygon: GeometryPoint[];
         baseline: GeometryPoint[];
+        direction?: string | null;
+        script?: string | null;
       }[];
-      regions: { id: string; readingOrderIndex: number | null }[];
+      regions: {
+        id: string;
+        readingOrderIndex: number | null;
+        direction?: string | null;
+        script?: string | null;
+      }[];
       captures: { id: string; imageLocation?: string }[];
     }[];
   }[];

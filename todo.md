@@ -88,7 +88,9 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 ### Phase 4 — wider replacement scope
 
 - [ ] Add printed Greek editions/critical apparatus layouts and other scripts according to user priorities.
-- [ ] Complete broader RTL/BiDi/vertical support, ALTO/hOCR/ABBYY adapters and PDF/document ingestion needed for Kraken parity.
+- [x] Implement bounded ALTO v4 and hOCR import/export (line boxes + line text; unsupported elements reported; external entities refused; legacy import path). *(adapters + round-trip tests + CLI/API/bundle exports; no word-segmentation synthesis)*
+- [~] Add explicit RTL/BiDi/vertical direction and script metadata per region/line, and use it in editing/display/interchange without guessing from language. *(native fields + PAGE readingDirection/primaryScript + hOCR dir/ocr_vertical round-trip; API orientation endpoints; editor/display support. Remaining: full BiDi layout, vertical recognition, ALTO/TEI direction mapping.)*
+- [ ] Add ABBYY XML and PDF/document ingestion needed for Kraken parity.
 - [ ] Extend AI to translation, structured extraction, optional lexical/morphological annotations and bulk workflows with source references.
 - [ ] Reconcile every reference capability row against acceptance evidence before claiming full parity.
 - [ ] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions.

@@ -109,6 +109,8 @@ public enum GeometryEditKind
     LineOrder,
     LineSplit,
     LineMerged,
+    LineOrientation,
+    RegionOrientation,
 }
 
 public sealed record GeometryEdit
@@ -142,6 +144,19 @@ public sealed record NativeCapture
     public string? RightsEvidenceRef { get; init; }
 }
 
+/// <summary>
+/// Logical text direction for a region or line. Vertical directions describe the flow of
+/// characters, not a claim that recognition supports vertical scripts. A null direction
+/// means "not declared"; consumers must not infer RTL or vertical from language alone.
+/// </summary>
+public enum TextDirection
+{
+    Ltr,
+    Rtl,
+    VerticalTopToBottom,
+    VerticalBottomToTop,
+}
+
 public sealed record NativeRegion
 {
     public required EntityId Id { get; init; }
@@ -152,6 +167,12 @@ public sealed record NativeRegion
 
     public LayoutSource? LayoutSource { get; init; }
     public int? ReadingOrderIndex { get; init; }
+
+    /// <summary>Declared logical direction (null = inherit/undeclared, never guessed).</summary>
+    public TextDirection? Direction { get; init; }
+
+    /// <summary>Optional script code (ISO 15924 such as "Grek"; free text in this bounded profile).</summary>
+    public string? Script { get; init; }
 }
 
 public sealed record NativeLine
@@ -168,6 +189,12 @@ public sealed record NativeLine
 
     /// <summary>The TextLine's own Coords polygon (pixel frame); empty when not supplied.</summary>
     public IReadOnlyList<PointD> Polygon { get; init; } = [];
+
+    /// <summary>Declared line direction; null inherits/leaves direction undeclared.</summary>
+    public TextDirection? Direction { get; init; }
+
+    /// <summary>Optional line-level script code (ISO 15924 such as "Grek").</summary>
+    public string? Script { get; init; }
 }
 
 public readonly record struct PointD(double X, double Y);

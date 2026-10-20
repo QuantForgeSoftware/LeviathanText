@@ -107,6 +107,30 @@ public class HocrFormatTests
     }
 
     [Fact]
+    public void Direction_and_vertical_class_roundtrip()
+    {
+        var (surface, capture) = Sample();
+        var rtl = surface with
+        {
+            Lines = [surface.Lines[0] with { Direction = TextDirection.Rtl }],
+        };
+        var html = HocrFormat.Export(rtl, capture, rtl.Revisions);
+        Assert.Contains("dir=\"rtl\"", html);
+        var imported = HocrFormat.Import(html, capture.Id, SampleProject.Sum);
+        Assert.Equal(TextDirection.Rtl, Assert.Single(imported.Lines).Direction);
+
+        var vertical = surface with
+        {
+            Lines = [surface.Lines[0] with { Direction = TextDirection.VerticalBottomToTop }],
+        };
+        var verticalHtml = HocrFormat.Export(vertical, capture, vertical.Revisions);
+        Assert.Contains("ocr_vertical", verticalHtml);
+        Assert.Contains("textangle -90", verticalHtml);
+        var reimported = HocrFormat.Import(verticalHtml, capture.Id, SampleProject.Sum);
+        Assert.Equal(TextDirection.VerticalBottomToTop, Assert.Single(reimported.Lines).Direction);
+    }
+
+    [Fact]
     public void Non_hocr_document_is_refused()
     {
         Assert.Throws<InvalidDataException>(() => HocrFormat.Import(

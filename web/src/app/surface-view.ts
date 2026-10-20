@@ -29,7 +29,13 @@ import { GeometryEditor } from './geometry-editor';
         }
         <ol class="lines">
           @for (line of lines(); track $index) {
-            <li><span class="greek" (click)="select($index)" role="button" tabindex="0">{{ line }}</span></li>
+            <li>
+              <span class="greek"
+                    [attr.dir]="lineDirection($index) === 'rtl' ? 'rtl' : null"
+                    [class.vertical]="isVerticalLine($index)"
+                    [attr.title]="lineScript($index) ? 'script: ' + lineScript($index) : null"
+                    (click)="select($index)" role="button" tabindex="0">{{ line }}</span>
+            </li>
           }
         </ol>
         <p>Selected scalar span: {{ selectedStart() }}–{{ selectedEnd() }} (of {{ totalScalars() }})</p>
@@ -118,6 +124,13 @@ import { GeometryEditor } from './geometry-editor';
   `,
   styles: [`
     .greek { font-size: 1.3rem; cursor: pointer; }
+    .greek.vertical {
+      display: inline-block;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      max-height: 12rem;
+      line-height: 1.2;
+    }
     .lines { line-height: 2; }
   `],
   imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe],
@@ -183,6 +196,19 @@ export class SurfaceView {
     });
   }
   private readonly lineIdsByIndex = signal<string[]>([]);
+  protected readonly lineOrientations = signal<{ direction?: string | null; script?: string | null }[]>([]);
+
+  protected lineDirection(index: number): string | null {
+    return this.lineOrientations()[index]?.direction ?? null;
+  }
+
+  protected lineScript(index: number): string | null {
+    return this.lineOrientations()[index]?.script ?? null;
+  }
+
+  protected isVerticalLine(index: number): boolean {
+    return this.lineDirection(index)?.startsWith('vertical') ?? false;
+  }
 
   protected onCapture(event: Event): void {
     const index = Number((event.target as HTMLSelectElement).value);
@@ -298,6 +324,14 @@ export class SurfaceView {
         .flatMap(o => o.surfaces)
         .find(s => s.id === this.surfaceId());
       this.lineIdsByIndex.set(surface?.lines.map(l => l.id) ?? []);
+      const regionsById = new Map((surface?.regions ?? []).map(r => [r.id, r]));
+      this.lineOrientations.set(surface?.lines.map(l => {
+        const region = regionsById.get(l.regionId);
+        return {
+          direction: l.direction ?? region?.direction ?? null,
+          script: l.script ?? region?.script ?? null,
+        };
+      }) ?? []);
       // Captures (views) are listed; the selected view drives overlays and links.
       const captureList = (surface?.captures ?? []).map(c => ({ id: c.id, imageLocation: c.imageLocation }));
       this.captures.set(captureList);

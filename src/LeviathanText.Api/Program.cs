@@ -485,6 +485,28 @@ api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService 
     });
 });
 
+api.MapPut("lines/{lineId}/orientation", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] OrientationRequest request) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+
+    var (_, _, line) = geometry.SetLineOrientation(project, lineEntityId,
+        request.Direction, request.Script, request.AuthorId ?? "api");
+    return Results.Ok(new { lineId = line.Id.ToString(), direction = line.Direction, script = line.Script });
+});
+
+api.MapPut("regions/{regionId}/orientation", (ProjectService projects, GeometryService geometry, string regionId, [FromBody] OrientationRequest request) =>
+{
+    var regionEntityId = EntityId.Parse(regionId, EntityKind.Region);
+    var project = projects.LoadProjectForRegion(regionEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = regionId, Message = "Region not found in any project." });
+
+    var (_, _, region) = geometry.SetRegionOrientation(project, regionEntityId,
+        request.Direction, request.Script, request.AuthorId ?? "api");
+    return Results.Ok(new { regionId = region.Id.ToString(), direction = region.Direction, script = region.Script });
+});
+
 api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] AddLineRequest request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
@@ -727,6 +749,7 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
     var history = transcription.RevisionHistory(project, lineEntityId, TextLayer.L1Diplomatic);
     var all = transcription.AllRevisions(project, lineEntityId);
     var surfaceForReviews = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Lines.Any(l => l.Id == lineEntityId));
+    var lineRecord = surfaceForReviews.Lines.Single(l => l.Id == lineEntityId);
     var reviews = surfaceForReviews.ReviewDecisions
         .Where(d => d.LineId == lineEntityId)
         .OrderBy(d => d.At)
@@ -744,6 +767,8 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
     {
         line = lineId,
         diplomatic = history.LastOrDefault()?.Text,
+        direction = lineRecord.Direction,
+        script = lineRecord.Script,
         reviews,
         history = history.Select(r => new { id = r.Id.ToString(), text = r.Text, author = r.Author.Id, at = r.CreatedAt }),
         revisions = all.Select(r => new
@@ -1078,6 +1103,8 @@ public sealed record AddAnnotationRequest(
     string? Description = null);
 
 public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, string? AuthorId = null);
+
+public sealed record OrientationRequest(TextDirection? Direction = null, string? Script = null, string? AuthorId = null);
 
 public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds, string? AuthorId = null);
 

@@ -135,6 +135,52 @@ public class PageXmlTests
     }
 
     [Fact]
+    public void Direction_and_script_roundtrip_without_becoming_a_display_default()
+    {
+        var xml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="dir.jpg" imageWidth="200" imageHeight="60">
+                <TextRegion id="r1" readingDirection="right-to-left" primaryScript="Grek">
+                  <Coords points="0,0 200,0 200,60 0,60"/>
+                  <TextLine id="l1" readingDirection="top-to-bottom" primaryScript="Grek">
+                    <Coords points="10,10 190,10 190,40 10,40"/>
+                    <Baseline points="10,38 190,38"/>
+                    <TextEquiv><Unicode>αβγ</Unicode></TextEquiv>
+                  </TextLine>
+                </TextRegion>
+              </Page>
+            </PcGts>
+            """;
+        var imported = PageXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(TextDirection.Rtl, Assert.Single(imported.Regions).Direction);
+        Assert.Equal("Grek", Assert.Single(imported.Regions).Script);
+        Assert.Equal(TextDirection.VerticalTopToBottom, Assert.Single(imported.Lines).Direction);
+        Assert.Equal("Grek", Assert.Single(imported.Lines).Script);
+
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "s1"),
+            Kind = "page",
+            Captures = [new NativeCapture
+            {
+                Id = new EntityId(EntityKind.Capture, "cap1"),
+                Frame = new CoordinateFrame { ImageRef = new EntityId(EntityKind.Capture, "cap1"), ImageChecksum = SampleProject.Sum },
+                ImageLocation = "dir.jpg",
+            }],
+            Regions = imported.Regions,
+            Lines = imported.Lines,
+            Revisions = imported.Revisions,
+        };
+        var reparsed = PageXml.Import(
+            PageXml.Export(surface, surface.Captures[0], imported.Revisions),
+            new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(TextDirection.Rtl, Assert.Single(reparsed.Regions).Direction);
+        Assert.Equal("Grek", Assert.Single(reparsed.Regions).Script);
+        Assert.Equal(TextDirection.VerticalTopToBottom, Assert.Single(reparsed.Lines).Direction);
+        Assert.Equal("Grek", Assert.Single(reparsed.Lines).Script);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE PcGts [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>" +

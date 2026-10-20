@@ -52,6 +52,85 @@ public sealed class GeometryService(IProjectStore store)
     }
 
     /// <summary>
+    /// Set or clear a line's declared logical direction and script. This is metadata about
+    /// the witness, not a recognition/model claim; null means "inherit/undeclared".
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Line) SetLineOrientation(
+        NativeProject project, EntityId lineId, TextDirection? direction, string? script,
+        string author = "api")
+    {
+        var (foundProject, surface, line) = FindLine(project, lineId);
+        var validatedScript = ValidateScript(script);
+
+        var before = OrientationJson(line.Direction, line.Script);
+        var after = OrientationJson(direction, validatedScript);
+        var updatedLine = line with { Direction = direction, Script = validatedScript };
+        var updated = surface with
+        {
+            Lines = [.. surface.Lines.Select(l => l.Id == lineId ? updatedLine : l)],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.LineOrientation,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    LineId = lineId,
+                    Before = before,
+                    After = after,
+                },
+            ],
+        };
+        foundProject = WithSurface(foundProject, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated, updatedLine);
+    }
+
+    /// <summary>Set or clear a region's declared direction/script (line values override it in consumers that support inheritance).</summary>
+    public (NativeProject Project, NativeSurface Surface, NativeRegion Region) SetRegionOrientation(
+        NativeProject project, EntityId regionId, TextDirection? direction, string? script,
+        string author = "api")
+    {
+        var surface = project.Objects.SelectMany(o => o.Surfaces)
+            .FirstOrDefault(s => s.Regions.Any(r => r.Id == regionId))
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = regionId.ToString(),
+                Message = "No such region in the project.",
+            });
+        var region = surface.Regions.Single(r => r.Id == regionId);
+        var validatedScript = ValidateScript(script);
+
+        var before = OrientationJson(region.Direction, region.Script);
+        var after = OrientationJson(direction, validatedScript);
+        var updatedRegion = region with { Direction = direction, Script = validatedScript };
+        var updated = surface with
+        {
+            Regions = [.. surface.Regions.Select(r => r.Id == regionId ? updatedRegion : r)],
+            GeometryEdits =
+            [
+                .. surface.GeometryEdits,
+                new GeometryEdit
+                {
+                    Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+                    Kind = GeometryEditKind.RegionOrientation,
+                    At = DateTimeOffset.UtcNow,
+                    Author = author,
+                    RegionId = regionId,
+                    Before = before,
+                    After = after,
+                },
+            ],
+        };
+        var foundProject = WithSurface(project, updated);
+        store.SaveProject(foundProject);
+        return (foundProject, updated, updatedRegion);
+    }
+
+    /// <summary>
     /// Add a manually drawn line (the fallback when automatic layout misses one). A manual
     /// region is created when the surface has none; explicit geometry is required.
     /// </summary>
@@ -216,6 +295,23 @@ public sealed class GeometryService(IProjectStore store)
         store.SaveProject(foundProject);
         return (foundProject, surface);
     }
+
+    private static string? ValidateScript(string? script)
+    {
+        if (string.IsNullOrWhiteSpace(script)) return null;
+        var trimmed = script.Trim();
+        if (trimmed.Length > 32 || trimmed.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = "script",
+                Message = "Script must be a short code such as 'Grek' (max 32 characters, no whitespace/control characters).",
+            });
+        return trimmed;
+    }
+
+    private static string OrientationJson(TextDirection? direction, string? script) =>
+        $"direction={direction?.ToString() ?? "inherit"};script={script ?? ""}";
 
     private static void Validate(
         IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline,

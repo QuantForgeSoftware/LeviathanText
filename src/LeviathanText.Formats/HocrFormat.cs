@@ -7,10 +7,12 @@ namespace LeviathanText.Formats;
 /// <summary>
 /// Bounded hOCR adapter (Phase 4 parity + legacy-OCR migration). Supported subset:
 /// one <c>ocr_page</c> with <c>ocr_line</c> spans carrying a bbox in the title and the
-/// line text inside. We do not synthesize word segmentation: exports put the line text in
-/// a single <c>ocrx_word</c> with the line bbox (round-trips exactly). Word-level tags on
-/// import are joined; unsupported structural classes are reported, never flattened
-/// silently. External entities/DTDs are refused.
+/// line text inside. Logical direction uses <c>dir="ltr|rtl"</c>; vertical lines use the
+/// <c>ocr_vertical</c> class plus a signed <c>textangle</c> in the title (bounded
+/// convention, not full BiDi layout). We do not synthesize word segmentation: exports put
+/// the line text in a single <c>ocrx_word</c> with the line bbox (round-trips exactly).
+/// Word-level tags on import are joined; unsupported structural classes are reported,
+/// never flattened silently. External entities/DTDs are refused.
 /// </summary>
 public static class HocrFormat
 {
@@ -49,11 +51,21 @@ public static class HocrFormat
                 ? (int)Math.Round(line.Baseline[^1].Y - line.Baseline[0].Y)
                 : 0;
 
-            lines.Add(new XElement(Xhtml + "span",
-                new XAttribute("class", "ocr_line"),
-                new XAttribute("id", $"line_{line.Id.Suffix}"),
-                new XAttribute("title", $"bbox {x0} {y0} {x1} {y1}; baseline 0 {baseline}"),
-                word));
+            bool vertical = line.Direction is TextDirection.VerticalTopToBottom or TextDirection.VerticalBottomToTop;
+            var lineAttributes = new List<XAttribute>
+            {
+                new("class", vertical ? "ocr_line ocr_vertical" : "ocr_line"),
+                new("id", $"line_{line.Id.Suffix}"),
+            };
+            if (line.Direction is TextDirection.Rtl or TextDirection.Ltr)
+                lineAttributes.Add(new XAttribute("dir", line.Direction == TextDirection.Rtl ? "rtl" : "ltr"));
+
+            var title = $"bbox {x0} {y0} {x1} {y1}; baseline 0 {baseline}";
+            if (line.Direction is TextDirection.VerticalTopToBottom or TextDirection.VerticalBottomToTop)
+                title += line.Direction == TextDirection.VerticalBottomToTop ? "; textangle -90" : "; textangle 90";
+            lineAttributes.Add(new XAttribute("title", title));
+
+            lines.Add(new XElement(Xhtml + "span", lineAttributes, word));
         }
 
         var pageDiv = new XElement(Xhtml + "div",
@@ -109,13 +121,22 @@ public static class HocrFormat
         var lines = new List<NativeLine>();
         var revisions = new List<TextRevision>();
 
-        foreach (var element in root.Descendants().Where(e => (string?)e.Attribute("class") == "ocr_line"))
+        foreach (var element in root.Descendants().Where(e => Classes(e).Contains("ocr_line")))
         {
             var title = (string?)element.Attribute("title") ?? "";
             var (left, top, right, bottom) = ParseBbox(title);
             var text = TextOf(element).Trim();
             var suffix = (string?)element.Attribute("id") ?? $"hocr-line-{lines.Count}";
             var lineId = new EntityId(EntityKind.Line, suffix);
+            var classes = Classes(element);
+            var direction = classes.Contains("ocr_vertical")
+                ? (TextAngle(title) < 0 ? TextDirection.VerticalBottomToTop : TextDirection.VerticalTopToBottom)
+                : (string?)element.Attribute("dir") switch
+                {
+                    "rtl" => TextDirection.Rtl,
+                    "ltr" => TextDirection.Ltr,
+                    _ => (TextDirection?)null,
+                };
 
             TextRevision? revision = null;
             if (text.Length > 0)
@@ -144,6 +165,7 @@ public static class HocrFormat
                 ],
                 Baseline = [new PointD(left, bottom), new PointD(right, bottom)],
                 DiplomaticRevisionId = revision?.Id,
+                Direction = direction,
             });
 
             foreach (var child in element.Descendants())
@@ -162,6 +184,11 @@ public static class HocrFormat
         return new HocrImportResult(regions, lines, revisions, unsupported);
     }
 
+    private static HashSet<string> Classes(XElement element) =>
+        ((string?)element.Attribute("class") ?? "")
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .ToHashSet(StringComparer.Ordinal);
+
     private static string TextOf(XElement element)
     {
         // Word-level tags are joined with single spaces (hOCR convention); <br> is a space.
@@ -171,6 +198,14 @@ public static class HocrFormat
             .Where(s => s.Length > 0)
             .ToList();
         return parts.Count == 0 ? element.Value.Trim() : string.Join(" ", parts);
+    }
+
+    private static int TextAngle(string title)
+    {
+        var marker = title.IndexOf("textangle ", StringComparison.Ordinal);
+        if (marker < 0) return 0;
+        var value = title[(marker + 10)..].Split(';')[0].Trim();
+        return int.TryParse(value, out var angle) ? angle : 0;
     }
 
     private static (int Left, int Top, int Right, int Bottom) ParseBbox(string title)

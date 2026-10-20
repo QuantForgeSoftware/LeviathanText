@@ -122,6 +122,16 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Direction and script
+
+Direction/script are declared metadata, not inferred. `PUT /lines/{id}/orientation` and
+`PUT /regions/{id}/orientation` accept `{direction, script}` where `direction` is `ltr`,
+`rtl`, `verticalTopToBottom`, `verticalBottomToTop` or null (inherit/undeclared); `script` is a
+short ISO 15924 code such as `Grek`. The editor exposes line-level controls and the surface view
+applies logical direction/vertical display. PAGE and hOCR imports/exports preserve direction;
+native JSON preserves both. ALTO/TEI exports do not yet map direction, and recognition remains
+LTR.
+
 ## Offline use
 
 The workspace caches successful reads (project list/payloads, line payloads, diplomatic exports)

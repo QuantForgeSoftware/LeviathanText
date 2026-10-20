@@ -13,9 +13,9 @@ Source requirements: project-plan Section 3 (scholarly interchange, bounded TEI/
 | Native JSON | both | Full-fidelity project interchange | — |
 | Diplomatic plain text (UTF-8) | export (import: labeled plain text) | L1 text, linearized in reading order | No geometry, layers, or uncertainty; loss report mandatory |
 | TEI P5 / EpiDoc (bounded profile) | both | See §1.2 | Unsupported markup → attachment + report |
-| PAGE XML (supported subset) | both | Regions/lines, polygons, baselines, text | Unsupported elements → report |
+| PAGE XML (supported subset) | both | Regions/lines, polygons, baselines, text, optional `readingDirection`/`primaryScript` | Unsupported elements → report |
 | IIIF Presentation 3.0 | import (bounded) | Canvas/image references into workspace | No IIIF hosting; caching rules in §1.3 |
-| ALTO (v4 subset) / hOCR (XHTML subset) | both (pilot) | Line boxes + line text; polygons/bbox and baselines; unsupported elements → report; no word segmentation is synthesized | ABBYY XML and PDF remain unsupported (recorded if offered input) |
+| ALTO (v4 subset) / hOCR (XHTML subset) | both (pilot) | Line boxes + line text; polygons/bbox and baselines; hOCR direction (`dir`, `ocr_vertical`); unsupported elements → report; no word segmentation is synthesized | ABBYY XML and PDF remain unsupported (recorded if offered input); ALTO direction is not mapped |
 
 ### 1.2 TEI/EpiDoc bounded profile
 
@@ -108,6 +108,7 @@ within the pilot; shapes follow §2.0 and errors use the closed vocabulary.
 | Ingestion | `POST /projects/{id}/import-page`, `…/import-iiif`, `…/import-image`, `…/import-legacy` |
 | Layout | `POST /surfaces/{id}/detect-layout`, `PUT /surfaces/{id}/reading-order`, `PUT /regions/{id}/line-order`, `POST /surfaces/{id}/lines`, `DELETE /lines/{id}`, `PUT /lines/{id}/geometry` |
 | Transcription | `GET/POST /lines/{id}/revisions`, `GET /lines/{id}` (L1 chain plus all-layer `revisions`), `GET/POST /lines/{id}/annotations` |
+| Orientation | `PUT /lines/{id}/orientation`, `PUT /regions/{id}/orientation` (direction/script; null = inherit/undeclared) |
 | Exports | `GET /projects/{id}/surfaces/{sid}/{diplomatic,tei,alto,hocr}`, `GET /projects/{id}/{training-export,bundle,lines.csv,annotations.csv}` |
 | Search/QA | `GET /projects/{id}/search?q=&mode=literal|base`, `GET /projects/{id}/profile-report` |
 | Models | `GET /models` (packages under a configured directory), `POST /surfaces/{id}/recognize` (name only, verified package) |

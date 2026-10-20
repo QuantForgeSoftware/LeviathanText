@@ -5,9 +5,10 @@ namespace LeviathanText.Formats;
 
 /// <summary>
 /// Bounded PAGE XML adapter (todo Phase 1: supported PAGE subset for annotation
-/// interchange). Supported: Pc/Page, TextRegion (with Coords), TextLine (Coords +
-/// Baseline), TextEquiv/Unicode text. Unsupported elements are never silently
-/// flattened: they are collected into the import report (interchange-and-api.md §1.2).
+/// interchange). Supported: Pc/Page, TextRegion (with Coords and optional
+/// readingDirection/primaryScript), TextLine (Coords + Baseline + the same optional
+/// direction/script attributes), TextEquiv/Unicode text. Unsupported elements are never
+/// silently flattened: they are collected into the import report (interchange-and-api.md §1.2).
 /// </summary>
 public static class PageXml
 {
@@ -69,6 +70,8 @@ public static class PageXml
                 Polygon = poly,
                 LayoutSource = LayoutSource.Imported,
                 ReadingOrderIndex = declaredOrder.GetValueOrDefault(regionId) ?? customIndex ?? regionOrder,
+                Direction = ParseDirection((string?)region.Attribute("readingDirection")),
+                Script = CleanScript((string?)region.Attribute("primaryScript")),
             });
             regionOrder++;
 
@@ -131,6 +134,8 @@ public static class PageXml
                     Baseline = baseline,
                     Polygon = linePolygon,
                     DiplomaticRevisionId = revision?.Id,
+                    Direction = ParseDirection((string?)line.Attribute("readingDirection")),
+                    Script = CleanScript((string?)line.Attribute("primaryScript")),
                 });
 
                 foreach (var issue in UnsupportedChildren(line, ["Coords", "Baseline", "TextEquiv", "Word"]))
@@ -161,18 +166,30 @@ public static class PageXml
                 if (line.DiplomaticRevisionId is { } rid && revisionById.TryGetValue(rid, out var revision))
                     textEquiv = new XElement(Pc + "TextEquiv", new XElement(Pc + "Unicode", revision.Text));
 
-                return new XElement(Pc + "TextLine",
-                    new XAttribute("id", line.Id.Suffix),
+                var lineAttributes = new List<XAttribute> { new("id", line.Id.Suffix) };
+                if (DirectionAttribute("readingDirection", line.Direction) is { } lineDirection)
+                    lineAttributes.Add(lineDirection);
+                if (ScriptAttribute("primaryScript", line.Script) is { } lineScript)
+                    lineAttributes.Add(lineScript);
+
+                return new XElement(Pc + "TextLine", lineAttributes,
                     new XElement(Pc + "Coords", new XAttribute("points", Points(line.Polygon.Count > 0 ? line.Polygon : line.Baseline))),
                     new XElement(Pc + "Baseline", new XAttribute("points", Points(line.Baseline))),
                     textEquiv);
             });
 
         var regions = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(region =>
-            new XElement(Pc + "TextRegion",
-                new XAttribute("id", region.Id.Suffix),
+        {
+            var regionAttributes = new List<XAttribute> { new("id", region.Id.Suffix) };
+            if (DirectionAttribute("readingDirection", region.Direction) is { } regionDirection)
+                regionAttributes.Add(regionDirection);
+            if (ScriptAttribute("primaryScript", region.Script) is { } regionScript)
+                regionAttributes.Add(regionScript);
+
+            return new XElement(Pc + "TextRegion", regionAttributes,
                 new XElement(Pc + "Coords", new XAttribute("points", Points(region.Polygon))),
-                LinesOf(region)));
+                LinesOf(region));
+        });
 
         var page = new XElement(Pc + "Page",
             new XAttribute("imageFilename", capture.ImageLocation),
@@ -188,6 +205,33 @@ public static class PageXml
 
     private static string Points(IReadOnlyList<PointD> points) =>
         string.Join(" ", points.Select(p => $"{p.X:0.###},{p.Y:0.###}"));
+
+    private static TextDirection? ParseDirection(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "left-to-right" or "ltr" => TextDirection.Ltr,
+        "right-to-left" or "rtl" => TextDirection.Rtl,
+        "top-to-bottom" or "ttb" => TextDirection.VerticalTopToBottom,
+        "bottom-to-top" or "btt" => TextDirection.VerticalBottomToTop,
+        _ => null,
+    };
+
+    private static string PageDirection(TextDirection direction) => direction switch
+    {
+        TextDirection.Ltr => "left-to-right",
+        TextDirection.Rtl => "right-to-left",
+        TextDirection.VerticalTopToBottom => "top-to-bottom",
+        TextDirection.VerticalBottomToTop => "bottom-to-top",
+        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+    };
+
+    private static XAttribute? DirectionAttribute(string name, TextDirection? direction) =>
+        direction is { } value ? new XAttribute(name, PageDirection(value)) : null;
+
+    private static XAttribute? ScriptAttribute(string name, string? script) =>
+        string.IsNullOrWhiteSpace(script) ? null : new XAttribute(name, script.Trim());
+
+    private static string? CleanScript(string? script) =>
+        string.IsNullOrWhiteSpace(script) ? null : script.Trim();
 
     private static IReadOnlyList<PointD> ParsePoints(string? value)
     {

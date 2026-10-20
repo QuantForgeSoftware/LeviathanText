@@ -8,7 +8,7 @@ are not specialist-adjudicated.
 | --- | --- | --- | --- |
 | PAGE XML import/export | implemented (bounded) | 24 format tests; round-trips; loss reports | unsupported elements reported, not mapped |
 | TEI/EpiDoc import/export | implemented (bounded) | format tests; ISicily records parse | bounded profile; no full TEI coverage |
-| ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import | no word segmentation synthesis |
+| ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import | no word segmentation synthesis; ALTO does not carry direction |
 | IIIF Presentation 3 import | implemented (bounded) | real manifest test; remote image cache | no IIIF hosting |
 | PDF / ABBYY XML | not implemented | — | ingestion/backends undecided |
 | Plain text + loss report | implemented | export tests | lossy by design |
@@ -29,7 +29,7 @@ are not specialist-adjudicated.
 | Backup/restore | checksummed snapshot/restore | infra tests + smoke | no automated restore rehearsal/rollback UI |
 | Packaging | publish + fresh-install smoke | script PASS | no installers/updaters; target matrix untested |
 | Migration from Kraken | public formats only | import paths | no automatic project migration |
-| RTL/vertical scripts | not implemented | — | Phase 4 |
+| RTL/vertical metadata | partial | native/PAGE/hOCR direction+script fields, API/UI, tests | no full BiDi layout or vertical recognition; ALTO/TEI direction unmapped |
 | Searchable PDF / distributed execution | not implemented | — | separately estimated extensions |
 
 **Verdict:** usable pilot for Greek transcription on curated data; not a drop-in Kraken

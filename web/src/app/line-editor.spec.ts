@@ -88,6 +88,53 @@ describe('LineEditor (alternatives)', () => {
   });
 });
 
+describe('LineEditor (orientation)', () => {
+  it('saves direction/script as metadata without appending a text revision', () => {
+    const calls: { direction: string | null; script: string | null }[] = [];
+    let revisions = 0;
+    const stub = {
+      line: () => of({
+        line: 'ln-dir', diplomatic: 'αβγ', direction: null, script: null,
+        history: [{ id: 'rev-1', author: 'x', text: 'αβγ' }],
+      }),
+      annotations: () => of([]),
+      appendRevision: () => { revisions++; return of({}); },
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+      setLineOrientation: (_line: string, direction: string | null, script: string | null) => {
+        calls.push({ direction, script });
+        return of({ lineId: 'ln-dir', direction, script });
+      },
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-dir');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+
+    const directionSelect = Array.from(fixture.nativeElement.querySelectorAll('select'))
+      .find((s: unknown) => (s as HTMLSelectElement).querySelector('option[value="rtl"]')) as HTMLSelectElement;
+    directionSelect.value = 'rtl';
+    directionSelect.dispatchEvent(new Event('change'));
+    const scriptInput = Array.from(fixture.nativeElement.querySelectorAll('input'))
+      .find((i: unknown) => (i as HTMLInputElement).placeholder === 'Grek') as HTMLInputElement;
+    scriptInput.value = 'Grek';
+    scriptInput.dispatchEvent(new Event('input'));
+
+    const apply = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.includes('Apply orientation')) as HTMLButtonElement;
+    apply.click();
+    fixture.detectChanges();
+
+    expect(calls).toEqual([{ direction: 'rtl', script: 'Grek' }]);
+    expect(revisions).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('orientation saved');
+  });
+});
+
 describe('LineEditor (L0 copy)', () => {
   it('copies model output into the editor but never saves it automatically', () => {
     let saved = 0;

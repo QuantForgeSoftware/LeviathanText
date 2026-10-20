@@ -212,6 +212,31 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Orientation_is_explicit_metadata_and_round_trips_through_the_api()
+    {
+        var client = NewClient();
+        var (projectId, lineId, surfaceId) = await ImportFixtureAsync(client, "orientation-e2e");
+        var projectJson = await client.GetFromJsonAsync<Dictionary<string, object>>($"/api/v1/projects/{projectId}");
+        var (regionId, _) = ExtractRegionAndLineIds(projectJson!);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/orientation",
+            new { direction = "rtl", script = "Grek", authorId = "tester" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"direction\":\"rtl\"", await response.Content.ReadAsStringAsync());
+
+        Assert.Contains("\"direction\":\"rtl\"", await client.GetStringAsync($"/api/v1/lines/{lineId}"));
+        Assert.Contains("\"script\":\"Grek\"", await client.GetStringAsync($"/api/v1/projects/{projectId}"));
+        Assert.Contains("lineOrientation", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history"));
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/regions/{regionId}/orientation",
+            new { direction = "verticalTopToBottom", script = "Grek" })).StatusCode);
+        Assert.Contains("regionOrientation", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history"));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/orientation",
+            new { direction = "rtl", script = "not a code" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Line_order_endpoint_validates_and_returns_the_new_order()
     {
         var client = NewClient();

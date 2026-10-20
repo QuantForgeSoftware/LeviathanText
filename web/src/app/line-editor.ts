@@ -24,7 +24,8 @@ interface UndoStack {
         <h3>Line <code>{{ data.line }}</code></h3>
 
         <label>Diplomatic (L1)
-          <input class="greek" [value]="text()" (input)="onEdit($event)" (keydown)="onKeydown($event)" spellcheck="false" />
+          <input class="greek" [attr.dir]="direction() === 'rtl' ? 'rtl' : null"
+                 [value]="text()" (input)="onEdit($event)" (keydown)="onKeydown($event)" spellcheck="false" />
         </label>
         @if (draftRestored()) {
           <p class="hint">Unsaved draft restored after reload (⌘/Ctrl+S saves, ⌘/Ctrl+Z undoes).</p>
@@ -55,6 +56,22 @@ interface UndoStack {
           <button type="button" (click)="save()" [disabled]="!dirty()">Save revision</button>
           @if (dirty()) {<span>unsaved</span>}
         </div>
+
+        <fieldset class="orientation">
+          <legend>Direction and script</legend>
+          <label>Direction
+            <select [value]="direction() ?? ''" (change)="onDirection($event)">
+              <option value="">inherit / undeclared</option>
+              <option value="ltr">left-to-right</option>
+              <option value="rtl">right-to-left</option>
+              <option value="verticalTopToBottom">vertical, top-to-bottom</option>
+              <option value="verticalBottomToTop">vertical, bottom-to-top</option>
+            </select>
+          </label>
+          <label>Script <input [value]="script()" (input)="onScript($event)" placeholder="Grek" /></label>
+          <button type="button" (click)="applyOrientation()">Apply orientation</button>
+          <span class="hint" role="status">{{ orientationStatus() }}</span>
+        </fieldset>
 
         <fieldset class="annotation-form">
           <legend>Add annotation</legend>
@@ -160,6 +177,7 @@ interface UndoStack {
     .conf-medium { color: #9a6a00; }
     .conf-low { color: #b3261e; background: rgba(179, 38, 30, 0.08); }
     .tools { margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: center; }
+    .orientation { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
 })
@@ -172,6 +190,9 @@ export class LineEditor {
   protected readonly caret = signal(0);
   protected readonly history = signal<RevisionPayload[]>([]);
   protected readonly annotations = signal<AnnotationView[]>([]);
+  protected readonly direction = signal<string | null>(null);
+  protected readonly script = signal('');
+  protected readonly orientationStatus = signal('');
   private readonly undoStack = signal<UndoStack[]>([]);
 
   constructor(api: ApiClient) {
@@ -183,6 +204,8 @@ export class LineEditor {
       next: (data) => {
         this.payload.set(data);
         this.history.set([...data.history]);
+        this.direction.set(data.direction ?? null);
+        this.script.set(data.script ?? '');
 
         // Crash recovery: restore an unsaved draft if one exists for this line AND it
         // differs from the server text (drafts never override a newer saved revision).
@@ -215,6 +238,26 @@ export class LineEditor {
     this.formStart() >= 0 && this.formEnd() >= this.formStart() && this.formEnd() <= this.scalarTotal());
 
   private readonly api: ApiClient;
+
+  protected onDirection(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.direction.set(value || null);
+  }
+
+  protected onScript(event: Event): void {
+    this.script.set((event.target as HTMLInputElement).value);
+  }
+
+  protected applyOrientation(): void {
+    this.api.setLineOrientation(this.lineId(), this.direction(), this.script().trim() || null).subscribe({
+      next: (result) => {
+        this.direction.set(result.direction ?? null);
+        this.script.set(result.script ?? '');
+        this.orientationStatus.set('orientation saved');
+      },
+      error: () => this.orientationStatus.set('orientation save failed'),
+    });
+  }
 
   protected onKind(event: Event): void {
     this.formKind.set((event.target as HTMLSelectElement).value);
