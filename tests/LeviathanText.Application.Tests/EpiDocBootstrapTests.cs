@@ -69,6 +69,34 @@ public sealed class EpiDocBootstrapTests : IDisposable
         Assert.Contains(unplaced, l => l.ReferenceText.Contains("χρηστὴ"));
     }
 
+    [Fact]
+    public void Directory_import_skips_records_without_images_and_reports_them()
+    {
+        var (xml, image) = Fixture();
+        var records = Path.Combine(_dir, "records");
+        var images = Path.Combine(_dir, "images");
+        Directory.CreateDirectory(records);
+        Directory.CreateDirectory(images);
+        File.Copy(xml, Path.Combine(records, "ISic000001.xml")); // no image → skipped
+        File.Copy(xml, Path.Combine(records, "ISic000002.xml"));
+        File.Copy(image, Path.Combine(images, "ISic000002.png")); // resolved by record stem
+
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("inscription-dir");
+
+        var (imported, skipped, missing, notes) =
+            new InterchangeService(projects).ImportEpiDocDirectory(project, records, images);
+
+        Assert.Equal(1, imported);
+        Assert.Equal(1, skipped);
+        Assert.Contains("ISic000001", missing);
+        Assert.Empty(notes);
+        var reloaded = store.LoadProject(project.Id)!;
+        Assert.Single(reloaded.Objects);
+        Assert.Equal(2, reloaded.Objects[0].Surfaces[0].Lines.Count);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dir)) Directory.Delete(_dir, recursive: true);

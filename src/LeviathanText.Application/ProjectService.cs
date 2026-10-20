@@ -240,6 +240,65 @@ public sealed class InterchangeService(ProjectService projects)
     }
 
     /// <summary>
+    /// Batch bootstrap from an EpiDoc record directory: imports records whose image can be
+    /// resolved locally and reports the rest (missing images are never guessed). Intended for
+    /// building an inscription pilot after images are fetched under their declared names.
+    /// </summary>
+    public (int Imported, int Skipped, IReadOnlyList<string> MissingImages, IReadOnlyList<string> Notes)
+        ImportEpiDocDirectory(NativeProject project, string recordDirectory, string imageDirectory,
+            string surfaceKind = "inscription-face", int limit = 0)
+    {
+        if (!Directory.Exists(recordDirectory))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = recordDirectory, Message = "Record directory not found." });
+        if (!Directory.Exists(imageDirectory))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = imageDirectory, Message = "Image directory not found." });
+
+        var records = Directory.GetFiles(recordDirectory, "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
+        if (limit > 0) records = [.. records.Take(limit)];
+
+        int imported = 0, skipped = 0;
+        var missing = new List<string>();
+        var notes = new List<string>();
+        foreach (var record in records)
+        {
+            string? image = null;
+            try
+            {
+                var parsed = EpiDocImport.Parse(File.ReadAllText(record));
+                var stem = Path.GetFileNameWithoutExtension(record);
+                var candidates = new List<string>();
+                if (!string.IsNullOrWhiteSpace(parsed.ImageUrl))
+                    candidates.Add(Path.Combine(imageDirectory, Path.GetFileName(parsed.ImageUrl)));
+                candidates.AddRange(new[]
+                {
+                    Path.Combine(imageDirectory, stem + ".jpg"),
+                    Path.Combine(imageDirectory, stem + ".png"),
+                    Path.Combine(imageDirectory, stem + "_w800.jpg"),
+                });
+                image = candidates.FirstOrDefault(File.Exists);
+                if (image is null)
+                {
+                    skipped++;
+                    if (missing.Count < 20) missing.Add(stem);
+                    continue;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                skipped++;
+                if (notes.Count < 20) notes.Add($"{Path.GetFileName(record)}: {ex.Message}");
+                continue;
+            }
+
+            ImportEpiDoc(project, record, image, surfaceKind);
+            project = projects.Load(project.Id); // ImportEpiDoc saves; keep appending to the reloaded document
+            imported++;
+        }
+
+        return (imported, skipped, missing, notes);
+    }
+
+    /// <summary>
     /// Lines with no geometry yet (text-first imports such as EpiDoc), with their latest L2
     /// reference text so the editor can offer a placement list.
     /// </summary>

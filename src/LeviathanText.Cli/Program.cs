@@ -204,6 +204,18 @@ public static class Program
                 return 0;
             }
 
+            case "import" when rest.Length >= 5 && rest[1] == "epidoc-dir":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 0;
+                var (imported, skipped, missing, notes) = interchange.ImportEpiDocDirectory(project, rest[3], rest[4], limit: limit);
+                foreach (var note in notes) Console.Error.WriteLine($"skipped: {note}");
+                if (missing.Count > 0) Console.Error.WriteLine($"missing images (first {missing.Count}): {string.Join(", ", missing)}");
+                Console.WriteLine($"imported {imported} EpiDoc record(s); skipped {skipped} (missing image or parse error)");
+                return imported > 0 ? 0 : 1;
+            }
+
             case "import" when rest.Length >= 5 && rest[1] == "epidoc":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));

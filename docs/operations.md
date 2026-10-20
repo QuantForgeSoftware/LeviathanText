@@ -112,8 +112,10 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 leviathan --store pilot.db import epidoc <projectId> <record.xml> <photo.jpg>
 ```
 
-The ISicily-style published edition is split at `<lb/>` and imported as **L2 editorial
-reference**, never as L1. Lines start without geometry; the editor lists them under
+For a batch of records with locally fetched images:
+`leviathan import epidoc-dir <projectId> <record-dir> <image-dir> [--limit N]`. Records whose
+declared/stem image is absent are skipped and reported (never guessed). The ISicily-style
+published edition is split at `<lb/>` and imported as **L2 editorial reference**, never as L1. Lines start without geometry; the editor lists them under
 "Unplaced text lines", where a human selects a line and draws its box. Notes/gap markup is
 reported and not presented as visible evidence. `GET /surfaces/{id}/unplaced-lines` exposes
 the same list.
