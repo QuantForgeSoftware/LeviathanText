@@ -43,7 +43,7 @@ public sealed class IiifPilotTests
         var result = IiifImport.ParseManifest(File.ReadAllText(path));
 
         // Every view is its own capture/frame; coordinates are never merged without
-        // registration (todo §3). This is the IIIF ingest contract expressed natively.
+        // registration (project-plan §3). This is the IIIF ingest contract expressed natively.
         var captures = result.Canvases
             .Where(c => c.Images.Count > 0)
             .Select((canvas, index) => new NativeCapture

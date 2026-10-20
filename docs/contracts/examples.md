@@ -2,7 +2,7 @@
 
 Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (no change to this document; set-level version bump recorded in corpus-manifest.md).
 
-Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scoring) and the brief's step 5. **All examples below are invented illustrations, labeled as such. They are not ground truth, derive from no real item, and are excluded from corpus counts.** B should propose source-backed replacements from real corpus material; structure, not the specific strings, is the contract.
+Source requirements: project-plan Section 7 (recognition, uncertainty, layout, AI scoring) and the brief's step 5. **All examples below are invented illustrations, labeled as such. They are not ground truth, derive from no real item, and are excluded from corpus counts.** B should propose source-backed replacements from real corpus material; structure, not the specific strings, is the contract.
 
 ## 1. Scoring semantics (summary contract)
 
@@ -10,7 +10,7 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 | --- | --- |
 | Primary metric | Character error rate on agreed visible-text spans, computed on **Unicode scalars after canonical-equivalence normalization only** (NFC, per greek-transcription.md §4), case-sensitive. Grapheme error rate computed alongside on extended grapheme clusters. |
 | No editorial normalization | No compatibility folding, case folding, sigma substitution, or accent stripping of either side before scoring; normalization beyond NFC is a recorded, versioned scoring decision, not a default. |
-| Mark errors | Omissions/substitutions/insertions are reported **separately for combining marks** — including incorrectly supplied accents/breathings on unmarked text, which are insertions (todo §7). A base letter scored with a wrong accent is 1 substitution (base) + 1 mark error, reported in both views. |
+| Mark errors | Omissions/substitutions/insertions are reported **separately for combining marks** — including incorrectly supplied accents/breathings on unmarked text, which are insertions (project-plan §7). A base letter scored with a wrong accent is 1 substitution (base) + 1 mark error, reported in both views. |
 | Uncertainty | Spans marked `unclear`/`illegible`/`lost` are scored in a **separate uncertainty stratum**, never pooled into the main CER. Reports include excluded-span counts and accuracy-vs-coverage (abstention) curves. |
 | Blank/missed failures | Text recognized on uninscribed/blank regions and wholly missed lines are **failures counted in the denominator**, not omitted samples. Empty output on an inscribed line is scored as full deletion. |
 | WER | Only computed where an explicit word layer exists; proposed word division for scriptio continua is scored as its own task, never folded into WER. |
@@ -24,7 +24,7 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 
 - **Inputs (invented):** A later-minuscule-style line visibly reading Κ𝛔 overlined (overbar above), surrounded by accented text: τῆς χάριτος.
 - **Expected preservation:** L1 = the visible letters `Κϲ` (sigma per profile) + an overbar sign-inventory annotation; accents/breathings transcribed as combining sequences exactly as visible. L2 may hold the expansion (e.g. *κυρίου*) linked to the L1 span. Raw PAGE/edition import keeps the expanded form in the attachment, not in L1.
-- **Expected scoring:** Recognition scored against L1 `Κϲ` (+ overbar as a mark event if in the label set). Scoring against the expanded *κυρίου* is a **different, separately-labeled result** (edition-assisted), never the visual-recognition score (todo §5 P02 warning).
+- **Expected scoring:** Recognition scored against L1 `Κϲ` (+ overbar as a mark event if in the label set). Scoring against the expanded *κυρίου* is a **different, separately-labeled result** (edition-assisted), never the visual-recognition score (project-plan §5 P02 warning).
 - **Failure to reject:** A pipeline that replaces the overbarred `Κϲ` with expanded text in the diplomatic layer, or scores the expansion as if it were read visually.
 
 ### EX-2 — combining marks and canonical equivalence
@@ -46,14 +46,14 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 - **Inputs (invented):** Visible `̅α̅λ̅α̅` (overlined letters) in a papyrus; editorial expansion *ἀλλά* with accent not visible on the object.
 - **Expected preservation:** L1 `αλ Pharao-letters + overbar annotation`; L2 expansion `ἀλλά` linked to that span with provenance. The accent exists only in L2.
 - **Expected scoring:** Main CER scores `αλα`-visible spans; the expansion is scored (if at all) as a separate expansion-accuracy task.
-- **Failure to reject:** Training visual recognition on the expanded *ἀλλά* as the label for the visible `̅α̅λ̅α̅` (editorial text as a training label — todo §3 invariant).
+- **Failure to reject:** Training visual recognition on the expanded *ἀλλά* as the label for the visible `̅α̅λ̅α̅` (editorial text as a training label — project-plan §3 invariant).
 
 ### EX-5 (papyrus) — damaged gap, unclear traces, alternative readings
 
 - **Inputs (invented):** A papyrus line: `[ ]νθρωπ[ ]` — line-start lacuna of structural (known) extent, a mid-line gap where fiber damage leaves traces judged illegible, and a final partial letter read by two editors as `π` or `ρ`.
 - **Expected preservation:** `lost` with extent class `known` (line-start), `illegible` with trace description (mid-line), `alternative-reading` set {π, ρ} retained — none chosen silently. Underdots from the imported edition become `unclear` annotations, never literal characters in L1.
 - **Expected scoring:** Exact scoring on fully agreed spans only; the gap and alternatives go to the uncertainty stratum with excluded-span counts; coverage reported.
-- **Failure to reject:** A scorer that fills the lacuna with plausible Greek (from lexicon or memory) and scores the filled text as correct; or one that treats the unannotated-but-damaged region as background (todo §5 P03 warning: missing annotation ≠ background).
+- **Failure to reject:** A scorer that fills the lacuna with plausible Greek (from lexicon or memory) and scores the filled text as correct; or one that treats the unannotated-but-damaged region as background (project-plan §5 P03 warning: missing annotation ≠ background).
 
 ### EX-6 (inscription) — visible numerals and worn strokes
 
@@ -67,7 +67,7 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 - **Inputs (invented):** One inscription face photographed frontally and with raking light; a line annotated on the raking-light capture.
 - **Expected preservation:** Two capture entities, two coordinate frames; the annotation stays bound to the raking-light frame. Transferring geometry to the frontal capture requires an explicit registration record; until then the annotation does not display as authoritative on the frontal frame.
 - **Expected scoring:** Evaluation identifies which capture ground truth was made against; cross-capture transfer accuracy reported only where registration exists.
-- **Failure to reject:** Merging or overlaying coordinates across unregistered captures (todo §3).
+- **Failure to reject:** Merging or overlaying coordinates across unregistered captures (project-plan §3).
 
 ### EX-8 — stale revision / conflict
 
@@ -79,7 +79,7 @@ Source requirements: todo Section 7 (recognition, uncertainty, layout, AI scorin
 ### EX-9 — blank-region addition and wholly missed line (evaluation integrity)
 
 - **Inputs (invented):** A page containing an uninscribed margin the recognizer fills with hallucinated text, plus an inscribed line the detector never proposes.
-- **Expected scoring:** The hallucinated margin text is scored as insertions against a blank-region truth span; the missed line as full deletion — both inside the reported metrics, with counts (todo §7).
+- **Expected scoring:** The hallucinated margin text is scored as insertions against a blank-region truth span; the missed line as full deletion — both inside the reported metrics, with counts (project-plan §7).
 - **Failure to reject:** An evaluation harness that omits blank regions and undetected lines from the denominator, inflating accuracy.
 
 ## 3. Case coverage checklist (brief step 5)

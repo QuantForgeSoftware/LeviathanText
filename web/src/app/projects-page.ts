@@ -9,7 +9,7 @@ interface ProjectRow {
 }
 
 /**
- * Workspace landing page: collection list (todo §4 web workspace). Operates against
+ * Workspace landing page: collection list (project-plan §4 web workspace). Operates against
  * the versioned REST contract; when the API is offline the page degrades gracefully.
  */
 @Component({

@@ -4,7 +4,7 @@ using LeviathanText.Formats;
 namespace LeviathanText.Worker;
 
 /// <summary>
-/// Durable job runner (todo §4: durable jobs with leases, heartbeats, cancellation,
+/// Durable job runner (project-plan §4: durable jobs with leases, heartbeats, cancellation,
 /// retries; at-least-once execution with idempotent output publication).
 ///
 /// Claim protocol: a pending job whose lease is absent/expired is claimed by writing a

@@ -1,5 +1,5 @@
 /**
- * Transcription rendering check (todo §4: font/combining-mark rendering checks and the
+ * Transcription rendering check (project-plan §4: font/combining-mark rendering checks and the
  * polytonic input palette). The fixture strings are the labeled INVENTED examples from
  * docs/contracts/examples.md — displayed to verify that combining sequences, lunate
  * sigma and overbars render distinctly in the browser. They are not corpus data.

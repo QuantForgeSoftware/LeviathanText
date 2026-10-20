@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace LeviathanText.Application;
 
 /// <summary>
-/// Corpus-ledger audit (todo §5 / DATA-01): checks the declared schema and the fields that
+/// Corpus-ledger audit (project-plan §5 / DATA-01): checks the declared schema and the fields that
 /// must never be missing when a source is used. This does not verify rights — it verifies that
 /// the ledger says what it is required to say. Missing/unverified values are reported.
 /// </summary>

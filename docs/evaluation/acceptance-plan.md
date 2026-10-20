@@ -3,7 +3,7 @@
 - Package: **B-PLAN v1**, document `docs/evaluation/acceptance-plan.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [../data/manuscripts.md](../data/manuscripts.md), [../data/papyri.md](../data/papyri.md), [../data/inscriptions.md](../data/inscriptions.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
 - C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes and aligned scoring to `examples.md` §1 and `interchange-and-api.md` (`B-REV-A-1` resolved).
-- Scope: todo Sections 6–7 and 9. **No numeric target is invented here.** Every threshold waits for the measured pilot.
+- Scope: project-plan Sections 6–7 and 9. **No numeric target is invented here.** Every threshold waits for the measured pilot.
 
 **Core principle:** a pooled accuracy number across manuscripts, papyri and inscriptions is forbidden. Results are reported **per track**, and within a track **per material/hand/capture profile**, with unsupported profiles disclosed as blockers, not omitted.
 
@@ -17,11 +17,11 @@
 | **Evaluator / custodian** | Holds the **locked test set**; runs scoring; owns the report | Must be a role separable from the model developer |
 | Data workers (D-M/D-P/D-I) | Produce development and candidate test labels | Publish immutable, versioned artifacts |
 
-**Custodian rule:** Instance B (or whoever later owns ML) is **not automatically entitled to the locked test labels** (brief acceptance criterion; todo Section 6). Before any acquisition/tuning begins, the project owner names a custodian distinct from the training owner. Tuning uses development sets only; the locked labels are released to the custodian and scored once per frozen candidate.
+**Custodian rule:** Instance B (or whoever later owns ML) is **not automatically entitled to the locked test labels** (brief acceptance criterion; project-plan Section 6). Before any acquisition/tuning begins, the project owner names a custodian distinct from the training owner. Tuning uses development sets only; the locked labels are released to the custodian and scored once per frozen candidate.
 
 ## 2. Split design (leakage prevention)
 
-- **Object-level, not line-level.** All surfaces, recto/verso, fragments, crops, alternate captures, alternate lightings, derived glyph crops and derived editions of one physical object stay in **one** split (todo Section 5).
+- **Object-level, not line-level.** All surfaces, recto/verso, fragments, crops, alternate captures, alternate lightings, derived glyph crops and derived editions of one physical object stay in **one** split (project-plan Section 5).
 - **Generalization strata:** keep separate `dev` (training/fine-tuning), `dev-test` (iteration), and `locked-test` (custodian). Locked test is neither trained on, prompt-exampled, threshold-set, nor used for model selection.
 - **Holdout kinds:**
   - Unseen **object/witness** (e.g. one whole Stavronikita book; one papyrus item).
@@ -29,7 +29,7 @@
   - Unseen **collection/site** (e.g. an inscription site not in dev).
 - **Cross-source duplication checks:** dedup by object/TM/inventory ID and image lineage; audit **P01↔P02↔P03↔P04** overlap explicitly (todo DATA-02). P04 crops inherit P03 images.
 - **Repeated-passage risk:** the same literary text (e.g. Homer) in P02 and P05, or familiar gospel text, can hide memorization. Flag repeated passages and evaluate on unfamiliar passages separately.
-- **Reuse disclosure:** if a locked set is ever used to guide a later model, add fresh held-out witnesses and disclose the reused set's status (todo Section 7).
+- **Reuse disclosure:** if a locked set is ever used to guide a later model, add fresh held-out witnesses and disclose the reused set's status (project-plan Section 7).
 
 ## 3. What is scored, per modality
 
@@ -48,18 +48,18 @@
 | Operations | pages/min, startup latency, peak RAM/VRAM, large pages, cancellation, retry, crash recovery | Bounded queues verified |
 | Independence | dependency/file inventory proves no Kraken/Python bootstrap required | — |
 
-**Uncertainty-vs-blank:** "not yet transcribed" ≠ "illegible" ≠ "blank/uninscribed" (todo Section 3). Scoring must keep three states distinct.
+**Uncertainty-vs-blank:** "not yet transcribed" ≠ "illegible" ≠ "blank/uninscribed" (project-plan Section 3). Scoring must keep three states distinct.
 
 ## 4. Manual vs automatic layout
 
 - Report two pipeline settings: **(a)** transcription on ground-truth/imported layout, and **(b)** fully automatic layout + tracing.
-- Manual-layout assistance is **recorded and evaluated separately**; it may never be reported as standalone automatic recognition (todo Section 7).
+- Manual-layout assistance is **recorded and evaluated separately**; it may never be reported as standalone automatic recognition (project-plan Section 7).
 - Per track, record extraction failures and whether marks near line boundaries were preserved.
 
 ## 5. Correction-effort measurement
 
 - Establish **expert/manual correction time** as a baseline (raw model output → accepted diplomatic text), reported in minutes per line and minutes per 1,000 characters.
-- Compare **raw** vs **AI-assisted** workflows on the same held-out witnesses before claiming any AI gain (todo Section 4/7).
+- Compare **raw** vs **AI-assisted** workflows on the same held-out witnesses before claiming any AI gain (project-plan Section 4/7).
 - Correction time is a first-class acceptance entry, not an anecdote.
 
 ## 6. Per-track acceptance-sheet template
@@ -109,7 +109,7 @@ One filled sheet per track (manuscript / papyrus / inscription). Fields marked *
 
 ## 9. Cross-material integration rule
 
-New data tracks advance through checkpoint **I1** independently, but the combined initial scope is **not complete until all three material gates pass** (todo Section 6). A track that stays research-only must be **explicitly disclosed**, not silently dropped (todo Section 3).
+New data tracks advance through checkpoint **I1** independently, but the combined initial scope is **not complete until all three material gates pass** (project-plan Section 6). A track that stays research-only must be **explicitly disclosed**, not silently dropped (project-plan Section 3).
 
 ## 10. Alignment with `C0-0.3-draft` and answers to A's reviewer questions
 

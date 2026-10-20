@@ -873,7 +873,7 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
     });
 });
 
-// Jobs: durable creation with idempotency keys; progress via server-sent events (todo §4),
+// Jobs: durable creation with idempotency keys; progress via server-sent events (project-plan §4),
 // with the job resource remaining authoritative.
 api.MapGet("me", (HttpContext http) =>
 {
@@ -1089,7 +1089,7 @@ public sealed record MergeLinesRequest(string OtherLineId, string? AuthorId = nu
 
 public sealed record AddLineRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, EntityId? RegionId = null, string? AuthorId = null);
 
-/// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (todo §2).</summary>
+/// <summary>Server-side credential resolution: environment variables only, referenced by name in settings (project-plan §2).</summary>
 file sealed class EnvironmentCredentialSource : IAiCredentialSource
 {
     public string? Resolve(string reference) => Environment.GetEnvironmentVariable(reference);

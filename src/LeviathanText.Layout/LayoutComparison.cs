@@ -2,7 +2,7 @@ namespace LeviathanText.Layout;
 
 /// <summary>
 /// Automatic-vs-imported layout comparison (Phase 0 gate: compare automatic and
-/// manually supplied layout; todo §7 layout metrics). Matching is **one-to-one greedy by
+/// manually supplied layout; project-plan §7 layout metrics). Matching is **one-to-one greedy by
 /// IoU** at the disclosed threshold: one detected band can account for at most one GT line
 /// (a merged detection must not inflate both precision and recall). Reading-order agreement
 /// is reported separately.

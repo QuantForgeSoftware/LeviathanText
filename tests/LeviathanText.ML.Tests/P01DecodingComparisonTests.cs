@@ -10,7 +10,7 @@ using Xunit.Abstractions;
 namespace LeviathanText.ML.Tests;
 
 /// <summary>
-/// Decoding-strategy measurement (todo §5: greedy vs beam is chosen by measurement, not
+/// Decoding-strategy measurement (project-plan §5: greedy vs beam is chosen by measurement, not
 /// assumption). Trains the pilot CRNN on the P01 train split, then scores the **dev**
 /// split with greedy and several beam widths. The locked test split is never touched.
 ///

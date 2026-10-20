@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace LeviathanText.Formats;
 
 /// <summary>
-/// Bounded IIIF Presentation 3.0 import (todo §3: bounded IIIF workflow — preserve
+/// Bounded IIIF Presentation 3.0 import (project-plan §3: bounded IIIF workflow — preserve
 /// source/canvas identifiers, attribution and available views; keep cached projects
 /// usable offline). Only canvas/image structure is mapped; IIIF hosting is out of scope.
 /// Multiple views of one surface stay separate captures — coordinates are never merged

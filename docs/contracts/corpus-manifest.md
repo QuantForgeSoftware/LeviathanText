@@ -2,7 +2,7 @@
 
 Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review** by Instance B and the project owner; Greek-specialist adjudication pending. Revision history: 0.1 (initial) → 0.2 (added domain/pipeline, interchange, examples; no change to 0.1 documents) → 0.3 (StageRun I/O artifacts became `StageArtifact` records; native JSON serialization conventions added to interchange §2.0) → 0.4 (**B-CCR-6 accepted**: `catalog/metadata-text` asset kind + `preservation_tags` field; **B-CCR-7 accepted**: `Proposal` entity kind, prefix `prop`).
 
-Source requirements: todo Section 5 (`DATA-01`, `DATA-02`, `DATA-03`, intake backlog), Section 6 (C0, dataset-worker ownership, artifact-store prefixes), Section 7 (split hashes, leakage checks). This document defines the **field dictionary and conventions** for human-readable corpus manifests. It defines no file formats, code, or schemas; when implementation is authorized, a machine-readable serialization of exactly these fields will be derived from this revision.
+Source requirements: project-plan Section 5 (`DATA-01`, `DATA-02`, `DATA-03`, intake backlog), Section 6 (C0, dataset-worker ownership, artifact-store prefixes), Section 7 (split hashes, leakage checks). This document defines the **field dictionary and conventions** for human-readable corpus manifests. It defines no file formats, code, or schemas; when implementation is authorized, a machine-readable serialization of exactly these fields will be derived from this revision.
 
 ## 1. Purpose and layering
 
@@ -27,7 +27,7 @@ Every record carries `record_status`; a record with missing mandatory evidence i
 | `content_checksums` | req per retrieved file | SHA-256 per file | Recorded when a file is actually retrieved. If nothing has been downloaded, the value is `not-retrieved`; the source may still be inventoried. |
 | `material_track` | req | `manuscript` \| `papyrus` \| `inscription` \| `auxiliary` \| `mixed` | Primary evaluation track. `auxiliary` = useful for transfer/imaging experiments but cannot establish track accuracy (e.g. P04 glyph crops, I03 painted inscriptions). |
 | `language_period` | req | free text + coverage tags | e.g. "Koine, Hellenistic documentary", "Classical, literary". Unknown components recorded as `unknown`. |
-| `witness_dating` | opt | range or single era, with `basis` note | Date of the physical witness, distinct from the language period (todo §2). |
+| `witness_dating` | opt | range or single era, with `basis` note | Date of the physical witness, distinct from the language period (project-plan §2). |
 | `units_evidence` | req | quoted publisher/file-list counts with provenance tag: `publisher-reported` \| `file-list-derived` \| `inspected` | e.g. "Zenodo: 32 JPGs, 27 XMLs (publisher-reported)". Counts are never upgraded to `inspected` without actually inspecting. |
 | `paired_line_counts` | req | integer or `unverified` | Number of image/transcription-aligned **line pairs** actually audited. Publisher line totals (e.g. 9,285 vs 2,272 for M01) are held in `units_evidence`, not here. |
 | `license_image` / `license_text` / `license_annotation` / `license_code` / `license_weights` | req each | license ID **or** `institutional:<notice-ref>` **or** `mixed-per-item` **or** `unverified` | Five independent rights tracks. A repository license never blankets linked photographs. `mixed-per-item` requires per-asset rights fields (§4). |
@@ -63,9 +63,9 @@ Every record carries `record_status`; a record with missing mandatory evidence i
 | `preservation_tags` | opt | tag + evidence per tag | Per-item preservation/condition tags a source supplies without images or line labels (e.g. P02's tags, I03 damage states); such assets are `catalog/metadata-text` with `label_granularity: none` and never count as recognition data. |
 | `file_checksum` / `size` | req once retrieved | SHA-256 + bytes; `not-retrieved` until then. |
 | `parent_image_lineage` | req for derived assets | Full chain: derived crop → capture → original photograph. Derived assets never break the chain to the original. |
-| `coordinate_frame` | req for geometry-bearing assets | Which image the geometry is expressed against (todo §4: every annotation identifies its capture and frame). `none` for text-only editions. |
+| `coordinate_frame` | req for geometry-bearing assets | Which image the geometry is expressed against (project-plan §4: every annotation identifies its capture and frame). `none` for text-only editions. |
 | `license` / `evidence` | req | Asset-level rights if they differ from the source record; else `inherit-source`. |
-| `label_granularity` | req for transcription/annotation assets | `line` \| `word` \| `character-box` \| `glyph` \| `region` \| `none`. Character boxes are **not** line labels; editions are **not** visible-text labels. This field is the primary guard against the todo §5 mislabeling risks. |
+| `label_granularity` | req for transcription/annotation assets | `line` \| `word` \| `character-box` \| `glyph` \| `region` \| `none`. Character boxes are **not** line labels; editions are **not** visible-text labels. This field is the primary guard against the project-plan §5 mislabeling risks. |
 | `transcription_profile` | req for text assets | Which proposed profile version (see `greek-transcription.md`) the labels conform to, or `pre-project` for imported labels not yet converted. |
 | `pairing_status` | req | `paired` (image + audited label) \| `image-only` \| `label-only` \| `unpaired-unsynced` (e.g. P01's five extra images). |
 | `annotation_completeness` | req for labeled assets | `complete` \| `partial:<what is missing>` \| `unknown`. "Missing character boxes" is recorded as `unknown`, never assumed to be background (P03 risk). |
@@ -76,8 +76,8 @@ Every record carries `record_status`; a record with missing mandatory evidence i
 - **Split unit is the physical object (item), never the line or page.** All assets of one item — fragments, recto/verso, alternate captures, crops, derived glyph sets — share the item's split assignment (`DATA-02`).
 - Splits: `train` / `dev` / `test`, plus `holdout:<name>` for witness/hand/site generalization probes and `reserved-acceptance` for locked acceptance objects chosen in `DATA-03`.
 - `hand_or_site_holdout`: for generalization tests, entire hands (manuscripts) or monuments/sites (inscriptions) are assigned to `test`/`holdout` as units. The manifest records the grouping key used.
-- Repeated passages / same text in multiple witnesses are tagged `textual-overlap:<id>` so evaluation can treat them separately (todo §5).
-- Every split assignment change requires a **new manifest version**; `split_hash` (SHA-256 of the sorted assignment list) is published in evaluation reports so leakage can be checked (todo §7).
+- Repeated passages / same text in multiple witnesses are tagged `textual-overlap:<id>` so evaluation can treat them separately (project-plan §5).
+- Every split assignment change requires a **new manifest version**; `split_hash` (SHA-256 of the sorted assignment list) is published in evaluation reports so leakage can be checked (project-plan §7).
 - Locked acceptance labels live with the evaluator role, not in distributed training manifests; the manifest records their `asset_id`s and custodian role but not their contents.
 
 ## 6. Manifest versioning and change rules

@@ -2,7 +2,7 @@
 
 Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**. Revision history: 0.2 (initial) → 0.3 (native JSON serialization conventions §2.0 added; conventions implemented in `LeviathanText.Contracts.Serialization.ContractJson`). Depends on the transcription contract (greek-transcription.md) and domain-and-pipeline.md.
 
-Source requirements: todo Section 3 (scholarly interchange, bounded TEI/EpiDoc profile), Section 4 (web workspace, AI integration), Section 6 (FMT/UI/AI package inputs), Section 7 (formats, AI, UI verification). This document is **prose and tables only**; it defines no OpenAPI file, no generated client, no schemas.
+Source requirements: project-plan Section 3 (scholarly interchange, bounded TEI/EpiDoc profile), Section 4 (web workspace, AI integration), Section 6 (FMT/UI/AI package inputs), Section 7 (formats, AI, UI verification). This document is **prose and tables only**; it defines no OpenAPI file, no generated client, no schemas.
 
 ## 1. Supported formats and bounded mappings
 
@@ -19,7 +19,7 @@ Source requirements: todo Section 3 (scholarly interchange, bounded TEI/EpiDoc p
 
 ### 1.2 TEI/EpiDoc bounded profile
 
-Pinned versions are an implementation-time decision; the contract requires pinning + fixture-based round trips before adapters ship (todo §3).
+Pinned versions are an implementation-time decision; the contract requires pinning + fixture-based round trips before adapters ship (project-plan §3).
 
 | Scholarly distinction | Native representation | EpiDoc/TEI mapping | Round-trip rule |
 | --- | --- | --- | --- |
@@ -36,15 +36,15 @@ Pinned versions are an implementation-time decision; the contract requires pinni
 | Alternative readings | `alternative-reading` set | `app`/`rdg` | All readings preserved; no silent lemma choice |
 | Responsibility / provenance | Revision metadata | `respStmt`/change log | Round-trips into revision provenance where mappable |
 
-Unsupported/unknown elements: preserved in an **original-markup attachment**, reported by name/count in the import report, never silently flattened (todo §3). Import reports list every mapping decision that discarded information.
+Unsupported/unknown elements: preserved in an **original-markup attachment**, reported by name/count in the import report, never silently flattened (project-plan §3). Import reports list every mapping decision that discarded information.
 
 ### 1.3 Loss reporting (mandatory, all exports)
 
-Every lossy export carries a machine-checkable loss report: which distinctions were dropped or flattened, per category (geometry, uncertainty, alternatives, editorial layers, provenance), with counts. "Explains any information lost in plain text or OCR-only formats" is a hard rule (todo §3). Export without a loss report for a lossy format is a contract violation.
+Every lossy export carries a machine-checkable loss report: which distinctions were dropped or flattened, per category (geometry, uncertainty, alternatives, editorial layers, provenance), with counts. "Explains any information lost in plain text or OCR-only formats" is a hard rule (project-plan §3). Export without a loss report for a lossy format is a contract violation.
 
 ### 1.4 IIIF import (bounded)
 
-- Import preserves: source/canvas identifiers, attribution, license/rights statement text, and available views (multiple images of one surface are separate captures — never coordinate-merged without registration, todo §3).
+- Import preserves: source/canvas identifiers, attribution, license/rights statement text, and available views (multiple images of one surface are separate captures — never coordinate-merged without registration, project-plan §3).
 - Cached projects must remain usable offline; the cache records what was fetched and when.
 
 ## 2. HTTP API behavior (prose contract)
@@ -82,7 +82,7 @@ These conventions apply to every contract record on the wire:
 | Concern | Contract |
 | --- | --- |
 | Job creation | Returns job ID + status URI. Inputs validated up front; unknown model/profile → immediate rejection with the §6 vocabulary codes. |
-| Progress | Server-sent events first (todo §4): `job.progress` (stage, percent/bounded counters), `job.stage-change`, `job.completed`, `job.failed` (with error object), `heartbeat`. Events are advisory; the job resource is authoritative. |
+| Progress | Server-sent events first (project-plan §4): `job.progress` (stage, percent/bounded counters), `job.stage-change`, `job.completed`, `job.failed` (with error object), `heartbeat`. Events are advisory; the job resource is authoritative. |
 | Ordering/resume | Event replay from a cursor; missed events degrade to polling the job resource. |
 | Idempotency | Job creation accepts a client idempotency key; duplicate creation returns the existing job (domain-and-pipeline.md §5). |
 | Cancellation | `cancel` on the job resource; event `job.cancelled`. Cooperative per §5 semantics. |
@@ -91,10 +91,10 @@ These conventions apply to every contract record on the wire:
 
 | Field | Contract |
 | --- | --- |
-| Proposal creation | Client names: target spans (revision + scalar offsets), task type (`candidate-reading`, `word-division`, `expansion`, `accentuation`, `restoration` — visually separate tasks, todo §4), provider/model config reference, prompt version. |
+| Proposal creation | Client names: target spans (revision + scalar offsets), task type (`candidate-reading`, `word-division`, `expansion`, `accentuation`, `restoration` — visually separate tasks, project-plan §4), provider/model config reference, prompt version. |
 | Provider passthrough | Provider identity, model, prompt/config version recorded on every proposal. Credentials are server-side only; never accepted from or returned to the browser. |
 | Proposal record | Proposed text + span links + task + provenance + confidence semantics (§4 of domain contract) + acceptance status (`proposed`/`accepted`/`rejected`/`expired`). |
-| Acceptance | Accepting a proposal creates an L2 revision with provenance; L1 is untouched. Bulk acceptance requires a dry-run preview first (todo §4). |
+| Acceptance | Accepting a proposal creates an L2 revision with provenance; L1 is untouched. Bulk acceptance requires a dry-run preview first (project-plan §4). |
 | Malformed responses | Provider responses failing schema validation become failed proposal attempts with the validation reason recorded; they never surface partial text as a proposal. |
 
 ### 2.4 Implemented endpoint inventory (pilot)
@@ -119,13 +119,13 @@ within the pilot; shapes follow §2.0 and errors use the closed vocabulary.
 
 | Concern | Contract |
 | --- | --- |
-| Client generation | The TypeScript client is generated from the versioned HTTP contract during implementation (todo §4); this document is its prose source. |
+| Client generation | The TypeScript client is generated from the versioned HTTP contract during implementation (project-plan §4); this document is its prose source. |
 | Text editing | Grapheme-aware selection/editing; editing operates on grapheme boundaries, scalar offsets under the hood. |
 | Layers | L0/L1/L2/L3/L4 views are separately addressable; raw-vs-proposed comparisons are first-class views. |
 | Undo/revision history | Undo acts through revision creation (new revision superseding), never by deleting history. |
-| Rendering checks | Combining-mark rendering checks and the polytonic input palette are required workspace features (todo §4). |
-| Coordinate fidelity | Overlay accuracy across zoom/rotation is a verification item (todo §7); the API must return geometry in stated frames sufficient to support this. |
-| Offline | Cached projects usable offline; network calls are explicit user-configurable behaviors (todo §2). |
+| Rendering checks | Combining-mark rendering checks and the polytonic input palette are required workspace features (project-plan §4). |
+| Coordinate fidelity | Overlay accuracy across zoom/rotation is a verification item (project-plan §7); the API must return geometry in stated frames sufficient to support this. |
+| Offline | Cached projects usable offline; network calls are explicit user-configurable behaviors (project-plan §2). |
 
 ## 4. Open questions for reviewers
 

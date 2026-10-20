@@ -2,8 +2,8 @@
 """Cycle-end archive: move completed checklist items from todo.md to completed.md.
 
 Standing rule (lessons.md #4): at the end of every work cycle, completed items leave
-todo.md; open/in-progress items and reference records stay. The archive is verbatim and
-grouped under the original section headings.
+todo.md; open/in-progress items stay and plan narrative/reference records live in
+project-plan.md. The archive is verbatim and grouped under the original section headings.
 
 Usage: python3 scripts/archive-completed.py [--dry-run]
 """

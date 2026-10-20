@@ -108,7 +108,8 @@ See [docs/evaluation/pilot-p01-report.md](docs/evaluation/pilot-p01-report.md). 
 
 ## Documentation
 
-- [todo.md](todo.md) — the full implementation plan with execution records and acceptance gates
+- [project-plan.md](project-plan.md) — plan narrative, requirements, source register, decisions, gates and estimates
+- [todo.md](todo.md) — actionable checklist (open/in-progress items)
 - [docs/contracts/](docs/contracts/) — the versioned contract set (transcription, domain/pipeline, manifest, interchange/API, examples)
 - [docs/data/](docs/data/) — per-track source cards, license registers, and acquisition/audit records
 - [docs/evaluation/acceptance-plan.md](docs/evaluation/acceptance-plan.md) — evaluation design and acceptance-sheet template

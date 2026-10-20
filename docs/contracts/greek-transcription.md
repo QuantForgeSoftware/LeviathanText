@@ -2,7 +2,7 @@
 
 Contract: **C0-0.4-draft** (proposal, not accepted). Issued 2026-10-18 by Instance A (A-PLAN). Status: **draft, open for review**; Greek-specialist adjudication pending (BLK-A-2). Revision history: 0.1 (initial) → 0.3 (no semantic change to this document; set-level version bump recorded in corpus-manifest.md).
 
-Source requirements: todo Section 3 ("Greek transcription contract"), Section 4 (domain model), Section 7 (scoring semantics). This document proposes the versioned transcription profile, text-layer separation, Unicode handling and uncertainty vocabulary. It proposes conventions; it does not adjudicate them.
+Source requirements: project-plan Section 3 ("Greek transcription contract"), Section 4 (domain model), Section 7 (scoring semantics). This document proposes the versioned transcription profile, text-layer separation, Unicode handling and uncertainty vocabulary. It proposes conventions; it does not adjudicate them.
 
 ## 1. Layer model (what exists and what never collapses)
 
@@ -20,7 +20,7 @@ Invariants:
 
 - Historical corrections **in the witness** (a scribe's or stone-cutter's correction) are L1/L3 evidence, not L4 application edits. Application history never overwrites witness history.
 - An interpretation (plausible Greek, normalized spelling, restored letters) must never silently replace evidence. Every editorial intervention is a link from an L1 span, never an in-place mutation of it.
-- Preserving imported text and L0 output is mandatory; derived forms (e.g. canonical NFC) are computed views with recorded mappings, not replacements (todo §3).
+- Preserving imported text and L0 output is mandatory; derived forms (e.g. canonical NFC) are computed views with recorded mappings, not replacements (project-plan §3).
 
 ## 2. Diplomatic profile: what is transcribed
 
@@ -49,12 +49,12 @@ The profile carries a closed, versioned inventory of nonalphabetic signs: overba
 
 ## 4. Unicode rules
 
-- All text is stored as **logical-order Unicode text**; direction/display metadata is separate (todo §4).
+- All text is stored as **logical-order Unicode text**; direction/display metadata is separate (project-plan §4).
 - **Canonical NFC** is the interchange/storage form for diplomatic text, with these qualifications:
   - NFC is applied only where it does not lose a visible distinction the profile records; glyph-form annotations carry what NFC cannot.
   - **No compatibility folding (NFKC/NFKD), no case folding, no sigma substitution, no spelling modernization, no accent stripping is ever applied to L1.** Training-label normalization is a per-model-version decision recorded in the model card, applied to a derived view, never overwriting L1.
 - Combining sequences: the profile defines a **canonical combining order** for Greek (proposal: breathing → diaeresis → accent → vowel-length/other, per character), applied at storage. Sequences not in canonical order on import are normalized **with an offset-preserving mapping recorded**; the original sequence is retained in the revision that imported it.
-- **Offsets are revision-scoped Unicode scalar offsets** (todo §3):
+- **Offsets are revision-scoped Unicode scalar offsets** (project-plan §3):
   - Every annotation stores `[scalar_start, scalar_end)` against a named text revision. Scalar = code point, not UTF-16 unit, not grapheme.
   - Converters to C#/browser UTF-16 offsets and to grapheme boundaries are specified per profile version; conversions are pure functions over the revision's text (algorithmic spec deferred to implementation, but the contract is: conversion is deterministic, versioned, and validated against the revision's text).
   - Grapheme clusters (UAX #29 extended grapheme clusters) are the unit for editing, alignment and character-level scoring; a base + combining sequence is **one** grapheme.
@@ -62,7 +62,7 @@ The profile carries a closed, versioned inventory of nonalphabetic signs: overba
 
 ## 5. Uncertainty and damage vocabulary (L3)
 
-Distinct statuses (todo §3):
+Distinct statuses (project-plan §3):
 
 | Annotation | Meaning | Notes |
 | --- | --- | --- |

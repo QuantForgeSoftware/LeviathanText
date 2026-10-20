@@ -1,5 +1,5 @@
 /**
- * Local cache for read-only API data (todo §4: keep cached projects usable offline). Writes
+ * Local cache for read-only API data (project-plan §4: keep cached projects usable offline). Writes
  * happen on every successful read; on a transport error the last cached value is returned and
  * an offline flag is raised so the UI can say the data is stale. Mutations are never replayed
  * automatically — drafts and the revision API remain the authority.

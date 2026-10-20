@@ -55,12 +55,12 @@
 
 ## Task Management
 
-1. **Plan first**: Write plan to 'todo.md' with checkable items
+1. **Plan first**: Write the plan to `project-plan.md` and track actionable checkable items in `todo.md`.
 2. **Verify plans**: Check in before starting implementation
 3. **Track Progress**: Mark items complete as you go
 4. **Explain Changes**: High—level summary at each step
-5. **Document Results**: Add review section to 'todo.md
-6. **Capture Lessons**: Update 'lessons.mdS'after corrections
+5. **Document Results**: Record review results in the relevant handoff or `project-plan.md`; do not leave them as unchecked work.
+6. **Capture Lessons**: Update `lessons.md` after corrections
 
 ## Core Principles
 

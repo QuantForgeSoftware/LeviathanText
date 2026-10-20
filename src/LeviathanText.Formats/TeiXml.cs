@@ -4,7 +4,7 @@ using LeviathanText.Contracts;
 namespace LeviathanText.Formats;
 
 /// <summary>
-/// Bounded TEI P5 / EpiDoc profile (todo §3 "scholarly interchange"): lines, unclear
+/// Bounded TEI P5 / EpiDoc profile (project-plan §3 "scholarly interchange"): lines, unclear
 /// spans, gaps with extent, alternative readings and supplied text — nothing more.
 /// Unsupported constructs are reported, never silently flattened. Bracket/underdot
 /// conventions are imported as annotations, never as literal characters in L1 text.

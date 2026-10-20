@@ -124,7 +124,7 @@ public sealed class RecognitionPipeline
         if (persistL0)
         {
             // Raw recognition is kept as L0 revisions with model provenance — never merged
-            // into L1 (greek-transcription.md §1; todo §2 revision separation).
+            // into L1 (greek-transcription.md §1; project-plan §2 revision separation).
             var modelAuthor = new AgentRef
             {
                 Id = $"model:{options.ModelName}",

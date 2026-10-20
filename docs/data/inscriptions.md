@@ -3,10 +3,10 @@
 - Package: **B-PLAN v1**, document `docs/data/inscriptions.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [manuscripts.md](manuscripts.md), [papyri.md](papyri.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
 - C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes (`B-REV-A-1` resolved). Field mappings use A's real field names.
-- Scope: todo Section 5 (inscriptions) and Section 3. No archive was downloaded; no label was created.
+- Scope: project-plan Section 5 (inscriptions) and Section 3. No archive was downloaded; no label was created.
 - Governing todo requirements: INS-01, DATA-01, DATA-02, DATA-03; Phase 0 gate.
 
-**Headline correction to todo Section 5:** the claim that **I01 I.Sicily's IIIF imagery is CC BY 4.0** is **not supported** by the sources checked on 2026-10-18. The EpiDoc **data** deposit is CC BY 4.0, but the site's own images policy reserves images **for study** and directs publication requests to the holding museums `[new]`. I01 imagery therefore moves from "verified CC BY 4.0" to **"data verified; imagery unresolved per item."**
+**Headline correction to project-plan Section 5:** the claim that **I01 I.Sicily's IIIF imagery is CC BY 4.0** is **not supported** by the sources checked on 2026-10-18. The EpiDoc **data** deposit is CC BY 4.0, but the site's own images policy reserves images **for study** and directs publication requests to the holding museums `[new]`. I01 imagery therefore moves from "verified CC BY 4.0" to **"data verified; imagery unresolved per item."**
 
 ## 1. Evidence legend
 
@@ -23,7 +23,7 @@ Same as [manuscripts.md §1](manuscripts.md#1-evidence-legend): `[prior]`, `[new
   - Zenodo: "almost 5,000 Sicilian records, c. 4,000 on stone/metal" `[PR]`.
   - isicily.org: "over 4,500" (and "4,730 online, almost 5,000 registered"; images online for ~800–900) `[new]`.
   - Crossreads project page: "just under 6,000 items on completion" `[new]`.
-  - todo Section 5 (2024 paper): 4,694 records / 3,153 stone `[prior]`.
+  - project-plan Section 5 (2024 paper): 4,694 records / 3,153 stone `[prior]`.
   - **These are all-language totals.** The **Greek + image + usable-rights intersection** is unknown `[unk]` and is the number that matters.
 - **Annotation granularity:** EpiDoc XML editions with line breaks; **IIIF** photography referenced `[prior]`. EpiDoc line breaks are **not** pixel alignment `[prior]`; polygons/baselines/damage labels must be derived.
 - **Rights (split):**
@@ -98,7 +98,7 @@ Only **two** potentially reusable image sources exist for inscriptions: **I02** 
 2. **I02 Petrie** — clear CC BY 4.0 photographs; blocks on extracting the object list and adding line geometry/labels.
 3. **I03 Bessarion** — auxiliary benchmark only, with ShareAlike obligations preserved.
 
-Given the rights state, the **first honest inscription deliverable is a scoped, annotated subset**, not a corpus. If neither I01 imagery nor I02 can be fully cleared, the inscription track remains a **research-only disclosure**, not an accepted automatic-recognition claim (todo Section 3).
+Given the rights state, the **first honest inscription deliverable is a scoped, annotated subset**, not a corpus. If neither I01 imagery nor I02 can be fully cleared, the inscription track remains a **research-only disclosure**, not an accepted automatic-recognition claim (project-plan Section 3).
 
 ## 6. Coverage and gap analysis (inscriptions)
 
@@ -110,7 +110,7 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 | Visible text | Editions exist | **Visible diplomatic line labels** must be created |
 | Rights | I02 images CC BY 4.0; I01 data CC BY 4.0 | I01 imagery unresolved; I03 ShareAlike; rest restricted |
 
-**No broad, already aligned and audited Classical/Koine inscription photo-to-line corpus was verified** (todo Section 5 conclusion upheld and strengthened).
+**No broad, already aligned and audited Classical/Koine inscription photo-to-line corpus was verified** (project-plan Section 5 conclusion upheld and strengthened).
 
 ## 7. Manifest field mapping — I02 (against `C0-0.3-draft`)
 
@@ -156,7 +156,7 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 
 ## 9. Open questions handed to A / the owner
 
-1. Confirm the "I.Sicily IIIF is CC BY 4.0" claim before any image use — todo Section 5 should be corrected (`B-CCR-5`, still open; A owns `todo.md`).
+1. Confirm the "I.Sicily IIIF is CC BY 4.0" claim before any image use — project-plan Section 5 should be corrected (`B-CCR-5`, still open; A owns `project-plan.md`).
 2. Whether inscriptions may proceed to acceptance with **I02-only** imagery if I01 imagery stays unresolved (recommend: yes, disclosed as a narrow profile).
 3. Damage/orientation vocabulary for the transcription profile — A's `greek-transcription.md` §5 covers `unclear`/`illegible`/`lost`/`erased`/`added`/`overwritten`; the residual is the inscriptions-specific sign inventory (A's open question to the specialist).
 4. Suggested source-backed replacement for A's invented EX-3/EX-6: a real I01/I02 stoichedon or worn-stone line once INS-02 creates it.

@@ -11,7 +11,7 @@ namespace LeviathanText.Training;
 /// (Zenodo 6565706, v0.9, CC BY 4.0) from the artifact store, crops each PAGE TextLine
 /// by its own Coords box (baseline as fallback), resizes to the CRNN input height and
 /// returns labeled lines, with the page file as the split unit (witness-level
-/// splitting; no random line split, per todo §5).
+/// splitting; no random line split, per project-plan §5).
 ///
 /// These are REAL diplomatic labels, but they are Transkribus-prepared and NOT yet
 /// expert-adjudicated (DATA-03): any number produced here is a pilot-scale measurement,
@@ -129,7 +129,7 @@ public static class P01LineDataset
 
         // Per-crop luminance, then Otsu binarization: papyrus fiber background is dark
         // enough to swamp unnormalized input; a global threshold per crop removes the
-        // paper tone and keeps the ink (todo §4 "optional binarization" — recorded as
+        // paper tone and keeps the ink (project-plan §4 "optional binarization" — recorded as
         // part of the preprocessing recipe).
         var info = resized.Info;
         var bytes = resized.Bytes;

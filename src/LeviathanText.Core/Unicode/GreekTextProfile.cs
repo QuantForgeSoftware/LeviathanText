@@ -4,7 +4,7 @@ using System.Text;
 namespace LeviathanText.Core.Unicode;
 
 /// <summary>
-/// Bounded Greek transcription-profile inspection (todo §2: versioned profiles; do not infer
+/// Bounded Greek transcription-profile inspection (project-plan §2: versioned profiles; do not infer
 /// accents, do not fold or strip marks). This is a data-QA aid, not a normalizer: it
 /// classifies scalars, flags characters outside the pilot profile and flags combining marks
 /// with no base. Nothing is rewritten.

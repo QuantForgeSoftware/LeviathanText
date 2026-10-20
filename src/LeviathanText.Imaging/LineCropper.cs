@@ -8,7 +8,7 @@ namespace LeviathanText.Imaging;
 /// use). The C0 rule "line crops must retain diacritics, overbars and interlinear
 /// additions" is implemented as mandatory vertical padding: the crop extends above and
 /// below the line's text band by a configurable factor of the band height, and crop
-/// bounds + information loss are recorded (todo §4).
+/// bounds + information loss are recorded (project-plan §4).
 /// </summary>
 public static class LineCropper
 {

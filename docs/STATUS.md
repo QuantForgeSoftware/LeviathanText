@@ -1,6 +1,7 @@
 # Project status — 2026-10-19 (pilot)
 
-One-page operational status. Detailed plans live in [todo.md](../todo.md), completed work in
+One-page operational status. Plan narrative lives in [project-plan.md](../project-plan.md), the
+actionable checklist in [todo.md](../todo.md), completed work in
 [completed.md](../completed.md), and package handoffs in [A-PLAN](handoffs/A-PLAN.md) and
 [B-CODE](handoffs/B-CODE.md). Nothing below is a release claim.
 

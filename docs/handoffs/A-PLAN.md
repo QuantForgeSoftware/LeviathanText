@@ -1,5 +1,9 @@
 # Handoff — A-PLAN (Instance A: contracts and planning integration)
 
+> **Plan-split note (2026-10-20):** the plan narrative, section numbering and execution records
+> now live in [project-plan.md](../../project-plan.md); [todo.md](../../todo.md) is the actionable checklist. Historical
+> hashes and `todo.md` citations below refer to the pre-split file.
+
 ## Status and owner
 
 - Package: **A-PLAN v1**, brief at [`docs/tasks/instance-a-contracts-and-integration.md`](../tasks/instance-a-contracts-and-integration.md).

@@ -4,7 +4,7 @@ namespace LeviathanText.AI;
 public sealed record AiPrompt(string System, string User);
 
 /// <summary>
-/// Builds provider-neutral prompts for the visually separate proposal tasks (todo §4).
+/// Builds provider-neutral prompts for the visually separate proposal tasks (project-plan §4).
 /// The task rules deliberately prevent one task from doing another's work: a
 /// word-division request may not add accents, an expansion may not silently replace the
 /// visible diplomatic reading, and a restoration is always marked as supplied text.

@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace LeviathanText.Infrastructure;
 
 /// <summary>
-/// SQLite + native-JSON local persistence (todo §4 "Storage and jobs"): metadata and
+/// SQLite + native-JSON local persistence (project-plan §4 "Storage and jobs"): metadata and
 /// document payloads stored transactionally; the native project document (JSON) is the
 /// record of record. Schema migrations are versioned by <see cref="SchemaVersion"/>; a
 /// file written by a newer schema is refused, never silently upgraded.

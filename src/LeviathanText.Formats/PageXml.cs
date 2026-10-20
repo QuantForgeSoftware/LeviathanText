@@ -13,7 +13,7 @@ public static class PageXml
 {
     private static readonly XNamespace Xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
-    /// <summary>Pinned accepted PAGE schema versions (todo §3: pin schema versions).</summary>
+    /// <summary>Pinned accepted PAGE schema versions (project-plan §3: pin schema versions).</summary>
     private static readonly string[] AcceptedNamespaces =
     [
         "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15",
@@ -212,7 +212,7 @@ public static class PageXml
 
     private static void RejectExternalEntities(XDocument doc)
     {
-        // DTD/external entities are disabled by refusing DOCTYPE outright (todo §7 security).
+        // DTD/external entities are disabled by refusing DOCTYPE outright (project-plan §7 security).
         if (doc.DocumentType is not null)
             throw new InvalidDataException("DOCTYPE/external entities are not accepted in PAGE imports.");
     }

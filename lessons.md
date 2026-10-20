@@ -16,10 +16,11 @@ Corrections from the user, converted into rules for future sessions.
 
 4. **Cycle-end archiving (standing instruction, 2026-10-19).** At the end of every work
    cycle, move completed checklist items from `todo.md` to `completed.md` (verbatim, grouped
-   under the original section headings); leave open/in-progress items and reference records
-   (tables, registers, decisions, estimates) in `todo.md`. Add a section note where a
-   section's items are all archived, refresh `completed.md`'s build date/item count, and
-   commit both files together. "Cycle" = a closed work session or assignment handoff.
+   under the original section headings); leave open/in-progress items in `todo.md` and plan
+   narrative/reference records (tables, registers, decisions, estimates) in `project-plan.md`.
+   Add a section note where a section's items are all archived, refresh `completed.md`'s build
+   date/item count, and commit both files together. "Cycle" = a closed work session or
+   assignment handoff.
 
 ## 5. Imported document ids are not globally unique
 PAGE/ALTO/hOCR ids (`ln1`, `line_…`) repeat across documents. Namespace them per import

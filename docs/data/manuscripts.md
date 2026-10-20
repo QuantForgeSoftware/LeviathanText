@@ -3,8 +3,8 @@
 - Package: **B-PLAN v1**, document `docs/data/manuscripts.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [papyri.md](papyri.md), [inscriptions.md](inscriptions.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
 - C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). Instance A published all five `docs/contracts/*.md` mid-assignment; B verified their SHA-256 against A's record (see [B-PLAN.md](../handoffs/B-PLAN.md), `B-REV-A-1` now resolved). Field mappings below use A's real field names.
-- Scope: todo Section 5 (manuscripts) and Section 3 (transcription contract). No archive was downloaded; no line was labeled. This document plans intake, it does not perform it.
-- Governing todo requirements: MAN-01, DATA-01, DATA-02, DATA-03 (todo Section 5 backlog); Phase 0 gate (todo Section 6); material-specific workflows (todo Section 3).
+- Scope: project-plan Section 5 (manuscripts) and Section 3 (transcription contract). No archive was downloaded; no line was labeled. This document plans intake, it does not perform it.
+- Governing todo requirements: MAN-01, DATA-01, DATA-02, DATA-03 (project-plan Section 5 backlog); Phase 0 gate (project-plan Section 6); material-specific workflows (project-plan Section 3).
 
 ## 1. Evidence legend
 
@@ -12,7 +12,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 
 | Tag | Meaning |
 | --- | --- |
-| `[prior]` | Recorded in todo Section 5 before this assignment; inherited, not re-checked here. |
+| `[prior]` | Recorded in project-plan Section 5 before this assignment; inherited, not re-checked here. |
 | `[new]` | Re-checked by Instance B on 2026-10-18 at the named URL. |
 | `[PR]` | Publisher-reported count or claim (the depositor's description), not verified against files. |
 | `[filelist]` | Derived from a rendered file listing; provisional, not authoritative. |
@@ -26,12 +26,12 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 - **ID / version to pin:** `M01`; Zenodo dataset DOI `10.5281/zenodo.4095301`, version **1.0** `[new]`.
 - **Evidence links (checked 2026-10-18):** `https://zenodo.org/records/4095301`; HTR-United catalog entry `_pid fc63dcc30` via `https://htr-united.github.io/htr-united/catalog.json` `[new]`.
 - **Title:** "EPARCHOS - Historical Greek handwritten document dataset" `[new]`; the HTR-United catalog renders it as "EPARCHOS" `[new]`.
-- **Material / language / witness period:** Greek handwritten codex, **c. 1500–1530**; subset of **British Library Add. 6791**; language field "Ancient Greek (to 1453)" `[new]`. **Two hands:** Antonius Eparchos and Camillos Zanettus (ff. 104r–174v) `[new]`. Texts by Hierocles, Matthaeus Blastares, Michael Psellos `[new]`. **Material not stated** `[unk]` (todo Section 5 assumed "parchment"; the record does not say so — carried as unknown).
+- **Material / language / witness period:** Greek handwritten codex, **c. 1500–1530**; subset of **British Library Add. 6791**; language field "Ancient Greek (to 1453)" `[new]`. **Two hands:** Antonius Eparchos and Camillos Zanettus (ff. 104r–174v) `[new]`. Texts by Hierocles, Matthaeus Blastares, Michael Psellos `[new]`. **Material not stated** `[unk]` (project-plan Section 5 assumed "parchment"; the record does not say so — carried as unknown).
 - **Units and count evidence — CONFLICT:**
   - Zenodo description: **120 pages, 9,285 lines, 18,809 words (6,787 unique)** `[PR]`.
   - HTR-United catalog: **120 files, 2,272 lines, 116,894 characters**, hands "less than 11 (exact)", time 1500–1530, Page-XML `[new]`.
   - Archive size 114.7 MB `[new]`.
-  - **Disposition:** the 120-page count agrees; the **9,285 vs 2,272 line** figure does not (≈4× gap). todo Section 5 flagged this; it is **still unresolved**. Both figures may be honest under different definitions (e.g. geometric line regions vs transcribed lines, or count of text-region objects). **MAN-01 must count actual PAGE `<TextLine>` elements before any volume target.**
+  - **Disposition:** the 120-page count agrees; the **9,285 vs 2,272 line** figure does not (≈4× gap). project-plan Section 5 flagged this; it is **still unresolved**. Both figures may be honest under different definitions (e.g. geometric line regions vs transcribed lines, or count of text-region objects). **MAN-01 must count actual PAGE `<TextLine>` elements before any volume target.**
 - **Annotation granularity:** PAGE XML text-region, text-line and word polygons with transcriptions `[PR]`. Whether abbreviations are expanded or kept visible is **unknown** `[unk]`.
 - **Rights (split):**
   - Image: **not separately stated** `[unk]`; the record carries one CC BY 4.0 grant. Source object Add. 6791 is a pre-1600 British Library manuscript (public-domain status likely `[inf]`), but BL imaging terms were **not** checked here.
@@ -67,7 +67,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 - **Rights (split):** single record-level **CC BY 4.0** `[new]`.
 - **Attribution / conditions:** CC BY 4.0 `[new]`.
 - **Parent-object lineage:** one codex (Stavronikita 79), 40 surfaces `[inf]`.
-- **Proposed use:** additional hand/style coverage; **not** a genre guarantee for Classical/Koine (todo Section 5) `[prior]`.
+- **Proposed use:** additional hand/style coverage; **not** a genre guarantee for Classical/Koine (project-plan Section 5) `[prior]`.
 - **Unanswered checks:** visible vs expanded label policy; text genre; publication-vs-creation date mismatch (published 2021-10-19, page created 2021-10-25) `[new]`.
 - **Next action:** **MAN-01**.
 
@@ -80,7 +80,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 - **Annotation granularity:** PAGE region/line/word polygons `[PR]`; element set not inspected `[unk]`.
 - **Rights (split):** single record-level **CC BY 4.0** `[new]`.
 - **Parent-object lineage:** one codex (Stavronikita 114), 44 surfaces `[inf]`.
-- **Proposed use:** additional witness; **kept whole in one split** (todo Section 5) `[prior]`.
+- **Proposed use:** additional witness; **kept whole in one split** (project-plan Section 5) `[prior]`.
 - **Unanswered checks:** page/crop geometry and decorative-initial handling; visible vs expanded labels.
 - **Next action:** **MAN-01**.
 
@@ -116,7 +116,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 | M02b | 40 `[PR]` | 803 `[PR]` | — | plausible `[inf]`, not file-verified |
 | M02c | 44 `[PR]` | 1,051 `[PR]` | — | plausible `[inf]`, not file-verified |
 
-Do **not** publish a manuscript corpus total until M01 is reconciled. The four datasets are **one population type** (later minuscule), not four independent ancient-hand populations (todo Section 5).
+Do **not** publish a manuscript corpus total until M01 is reconciled. The four datasets are **one population type** (later minuscule), not four independent ancient-hand populations (project-plan Section 5).
 
 ## 4. Pilot recommendation and intake order
 
@@ -127,11 +127,11 @@ Do **not** publish a manuscript corpus total until M01 is reconciled. The four d
 3. **M02b / M02c Stavronikita 79 and 114** — add paper-based later hands; keep for generalization strata.
 4. **M03** — conditional; resolve image wording first; treat as auxiliary.
 
-**No collection is selected by the project owner here.** This is a recommendation only; the owner selects (todo Section 5). Later witnesses cannot stand in for early majuscule or damaged material.
+**No collection is selected by the project owner here.** This is a recommendation only; the owner selects (project-plan Section 5). Later witnesses cannot stand in for early majuscule or damaged material.
 
 ## 5. Split design — witness and hand holdouts
 
-- **Object-level split first.** All pages, recto/verso, crops and derived images of one **codex** stay in one split (todo Section 5; A's split-grouping field, *provisional*).
+- **Object-level split first.** All pages, recto/verso, crops and derived images of one **codex** stay in one split (project-plan Section 5; A's split-grouping field, *provisional*).
 - **Available hand holdout in M01:** the Camillos Zanettus run **ff. 104r–174v** can be held out as an *unseen-hand* test while Antonius Eparchos folios train/develop. Confirm the page-level hand boundary in MAN-01 before using it.
 - **Available witness holdout:** hold out at least one entire Stavronikita witness (recommend **M02a**) as an unseen-book manuscript test.
 - **Do not** randomly split lines within a book — that leaks page/ink/hand characteristics.
@@ -147,7 +147,7 @@ Do **not** publish a manuscript corpus total until M01 is reconciled. The four d
 | Diacritics | Polytonic present by nature; treatment **unknown** `[unk]` | Whether labels preserve visible marks vs supply accents is unaudited |
 | Genre | Gospels (M02a), liturgical (M03), misc. classical (M01) | Documentary/Christian-letter manuscript gaps; no verse manuscript |
 
-**Abbreviations/nomina sacra** are the highest-risk label-policy area: an expanded abbreviation must never become a visible-text training label (todo Section 3; A's transcription contract `C0-0.3-draft` §1/§2.7).
+**Abbreviations/nomina sacra** are the highest-risk label-policy area: an expanded abbreviation must never become a visible-text training label (project-plan Section 3; A's transcription contract `C0-0.3-draft` §1/§2.7).
 
 ## 7. Manifest field mapping — M01 (against `C0-0.3-draft`)
 
@@ -206,9 +206,9 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 
 - **Acquisition:** M02a v1.0 downloaded from `https://zenodo.org/api/records/5595669` to `.artifacts/datasets/m02a-v1.0/` (retrieval 2026-10-18). **Zip md5 verified** against the record (`d23306723f387845c319cb817e838571`). 111 files extracted; the Greek-lettered, non-UTF-8 zip root was remapped to `m02a/`.
 - **Pairing audit (inspected):** **54/54 image/PAGE pairs** (PNG images under `images/`, XMLs under `xml/`) — matches the record's description. `imageFilename` attributes confirmed consistent.
-- **Audited line counts:** **1038 real TextLines** (publisher figure confirmed). Text lives in the **Word layer**; the adapter assembles line text from words (assembly recorded in revision provenance). **157 lines excluded** from all splits because their labels contain literal editorial markup (`<+>`-style) — editorial interventions never become visible-text training labels (todo §3 invariant).
+- **Audited line counts:** **1038 real TextLines** (publisher figure confirmed). Text lives in the **Word layer**; the adapter assembles line text from words (assembly recorded in revision provenance). **157 lines excluded** from all splits because their labels contain literal editorial markup (`<+>`-style) — editorial interventions never become visible-text training labels (project-plan §3 invariant).
 - **Rights:** single record-level **CC BY 4.0**; attribution retained in the ledger.
-- **Pilot training (green test):** page-level split 571 train / 131 dev / 179 page-holdout test; CRNN/CTC 150 epochs; **page-holdout CER 0.811**; label set 129 grapheme classes (overbarred nomen-sacra composites present). The publisher's line-level `.lst` splits were deliberately **not used** (within-book line randomization, todo §5 warning preserved).
+- **Pilot training (green test):** page-level split 571 train / 131 dev / 179 page-holdout test; CRNN/CTC 150 epochs; **page-holdout CER 0.811**; label set 129 grapheme classes (overbarred nomen-sacra composites present). The publisher's line-level `.lst` splits were deliberately **not used** (within-book line randomization, project-plan §5 warning preserved).
 - **Label-policy cautions (pending specialist review):** expansion-lite labels (`ἰῦ`, `χῦ`), diaeresis forms (`ϊ`), and whether label spaces reflect visible spacing are open questions recorded in `data/manifests/manuscripts/m02a.json`.
 - **Corpus status:** M02a is **audited, not training-ready**: specialist adjudication (DATA-03) pending; single-codex coverage; early-majuscule gap remains. No release claim.
 
@@ -216,7 +216,7 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 
 - **Acquisition:** M01 v1.0 (`eparchos.zip`, 114.7 MB) downloaded and **md5-verified** (`e172aa8b4017436e37cf25991b5bf8b8`) to `.artifacts/datasets/m01-v1.0/` — **120/120 image/XML pairs; 2,272 TextLines (inspected)**.
 - **Register discrepancy RESOLVED:** Zenodo's "9,285 lines" evidently counts **words** (~4 words/line × 2,272); HTR-United's 2,272 is the true line count. `units_evidence` now carries the inspected numbers (corpus-manifest.md §2 convention).
-- **Cross-witness generalization gate (the todo §5/§7 deliverable), measured:** trained on M02a pages only (571 lines, 150 epochs, no M01 data or tuning) → scored a deterministic 1-in-4 sample of **all 2,272 M01 lines** (568 lines): **CER 0.838** vs 0.811 within-book. Perfect-line rate 0 at this pilot scale; the 0.8+ range is near-chance, so the numbers demonstrate *transfer* more than competence — but the **measurement machinery for witness-level holdout** is proven and the gap is small in relative terms.
+- **Cross-witness generalization gate (the project-plan §5/§7 deliverable), measured:** trained on M02a pages only (571 lines, 150 epochs, no M01 data or tuning) → scored a deterministic 1-in-4 sample of **all 2,272 M01 lines** (568 lines): **CER 0.838** vs 0.811 within-book. Perfect-line rate 0 at this pilot scale; the 0.8+ range is near-chance, so the numbers demonstrate *transfer* more than competence — but the **measurement machinery for witness-level holdout** is proven and the gap is small in relative terms.
 - Both witnesses remain later-minuscule; early-majuscule coverage stays an explicit gap (per B's manuscripts.md §7/§8).
 
 ## 9. Open questions handed to A / the owner

@@ -5,7 +5,7 @@ namespace LeviathanText.AI;
 /// <summary>
 /// Resolves an opaque <see cref="AiProposalRequest.ProviderConfigRef"/> to a concrete
 /// local or hosted adapter, so provider switching is a configuration change rather than
-/// a code change (todo §4; Phase 2 gate). Credentials resolve through the shared
+/// a code change (project-plan §4; Phase 2 gate). Credentials resolve through the shared
 /// <see cref="IAiCredentialSource"/> and never live in the registry.
 /// </summary>
 public sealed class AiProviderRegistry

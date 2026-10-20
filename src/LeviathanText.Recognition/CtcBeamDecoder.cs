@@ -4,7 +4,7 @@ namespace LeviathanText.Recognition;
 /// CTC decoding strategies. Greedy collapses per-frame argmax; prefix beam search sums
 /// the probability of every alignment that maps to a label sequence, which can recover
 /// sequences greedy misses when label mass is spread across repeated frames
-/// (todo §5: decoding strategy is chosen by measurement, not assumption).
+/// (project-plan §5: decoding strategy is chosen by measurement, not assumption).
 /// </summary>
 public enum CtcDecodeMode
 {

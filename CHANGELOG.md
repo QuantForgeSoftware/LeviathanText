@@ -5,6 +5,12 @@ set: C0-0.4-draft.
 
 ## Unreleased — 2026-10-19 / 2026-10-20 work block
 
+### Changed
+
+- **Plan split:** the plan narrative, requirements, source register, architecture decisions,
+  delivery briefs, gates and estimates now live in `project-plan.md`; `todo.md` contains only
+  open/in-progress checklist items. Section numbering is preserved for references.
+
 ### Added
 
 - **Trainable layout (`patch-row-cnn-v2`)**: aspect-preserving preprocessing, line-core targets,
@@ -67,5 +73,6 @@ set: C0-0.4-draft.
 ### Tests / evidence
 
 - Test counts are recorded in [docs/STATUS.md](docs/STATUS.md) and the board in
-  [todo.md](todo.md); evaluation records are indexed in [docs/evaluation/README.md](docs/evaluation/README.md).
+  [project-plan.md](project-plan.md) and the actionable board in [todo.md](todo.md); evaluation
+  records are indexed in [docs/evaluation/README.md](docs/evaluation/README.md).
 - Smokes: `scripts/pilot-demo.sh`, `scripts/fresh-install-smoke.sh`.

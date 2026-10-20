@@ -36,7 +36,7 @@ public enum StageName
     Export,
 }
 
-/// <summary>Whether layout geometry came from a model or a human/imported source; never indistinguishable (todo §7).</summary>
+/// <summary>Whether layout geometry came from a model or a human/imported source; never indistinguishable (project-plan §7).</summary>
 public enum LayoutSource
 {
     Automatic,

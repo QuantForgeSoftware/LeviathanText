@@ -1,5 +1,9 @@
 # Instance A — contracts and planning integration
 
+> **Plan-split note (2026-10-20):** the plan narrative, section numbering and execution records
+> now live in [project-plan.md](../../project-plan.md); [todo.md](../../todo.md) is the actionable checklist. Historical
+> hashes and `todo.md` citations below refer to the pre-split file.
+
 Brief: **A-PLAN v1**, issued 2026-10-18. Status: **ready; not started**.
 
 ## Assignment and boundary

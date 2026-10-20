@@ -3,10 +3,10 @@
 - Package: **B-PLAN v1**, document `docs/data/papyri.md`, draft **rev 1**, 2026-10-18.
 - Owner: **Instance B**. Companion documents: [manuscripts.md](manuscripts.md), [inscriptions.md](inscriptions.md), [../evaluation/acceptance-plan.md](../evaluation/acceptance-plan.md), [../handoffs/B-PLAN.md](../handoffs/B-PLAN.md).
 - C0 contract consumed: **`C0-0.3-draft`** (proposal, not accepted). A published all five `docs/contracts/*.md` mid-assignment; B verified their hashes (see [B-PLAN.md](../handoffs/B-PLAN.md), `B-REV-A-1` resolved). Field mappings use A's real field names.
-- Scope: todo Section 5 (papyri) and Section 3. No archive was downloaded; no label was created.
+- Scope: project-plan Section 5 (papyri) and Section 3. No archive was downloaded; no label was created.
 - Governing todo requirements: PAP-01, PAP-02, DATA-01, DATA-02, DATA-03; Phase 0 gate.
 
-**Headline correction to todo Section 5:** the ICDAR2023 papyrus-letter release (**P02**) carries a **record-level CC BY-NC 4.0** license `[new]`, and **P03 Hell-Date** likewise (`CC BY-NC 4.0`) `[new]`. "No uniform image license" understated the restriction: the **deposit** license itself is non-commercial. These are now carried as **conditional**, not priority, for the default bundled distribution.
+**Headline correction to project-plan Section 5:** the ICDAR2023 papyrus-letter release (**P02**) carries a **record-level CC BY-NC 4.0** license `[new]`, and **P03 Hell-Date** likewise (`CC BY-NC 4.0`) `[new]`. "No uniform image license" understated the restriction: the **deposit** license itself is non-commercial. These are now carried as **conditional**, not priority, for the default bundled distribution.
 
 ## 1. Evidence legend
 
@@ -128,7 +128,7 @@ Same as [manuscripts.md §1](manuscripts.md#1-evidence-legend): `[prior]`, `[new
 | P05 | Text only `[new]` | **No** — content side; needs geometry + authorized images |
 | P06 | Images (Greek subset unknown) `[unk]` | Not yet — needs labels |
 
-**Missing annotations ≠ background.** A region without boxes is "not yet annotated" until proven empty (todo Section 3 gap vocabulary).
+**Missing annotations ≠ background.** A region without boxes is "not yet annotated" until proven empty (project-plan Section 3 gap vocabulary).
 
 ## 5. Pilot recommendation and intake order
 
@@ -200,7 +200,7 @@ Repo sources without a DOI (P04, and P05 with its moving `master`) must use `sou
 
 1. Per-item rights — **resolved** by `C0-0.3-draft`: `license_image = mixed-per-item` + §4 asset-level `license`/`evidence`.
 2. Granularity vocabulary — **resolved**: `label_granularity` covers `line`/`word`/`character-box`/`glyph`/`region`/`none`. Residual: no `asset_kind` value for a text-only catalogue/metadata asset → `B-CCR-6`.
-3. Whether NC (P02/P03) material may be used for **research-only** training that is not redistributed; recommend recording both bundled and research-only tracks rather than silently dropping NC data (todo Section 2 permits AI use; NC limits redistribution).
+3. Whether NC (P02/P03) material may be used for **research-only** training that is not redistributed; recommend recording both bundled and research-only tracks rather than silently dropping NC data (project-plan Section 2 permits AI use; NC limits redistribution).
 4. Suggested source-backed replacement for A's invented EX-5: a real P01 lacuna line once PAP-01 inspects the XML.
 
 ## 10. PAP-01 execution record (2026-10-18, single-instance mode: Instance A absorbed all packages)

@@ -3,7 +3,7 @@ using LeviathanText.Contracts;
 namespace LeviathanText.AI;
 
 /// <summary>
-/// Provider-neutral adapter (todo §4). Adapters are swappable across local and hosted
+/// Provider-neutral adapter (project-plan §4). Adapters are swappable across local and hosted
 /// providers; the interface accepts the same request shape for every task.
 /// </summary>
 public interface IAiProvider

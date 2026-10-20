@@ -4,7 +4,7 @@ using SkiaSharp;
 namespace LeviathanText.Layout;
 
 /// <summary>
-/// A detected layout element in one coordinate frame (todo §4: regions, baselines,
+/// A detected layout element in one coordinate frame (project-plan §4: regions, baselines,
 /// reading order). Reading order is a validated linear order for this module; the graph
 /// model with alternatives arrives with the trainable order module.
 /// </summary>

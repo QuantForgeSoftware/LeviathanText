@@ -1,8 +1,9 @@
 # Completed work archive
 
-Items checked off in `todo.md`, moved here at the end of each work cycle. `todo.md` keeps
-open and in-progress work plus reference records (contracts, source register, decisions,
-estimates); completed checklist items live here. Rule recorded in `lessons.md`.
+Items checked off in `todo.md`, moved here at the end of each work cycle. `todo.md` keeps open
+and in-progress checklist items; plan narrative and reference records (contracts, source
+register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
+`lessons.md`.
 
 Archive build: 2026-10-19 (archive run from `28e8f0a`).
 `9810e57`.

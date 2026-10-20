@@ -8,7 +8,7 @@
   - `dotnet test tests/LeviathanText.ML.Tests --filter FullyQualifiedName~P01AugmentationTests`
   - skipped automatically when the P01 artifact store is absent.
 - Artifacts: `.artifacts/pilot/p01-*.txt` and `.artifacts/pilot/p01-decode-run-manifest.json`.
-- Decision input for todo §5 (“decoding strategy chosen by measurement”) and
+- Decision input for project-plan §5 (“decoding strategy chosen by measurement”) and
   acceptance-plan.md §3 (uncertainty, AI-assisted rows).
 
 All CERs below are for the **selected best checkpoint** (`trainer.RestoreBest()`), not the

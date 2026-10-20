@@ -3,7 +3,7 @@ namespace LeviathanText.Contracts;
 /// <summary>
 /// Manifest vocabulary types shared across modules. Full serialization lives with the
 /// corpus-manifest contract (corpus-manifest.md); these types carry the controlled
-/// vocabularies so all modules speak the same terms (todo §5, DATA-01).
+/// vocabularies so all modules speak the same terms (project-plan §5, DATA-01).
 /// </summary>
 public enum MaterialTrack
 {

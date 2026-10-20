@@ -4,7 +4,7 @@ using SkiaSharp;
 namespace LeviathanText.Imaging;
 
 /// <summary>
-/// Image decoding with bounded resource use (todo §4 Imaging module; todo §7 file-size
+/// Image decoding with bounded resource use (project-plan §4 Imaging module; project-plan §7 file-size
 /// limits). Decoded bitmaps are disposed via the returned handle.
 /// </summary>
 public static class ImageDecoder
@@ -231,7 +231,7 @@ public static class ImageDecoder
 }
 
 /// <summary>
-/// A recorded image transform (todo §3: crop/deskew/dewarp produce traceable
+/// A recorded image transform (project-plan §3: crop/deskew/dewarp produce traceable
 /// derivatives; information loss is recorded, not assumed away). Affine transforms are
 /// invertible and support coordinate mapping; nonlinear dewarp is recorded but has no
 /// coordinate mapping until implemented (explicitly unsupported, not silently absent).
@@ -273,7 +273,7 @@ public abstract record ImageTransform
         }
     }
 
-    /// <summary>Recorded but not mappable: any geometry in this derivative's frame must not be transferred (todo §3).</summary>
+    /// <summary>Recorded but not mappable: any geometry in this derivative's frame must not be transferred (project-plan §3).</summary>
     public sealed record NonlinearDewarp(string ControlPointsRef) : ImageTransform
     {
         public override string Description => $"dewarp:{ControlPointsRef}";

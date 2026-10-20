@@ -5,7 +5,7 @@ namespace LeviathanText.Training;
 
 /// <summary>
 /// Training configuration. Deterministic by default (fixed seed) so runs are
-/// reproducible where the backend permits (todo §5).
+/// reproducible where the backend permits (project-plan §5).
 /// </summary>
 public sealed record TrainingConfig
 {

@@ -5,7 +5,7 @@ using Xunit;
 
 namespace LeviathanText.Evaluation.Tests;
 
-/// <summary>Scoring semantics from examples.md §1 and todo §7.</summary>
+/// <summary>Scoring semantics from examples.md §1 and project-plan §7.</summary>
 public class ScoringTests
 {
     [Fact]

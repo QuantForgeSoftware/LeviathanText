@@ -3,7 +3,7 @@ using LeviathanText.Contracts;
 namespace LeviathanText.AI;
 
 /// <summary>
-/// Visually separate proposal tasks (interchange-and-api.md §2.3, todo §4).
+/// Visually separate proposal tasks (interchange-and-api.md §2.3, project-plan §4).
 /// A restoration must never be conflated with a visual reading.
 /// </summary>
 public enum AiTaskKind

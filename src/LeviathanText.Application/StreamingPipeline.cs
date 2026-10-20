@@ -5,7 +5,7 @@ using LeviathanText.Contracts;
 namespace LeviathanText.Application;
 
 /// <summary>
-/// Collection-scale streaming (todo §4: "page/tile streaming and bounded queues;
+/// Collection-scale streaming (project-plan §4: "page/tile streaming and bounded queues;
 /// no stage may assume whole-collection memory residency"). Feeds items through a
 /// per-item processor with a bounded queue: producers stall when the consumer falls
 /// behind, so peak memory stays bounded regardless of collection size. Supports

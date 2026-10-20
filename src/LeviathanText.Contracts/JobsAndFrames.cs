@@ -2,7 +2,7 @@ namespace LeviathanText.Contracts;
 
 /// <summary>
 /// A coordinate frame: the exact image (capture or derivative, pinned by checksum)
-/// geometry is expressed against (domain-and-pipeline.md §1.2; todo §4). Geometry
+/// geometry is expressed against (domain-and-pipeline.md §1.2; project-plan §4). Geometry
 /// never transfers between frames without an explicit registration.
 /// </summary>
 public sealed record CoordinateFrame
@@ -17,7 +17,7 @@ public sealed record CoordinateFrame
 }
 
 /// <summary>
-/// An explicit, recorded registration between two frames (todo §3: multiple captures
+/// An explicit, recorded registration between two frames (project-plan §3: multiple captures
 /// need explicit registration before geometry transfers between them).
 /// Transform parameters live with the imaging implementation; this contract record
 /// carries the identity of the frames, a bounded description of the transform and the

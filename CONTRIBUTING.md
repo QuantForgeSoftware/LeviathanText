@@ -14,7 +14,7 @@ Keep changes focused and explain the user-visible benefit. Discuss architectural
 
 First-party backend, CLI, preprocessing and training code is C#. Browser code is TypeScript/Angular. Keep the product independent of Kraken implementations and runtimes. Preserve source images, diplomatic text, editorial readings, uncertainty, provenance and user choice of AI providers.
 
-For parallel work, claim a package and its paths, record the base revision and contract version, and edit only that scope. Route shared contracts, central build files, schema changes and cross-package edits through the integrator. Provide a handoff with changed paths, evidence and unresolved dependencies. See [todo.md](todo.md) for current ownership and delivery gates.
+For parallel work, claim a package and its paths, record the base revision and contract version, and edit only that scope. Route shared contracts, central build files, schema changes and cross-package edits through the integrator. Provide a handoff with changed paths, evidence and unresolved dependencies. See [project-plan.md](project-plan.md) for ownership, sections and delivery gates, and [todo.md](todo.md) for the actionable checklist.
 
 ## Evidence for the claimed improvement
 
