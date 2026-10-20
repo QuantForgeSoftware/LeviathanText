@@ -429,7 +429,7 @@ public sealed class PatchLayoutModel
     public static string DataDigestOf(IReadOnlyList<LayoutTrainingPage> pages) =>
         HashOf(string.Join("\n", pages
             .OrderBy(p => p.Name, StringComparer.Ordinal)
-            .Select(p => $"{p.Name}|{new FileInfo(p.ImagePath).Length}|{p.Bands.Count}|" +
+            .Select(p => $"{p.Name}|{(File.Exists(p.ImagePath) ? new FileInfo(p.ImagePath).Length : 0)}|{p.Bands.Count}|" +
                          string.Join(';', p.Bands.OrderBy(b => b.Top).Select(b => $"{b.Top}-{b.Bottom}")))));
 
     private static string DigestOf(string path) =>
