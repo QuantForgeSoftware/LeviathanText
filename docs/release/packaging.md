@@ -38,3 +38,21 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
 - Shared-server authentication: a **pilot-grade opt-in guard** exists (`LeviathanText:Auth:ApiKey` → Bearer/`X-Api-Key` required under `/api/v1`; `Auth:ReadOnly=true` blocks mutations). It is **not** a user system: no accounts, roles, per-user audit or key rotation. Without a key the API logs a local-only warning — do not expose it beyond localhost.
+
+
+## Upgrade, migration and rollback (pilot)
+
+1. **Stop the API and worker.** Never copy a live SQLite file while writes continue.
+2. **Back up first:** `leviathan --store pilot.db backup ./snapshots/pre-upgrade`
+   (`VACUUM INTO` + checksummed image copies).
+3. Replace binaries/assets, then start the new API. Store schema migrations run on open:
+   - v1/v2 → v3 adds the `users` and `auth_audit` tables in place;
+   - a store written by a **newer** schema is refused with `SchemaVersionUnsupported` (downgrades
+     are unsupported).
+4. Verify `/`, `/api/v1/projects`, a login (`/api/v1/me`) and one read/export before resuming work.
+5. **Rollback:** stop services, restore the pre-upgrade backup with the old binaries. A store
+   already migrated to v3 cannot be opened by a v1/v2 binary, so the backup is mandatory.
+
+Model packages are independent of the store schema: recognition packages verify labels,
+architecture and manifest digest; layout packages verify architecture, weights digest and data
+digest, and carry a model card. A package that fails verification is rejected, not guessed at.

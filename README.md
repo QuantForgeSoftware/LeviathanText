@@ -94,6 +94,7 @@ The workspace includes the line editor (polytonic input, revisions, uncertainty/
 ## Status and operations
 
 - [docs/STATUS.md](docs/STATUS.md) — one-page status: what works, measured numbers, blockers.
+- [docs/architecture.md](docs/architecture.md) — module map, data flow, storage, contracts.
 - [docs/operations.md](docs/operations.md) — run/backup/restore/batch/auth operations, review and inscription imports.
 - [docs/release/parity.md](docs/release/parity.md) — honest reference-capability matrix (not a parity claim).
 - [docs/handbook/transcription-guide.md](docs/handbook/transcription-guide.md) — annotator workflow.
