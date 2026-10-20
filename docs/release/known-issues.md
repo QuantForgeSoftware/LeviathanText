@@ -23,7 +23,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - L0 revisions persist the **mean** raw confidence (with scale); per-grapheme confidence stays
   in memory, so review-queue ordering is not exactly reproducible later.
 - Retried recognition jobs are idempotent per run id (job id) and do not duplicate L0 sets.
-- Recognition decodes full frames; **no tiled region decode** for very large images.
+- Large JPEG pages above 25 MP use bounded scanline band decoding per line; PNG/TIFF still decode full frames, and there is no general tiled decoder.
 
 ## Layout
 

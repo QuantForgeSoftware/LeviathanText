@@ -37,8 +37,11 @@ public static class LineCropper
         Checksum DerivativeChecksum,
         string Losses);
 
-    /// <summary>Extract a line given its polygon/baseline points in the page frame.</summary>
-    public static ExtractedLine Extract(SKBitmap page, IReadOnlyList<SKPoint> linePoints, CropParameters? parameters = null)
+    public sealed record CropPlan(int Left, int Top, int Width, int Height, string Losses);
+
+    /// <summary>Compute the same padded crop rectangle used by full-page extraction.</summary>
+    public static CropPlan PlanCrop(int pageWidth, int pageHeight,
+        IReadOnlyList<SKPoint> linePoints, CropParameters? parameters = null)
     {
         parameters ??= new CropParameters();
         if (linePoints.Count == 0)
@@ -60,14 +63,38 @@ public static class LineCropper
             parameters.MaxVerticalPaddingPx / 2f);
         int left = Math.Max(0, (int)Math.Floor(minX - parameters.HorizontalMarginPx));
         int top = Math.Max(0, (int)Math.Floor(minY - pad));
-        int width = Math.Min(page.Width - left, (int)Math.Ceiling(maxX - minX + 2 * parameters.HorizontalMarginPx));
-        int height = Math.Min(page.Height - top, (int)Math.Ceiling(bandHeight + 2 * pad));
+        int width = Math.Min(pageWidth - left, (int)Math.Ceiling(maxX - minX + 2 * parameters.HorizontalMarginPx));
+        int height = Math.Min(pageHeight - top, (int)Math.Ceiling(bandHeight + 2 * pad));
+        var losses = width < Math.Ceiling(maxX - minX + 2 * parameters.HorizontalMarginPx)
+            ? "horizontal crop truncated at page edge; edge marks may be lost"
+            : "";
+        return new CropPlan(left, top, Math.Max(1, width), Math.Max(1, height), losses);
+    }
 
-        var crop = new ImageTransform.Crop(left, top, width, height);
+    /// <summary>Extract a line given its polygon/baseline points in the page frame.</summary>
+    public static ExtractedLine Extract(SKBitmap page, IReadOnlyList<SKPoint> linePoints, CropParameters? parameters = null)
+    {
+        var plan = PlanCrop(page.Width, page.Height, linePoints, parameters);
+        var crop = new ImageTransform.Crop(plan.Left, plan.Top, plan.Width, plan.Height);
         var derivative = DerivativeFactory.Apply(page, [crop]);
-        var losses = width < Math.Ceiling(maxX - minX + 2 * parameters.HorizontalMarginPx) ? "horizontal crop truncated at page edge; edge marks may be lost" : "";
+        return new ExtractedLine(derivative.Bitmap, crop, ChecksumOfBitmap(derivative.Bitmap), plan.Losses);
+    }
 
-        return new ExtractedLine(derivative.Bitmap, crop, ChecksumOfBitmap(derivative.Bitmap), losses);
+    /// <summary>
+    /// Extract a line from a horizontal source band, avoiding a full-page decode. JPEG
+    /// scanline decoding is used where available; other formats fall back to a full decode.
+    /// The returned crop shares page-frame coordinates in <see cref="ExtractedLine.AppliedCrop"/>.
+    /// </summary>
+    public static ExtractedLine ExtractBanded(string imagePath, IReadOnlyList<SKPoint> linePoints,
+        CropParameters? parameters = null)
+    {
+        var (width, height) = ImageDecoder.Dimensions(imagePath);
+        var plan = PlanCrop(width, height, linePoints, parameters);
+        using var band = ImageDecoder.DecodeBand(imagePath, plan.Top, plan.Height);
+        var derivative = DerivativeFactory.Apply(band, [new ImageTransform.Crop(plan.Left, 0, plan.Width, plan.Height)]);
+        return new ExtractedLine(derivative.Bitmap,
+            new ImageTransform.Crop(plan.Left, plan.Top, plan.Width, plan.Height),
+            ChecksumOfBitmap(derivative.Bitmap), plan.Losses);
     }
 
     public static Checksum ChecksumOfBitmap(SKBitmap bitmap)

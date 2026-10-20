@@ -46,7 +46,7 @@ import { GeometryEditor } from './geometry-editor';
             <span class="hint">editing as {{ editorName }}</span>
             <button type="button" (click)="navigateLine(1)" [disabled]="!hasNeighbour(1)">Next line →</button>
           </p>
-          <app-line-editor [lineId]="editingLineId()!" [authorId]="editorName" />
+          <app-line-editor [lineId]="editingLineId()!" [authorId]="editorName" [imageUrl]="imageLink()" />
           <app-dual-pane [lineId]="editingLineId()!" [imageLink]="imageLink()" />
         }
 

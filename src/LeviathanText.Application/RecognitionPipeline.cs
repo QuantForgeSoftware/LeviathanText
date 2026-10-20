@@ -85,7 +85,27 @@ public sealed class RecognitionPipeline
         using var model = options.ModelFactory();
         var recognizer = new TorchLineRecognizer(model, labels);
 
-        using var decoded = ImageDecoder.Decode(capture.ImageLocation);
+        // Large JPEG pages use bounded horizontal band decoding per line; PNG/TIFF
+        // keep the full-frame path until a portable tiled decoder exists.
+        bool useBanded = capture.ImageLocation.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+            || capture.ImageLocation.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
+        if (useBanded)
+        {
+            var (width, height) = ImageDecoder.Dimensions(capture.ImageLocation);
+            useBanded = (long)width * height > 25_000_000;
+        }
+
+        ImageDecoder.DecodedImage? decoded = useBanded ? null : ImageDecoder.Decode(capture.ImageLocation);
+        Checksum sourceChecksum;
+        if (decoded is not null)
+        {
+            sourceChecksum = decoded.SourceChecksum;
+        }
+        else
+        {
+            using var stream = File.OpenRead(capture.ImageLocation);
+            sourceChecksum = ImageDecoder.ChecksumOf(stream);
+        }
         var stages = new List<StageRun>();
         var modelRef = new ModelRef
         {
@@ -99,19 +119,35 @@ public sealed class RecognitionPipeline
         var lineImages = new List<(EntityId Id, LineImage Image, Checksum CropChecksum)>();
         var skippedLines = new List<EntityId>();
 
-        foreach (var line in surface.Lines)
+        try
         {
-            cancellation.ThrowIfCancellationRequested();
-            var geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
-            if (geometry.Count < 2)
+            foreach (var line in surface.Lines)
             {
-                skippedLines.Add(line.Id); // absent geometry: explicit skip, never silent
-                continue;
-            }
+                cancellation.ThrowIfCancellationRequested();
+                var geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
+                if (geometry.Count < 2)
+                {
+                    skippedLines.Add(line.Id); // absent geometry: explicit skip, never silent
+                    continue;
+                }
 
-            var points = geometry.Select(p => new SKPoint((float)p.X, (float)p.Y)).ToList();
-            var extracted = LineCropper.Extract(decoded.Bitmap, points);
-            lineImages.Add((line.Id, ToLineImage(extracted.AppliedCrop, decoded.Bitmap), extracted.DerivativeChecksum));
+                var points = geometry.Select(p => new SKPoint((float)p.X, (float)p.Y)).ToList();
+                var extracted = useBanded
+                    ? LineCropper.ExtractBanded(capture.ImageLocation, points)
+                    : LineCropper.Extract(decoded!.Bitmap, points);
+                try
+                {
+                    lineImages.Add((line.Id, ToLineImage(extracted.Bitmap), extracted.DerivativeChecksum));
+                }
+                finally
+                {
+                    extracted.Bitmap.Dispose();
+                }
+            }
+        }
+        finally
+        {
+            decoded?.Dispose();
         }
 
         var recognition = recognizer.Recognize([.. lineImages.Select(li => li.Image)]);
@@ -182,7 +218,7 @@ public sealed class RecognitionPipeline
             Id = new EntityId(EntityKind.Job, Guid.NewGuid().ToString("N")[..12]),
             Stage = StageName.Recognition,
             ContractVersion = ContractVersion.Current,
-            Inputs = [new StageArtifact(capture.Id, decoded.SourceChecksum)],
+            Inputs = [new StageArtifact(capture.Id, sourceChecksum)],
             Outputs = [.. lineImages.Select(li => new StageArtifact(li.Id, li.CropChecksum))],
             Model = modelRef,
             ConfigHash = options.ModelName,
@@ -200,15 +236,11 @@ public sealed class RecognitionPipeline
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(joined))).ToLowerInvariant();
     }
 
-    private static LineImage ToLineImage(ImageTransform.Crop crop, SKBitmap page)
+    private static LineImage ToLineImage(SKBitmap crop)
     {
-        var region = new SKRectI(crop.Left, crop.Top, crop.Left + crop.Width, crop.Top + crop.Height);
-        using var subset = new SKBitmap();
-        page.ExtractSubset(subset, region);
-
         int targetHeight = CrnnModel.InputHeight;
-        int targetWidth = Math.Max(8, (int)Math.Round((float)subset.Width * targetHeight / subset.Height));
-        using var resized = subset.Resize(new SKImageInfo(targetWidth, targetHeight), new SKSamplingOptions(SKFilterMode.Linear));
+        int targetWidth = Math.Max(8, (int)Math.Round((float)crop.Width * targetHeight / crop.Height));
+        using var resized = crop.Resize(new SKImageInfo(targetWidth, targetHeight), new SKSamplingOptions(SKFilterMode.Linear));
 
         var pixels = new float[targetHeight * targetWidth];
         var info = resized.Info;

@@ -13,6 +13,7 @@ set: C0-0.4-draft.
 
 ### Added
 
+- **Source evidence link:** the line editor opens the selected capture in a new tab; task-specific evidence excerpts remain open.
 - **Correction-sequence capture:** editor records `CorrectionSequence` and `DifferentHand` annotations with a hand/sequence label; replay/ordering visualization remains open.
 - **Workspace deep links and surface navigation:** project/surface/line query parameters restore and update workspace state; previous/next surface controls move through the collection.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
@@ -20,6 +21,7 @@ set: C0-0.4-draft.
 - **Evaluation error drilldown:** `evaluate lines` scores a packaged model on dev/train,
   writes per-line CER/base/mark/confusion CSV + JSON + Markdown report and records an `evaluation` run with a
   split digest; locked test labels remain unavailable to routine evaluation.
+- **Banded line extraction:** large JPEG pages (>25 MP) decode horizontal bands per line instead of a full frame; PNG/TIFF keep the full-frame fallback.
 - **PDF text reference import:** optional `--text` extracts coordinate-bearing PDF text as L2 reference lines (never L1), with page-coordinate mapping and extraction caveats.
 - **PDF page ingestion (Phase 4 partial):** bounded PDFtoImage/PDFium rendering to PNG
   captures (DPI/page/size limits; one surface per page; no text/layout inference), exposed by

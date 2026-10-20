@@ -216,6 +216,78 @@ public static class ImageDecoder
         return new DecodedImage(bitmap, checksum, bytes.Length);
     }
 
+    /// <summary>
+    /// Decode one horizontal band without materializing the whole image. JPEG and other
+    /// codecs with top-down scanline support use bounded scanline decoding; unsupported
+    /// codecs fall back to a full decode and subset. This is the line-crop path for very
+    /// large JPEG pages, not a general tiling backend.
+    /// </summary>
+    public static SKBitmap DecodeBand(string path, int top, int height)
+    {
+        var (width, pageHeight) = Dimensions(path);
+        top = Math.Clamp(top, 0, Math.Max(0, pageHeight - 1));
+        height = Math.Clamp(height, 1, pageHeight - top);
+        if (width <= 0 || height <= 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = path,
+                Message = "Requested image band is empty or outside the image.",
+            });
+
+        using (var codec = SKCodec.Create(path))
+        {
+            if (codec is not null && codec.ScanlineOrder == SKCodecScanlineOrder.TopDown)
+            {
+                // StartScanlineDecode needs the full image info; the output bitmap is
+                // still only the requested band, so peak memory is width × band height.
+                var decodeInfo = new SKImageInfo(codec.Info.Width, codec.Info.Height,
+                    SKColorType.Bgra8888, SKAlphaType.Premul);
+                var started = codec.StartScanlineDecode(decodeInfo);
+                if (started == SKCodecResult.Success)
+                {
+                    if (top > 0 && !codec.SkipScanlines(top))
+                    {
+                        // Fall through to the full-decode fallback.
+                    }
+                    else
+                    {
+                        var bandInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                        var band = new SKBitmap(bandInfo);
+                        var rows = codec.GetScanlines(band.GetPixels(), height, band.RowBytes);
+                        if (rows == height) return band;
+                        band.Dispose();
+                    }
+                }
+            }
+        }
+
+        using var full = SKBitmap.Decode(path)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Message = "Image could not be decoded.",
+            });
+        var subset = new SKBitmap();
+        full.ExtractSubset(subset, new SKRectI(0, top, Math.Min(width, full.Width), Math.Min(top + height, full.Height)));
+        return subset;
+    }
+
+    /// <summary>Read image dimensions without retaining the decoded bitmap.</summary>
+    public static (int Width, int Height) Dimensions(string path)
+    {
+        using var codec = SKCodec.Create(path);
+        if (codec is null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Message = "Image format is not supported by the current imaging backend.",
+            });
+        return (codec.Info.Width, codec.Info.Height);
+    }
+
     public static Checksum ChecksumOf(Stream stream)
     {
         stream.Position = 0;

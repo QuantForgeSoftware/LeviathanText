@@ -22,6 +22,9 @@ interface UndoStack {
     @if (payload(); as data) {
       <section>
         <h3>Line <code>{{ data.line }}</code></h3>
+        @if (imageUrl()) {
+          <p class="hint"><a [href]="imageUrl()" target="_blank" rel="noopener">Open source capture</a></p>
+        }
 
         <label>Diplomatic (L1)
           <input class="greek" [attr.dir]="direction() === 'rtl' ? 'rtl' : null"
@@ -190,6 +193,7 @@ interface UndoStack {
 export class LineEditor {
   lineId = input.required<string>();
   authorId = input.required<string>();
+  imageUrl = input<string>('');
 
   protected readonly payload = signal<LinePayload | null>(null);
   protected readonly text = signal('');

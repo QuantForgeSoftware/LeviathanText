@@ -457,6 +457,7 @@ Blockers recorded so far:
   TEI `rend` round-trip; API `PUT /lines|regions/{id}/orientation`; editor controls and
   direction/vertical display. No BiDi layout or vertical recognition claim; ALTO direction is
   not mapped.
+- **Banded line extraction:** large JPEG pages (>25 MP) use bounded scanline bands for line crops; PNG/TIFF still full-frame. Tests compare banded crops/pixels to full decode.
 - **PDF ingestion:** bounded PDFtoImage/PDFium page rasterization (200 MB, 500 pages, 12k px /
   50 MP per page) into one capture-only surface per page; optional PdfPig text extraction is
   imported as coordinate-bearing **L2 reference** (never L1). CLI `import pdf --text` and
@@ -473,5 +474,5 @@ Blockers recorded so far:
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **540 tests (538 passed + 2 opt-in skips), 0 failed across 13 suites;
+- **Verification:** **542 tests (540 passed + 2 opt-in skips), 0 failed across 13 suites;
   Release 0 warnings/0 errors**; 38 web specs; package and backup/restore rehearsals PASS.
