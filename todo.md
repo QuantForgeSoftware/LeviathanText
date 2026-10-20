@@ -97,7 +97,7 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 ### Release checklist — applies before every usable release
 
 - [~] Package CLI, server, workers, Angular assets and required model artifacts for the supported target matrix; verify operation without Kraken or Python. *(osx-arm64 framework-dependent package + manifest + CLI smoke verified; web assets served at /ui when WebRoot is set. Other targets untested; model weights are intentionally not bundled.)*
-- [~] Complete throughput/resource profiling, backup/restore, schema migrations, install/update/rollback checks and dependency inventory. *(backup/restore rehearsal PASS; schema v1–v7 migration tests and an old-binary migration/rollback rehearsal PASS; dependency inventory includes PDFium; throughput, installers/updaters and cross-platform rollback remain.)*
+- [~] Complete throughput/resource profiling, backup/restore, schema migrations, install/update/rollback checks and dependency inventory. *(backup/restore rehearsal PASS; schema v1–v7 migration tests and an old-binary migration/rollback rehearsal PASS; dependency inventory includes PDFium; throughput: single-page startup/import/layout/export/backup profile recorded, sustained collection load remains; installers/updaters and cross-platform rollback remain.)*
 - [ ] Publish supported materials/hands/captures, annotation conventions, model cards, benchmark results and known failure conditions.
 - [ ] Publish installation, transcription, training, provider-configuration and migration instructions; verify a fresh offline installation with installed models.
 

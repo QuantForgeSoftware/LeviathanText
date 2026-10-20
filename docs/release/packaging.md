@@ -58,7 +58,7 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Backup/restore rehearsal: **PASS** (2026-10-20, `scripts/backup-restore-rehearsal.sh`: snapshot, mutate, restore into a fresh store, verify pre-snapshot only).
 - Store migration coverage: v1→v5 and v2/v3/v4→v5 tests create users/membership/runs after migration; newer schema is refused.
 - Target-matrix packaging on Windows/Linux and non-macOS libtorch/PDFium/runtime validation (osx-arm64 is the only packaged target verified here).
-- Throughput/peak-RAM profiling under sustained collection load (pilot measurements exist in the evaluation records).
+- Sustained collection throughput/peak-RAM profiling (single-page startup/import/layout/export/backup profile is recorded in `docs/evaluation/pilot-profile.md`; not a sustained-load benchmark).
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
 - Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
