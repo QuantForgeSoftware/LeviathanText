@@ -232,8 +232,14 @@ leviathan --store review.db review packet <projectId> .artifacts/review/p01 --li
 
 `index.html` shows each line crop, current L1, and L2 reference; the reviewer marks
 agree/correct/unclear/not-visible, edits corrected text, and downloads `decisions.csv`. The page
-does not mutate the project. Apply returned corrections deliberately; do not treat the existing
-transcription as adjudicated until that review is complete.
+does not mutate the project. Apply returned decisions through the review ledger:
+
+```bash
+leviathan --store review.db review apply <projectId> decisions.csv --reviewer <id>
+```
+
+`agree` records accept, `correct` creates a new L1 correction revision, and `unclear` /
+`not-visible` record disputes with notes. Unknown/uncorrected rows are reported and skipped.
 
 ## Double review and adjudication
 

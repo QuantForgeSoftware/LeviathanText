@@ -624,6 +624,19 @@ public static class Program
                 return 0;
             }
 
+            case "review" when rest.Length >= 4 && rest[1] == "apply":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var csv = File.ReadAllText(rest[3]);
+                var reviewerIndex = Array.IndexOf(rest, "--reviewer");
+                var reviewer = reviewerIndex >= 0 && reviewerIndex + 1 < rest.Length ? rest[reviewerIndex + 1] : "reviewer";
+                var result = ReviewDecisionImport.Apply(project, csv, reviewer, new ReviewService(store), store);
+                foreach (var row in result.Rows.Where(r => !r.Applied).Take(10))
+                    Console.Error.WriteLine($"skipped {row.LineId}: {row.Decision}: {row.Reason}");
+                Console.WriteLine($"applied {result.Applied} review decision(s), skipped {result.Skipped}");
+                return result.Skipped == 0 ? 0 : 1;
+            }
+
             case "review" when rest.Length >= 4 && rest[1] == "line":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1200,6 +1213,7 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
+              leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]
