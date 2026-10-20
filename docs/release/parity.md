@@ -24,9 +24,9 @@ are not specialist-adjudicated.
 | Active learning/review | persisted queue + double review/adjudication | tests + UI | no automatic prioritization model beyond confidence |
 | AI proposals | propose/accept → L2, opt-in | AI tests; local Ollama smoke | hosted providers unproven; spend controls partial |
 | Durable jobs | layout/import/recognize jobs, leases, cancel, persisted priority, optional per-owner quota | worker/API tests + live smoke | no distributed scheduler or rate limiter |
-| Web workspace | editor, geometry, review, search, jobs, auth, deep links; optional packaged static hosting at /ui | 40 specs | no concurrent-edit merge; advisory single-process presence |
+| Web workspace | editor, geometry, review, search, jobs, auth, deep links; optional packaged static hosting at /ui | 40 specs | no concurrent-edit merge; advisory store-backed presence |
 | Auth/roles | accounts + roles + audit + opt-in per-project membership + admin panels | role/audit/membership/UI tests | no SSO/session policy or invitation tokens |
-| Presence | advisory per-surface heartbeat + display, 60 s TTL | service/API/UI tests | single API process; not durable/cross-instance; no merge |
+| Presence | advisory per-surface heartbeat + display, shared SQLite store, 60 s TTL | service/API/UI tests | not a distributed registry; no merge/lock |
 | Backup/restore | checksummed snapshot/restore | infra tests + smoke | no automated restore rehearsal/rollback UI |
 | Packaging | publish + fresh-install smoke + osx-arm64 package/manifest | `scripts/package-release.sh` PASS; backup rehearsal PASS | no installers/updaters; Linux/Windows untested; models not bundled |
 | Migration from Kraken | public formats only | import paths | no automatic project migration |

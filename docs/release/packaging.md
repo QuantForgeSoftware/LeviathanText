@@ -63,7 +63,7 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
 - Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
   SHA-256 hashed keys, rotation/disable, auth audit and opt-in per-project membership exist.
-  SSO/session policy and invitation/presence UI remain open; do not expose an unconfigured
+  SSO/session policy and invitation UI remain open; presence is advisory and store-backed; do not expose an unconfigured
   instance beyond localhost.
 
 
@@ -80,7 +80,7 @@ manifest/checksum restore path; it is not a substitute for a full pre-upgrade ba
 2. **Back up first:** `leviathan --store pilot.db backup ./snapshots/pre-upgrade`
    (`VACUUM INTO` + checksummed image copies).
 3. Replace binaries/assets, then start the new API. Store schema migrations run on open:
-   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`;
+   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`; v6 adds `presence`;
    - a store written by a **newer** schema is refused with `SchemaVersionUnsupported` (downgrades
      are unsupported).
 4. Verify `/`, `/api/v1/projects`, a login (`/api/v1/me`) and one read/export before resuming work.

@@ -111,7 +111,8 @@ public class LocalStoreTests : IDisposable
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
-    public void Store_migrates_forward_to_v5_from_older_schemas(int fromVersion)
+    [InlineData(5)]
+    public void Store_migrates_forward_to_v6_from_older_schemas(int fromVersion)
     {
         var path = Path.Combine(Path.GetTempPath(), $"leviathan-migrate-{fromVersion}-{Guid.NewGuid():N}.db");
         NativeProject saved;
@@ -125,9 +126,10 @@ public class LocalStoreTests : IDisposable
             var drops = fromVersion switch
             {
                 2 => "DROP TABLE IF EXISTS auth_audit; DROP TABLE IF EXISTS users; "
-                     + "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs;",
-                3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs;",
-                _ => "DROP TABLE IF EXISTS runs;",
+                     + "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
+                3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
+                4 => "DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
+                _ => "DROP TABLE IF EXISTS presence;",
             };
             cmd.CommandText = drops + $" PRAGMA user_version={fromVersion};";
             cmd.ExecuteNonQuery();
@@ -145,6 +147,8 @@ public class LocalStoreTests : IDisposable
                 CreatedAt = DateTimeOffset.UtcNow, Metrics = new Dictionary<string, double> { ["cer"] = 1 },
             });
             Assert.Single(migrated.LoadRuns());
+            migrated.TouchPresence(saved.Id, "usr-migrated", DateTimeOffset.UtcNow);
+            Assert.Contains("usr-migrated", migrated.ListPresence(saved.Id, DateTimeOffset.UtcNow.AddMinutes(-1)));
         }
     }
 

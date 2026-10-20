@@ -66,7 +66,7 @@ builder.Services.AddSingleton(sp =>
     return new AiProviderRegistry(settings, new HttpClient(), new EnvironmentCredentialSource());
 });
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
-builder.Services.AddSingleton<PresenceService>();
+builder.Services.AddSingleton<PresenceService>(sp => new PresenceService(sp.GetRequiredService<LocalStore>()));
 
 var app = builder.Build();
 

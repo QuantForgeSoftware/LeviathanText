@@ -20,3 +20,14 @@ public interface IProjectStore
     void DeleteProject(EntityId id) =>
         throw new NotSupportedException("This project store does not support deletion.");
 }
+
+/// <summary>
+/// Optional presence persistence used by shared deployments. Entries are advisory and
+/// TTL-pruned; they never participate in authorization.
+/// </summary>
+public interface IPresenceStore
+{
+    void TouchPresence(EntityId surfaceId, string editorId, DateTimeOffset at);
+    IReadOnlyList<string> ListPresence(EntityId surfaceId, DateTimeOffset since);
+    void LeavePresence(EntityId surfaceId, string editorId);
+}

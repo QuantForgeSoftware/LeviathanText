@@ -296,11 +296,12 @@ leviathan --store pilot.db project member remove <projectId> <userId>
 Membership covers project routes and indirect entity routes (`/lines`, `/surfaces`, `/regions`,
 `/annotations`); admins bypass it.
 
-**Presence (advisory, per process):** the surface view heartbeats
+**Presence (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from
-`GET /surfaces/{id}/presence`; `DELETE /surfaces/{id}/presence/{editorId}` clears it. Entries expire
-after 60 seconds. This is in-memory, single-API-process presence, not durable or cross-instance
-presence, and it never authorizes an edit. Entity→project resolution scans projects, which is acceptable
+`GET /surfaces/{id}/presence`; `DELETE /surfaces/{id}/presence/{editorId}` clears it. Entries live
+in the shared SQLite store (schema v6) and expire after 60 seconds, so processes sharing the store
+see the same state. Presence is still advisory: it is not a lock, not a distributed session
+registry, and never authorizes an edit. Entity→project resolution scans projects, which is acceptable
 at pilot scale but not a high-throughput design. Authentication/authorization events are recorded:
 `leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
 denials, never key material). The Angular workspace has an **API key panel**: paste

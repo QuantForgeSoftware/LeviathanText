@@ -11,9 +11,9 @@ namespace LeviathanText.Infrastructure;
 /// record of record. Schema migrations are versioned by <see cref="SchemaVersion"/>; a
 /// file written by a newer schema is refused, never silently upgraded.
 /// </summary>
-public sealed class LocalStore : IDisposable, IProjectStore
+public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore
 {
-    public const int SchemaVersion = 5;
+    public const int SchemaVersion = 6;
 
     private readonly SqliteConnection _connection;
 
@@ -107,6 +107,12 @@ public sealed class LocalStore : IDisposable, IProjectStore
                     history_json TEXT NOT NULL,
                     artifacts_json TEXT NOT NULL,
                     notes TEXT
+                );
+                CREATE TABLE IF NOT EXISTS presence (
+                    surface_id TEXT NOT NULL,
+                    editor_id TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (surface_id, editor_id)
                 );
                 """;
             ddl.ExecuteNonQuery();
@@ -328,6 +334,47 @@ public sealed class LocalStore : IDisposable, IProjectStore
         Artifacts = ContractJson.FromJson<List<string>>(reader.GetString(9)),
         Notes = reader.IsDBNull(10) ? null : reader.GetString(10),
     };
+
+    // ---- advisory presence ----
+
+    public void TouchPresence(EntityId surfaceId, string editorId, DateTimeOffset at)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO presence (surface_id, editor_id, updated_at) VALUES ($surface, $editor, $at)
+            ON CONFLICT(surface_id, editor_id) DO UPDATE SET updated_at = $at
+            """;
+        cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
+        cmd.Parameters.AddWithValue("$editor", editorId);
+        cmd.Parameters.AddWithValue("$at", at.ToString("O"));
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<string> ListPresence(EntityId surfaceId, DateTimeOffset since)
+    {
+        var prune = _connection.CreateCommand();
+        prune.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND updated_at < $since";
+        prune.Parameters.AddWithValue("$surface", surfaceId.ToString());
+        prune.Parameters.AddWithValue("$since", since.ToString("O"));
+        prune.ExecuteNonQuery();
+
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT editor_id FROM presence WHERE surface_id = $surface ORDER BY editor_id";
+        cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
+        using var reader = cmd.ExecuteReader();
+        var editors = new List<string>();
+        while (reader.Read()) editors.Add(reader.GetString(0));
+        return editors;
+    }
+
+    public void LeavePresence(EntityId surfaceId, string editorId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND editor_id = $editor";
+        cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
+        cmd.Parameters.AddWithValue("$editor", editorId);
+        cmd.ExecuteNonQuery();
+    }
 
     // ---- auth audit ----
 
