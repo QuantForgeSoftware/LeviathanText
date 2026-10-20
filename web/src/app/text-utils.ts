@@ -130,3 +130,40 @@ export function scalarDiff(a: string, b: string): ScalarDiff {
     suffix: suffix === 0 ? '' : left.slice(left.length - suffix).join(''),
   };
 }
+
+
+export interface ConfidenceSpan {
+  start: number;
+  end: number;
+  value: number;
+}
+
+export interface ConfidenceSegment {
+  text: string;
+  level: 'high' | 'medium' | 'low' | '';
+}
+
+/**
+ * Split stored text into confidence segments from persisted per-grapheme spans. Values are raw
+ * model probabilities; thresholds are display bands, not calibrated risk.
+ */
+export function confidenceSegments(text: string, spans: ConfidenceSpan[]): ConfidenceSegment[] {
+  const scalars = Array.from(text);
+  const levelAt: ConfidenceSegment['level'][] = new Array(scalars.length).fill('');
+  for (const span of spans) {
+    const level: ConfidenceSegment['level'] = span.value >= 0.8 ? 'high' : span.value >= 0.5 ? 'medium' : 'low';
+    const from = Math.max(0, Math.min(span.start, scalars.length));
+    const to = Math.max(from, Math.min(span.end, scalars.length));
+    for (let i = from; i < to; i++) levelAt[i] = level;
+  }
+
+  const segments: ConfidenceSegment[] = [];
+  for (let i = 0; i < scalars.length; i++) {
+    if (segments.length > 0 && segments[segments.length - 1].level === levelAt[i]) {
+      segments[segments.length - 1].text += scalars[i];
+    } else {
+      segments.push({ text: scalars[i], level: levelAt[i] });
+    }
+  }
+  return segments;
+}

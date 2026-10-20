@@ -6,8 +6,9 @@
 - Acceptance-sheet drafts (not frozen; thresholds and sign-off pending):
   [papyri](acceptance-papyri-draft.md) · [manuscripts](acceptance-manuscripts-draft.md) ·
   [inscriptions](acceptance-inscriptions-draft.md) (blocked: no image-aligned labels).
-- [pilot-p01-report.md](pilot-p01-report.md) — P01 locked-test result; the split was used
-  twice, see [locked-set-reuse.md](locked-set-reuse.md).
+- [pilot-p01-report.md](pilot-p01-report.md) — P01 locked-test result; the split is **spent**
+  (deliberate runs plus disclosed routine reruns), see [locked-set-reuse.md](locked-set-reuse.md).
+  The evaluator test is opt-in (`LEVIATHANTEXT_RUN_LOCKED=1`).
 - [decoding-comparison.md](decoding-comparison.md) — post-extraction-fix P01 dev
   measurements: greedy vs beam, calibration/risk–coverage, error analysis, and the
   architecture/augmentation/regularization/learning-rate/batch-size matrix.
@@ -20,7 +21,8 @@
 - [layout-learned-comparison.md](layout-learned-comparison.md) — learned row-model attempt
   vs the corrected projection baseline: measured negative result with diagnosis.
 - [layout-patch-learning.md](layout-patch-learning.md) — patch/row CNN line detector:
-  M02a held-out **P 0.965 / R 0.987** vs projection 0.523/0.545; a P01-trained variant is
+  M02a held-out **P 0.965 / R 0.987** vs projection 0.523/0.545; fresh-book M01 0.994/0.991
+  (projection 0.918/0.918); a P01-trained variant is
   measured separately (aggregate improvement, per-page failures; not adopted). Augmentation
   A/B is in the same record: vertical scale/shift/noise improved M02a and P01 subsets; enabled
   by default in CLI training with `--no-augment` as the opt-out.

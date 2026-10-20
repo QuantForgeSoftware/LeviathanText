@@ -5,7 +5,8 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 ## Data and claims
 
 - Labels are **not specialist-adjudicated**; measured CER is pilot-scale and cannot support an
-  acceptance claim. The P01 locked split is **spent** — new claims need fresh held-out witnesses.
+  acceptance claim. The P01 locked split is **spent** (including automatic suite reruns that are
+  now prevented by the opt-in guard) — new claims need fresh held-out witnesses.
 - M02a is one codex; M01 adds a second book but no hand-level holdout. Inscription labels are
   still blocked on image-aligned adjudication, though the EpiDoc text-first bootstrap and manual
   box placement now exist.
@@ -28,9 +29,10 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 - Single-column layouts only; multi-column, curved and rotated pages are unsupported.
   Projection remains the default (combined pilot P 0.403 / R 0.473 under one-to-one matching).
-  A patch/row CNN is **opt-in per surface kind** and is strong on the training book (M02a
-  held-out P 0.965 / R 0.987) but degrades out-of-domain; a P01-trained variant improves
-  aggregate P01 metrics yet fails on some dense pages and is not enabled.
+  A patch/row CNN is **opt-in per surface kind**; it is strong on the training book (M02a
+  P 0.965/R 0.987) and on a fresh minuscule book (M01 layout P 0.994/R 0.991), but degrades on
+  papyri and multi-column material; a P01-trained variant improves aggregate P01 metrics yet
+  fails on some dense pages and is not enabled.
 - The learned row model underperforms projection (negative result recorded).
 - Detection never overwrites existing layout; manual line add/delete is available. Geometry
   and order edits are recorded in a surface-level append-only audit (before/after snapshots),

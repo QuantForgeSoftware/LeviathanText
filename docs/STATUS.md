@@ -11,7 +11,7 @@ One-page operational status. Detailed plans live in [todo.md](../todo.md), compl
 | Native project model, revisions (L0/L1/L2), annotations | contract + service/HTTP tests |
 | PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import | 24 format tests; roundtrip smokes |
 | Plain-text export with mandatory loss report | export tests |
-| Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN strong on M02a (P 0.965 / R 0.987) and improves page CER 0.971→0.942 |
+| Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN: M02a P 0.965/R 0.987, page CER 0.971→0.942; fresh book M01 layout P 0.994/R 0.991 (page CER neutral 0.801→0.805) |
 | Manual correction (move/resize/draw/delete/split/merge/order) | API + overlay editor (view + edit), client undo, surface audit |
 | Recognition pipeline (C# CTC, CPU) | line-crop CER ~0.88 measured on M02a; L0 persisted with provenance |
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |

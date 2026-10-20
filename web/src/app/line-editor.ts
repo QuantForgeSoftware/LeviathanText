@@ -6,7 +6,7 @@
  */
 import { Component, computed, input, signal } from '@angular/core';
 import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
-import { applyScalarEdit, markSegments, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
+import { applyScalarEdit, confidenceSegments, markSegments, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 import { ProposalPanel } from './proposal-panel';
 
 interface UndoStack {
@@ -28,6 +28,14 @@ interface UndoStack {
         </label>
         @if (draftRestored()) {
           <p class="hint">Unsaved draft restored after reload (⌘/Ctrl+S saves, ⌘/Ctrl+Z undoes).</p>
+        }
+        @if (latestL0(); as l0) {
+          <p class="l0" aria-label="model output">
+            <span class="hint">L0 raw (may be stale):</span>
+            @for (segment of l0Segments(); track $index) {
+              <span [class]="segment.level ? 'conf-' + segment.level : ''">{{ segment.text }}</span>
+            }
+          </p>
         }
         <p class="marked" aria-label="marked text">
           @for (segment of markedSegments(); track $index) {
@@ -147,6 +155,10 @@ interface UndoStack {
     .mark-supplied { color: #345; font-style: italic; text-decoration: overline; }
     .mark-alternative { text-decoration: underline double #47a; }
     .mark-erased { text-decoration: line-through #888; }
+    .l0 { font-size: 1.15rem; line-height: 1.5; }
+    .conf-high { color: #2f6f3e; }
+    .conf-medium { color: #9a6a00; }
+    .conf-low { color: #b3261e; background: rgba(179, 38, 30, 0.08); }
     .tools { margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: center; }
     .hint { color: #667; font-size: 0.85rem; }
   `],
@@ -299,6 +311,16 @@ export class LineEditor {
     this.caret.set(scalarCount(l0.text));
     this.writeDraft(l0.text);
   }
+
+  protected readonly l0Segments = computed(() => {
+    const l0 = this.latestL0();
+    if (!l0) return [];
+    const spans = (l0.graphemeConfidences ?? [])
+      .filter(s => typeof s.confidence === 'object' && s.confidence !== null && (s.confidence as { value: number }).value !== undefined
+        && !Number.isNaN((s.confidence as { value: number }).value))
+      .map(s => ({ start: s.start, end: s.end, value: (s.confidence as { value: number }).value }));
+    return confidenceSegments(l0.text, spans);
+  });
 
   protected readonly markedSegments = computed(() =>
     markSegments(this.text(), this.annotations().map(a => ({ start: a.range.start, end: a.range.end, kind: a.kind }))));

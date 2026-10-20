@@ -381,6 +381,10 @@ Blockers recorded so far:
   `Layout:Models:<kind>`, and worker `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>`. Measured M02a
   P 0.965/R 0.987, page CER 0.971→0.942; P01 out-of-domain weak (a P01-trained variant is
   measured but not enabled).
+- **Fresh-book evidence:** on 20 M01 pages (never used for layout training) the learned
+  detector reaches P 0.994/R 0.991 vs projection 0.918/0.918; on a 6-page M01 page-CER sample
+  detection recall rises 0.911→0.969 but page CER is neutral (0.801→0.805) because recognition
+  dominates. Reported honestly; no broad generalization claim.
 - **Metric correction:** layout and page-CER matching are one-to-one greedy by IoU; all layout
   and page reports were regenerated (earlier non-one-to-one reports are superseded).
 - **Inscription bootstrap:** EpiDoc edition split at `<lb/>` imported as L2 reference (never L1)

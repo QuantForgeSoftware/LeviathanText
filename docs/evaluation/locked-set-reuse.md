@@ -20,6 +20,14 @@ layout, non-adjudicated Transkribus labels. Run-to-run variation across runs 2�
 [pilot-p01-report.md](pilot-p01-report.md); runs 2–3 share the same configuration. The
 generator template now emits this disclosure so a rerun cannot silently restore “one-shot”.
 
+## Automated reruns (disclosed)
+
+After run 4, routine full-suite verification runs re-executed this test unintentionally while
+regenerating reports (not separately counted; each produced the same configuration/report).
+The test is now **opt-in** (`LEVIATHANTEXT_RUN_LOCKED=1`) so routine suites cannot score the
+split again. These reruns add no evidence and were not used for selection; they make the split
+more spent, not less. Any new P01 claim still requires fresh witnesses.
+
 ## Status and rule
 
 - The locked split is **spent for threshold/selection purposes**. It may not guide model

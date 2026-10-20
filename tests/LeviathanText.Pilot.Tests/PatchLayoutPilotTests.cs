@@ -403,6 +403,60 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 still required before any generalization claim.
                 """;
 
+            // Fresh-book check: M01 was never used for layout training (nor M02a dev/test).
+            var m01 = Path.Combine(root!, ".artifacts", "datasets", "m01-v1.0", "eparchos");
+            if (Directory.Exists(Path.Combine(m01, "xml")))
+            {
+                var m01Pages = new List<(string Name, SKBitmap Page, List<(int Top, int Bottom)> Truth)>();
+                foreach (var xml in Directory.GetFiles(Path.Combine(m01, "xml"), "*.xml")
+                             .OrderBy(f => f, StringComparer.Ordinal).Take(20))
+                {
+                    var stem = Path.GetFileNameWithoutExtension(xml);
+                    var image = Path.Combine(m01, "image", stem + ".png");
+                    if (!File.Exists(image)) continue;
+                    var truth = Truth(xml);
+                    if (truth.Count == 0) continue;
+                    var bitmap = ImageDecoder.Decode(image).Bitmap;
+                    disposed.Add(bitmap);
+                    m01Pages.Add((stem, bitmap, truth));
+                }
+
+                if (m01Pages.Count > 0)
+                {
+                    var m01Projection = LayoutComparison.Compare(m01Pages.Select(page =>
+                        (Witness: page.Name, Detected: ProjectionProfileLayout.Detect(page.Page).Lines,
+                            GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList());
+                    var m01Baseline = LayoutComparison.Compare(m01Pages.Select(page =>
+                        (Witness: page.Name, Detected: tuned.Detect(page.Page).Lines,
+                            GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList());
+                    var m01Augmented = LayoutComparison.Compare(m01Pages.Select(page =>
+                        (Witness: page.Name, Detected: augTuned.Detect(page.Page).Lines,
+                            GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList());
+                    output.WriteLine($"m01 fresh book ({m01Pages.Count} pages): projection " +
+                                     $"{m01Projection.MeanPrecision:0.###}/{m01Projection.MeanRecall:0.###}, " +
+                                     $"learned {m01Baseline.MeanPrecision:0.###}/{m01Baseline.MeanRecall:0.###}, " +
+                                     $"augmented {m01Augmented.MeanPrecision:0.###}/{m01Augmented.MeanRecall:0.###}");
+
+                    markdown += $"""
+
+                        ## Fresh-book layout check: M01 (never used for layout training)
+
+                        - Evaluation: {m01Pages.Count} M01 pages (first sorted subset), single codex hand; no M01 data in layout training
+                        - Same thresholds selected on M02a dev; no M01 tuning
+
+                        | Detector | Precision | Recall |
+                        | --- | --- | --- |
+                        | Projection | {m01Projection.MeanPrecision:0.###} | {m01Projection.MeanRecall:0.###} |
+                        | Patch CNN (no augmentation) | {m01Baseline.MeanPrecision:0.###} | {m01Baseline.MeanRecall:0.###} |
+                        | Patch CNN (augmented) | {m01Augmented.MeanPrecision:0.###} | {m01Augmented.MeanRecall:0.###} |
+
+                        This is cross-book layout evidence within the same corpus project; it is not a
+                        hand-level or broad-manuscript generalization claim. Layout labels remain
+                        PAGE-derived, not specialist-adjudicated.
+                        """;
+                }
+            }
+
             var report = Path.Combine(root!, "docs", "evaluation", "layout-patch-learning.md");
             Directory.CreateDirectory(Path.GetDirectoryName(report)!);
             File.WriteAllText(report, markdown);

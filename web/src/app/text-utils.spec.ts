@@ -1,4 +1,4 @@
-import { applyScalarEdit, markSegments, scalarCount, scalarDiff, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
+import { applyScalarEdit, confidenceSegments, markSegments, scalarCount, scalarDiff, scalarOffsetFromUtf16, utf16OffsetFromScalar } from './text-utils';
 
 describe('text-utils (scalar offsets)', () => {
   const decomposed = '\u03B1\u0301\u03BD\u03B8\u03C1\u03C9\u03C0\u03BF\u03C2'; // α + acute + 7 letters
@@ -81,5 +81,19 @@ describe('scalarDiff', () => {
     expect(scalarDiff('a' + astral, 'a' + astral + 'b')).toEqual({
       equal: false, prefix: 'a' + astral, aMiddle: '', bMiddle: 'b', suffix: '',
     });
+  });
+});
+
+describe('confidenceSegments', () => {
+  it('bands persisted confidence and merges equal levels', () => {
+    expect(confidenceSegments('αβγδ', [
+      { start: 0, end: 1, value: 0.95 },
+      { start: 1, end: 3, value: 0.2 },
+      { start: 3, end: 4, value: 0.6 },
+    ])).toEqual([
+      { text: 'α', level: 'high' },
+      { text: 'βγ', level: 'low' },
+      { text: 'δ', level: 'medium' },
+    ]);
   });
 });

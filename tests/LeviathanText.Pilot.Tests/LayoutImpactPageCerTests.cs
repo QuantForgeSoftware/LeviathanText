@@ -222,6 +222,51 @@ public sealed class LayoutImpactPageCerTests(ITestOutputHelper output)
                              $"projRecall={projection.DetectionRecall:0.###} patchRecall={patch.DetectionRecall:0.###}");
         }
 
+        // Fresh-book page workflow check: M01 (no M01 data in either model).
+        var m01Pages = new List<PageTruth>();
+        var m01 = Path.Combine(root!, ".artifacts", "datasets", "m01-v1.0", "eparchos");
+        if (Directory.Exists(Path.Combine(m01, "xml")))
+        {
+            foreach (var xml in Directory.GetFiles(Path.Combine(m01, "xml"), "*.xml")
+                         .OrderBy(f => f, StringComparer.Ordinal).Take(6))
+            {
+                var stem = Path.GetFileNameWithoutExtension(xml);
+                var image = Path.Combine(m01, "image", stem + ".png");
+                if (File.Exists(image)) m01Pages.Add(new PageTruth(stem, image, xml));
+            }
+        }
+
+        var freshRows = new List<(string Page, int Gt, double ProjCer, double PatchCer, double ProjRecall, double PatchRecall)>();
+        double freshProjEdits = 0, freshPatchEdits = 0, freshGt = 0;
+        foreach (var page in m01Pages)
+        {
+            var truth = Truth(page.XmlPath);
+            var projectionSurface = Surface(page.ImagePath);
+            var projectionProject = Project(projectionSurface);
+            store.SaveProject(projectionProject);
+            new LayoutService(store).Detect(projectionProject, projectionSurface.Id);
+            var projectionLoaded = store.LoadProject(projectionProject.Id)!;
+            var projection = Evaluate(projectionLoaded, projectionLoaded.Objects[0].Surfaces[0], truth, Recognition());
+
+            var patchSurface = Surface(page.ImagePath);
+            var patchProject = Project(patchSurface);
+            store.SaveProject(patchProject);
+            new LayoutService(store).Detect(patchProject, patchSurface.Id, model: layoutModel);
+            var patchLoaded = store.LoadProject(patchProject.Id)!;
+            var patch = Evaluate(patchLoaded, patchLoaded.Objects[0].Surfaces[0], truth, Recognition());
+
+            int gtScalars = truth.Sum(t => ScalarText.ScalarLength(t.Text));
+            freshGt += gtScalars;
+            freshProjEdits += projection.PageCer * gtScalars;
+            freshPatchEdits += patch.PageCer * gtScalars;
+            freshRows.Add((page.Name, truth.Count, projection.PageCer, patch.PageCer,
+                projection.DetectionRecall, patch.DetectionRecall));
+            output.WriteLine($"M01 {page.Name}: projCER={projection.PageCer:0.###} patchCER={patch.PageCer:0.###} " +
+                             $"projRecall={projection.DetectionRecall:0.###} patchRecall={patch.DetectionRecall:0.###}");
+        }
+        var freshProjAggregate = freshGt == 0 ? 0 : freshProjEdits / freshGt;
+        var freshPatchAggregate = freshGt == 0 ? 0 : freshPatchEdits / freshGt;
+
         var projAggregate = gtTotal == 0 ? 0 : projEdits / gtTotal;
         var patchAggregate = gtTotal == 0 ? 0 : patchEdits / gtTotal;
         output.WriteLine($"aggregate: projection {projAggregate:0.###}, patch {patchAggregate:0.###} (one-to-one matching)");
@@ -244,12 +289,28 @@ public sealed class LayoutImpactPageCerTests(ITestOutputHelper output)
             | --- | --- | --- | --- | --- | --- |
             {string.Join("\n", rows.Select(r => $"| {r.Page} | {r.Gt} | {r.ProjCer:0.###} | {r.PatchCer:0.###} | {r.ProjRecall:0.###} | {r.PatchRecall:0.###} |"))}
 
+            ## Fresh-book check (M01)
+
+            M01 was not used for the layout model nor the recognition model. Sample: {m01Pages.Count} pages;
+            page CER with the same recognizer and one-to-one matching.
+
+            | Detector | M01 aggregate page CER | Mean detection recall |
+            | --- | --- | --- |
+            | Projection | {freshProjAggregate:0.###} | {(freshRows.Count == 0 ? 0 : freshRows.Average(r => r.ProjRecall)):0.###} |
+            | Patch CNN (learned) | {freshPatchAggregate:0.###} | {(freshRows.Count == 0 ? 0 : freshRows.Average(r => r.PatchRecall)):0.###} |
+
+            | Page | GT | Projection CER | Patch CER |
+            | --- | --- | --- | --- |
+            {string.Join("\n", freshRows.Select(r => $"| {r.Page} | {r.Gt} | {r.ProjCer:0.###} | {r.PatchCer:0.###} |"))}
+
             ## Reading
 
             The learned detector improves page-level text recovery mainly by finding lines the
-            projection heuristic misses; recognition quality on matched lines is unchanged. This
-            is a single-book, single-seed workflow measurement — not a generalization or
-            acceptance claim. The model remains opt-in and per-material.
+            projection heuristic misses; recognition quality on matched lines is unchanged. M02a
+            and M01 are different books, but both are minuscule Greek hands from the same pilot
+            corpus: this is **not** a broad generalization or acceptance claim, and M01's
+            recognition split was used for cross-witness scoring earlier. The model remains
+            opt-in and per-material.
             """;
         var path = Path.Combine(root!, "docs", "evaluation", "layout-impact-page-cer.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

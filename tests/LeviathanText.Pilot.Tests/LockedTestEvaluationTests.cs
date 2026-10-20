@@ -9,18 +9,19 @@ using Xunit.Abstractions;
 namespace LeviathanText.Pilot.Tests;
 
 /// <summary>
-/// EVAL-02 (pilot form): a ONE-SHOT scoring run of the trained pilot model on the
-/// locked papyrus test split. The locked split was never used for training, model
-/// selection or threshold setting (custodian discipline = this session's record).
-/// Writes docs/evaluation/pilot-p01-report.md as the first measured acceptance-sheet
-/// candidate — pilot-scale, non-adjudicated labels, single track. No pass/fail
-/// threshold is claimed.
+/// EVAL-02 (pilot form), **opt-in only**: scores the trained pilot model on the locked
+/// papyrus test split and writes the candidate report. The split is SPENT (multiple runs);
+/// routine test suites must not re-score it. Set LEVIATHANTEXT_RUN_LOCKED=1 deliberately.
+/// Pilot-scale, non-adjudicated labels, single track; no pass/fail threshold is claimed.
 /// </summary>
 public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
 {
     [SkippableFact]
     public void OneShot_ScoreLockedTest_AndPublishReport()
     {
+        Skip.IfNot(Environment.GetEnvironmentVariable("LEVIATHANTEXT_RUN_LOCKED") == "1",
+            "locked-test evaluation is opt-in (LEVIATHANTEXT_RUN_LOCKED=1); the P01 split is spent " +
+            "and must not be re-scored by routine suites.");
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded.");
 

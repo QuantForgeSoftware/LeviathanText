@@ -78,12 +78,19 @@ export interface GeometryRegion {
   readingOrderIndex: number | null;
 }
 
+export interface ConfidenceValue {
+  value: number;
+  scale: string;
+}
+
 export interface RevisionPayload {
   id: string;
   layer: string;
   text: string;
   author: string;
   at: string;
+  confidence?: ConfidenceValue | 'none';
+  graphemeConfidences?: { start: number; end: number; confidence: ConfidenceValue | 'none' }[];
 }
 
 export interface JobSummary {
