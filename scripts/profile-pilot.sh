@@ -46,6 +46,7 @@ SURFACE="$(printf '%s\n' "$IMPORT" | sed -n 's/.*surface \([^ ]*\).*/\1/p' | hea
   measure import_image "$CLI" --store "$STORE" import image "$PROJECT" "$IMAGE" --kind papyrus-side
   measure layout_detect "$CLI" --store "$STORE" layout detect "$PROJECT" "$SURFACE"
   measure export_page "$CLI" --store "$STORE" export page "$PROJECT" "$SURFACE"
+  measure import_dir_27_pages "$CLI" --store "$STORE" import dir "$PROJECT" "$DATA"
   measure backup "$CLI" --store "$STORE" backup "$WORK/backup"
 } | tee "$OUT/pilot-profile.tsv"
 
