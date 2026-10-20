@@ -133,6 +133,19 @@ public sealed record UserAccount
 }
 
 
+/// <summary>Admin-issued, one-time project invitation. Token material is never part of this record.</summary>
+public sealed record ProjectInvite
+{
+    public required string Id { get; init; }
+    public required EntityId ProjectId { get; init; }
+    public required UserRole Role { get; init; }
+    public string? CreatedBy { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public required DateTimeOffset ExpiresAt { get; init; }
+    public DateTimeOffset? UsedAt { get; init; }
+    public string? UsedBy { get; init; }
+}
+
 /// <summary>Structured authentication/authorization audit entry (mutations and denials).</summary>
 public sealed record AuthAuditEntry
 {

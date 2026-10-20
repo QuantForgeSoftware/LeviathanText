@@ -112,7 +112,8 @@ public class LocalStoreTests : IDisposable
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
-    public void Store_migrates_forward_to_v6_from_older_schemas(int fromVersion)
+    [InlineData(6)]
+    public void Store_migrates_forward_to_v7_from_older_schemas(int fromVersion)
     {
         var path = Path.Combine(Path.GetTempPath(), $"leviathan-migrate-{fromVersion}-{Guid.NewGuid():N}.db");
         NativeProject saved;
@@ -126,10 +127,13 @@ public class LocalStoreTests : IDisposable
             var drops = fromVersion switch
             {
                 2 => "DROP TABLE IF EXISTS auth_audit; DROP TABLE IF EXISTS users; "
-                     + "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
-                3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
-                4 => "DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence;",
-                _ => "DROP TABLE IF EXISTS presence;",
+                     + "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; "
+                     + "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
+                3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; "
+                     + "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
+                4 => "DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
+                5 => "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
+                _ => "DROP TABLE IF EXISTS invites;",
             };
             cmd.CommandText = drops + $" PRAGMA user_version={fromVersion};";
             cmd.ExecuteNonQuery();
@@ -149,6 +153,10 @@ public class LocalStoreTests : IDisposable
             Assert.Single(migrated.LoadRuns());
             migrated.TouchPresence(saved.Id, "usr-migrated", DateTimeOffset.UtcNow);
             Assert.Contains("usr-migrated", migrated.ListPresence(saved.Id, DateTimeOffset.UtcNow.AddMinutes(-1)));
+            var invite = migrated.CreateInvite(saved.Id, UserRole.Annotator, "hash-invite",
+                DateTimeOffset.UtcNow.AddHours(1));
+            Assert.Equal(invite.Id, migrated.FindInviteByTokenHash("hash-invite")!.Id);
+            Assert.True(migrated.MarkInviteUsed(invite.Id, "usr-migrated", DateTimeOffset.UtcNow));
         }
     }
 

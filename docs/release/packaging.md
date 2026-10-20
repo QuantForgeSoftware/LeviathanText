@@ -80,7 +80,7 @@ manifest/checksum restore path; it is not a substitute for a full pre-upgrade ba
 2. **Back up first:** `leviathan --store pilot.db backup ./snapshots/pre-upgrade`
    (`VACUUM INTO` + checksummed image copies).
 3. Replace binaries/assets, then start the new API. Store schema migrations run on open:
-   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`; v6 adds `presence`;
+   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`; v6 adds `presence`; v7 adds `invites`;
    - a store written by a **newer** schema is refused with `SchemaVersionUnsupported` (downgrades
      are unsupported).
 4. Verify `/`, `/api/v1/projects`, a login (`/api/v1/me`) and one read/export before resuming work.

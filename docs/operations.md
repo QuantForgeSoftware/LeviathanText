@@ -296,6 +296,21 @@ leviathan --store pilot.db project member remove <projectId> <userId>
 Membership covers project routes and indirect entity routes (`/lines`, `/surfaces`, `/regions`,
 `/annotations`); admins bypass it.
 
+**Invitation tokens:** admins can issue one-time, expiring project invitations:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/v1/projects/<projectId>/invites \
+  -H "X-Api-Key: $ADMIN_KEY" -H 'Content-Type: application/json' \
+  -d '{"role":"annotator","expiresInHours":24}'
+# returns a one-time token; the recipient accepts it
+curl -X POST http://127.0.0.1:5000/api/v1/invites/accept -H 'Content-Type: application/json' \
+  -d '{"token":"<token>","name":"invited-name"}'
+```
+
+Acceptance creates a normal account, returns its API key once, and adds the account to the
+project. Tokens are stored as SHA-256 hashes, expire after 1–168 hours, are single-use, and only
+admins can issue them. Admin invitations are refused.
+
 **Presence (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from
 `GET /surfaces/{id}/presence`; `DELETE /surfaces/{id}/presence/{editorId}` clears it. Entries live

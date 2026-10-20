@@ -19,6 +19,7 @@ set: C0-0.4-draft.
 - **Correction-sequence capture:** editor records `CorrectionSequence` and `DifferentHand` annotations with a hand/sequence label; replay/ordering visualization remains open.
 - **Workspace deep links and surface navigation:** project/surface/line query parameters restore and update workspace state; previous/next surface controls move through the collection.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
+- **Invitation tokens:** admin-issued one-time project invites with hashed storage, expiry and membership-on-accept.
 - **Job priority/quota:** jobs persist priority (0–100) and creation time; workers claim highest priority first, and an optional per-owner active-job quota is enforced on creation.
 - **Presence heartbeat:** per-surface editor presence with a 60-second TTL and workspace display; advisory, stored in the shared SQLite store (schema v6).
 - **Acceptance gate:** `evaluate lines --acceptance criteria.json` applies caller-supplied thresholds and exits nonzero on failure.

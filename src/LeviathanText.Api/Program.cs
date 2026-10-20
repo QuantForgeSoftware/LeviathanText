@@ -174,6 +174,15 @@ app.Use(async (context, next) =>
         return;
     }
 
+    // Invitation acceptance is deliberately unauthenticated: the invitation token is the
+    // credential. It creates a normal account and project membership once.
+    if (HttpMethods.IsPost(context.Request.Method)
+        && context.Request.Path.Equals("/api/v1/invites/accept", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
+
     var store = context.RequestServices.GetRequiredService<LocalStore>();
     var hasUsers = store.LoadUsers().Count > 0;
     if (string.IsNullOrEmpty(authApiKey) && !hasUsers)
@@ -300,6 +309,7 @@ static bool IsAdminOnly(string path, string method) =>
     path.StartsWith("/api/v1/users", StringComparison.OrdinalIgnoreCase)
     || path.StartsWith("/api/v1/audit", StringComparison.OrdinalIgnoreCase)
     || path.Contains("/members", StringComparison.OrdinalIgnoreCase)
+    || path.Contains("/invites", StringComparison.OrdinalIgnoreCase)
     || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
 
 static EntityId? ProjectIdForMembership(HttpContext context, LocalStore store)
@@ -1020,6 +1030,80 @@ api.MapGet("me", (HttpContext http) =>
         : new { authenticated = true, name = user.Name, role = user.Role.ToString() });
 });
 
+api.MapGet("projects/{id}/invites", (ProjectService projects, LocalStore store, string id) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    return Results.Ok(store.ListInvites(projectId));
+});
+
+api.MapPost("projects/{id}/invites", (ProjectService projects, LocalStore store, string id,
+    [FromBody] CreateInviteRequest request) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    if (request.Role == UserRole.Admin)
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = "invites",
+            Message = "Admin invitations are not issued; create admin accounts explicitly.",
+        });
+    int expiresInHours = Math.Clamp(request.ExpiresInHours, 1, 168);
+    var token = LeviathanText.Infrastructure.UserKeys.NewKey();
+    var invite = store.CreateInvite(projectId, request.Role, LeviathanText.Infrastructure.UserKeys.Hash(token),
+        DateTimeOffset.UtcNow.AddHours(expiresInHours), createdBy: "admin");
+    return Results.Ok(new
+    {
+        inviteId = invite.Id,
+        projectId = invite.ProjectId.ToString(),
+        role = invite.Role,
+        expiresAt = invite.ExpiresAt,
+        token,
+    });
+});
+
+api.MapPost("invites/accept", (LocalStore store, [FromBody] AcceptInviteRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.Name))
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = "invites",
+            Message = "Token and account name are required.",
+        });
+    var invite = store.FindInviteByTokenHash(LeviathanText.Infrastructure.UserKeys.Hash(request.Token.Trim()));
+    if (invite is null || invite.UsedAt is not null || invite.ExpiresAt <= DateTimeOffset.UtcNow)
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = "invites",
+            Message = "Invitation is invalid, expired or already used.",
+        });
+
+    var key = LeviathanText.Infrastructure.UserKeys.NewKey();
+    var account = store.CreateUser(request.Name.Trim(), invite.Role,
+        LeviathanText.Infrastructure.UserKeys.Hash(key));
+    store.AddProjectMember(invite.ProjectId, account.Id);
+    if (!store.MarkInviteUsed(invite.Id, account.Id, DateTimeOffset.UtcNow))
+    {
+        store.RemoveProjectMember(invite.ProjectId, account.Id);
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.RevisionConflict,
+            Scope = "invites",
+            Message = "Invitation was consumed by another request.",
+        });
+    }
+    return Results.Ok(new
+    {
+        account,
+        apiKey = key,
+        projectId = invite.ProjectId.ToString(),
+        role = invite.Role,
+    });
+});
+
 api.MapGet("audit", (LocalStore store, int? limit) => Results.Ok(store.LoadAuthAudit(limit ?? 100)));
 
 api.MapGet("projects/{id}/members", (ProjectService projects, LocalStore store, string id) =>
@@ -1189,6 +1273,10 @@ public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
 
 public sealed record PresenceRequest(string EditorId);
+
+public sealed record CreateInviteRequest(UserRole Role, int ExpiresInHours = 24);
+
+public sealed record AcceptInviteRequest(string Token, string Name);
 
 public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = null, string? Kind = null,
     int Dpi = 200, int MaxPages = 500, bool ExtractText = false);

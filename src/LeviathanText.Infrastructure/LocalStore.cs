@@ -13,7 +13,7 @@ namespace LeviathanText.Infrastructure;
 /// </summary>
 public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore
 {
-    public const int SchemaVersion = 6;
+    public const int SchemaVersion = 7;
 
     private readonly SqliteConnection _connection;
 
@@ -113,6 +113,17 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore
                     editor_id TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (surface_id, editor_id)
+                );
+                CREATE TABLE IF NOT EXISTS invites (
+                    id TEXT PRIMARY KEY,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    project_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    created_by TEXT,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used_at TEXT,
+                    used_by TEXT
                 );
                 """;
             ddl.ExecuteNonQuery();
@@ -375,6 +386,85 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore
         cmd.Parameters.AddWithValue("$editor", editorId);
         cmd.ExecuteNonQuery();
     }
+
+    // ---- one-time project invitations ----
+
+    public ProjectInvite CreateInvite(EntityId projectId, UserRole role, string tokenHash,
+        DateTimeOffset expiresAt, string? createdBy = null)
+    {
+        var invite = new ProjectInvite
+        {
+            Id = $"inv-{Guid.NewGuid().ToString("N")[..12]}",
+            ProjectId = projectId,
+            Role = role,
+            CreatedBy = createdBy,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ExpiresAt = expiresAt,
+        };
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO invites (id, token_hash, project_id, role, created_by, created_at, expires_at)
+            VALUES ($id, $hash, $project, $role, $by, $created, $expires)
+            """;
+        cmd.Parameters.AddWithValue("$id", invite.Id);
+        cmd.Parameters.AddWithValue("$hash", tokenHash);
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        cmd.Parameters.AddWithValue("$role", role.ToString());
+        cmd.Parameters.AddWithValue("$by", (object?)createdBy ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$created", invite.CreatedAt.ToString("O"));
+        cmd.Parameters.AddWithValue("$expires", invite.ExpiresAt.ToString("O"));
+        cmd.ExecuteNonQuery();
+        return invite;
+    }
+
+    public ProjectInvite? FindInviteByTokenHash(string tokenHash)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, project_id, role, created_by, created_at, expires_at, used_at, used_by
+            FROM invites WHERE token_hash = $hash LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("$hash", tokenHash);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? ReadInvite(reader) : null;
+    }
+
+    public IReadOnlyList<ProjectInvite> ListInvites(EntityId projectId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, project_id, role, created_by, created_at, expires_at, used_at, used_by
+            FROM invites WHERE project_id = $project ORDER BY created_at DESC
+            """;
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        using var reader = cmd.ExecuteReader();
+        var invites = new List<ProjectInvite>();
+        while (reader.Read()) invites.Add(ReadInvite(reader));
+        return invites;
+    }
+
+    /// <summary>Atomically consume an unused invitation; false means it was already used.</summary>
+    public bool MarkInviteUsed(string inviteId, string userId, DateTimeOffset at)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE invites SET used_at = $at, used_by = $user WHERE id = $id AND used_at IS NULL";
+        cmd.Parameters.AddWithValue("$at", at.ToString("O"));
+        cmd.Parameters.AddWithValue("$user", userId);
+        cmd.Parameters.AddWithValue("$id", inviteId);
+        return cmd.ExecuteNonQuery() == 1;
+    }
+
+    private static ProjectInvite ReadInvite(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetString(0),
+        ProjectId = EntityId.Parse(reader.GetString(1), EntityKind.Collection),
+        Role = Enum.Parse<UserRole>(reader.GetString(2)),
+        CreatedBy = reader.IsDBNull(3) ? null : reader.GetString(3),
+        CreatedAt = DateTimeOffset.Parse(reader.GetString(4), System.Globalization.CultureInfo.InvariantCulture),
+        ExpiresAt = DateTimeOffset.Parse(reader.GetString(5), System.Globalization.CultureInfo.InvariantCulture),
+        UsedAt = reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6), System.Globalization.CultureInfo.InvariantCulture),
+        UsedBy = reader.IsDBNull(7) ? null : reader.GetString(7),
+    };
 
     // ---- auth audit ----
 
