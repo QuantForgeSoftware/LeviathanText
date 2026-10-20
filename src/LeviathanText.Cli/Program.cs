@@ -395,6 +395,85 @@ public static class Program
                 return 0;
             }
 
+            case "evaluate" when rest.Length >= 4 && rest[1] == "lines":
+            {
+                string? Flag(string name) =>
+                    Array.IndexOf(rest, name) is var index && index >= 0 && index + 1 < rest.Length ? rest[index + 1] : null;
+                var datasetDirectory = rest[2];
+                var packageDirectory = Flag("--package")
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = "--package", Message = "A verified model package is required." });
+                var split = Flag("--split") ?? "dev";
+                if (split is not ("dev" or "train"))
+                    throw new LeviathanException(new LeviathanError { Code = ErrorCode.StageContractViolation, Scope = "--split", Message = "Routine evaluation supports dev or train; locked test labels are not used here." });
+                var imageExtension = Flag("--image-ext") ?? ".jpg";
+                var csvPath = Flag("--out") ?? "evaluation.csv";
+                var jsonPath = Flag("--json") ?? Path.ChangeExtension(csvPath, ".json");
+
+                var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension);
+                var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
+                if (lines.Count == 0)
+                    throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = split, Message = $"No labeled {split} lines were found in the dataset." });
+
+                var loaded = RecognitionModelLoader.Load(packageDirectory);
+                var recognizer = loaded.CreateRecognizer();
+                var results = recognizer.Recognize(lines.Select(l => l.Image).ToList());
+                if (results.Count != lines.Count)
+                    throw new LeviathanException(new LeviathanError { Code = ErrorCode.StageContractViolation, Scope = "evaluation", Message = "Recognizer result count does not match the evaluated line count." });
+
+                var pairs = lines.Select((line, index) => (line.Text, (string?)results[index].Text));
+                var (rows, summary) = LineEvaluationReport.Build(pairs);
+                var packageName = loaded.Manifest?.ModelName ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDirectory));
+                var digestInput = string.Join("\n", snapshot.WitnessSplitMap.OrderBy(p => p.Key, StringComparer.Ordinal)
+                    .Select(p => $"{p.Key}={p.Value}"));
+                var splitDigest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(digestInput)));
+
+                File.WriteAllText(csvPath, LineEvaluationReport.ToCsv(rows));
+                File.WriteAllText(jsonPath, LineEvaluationReport.ToJson(summary, new Dictionary<string, string>
+                {
+                    ["package"] = Path.GetFullPath(packageDirectory),
+                    ["model"] = packageName,
+                    ["dataset"] = Path.GetFullPath(datasetDirectory),
+                    ["split"] = split,
+                    ["splitDigest"] = splitDigest,
+                }));
+
+                var markErrorRate = summary.ReferenceScalars == 0 ? 0 : (double)summary.MarkErrors / summary.ReferenceScalars;
+                var runId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
+                store.SaveRun(new RunRecord
+                {
+                    Id = runId,
+                    Kind = "evaluation",
+                    Name = $"{packageName}:{split}",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    CreatedBy = "cli",
+                    DatasetDigest = splitDigest,
+                    Config = new Dictionary<string, string>
+                    {
+                        ["package"] = Path.GetFullPath(packageDirectory),
+                        ["dataset"] = Path.GetFullPath(datasetDirectory),
+                        ["split"] = split,
+                        ["imageExtension"] = imageExtension,
+                    },
+                    Metrics = new Dictionary<string, double>
+                    {
+                        ["cer"] = summary.ScalarCer,
+                        ["lines"] = summary.Lines,
+                        ["referenceScalars"] = summary.ReferenceScalars,
+                        ["markErrors"] = summary.MarkErrors,
+                        ["markErrorRate"] = markErrorRate,
+                    },
+                    Artifacts = [csvPath, jsonPath],
+                    Notes = $"{split} split only; locked labels were not used. Labels are not necessarily specialist-adjudicated.",
+                });
+
+                Console.WriteLine($"evaluated {summary.Lines} {split} line(s): CER {summary.ScalarCer:0.###}, mark errors {summary.MarkErrors} ({markErrorRate:0.###})");
+                Console.WriteLine($"csv: {csvPath}");
+                Console.WriteLine($"json: {jsonPath}");
+                Console.WriteLine($"recorded run: {runId}");
+                return 0;
+            }
+
             case "runs" when rest.Length >= 2 && rest[1] == "list":
             {
                 var kindIndex = Array.IndexOf(rest, "--kind");
@@ -404,7 +483,7 @@ public static class Program
                 foreach (var run in store.LoadRuns(kind, limit))
                 {
                     var metrics = string.Join(' ', run.Metrics
-                        .Where(m => m.Key is "bestDevCer" or "devF1" or "devPrecision" or "devRecall")
+                        .Where(m => m.Key is "bestDevCer" or "cer" or "devF1" or "devPrecision" or "devRecall" or "markErrorRate")
                         .Select(m => $"{m.Key}={m.Value:0.###}"));
                     Console.WriteLine($"{run.Id}\t{run.Kind}\t{run.Name}\t{run.CreatedAt:O}\t{metrics}");
                 }

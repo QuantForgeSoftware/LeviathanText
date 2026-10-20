@@ -13,6 +13,7 @@ import { ApiClient, RunRecord } from './api-client';
           <option value="">all kinds</option>
           <option value="recognition">recognition</option>
           <option value="layout">layout</option>
+          <option value="evaluation">evaluation</option>
         </select>
         <button type="button" (click)="refresh()">Refresh</button>
         <span class="hint">{{ status() }}</span>
@@ -108,7 +109,7 @@ export class RunsPanel implements OnInit {
   }
 
   protected metricSummary(run: RunRecord): string {
-    const keys = ['bestDevCer', 'devF1', 'devPrecision', 'devRecall'];
+    const keys = ['bestDevCer', 'cer', 'devF1', 'devPrecision', 'devRecall', 'markErrorRate'];
     const parts = keys.filter(k => run.metrics[k] !== undefined)
       .map(k => `${k}=${run.metrics[k].toFixed(3)}`);
     return parts.length > 0 ? parts.join(' ') : '—';

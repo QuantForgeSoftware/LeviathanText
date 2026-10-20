@@ -83,6 +83,19 @@ config map, metrics map, learning-curve series and artifact paths. The workspace
 renders the curve; `GET /runs` / `GET /runs/{id}` expose the same. This is an experiment index,
 not an acceptance claim: runs retain their own labels/caveats.
 
+## Evaluation and error drilldown
+
+```bash
+leviathan --store pilot.db evaluate lines /abs/page-xml-dir --package ./packages/model-a \
+  --split dev --out dev-errors.csv --json dev-errors.json
+```
+
+This scores a packaged model on the **development or training** split only (the locked test
+split is deliberately unavailable here), writes per-line CER/base/mark errors and top
+confusions, and records an `evaluation` run with the split digest. Empty hypotheses count as
+full-line deletions. It is an analysis aid, not an acceptance claim: labels may not be
+specialist-adjudicated.
+
 ## Review queue
 
 `GET /api/v1/projects/{id}/review-queue[?surfaceId=…]` orders lines by stored L0 confidence

@@ -7,6 +7,7 @@
     <ProjectReference Include="..\LeviathanText.Recognition\LeviathanText.Recognition.csproj" />
     <ProjectReference Include="..\LeviathanText.Imaging\LeviathanText.Imaging.csproj" />
     <ProjectReference Include="..\LeviathanText.Layout\LeviathanText.Layout.csproj" />
+    <ProjectReference Include="..\LeviathanText.Evaluation\LeviathanText.Evaluation.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

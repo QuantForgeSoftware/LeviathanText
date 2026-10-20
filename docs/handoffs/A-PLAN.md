@@ -459,10 +459,13 @@ Blockers recorded so far:
 - **PDF ingestion:** bounded PDFtoImage/PDFium page rasterization (200 MB, 500 pages, 12k px /
   50 MP per page) into one capture-only surface per page; CLI `import pdf` and
   `POST /projects/{id}/import-pdf`. No PDF text/layout extraction.
+- **Evaluation drilldown:** `evaluate lines` scores a packaged model on dev/train, writes per-line
+  CER/base/mark/confusion CSV/JSON and records an `evaluation` run with a split digest; locked
+  test labels are not available to routine evaluation.
 - **Packaged workspace:** optional `LeviathanText:WebRoot` serves the Angular build under `/ui`
   with SPA fallback; `/` and `/api/v1` stay separate.
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **535 tests (533 passed + 2 opt-in skips), 0 failed across 13 suites;
+- **Verification:** **532 tests (530 passed + 2 opt-in skips), 0 failed across 13 suites;
   Release 0 warnings/0 errors**; 36 web specs; package and backup/restore rehearsals PASS.

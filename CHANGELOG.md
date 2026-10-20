@@ -13,6 +13,9 @@ set: C0-0.4-draft.
 
 ### Added
 
+- **Evaluation error drilldown:** `evaluate lines` scores a packaged model on dev/train,
+  writes per-line CER/base/mark/confusion CSV + JSON and records an `evaluation` run with a
+  split digest; locked test labels remain unavailable to routine evaluation.
 - **PDF page ingestion (Phase 4 partial):** bounded PDFtoImage/PDFium rendering to PNG
   captures (DPI/page/size limits; one surface per page; no text/layout inference), exposed by
   CLI `import pdf` and `POST /projects/{id}/import-pdf`.
