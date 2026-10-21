@@ -466,6 +466,7 @@ Blockers recorded so far:
 - **Job ownership binding:** authenticated creation binds jobs to the principal, closing a quota/provenance spoofing path.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
 - **Local installer:** one-prefix publish + wrappers, API serves `/ui`; local single-user scope.
+- **Reviewer preview:** decisions CSVs can be validated/counted without project writes.
 - **Reviewer summary:** accepted/corrected counts reported alongside reviewed/disputed/adjudication counts.
 - **Known-transcription intake:** sibling image directories resolve and external IDs are sanitized; P01/M02a/M01 reviewer packets prepared.
 - **Reviewer packets:** `review packet` emits crops/current L1/L2/decision CSV; `review apply` records accept/correct/dispute through the review ledger.

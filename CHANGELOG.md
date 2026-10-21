@@ -22,6 +22,7 @@ set: C0-0.4-draft.
 - **Pilot profile:** reproducible single-page startup/import/layout/export/backup timing + peak RSS harness (`scripts/profile-pilot.sh`).
 - **Migration rehearsal:** old-binary → current-store migration with explicit rollback refusal (`scripts/migration-rehearsal.sh`) PASS.
 - **Local installer:** `scripts/install-local.sh` publishes the stack and creates CLI/API/worker wrappers; single-user/local only.
+- **Reviewer preview:** decisions CSVs can be validated/count-checked without applying.
 - **Reviewer summary:** accepted/corrected counts are available in review summaries and the workspace.
 - **Known-transcription intake:** sibling `images/` resolution and external-ID sanitization make M01/M02a imports reliable; reviewer packets prepared for P01/M02a/M01.
 - **Reviewer packets:** static HTML packets with line crops, current L1/L2 text, downloadable decisions CSV and `review apply` through the review ledger.

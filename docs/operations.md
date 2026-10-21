@@ -255,8 +255,12 @@ agree/correct/unclear/not-visible, edits corrected text, and downloads `decision
 does not mutate the project. Apply returned decisions through the review ledger:
 
 ```bash
+leviathan --store review.db review preview <projectId> decisions.csv
 leviathan --store review.db review apply <projectId> decisions.csv --reviewer <id>
 ```
+
+`preview` validates ids/decisions and reports counts without writing; `apply` performs the ledger
+writes.
 
 `agree` records accept, `correct` creates a new L1 correction revision, and `unclear` /
 `not-visible` record disputes with notes. Unknown/uncorrected rows are reported and skipped.

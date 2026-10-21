@@ -624,6 +624,17 @@ public static class Program
                 return 0;
             }
 
+            case "review" when rest.Length >= 4 && rest[1] == "preview":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var preview = ReviewDecisionImport.Preview(project, File.ReadAllText(rest[3]));
+                Console.WriteLine($"decisions: agree={preview.Agree} correct={preview.Correct} " +
+                                  $"unclear={preview.Unclear} not-visible={preview.NotVisible} invalid={preview.Invalid}");
+                foreach (var row in preview.Rows.Where(r => !r.Applied).Take(10))
+                    Console.Error.WriteLine($"invalid {row.LineId}: {row.Reason}");
+                return preview.Invalid == 0 ? 0 : 1;
+            }
+
             case "review" when rest.Length >= 4 && rest[1] == "apply":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1214,6 +1225,7 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
+              leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>

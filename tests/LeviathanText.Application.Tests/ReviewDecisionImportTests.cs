@@ -47,6 +47,14 @@ public class ReviewDecisionImportTests : IDisposable
             + $"{id},surf-1,agree,αβγ,\n"
             + $"{id},surf-1,correct,αβδ,visible delta\n"
             + $"{id},surf-1,unclear,,faint\n";
+        var preview = ReviewDecisionImport.Preview(project, csv);
+        Assert.Equal(3, preview.Total);
+        Assert.Equal(1, preview.Agree);
+        Assert.Equal(1, preview.Correct);
+        Assert.Equal(1, preview.Unclear);
+        Assert.Equal(0, preview.Invalid);
+        Assert.Empty(store.LoadProject(project.Id)!.Objects[0].Surfaces[0].ReviewDecisions);
+
         var result = ReviewDecisionImport.Apply(project, csv, "reviewer",
             new ReviewService(store), store);
 
