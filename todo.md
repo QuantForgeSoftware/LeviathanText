@@ -119,3 +119,24 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 ### Execution readiness
 
 - [ ] Execution readiness: select real collections and hardware, secure usable image/label pairs and reviewers, prove the C# pipeline, and freeze measured acceptance thresholds.
+
+## 12. Kraken test parity — 2026-10-21
+
+Full 305-test inventory and status: [docs/quality/kraken-test-parity.md](docs/quality/kraken-test-parity.md). Scenarios are reimplemented in C#/xUnit; Python/Torch/Kraken internals are explicitly marked non-applicable rather than claimed.
+
+- [~] Maintain the 305-test parity matrix and map each test to a Leviathan test or capability item.
+- [ ] Reading order: region containment, over/under and touching lines, LTR/RTL horizontal order, real reversed rows and partial-order topological sort (`test_readingorder.py`, 15 scenarios).
+- [ ] Geometry: baseline ↔ bbox conversion, boundary fallback, text-direction/topline placement, degenerate boxes and input immutability (`test_container.py`, 16 scenarios).
+- [ ] Segmentation metrics: empty truth/prediction semantics, extra-prediction precision penalty, tolerance monotonicity and weighted aggregate (`test_segmentation_metrics.py`, 5 scenarios).
+- [ ] XML/format edges: PAGE/ALTO auto-detection, zero-dimension fallback, baseline direction, malformed documents and round trips (`test_xml.py`, 32 scenarios; overlapping `test_serialization.py`).
+- [ ] ABBYY XML serializer/deserializer with a bounded profile and loss reporting (`test_serialization.py`).
+- [ ] Label codec strictness: encode/decode, unknown labels, strict vs non-strict behavior and add-simple (`test_codec.py`, 11 scenarios).
+- [ ] Model loading: missing/invalid packages, version compatibility, task filters and safe weight round trips (`test_loaders.py`/`test_models.py`, 21 scenarios).
+- [ ] CLI contracts: output formats, segmentation modes, missing-model failures and XML input line types (`test_cli.py`, 11 scenarios).
+- [ ] Training recovery: checkpoint-on-failure, resume and interruption behavior (`test_train_utils.py`/`test_ketos_training.py`, 5 scenarios).
+- [ ] Dataset/baseline operations: filters, merges, input transform validation and baseline set behavior (`test_dataset.py`/`test_merging.py`, 17 scenarios).
+- [ ] Imaging behavior: binarization/BW handling, page segmentation and dewarp failures (`test_binarization.py`/`test_pageseg.py`/`test_lineest.py`, 8 scenarios).
+- [ ] RTL/BiDi and recognition records: bbox/baseline records, logical/display ordering and RTL predictions (`test_rpred.py`/`test_tasks.py`, 71 scenarios; blocked until recognition/direction semantics are implemented).
+- [ ] Forced alignment task: region assignment, record count and baseline OCR (`test_align.py`, 9 scenarios).
+- [ ] Remote model registry/catalog behavior (`test_repo.py`, 3 scenarios).
+- [ ] Not applicable by design: Apache Arrow dataset backend, PyTorch layers, Kraken VGSL, legacy Kraken weights/polygons and Python entry points (`test_arrow_dataset.py`, `test_layers.py`, `test_vgsl.py`, `test_newpolygons.py`, `test_plugins.py`).
