@@ -189,7 +189,11 @@ public static class PageXml
                     textEquiv);
             });
 
-        var regions = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(region =>
+        var orderedRegions = surface.Regions.OrderBy(r => r.ReadingOrderIndex).ToList();
+        var readingOrder = new XElement(Pc + "ReadingOrder",
+            orderedRegions.Select((region, index) => new XElement(Pc + "RegionRefIndexed",
+                new XAttribute("index", index), new XAttribute("regionRef", region.Id.Suffix))));
+        var regions = orderedRegions.Select(region =>
         {
             var regionAttributes = new List<XAttribute> { new("id", region.Id.Suffix) };
             if (DirectionAttribute("readingDirection", region.Direction) is { } regionDirection)
@@ -208,6 +212,7 @@ public static class PageXml
             new XAttribute("imageFilename", capture.ImageLocation),
             capture.WidthPx is { } width ? new XAttribute("imageWidth", width) : null!,
             capture.HeightPx is { } height ? new XAttribute("imageHeight", height) : null!,
+            readingOrder,
             regions);
         var pcGts = new XElement(Pc + "PcGts",
             new XAttribute(XNamespace.Xmlns + "xsi", Xsi),

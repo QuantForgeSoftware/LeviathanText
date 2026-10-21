@@ -371,6 +371,9 @@ public class PageExportOrderingTests
         var regionIds = page.Elements().Where(e => e.Name.LocalName == "TextRegion")
             .Select(e => (string?)e.Attribute("id")).ToList();
         Assert.Equal(["regB", "regA"], regionIds);
+        var readingOrder = page.Elements().First(e => e.Name.LocalName == "ReadingOrder")
+            .Elements().Select(e => (string?)e.Attribute("regionRef")).ToList();
+        Assert.Equal(["regB", "regA"], readingOrder);
         Assert.Equal("b1", (string?)page.Elements().First(e => (string?)e.Attribute("id") == "regB")
             .Elements().First(e => e.Name.LocalName == "TextLine").Attribute("id"));
     }

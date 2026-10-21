@@ -158,6 +158,8 @@ public sealed class InterchangeService(ProjectService projects)
                 Id = captureId,
                 Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
                 ImageLocation = Path.GetFullPath(imagePath),
+                WidthPx = TryImageDimensions(imagePath)?.Width,
+                HeightPx = TryImageDimensions(imagePath)?.Height,
             }],
             Regions = [],
             Lines = [],
@@ -507,6 +509,7 @@ public sealed class InterchangeService(ProjectService projects)
 
         var (scopedRegions, scopedLines, scopedRevisions) =
             ScopeImportedIds(parsed.Regions, parsed.Lines, parsed.Revisions, scopeToken);
+        var legacyDimensions = TryImageDimensions(imagePath);
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),
@@ -516,6 +519,8 @@ public sealed class InterchangeService(ProjectService projects)
                 Id = captureId,
                 Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
                 ImageLocation = Path.GetFullPath(imagePath),
+                WidthPx = legacyDimensions?.Width,
+                HeightPx = legacyDimensions?.Height,
             }],
             Regions = scopedRegions,
             Lines = scopedLines,
