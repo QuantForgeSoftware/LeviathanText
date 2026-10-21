@@ -10,7 +10,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | --- | ---: | --- | --- |
 | `test_align.py` | 9 | feature-gap | forced alignment / region assignment |
 | `test_arrow_dataset.py` | 8 | not-applicable | Kraken Apache Arrow dataset backend; out of local C# scope |
-| `test_binarization.py` | 3 | replicate | image preprocessing thresholds/BW handling |
+| `test_binarization.py` | 3 | partial | image preprocessing thresholds/BW handling |
 | `test_cli.py` | 11 | replicate | CLI output modes, segmentation/recognition failures |
 | `test_codec.py` | 11 | partial | label codec strictness/unknown labels |
 | `test_container.py` | 16 | partial | baseline ↔ bbox geometry + direction |
