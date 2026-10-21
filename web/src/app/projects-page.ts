@@ -60,6 +60,7 @@ interface ProjectRow {
             <p class="hint">
               Review: {{ r.reviewedLines }}/{{ r.transcribedLines }} reviewed ·
               {{ r.doubleReviewedLines }} double-reviewed · {{ r.disputedLines }} disputed ·
+              {{ r.acceptedLines ?? 0 }} accepted · {{ r.correctedLines ?? 0 }} corrected ·
               <b>{{ r.needsAdjudication }}</b> need adjudication
               <a [href]="adjudicationUrl()" download>adjudication.csv</a>
             </p>
@@ -178,6 +179,8 @@ export class ProjectsPage {
     reviewedLines: number;
     doubleReviewedLines: number;
     disputedLines: number;
+    acceptedLines?: number;
+    correctedLines?: number;
     needsAdjudication: number;
     lines: {
       lineId: string; surfaceId: string; text: string; decisions: number;

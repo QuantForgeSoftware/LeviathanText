@@ -34,6 +34,8 @@ public sealed class ReviewServiceTests
 
         var summary = service.Summarize(Reload(store, updated));
         Assert.Equal(1, summary.ReviewedLines);
+        Assert.Equal(1, summary.AcceptedLines);
+        Assert.Equal(0, summary.CorrectedLines);
         Assert.Equal(0, summary.NeedsAdjudication);
         Assert.Equal(ReviewOutcome.Accept, summary.Lines.Single().LatestOutcome);
     }
@@ -75,6 +77,8 @@ public sealed class ReviewServiceTests
         Assert.Equal(correction.Id, decision.CorrectedRevisionId);
 
         var reloaded = Reload(store, updated).Objects[0].Surfaces[0];
+        var summary = service.Summarize(Reload(store, updated));
+        Assert.Equal(1, summary.CorrectedLines);
         Assert.Equal(correction.Id, reloaded.Lines[0].DiplomaticRevisionId);
         Assert.Contains(reloaded.Revisions, r => r.Id == correction.Id && r.Text == "διορθωσις");
     }

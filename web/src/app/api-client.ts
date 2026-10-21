@@ -372,6 +372,8 @@ export class ApiClient {
     reviewedLines: number;
     doubleReviewedLines: number;
     disputedLines: number;
+    acceptedLines?: number;
+    correctedLines?: number;
     needsAdjudication: number;
     lines: {
       lineId: string; surfaceId: string; text: string; decisions: number;

@@ -28,6 +28,8 @@ public sealed class ReviewService(IProjectStore store)
         int ReviewedLines,
         int DoubleReviewedLines,
         int DisputedLines,
+        int AcceptedLines,
+        int CorrectedLines,
         int NeedsAdjudication,
         IReadOnlyList<LineReview> Lines);
 
@@ -117,7 +119,7 @@ public sealed class ReviewService(IProjectStore store)
     public Summary Summarize(NativeProject project, EntityId? surfaceId = null)
     {
         var lines = new List<LineReview>();
-        int transcribed = 0, reviewed = 0, doubleReviewed = 0, disputed = 0, needsAdjudication = 0;
+        int transcribed = 0, reviewed = 0, doubleReviewed = 0, disputed = 0, accepted = 0, corrected = 0, needsAdjudication = 0;
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {
@@ -144,6 +146,8 @@ public sealed class ReviewService(IProjectStore store)
                 if (decisions.Count > 0) reviewed++;
                 if (isDouble) doubleReviewed++;
                 if (isDisputed) disputed++;
+                if (latest == ReviewOutcome.Accept) accepted++;
+                if (latest == ReviewOutcome.Correct) corrected++;
                 if (disagreement) needsAdjudication++;
 
                 lines.Add(new LineReview(line.Id, surface.Id, current.Text, decisions.Count,
@@ -151,7 +155,7 @@ public sealed class ReviewService(IProjectStore store)
             }
         }
 
-        return new Summary(transcribed, reviewed, doubleReviewed, disputed, needsAdjudication, lines);
+        return new Summary(transcribed, reviewed, doubleReviewed, disputed, accepted, corrected, needsAdjudication, lines);
     }
 
     /// <summary>Adjudication CSV: only lines whose reviewers disagree, with every decision.</summary>

@@ -674,6 +674,7 @@ public static class Program
                 var summary = new ReviewService(store).Summarize(project, surfaceId);
                 Console.WriteLine($"transcribed={summary.TranscribedLines} reviewed={summary.ReviewedLines} " +
                                   $"double-reviewed={summary.DoubleReviewedLines} disputed={summary.DisputedLines} " +
+                                  $"accepted={summary.AcceptedLines} corrected={summary.CorrectedLines} " +
                                   $"needs-adjudication={summary.NeedsAdjudication}");
                 foreach (var line in summary.Lines.Where(l => l.NeedsAdjudication).Take(20))
                     Console.WriteLine($"  {line.LineId}: {string.Join(", ", line.Reviewers)} -> {string.Join(", ", line.Outcomes)}");

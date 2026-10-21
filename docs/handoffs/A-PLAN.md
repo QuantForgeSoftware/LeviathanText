@@ -465,6 +465,7 @@ Blockers recorded so far:
   `POST /projects/{id}/import-pdf`; no PDF layout inference.
 - **Job ownership binding:** authenticated creation binds jobs to the principal, closing a quota/provenance spoofing path.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
+- **Reviewer summary:** accepted/corrected counts reported alongside reviewed/disputed/adjudication counts.
 - **Known-transcription intake:** sibling image directories resolve and external IDs are sanitized; P01/M02a/M01 reviewer packets prepared.
 - **Reviewer packets:** `review packet` emits crops/current L1/L2/decision CSV; `review apply` records accept/correct/dispute through the review ledger.
 - **Revision-conflict prompt:** 409 responses surface a reload/rebase action in the editor while preserving the draft.

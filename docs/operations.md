@@ -246,6 +246,7 @@ leviathan --store review.db review apply <projectId> decisions.csv --reviewer <i
 
 `agree` records accept, `correct` creates a new L1 correction revision, and `unclear` /
 `not-visible` record disputes with notes. Unknown/uncorrected rows are reported and skipped.
+`review summary` now reports accepted/corrected/disputed counts alongside adjudication needs.
 
 ## Double review and adjudication
 
