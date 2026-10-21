@@ -109,6 +109,7 @@ See [docs/evaluation/pilot-p01-report.md](docs/evaluation/pilot-p01-report.md). 
 ## Documentation
 
 - [project-plan.md](project-plan.md) — plan narrative, requirements, source register, decisions, gates and estimates
+- `scripts/install-local.sh` — single-user local install with CLI/API/worker wrappers
 - [todo.md](todo.md) — actionable checklist (open/in-progress items)
 - [docs/contracts/](docs/contracts/) — the versioned contract set (transcription, domain/pipeline, manifest, interchange/API, examples)
 - [docs/data/](docs/data/) — per-track source cards, license registers, and acquisition/audit records

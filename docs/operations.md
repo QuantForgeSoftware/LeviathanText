@@ -163,6 +163,20 @@ applies logical direction/vertical display. PAGE, hOCR and TEI imports/exports p
 direction; native JSON preserves both. ALTO does not yet map direction, and recognition
 remains LTR.
 
+## Single-user local install
+
+```bash
+scripts/install-local.sh                 # ~/.leviathantext/app
+scripts/install-local.sh /opt/leviathan --force
+```
+
+The installer publishes the Release CLI/API/worker and Angular assets into one prefix, then
+creates `bin/leviathan`, `bin/leviathan-api` and `bin/leviathan-worker` wrappers. The API wrapper
+serves the workspace at `/ui`; the CLI/worker use `$HOME/.leviathantext/store.db` unless
+`LEVIATHAN_STORE` overrides it. Existing installs are moved to a timestamped backup when
+`--force` is used. This is a local single-user install; it does not configure SSO or a shared
+tenant.
+
 ## Packaged workspace hosting
 
 A packaged release can serve the immutable Angular assets from the API instead of requiring a
