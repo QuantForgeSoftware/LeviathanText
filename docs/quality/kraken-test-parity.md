@@ -12,7 +12,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_arrow_dataset.py` | 8 | not-applicable | Kraken Apache Arrow dataset backend; out of local C# scope |
 | `test_binarization.py` | 3 | replicate | image preprocessing thresholds/BW handling |
 | `test_cli.py` | 11 | replicate | CLI output modes, segmentation/recognition failures |
-| `test_codec.py` | 11 | replicate | label codec strictness/unknown labels |
+| `test_codec.py` | 11 | partial | label codec strictness/unknown labels |
 | `test_container.py` | 16 | partial | baseline ↔ bbox geometry + direction |
 | `test_dataset.py` | 15 | feature-gap | baseline filtering/merging and input transforms |
 | `test_ketos_arch.py` | 25 | not-applicable | Kraken architecture registry/Torch checkpoint internals |
@@ -33,7 +33,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_tasks.py` | 34 | feature-gap | recognition/segmentation/forced-alignment task models |
 | `test_train_utils.py` | 2 | replicate | checkpoint-on-failure/recovery |
 | `test_vgsl.py` | 7 | not-applicable | Kraken VGSL model format; Leviathan uses its own package |
-| `test_xml.py` | 32 | replicate | PAGE/ALTO parsing edge cases |
+| `test_xml.py` | 32 | partial | PAGE/ALTO parsing edge cases |
 
 **Total: 305 tests across 26 modules.**
 

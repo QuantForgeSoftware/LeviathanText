@@ -489,15 +489,15 @@ public sealed class InterchangeService(ProjectService projects)
 
         (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
             IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed =
-            format switch
+            ResolveLegacyFormat(format, content) switch
             {
-                "alto" => FromAlto(AltoXml.Import(content, captureId, UnknownChecksum())),
-                "hocr" => FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum())),
+                LegacyFormat.Alto => FromAlto(AltoXml.Import(content, captureId, UnknownChecksum())),
+                LegacyFormat.Hocr => FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum())),
                 _ => throw new LeviathanException(new LeviathanError
                 {
                     Code = ErrorCode.SchemaVersionUnsupported,
                     Scope = format,
-                    Message = "Legacy-layout import supports 'alto' and 'hocr'.",
+                    Message = "Legacy-layout import supports 'auto', 'alto' and 'hocr'.",
                 }),
             };
 
@@ -567,6 +567,20 @@ public sealed class InterchangeService(ProjectService projects)
         }).ToList();
         return (scopedRegions, scopedLines, scopedRevisions);
     }
+
+    private static LegacyFormat ResolveLegacyFormat(string format, string content) =>
+        format.ToLowerInvariant() switch
+        {
+            "auto" => LegacyFormats.Detect(content),
+            "alto" => LegacyFormat.Alto,
+            "hocr" => LegacyFormat.Hocr,
+            _ => throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.SchemaVersionUnsupported,
+                Scope = format,
+                Message = "Legacy-layout import supports 'auto', 'alto' and 'hocr'.",
+            }),
+        };
 
     private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
         IReadOnlyList<TextRevision>, IReadOnlyList<PageXml.ImportIssue>) FromAlto(AltoXml.AltoImportResult result) =>
