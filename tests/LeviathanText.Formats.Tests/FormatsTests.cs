@@ -193,6 +193,49 @@ public class PageXmlTests
     }
 
     [Fact]
+    public void Language_tags_and_split_inherit_and_roundtrip()
+    {
+        var xml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="meta.jpg" custom="language {type: grc;}">
+                <TextRegion id="r1" custom="language {type: deu;} split {type: train;} structure {type: heading;}">
+                  <Coords points="0,0 200,0 200,60 0,60"/>
+                  <TextLine id="l1" custom="language {type: eng;}">
+                    <Coords points="10,10 190,10 190,40 10,40"/>
+                    <TextEquiv><Unicode>αβγ</Unicode></TextEquiv>
+                  </TextLine>
+                </TextRegion>
+              </Page>
+            </PcGts>
+            """;
+        var imported = PageXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        var region = Assert.Single(imported.Regions);
+        Assert.Equal(["grc", "deu"], region.Languages);
+        Assert.Equal("train", region.Split);
+        Assert.Contains("heading", region.Tags["type"]);
+        var line = Assert.Single(imported.Lines);
+        Assert.Equal(["grc", "deu", "eng"], line.Languages);
+        Assert.Equal("train", line.Split);
+
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "s1"), Kind = "page",
+            Captures = [new NativeCapture
+            {
+                Id = new EntityId(EntityKind.Capture, "cap1"),
+                Frame = new CoordinateFrame { ImageRef = new EntityId(EntityKind.Capture, "cap1"), ImageChecksum = SampleProject.Sum },
+                ImageLocation = "meta.jpg",
+            }],
+            Regions = imported.Regions, Lines = imported.Lines, Revisions = imported.Revisions,
+        };
+        var reparsed = PageXml.Import(PageXml.Export(surface, surface.Captures[0], imported.Revisions),
+            new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(["grc", "deu"], Assert.Single(reparsed.Regions).Languages);
+        Assert.Equal("train", Assert.Single(reparsed.Regions).Split);
+        Assert.Equal(["grc", "deu", "eng"], Assert.Single(reparsed.Lines).Languages);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE PcGts [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>" +

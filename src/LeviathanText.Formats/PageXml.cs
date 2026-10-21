@@ -50,6 +50,7 @@ public static class PageXml
         var lines = new List<NativeLine>();
         var revisions = new List<TextRevision>();
         var frame = new CoordinateFrame { ImageRef = frameEntity, ImageChecksum = frameChecksum };
+        var pageMetadata = MetadataOf(page);
         int regionOrder = 0;
 
         // Consume Page/ReadingOrder (RegionRefIndexed) when present — real reading order, not a loss.
@@ -62,6 +63,7 @@ public static class PageXml
         {
             var regionId = ExternalIds.Sanitize(RequireId(region, "TextRegion"));
             var customIndex = TryParseCustomIndex(region);
+            var regionMetadata = pageMetadata.Merge(MetadataOf(region));
             var poly = ParsePoints(region.Element(Pc + "Coords")?.Attribute("points")?.Value);
             regions.Add(new NativeRegion
             {
@@ -72,6 +74,9 @@ public static class PageXml
                 ReadingOrderIndex = declaredOrder.GetValueOrDefault(regionId) ?? customIndex ?? regionOrder,
                 Direction = ParseDirection((string?)region.Attribute("readingDirection")),
                 Script = CleanScript((string?)region.Attribute("primaryScript")),
+                Languages = regionMetadata.Languages,
+                Tags = regionMetadata.Tags,
+                Split = regionMetadata.Split,
             });
             regionOrder++;
 
@@ -85,6 +90,7 @@ public static class PageXml
             foreach (var line in region.Elements(Pc + "TextLine"))
             {
                 var lineId = ExternalIds.Sanitize(RequireId(line, "TextLine"));
+                var lineMetadata = regionMetadata.Merge(MetadataOf(line));
                 var baseline = ParsePoints(line.Element(Pc + "Baseline")?.Attribute("points")?.Value);
                 var linePolygon = ParsePoints(line.Element(Pc + "Coords")?.Attribute("points")?.Value);
 
@@ -136,6 +142,9 @@ public static class PageXml
                     DiplomaticRevisionId = revision?.Id,
                     Direction = ParseDirection((string?)line.Attribute("readingDirection")),
                     Script = CleanScript((string?)line.Attribute("primaryScript")),
+                    Languages = lineMetadata.Languages,
+                    Tags = lineMetadata.Tags,
+                    Split = lineMetadata.Split,
                 });
 
                 foreach (var issue in UnsupportedChildren(line, ["Coords", "Baseline", "TextEquiv", "Word"]))
@@ -171,6 +180,8 @@ public static class PageXml
                     lineAttributes.Add(lineDirection);
                 if (ScriptAttribute("primaryScript", line.Script) is { } lineScript)
                     lineAttributes.Add(lineScript);
+                if (MetadataAttribute(line.Languages, line.Tags, line.Split) is { } lineMetadata)
+                    lineAttributes.Add(lineMetadata);
 
                 return new XElement(Pc + "TextLine", lineAttributes,
                     new XElement(Pc + "Coords", new XAttribute("points", Points(line.Polygon.Count > 0 ? line.Polygon : line.Baseline))),
@@ -185,6 +196,8 @@ public static class PageXml
                 regionAttributes.Add(regionDirection);
             if (ScriptAttribute("primaryScript", region.Script) is { } regionScript)
                 regionAttributes.Add(regionScript);
+            if (MetadataAttribute(region.Languages, region.Tags, region.Split) is { } regionMetadata)
+                regionAttributes.Add(regionMetadata);
 
             return new XElement(Pc + "TextRegion", regionAttributes,
                 new XElement(Pc + "Coords", new XAttribute("points", Points(region.Polygon))),
@@ -201,6 +214,54 @@ public static class PageXml
             page);
 
         return new XDocument(new XDeclaration("1.0", "UTF-8", null), pcGts).ToString();
+    }
+
+    private sealed record Metadata(IReadOnlyList<string> Languages, IReadOnlyDictionary<string, IReadOnlyList<string>> Tags, string? Split)
+    {
+        public Metadata Merge(Metadata other) => new(
+            Languages.Concat(other.Languages).Distinct(StringComparer.Ordinal).ToArray(),
+            Tags.Concat(other.Tags).GroupBy(p => p.Key)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.SelectMany(p => p.Value).Distinct(StringComparer.Ordinal).ToArray()),
+            other.Split ?? Split);
+    }
+
+    private static Metadata MetadataOf(XElement element)
+    {
+        var custom = DecodeUnicodeEscapes((string?)element.Attribute("custom") ?? "");
+        var languages = System.Text.RegularExpressions.Regex.Matches(custom, @"language \{type:\s*([^;]+);\}")
+            .Select(m => m.Groups[1].Value.Trim()).ToList();
+        var primary = (string?)element.Attribute("primaryLanguage");
+        if (!string.IsNullOrWhiteSpace(primary)) languages.AddRange(primary.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var split = System.Text.RegularExpressions.Regex.Match(custom, @"split \{type:\s*([^;]+);\}")
+            .Groups[1].Value.Trim();
+        var tags = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(custom, @"structure \{type:\s*([^;]+);\}"))
+        {
+            var value = match.Groups[1].Value.Trim();
+            if (value.Length > 0)
+            {
+                if (!tags.TryGetValue("type", out var list)) tags["type"] = list = [];
+                list.Add(value);
+            }
+        }
+        return new Metadata(languages.Distinct(StringComparer.Ordinal).ToArray(),
+            tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), string.IsNullOrWhiteSpace(split) ? null : split);
+    }
+
+    private static string DecodeUnicodeEscapes(string value) =>
+        System.Text.RegularExpressions.Regex.Replace(value, @"\\u([0-9a-fA-F]{4})",
+            m => ((char)Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
+
+    private static XAttribute? MetadataAttribute(IReadOnlyList<string> languages,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> tags, string? split)
+    {
+        var parts = new List<string>();
+        foreach (var language in languages) parts.Add($"language {{type: {language};}}");
+        if (!string.IsNullOrWhiteSpace(split)) parts.Add($"split {{type: {split};}}");
+        foreach (var (key, values) in tags)
+            if (key == "type")
+                foreach (var value in values) parts.Add($"structure {{type: {value};}}");
+        return parts.Count == 0 ? null : new XAttribute("custom", string.Join(' ', parts));
     }
 
     private static string Points(IReadOnlyList<PointD> points) =>

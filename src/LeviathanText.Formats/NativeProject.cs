@@ -173,6 +173,15 @@ public sealed record NativeRegion
 
     /// <summary>Optional script code (ISO 15924 such as "Grek"; free text in this bounded profile).</summary>
     public string? Script { get; init; }
+
+    /// <summary>Inherited/effective language tags (BCP-47 or source codes).</summary>
+    public IReadOnlyList<string> Languages { get; init; } = [];
+
+    /// <summary>Source metadata tags such as type/heading; values are source labels.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Tags { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
+
+    /// <summary>Optional dataset split label carried by the source document.</summary>
+    public string? Split { get; init; }
 }
 
 public sealed record NativeLine
@@ -195,6 +204,15 @@ public sealed record NativeLine
 
     /// <summary>Optional line-level script code (ISO 15924 such as "Grek").</summary>
     public string? Script { get; init; }
+
+    /// <summary>Inherited/effective language tags (BCP-47 or source codes).</summary>
+    public IReadOnlyList<string> Languages { get; init; } = [];
+
+    /// <summary>Source metadata tags such as type/heading; values are source labels.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Tags { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
+
+    /// <summary>Optional dataset split label carried by the source document.</summary>
+    public string? Split { get; init; }
 }
 
 public readonly record struct PointD(double X, double Y);

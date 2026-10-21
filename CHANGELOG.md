@@ -21,6 +21,7 @@ set: C0-0.4-draft.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
 - **Pilot profile:** reproducible single-page startup/import/layout/export/backup timing + peak RSS harness (`scripts/profile-pilot.sh`).
 - **Migration rehearsal:** old-binary → current-store migration with explicit rollback refusal (`scripts/migration-rehearsal.sh`) PASS.
+- **PAGE metadata:** language/tag/split inheritance and custom round trips.
 - **Binarization:** reusable Otsu/BW utility with no-op detection.
 - **ABBYY XML:** bounded FineReader 10 export/import and CLI/API/bundle integration.
 - **Local installer:** `scripts/install-local.sh` publishes the stack and creates CLI/API/worker wrappers; single-user/local only.
