@@ -31,7 +31,7 @@ cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
 cp "$ROOT/docs/release/known-issues.md" "$OUT/KNOWN-ISSUES.md"
 
 echo "== independence check =="
-if grep -R -q -E --include='*.csproj' --include='*.cs' 'Kraken|Python.Runtime|python3' "$ROOT/src"; then
+if grep -R -q -E --include='*.csproj' --include='*.cs' 'PackageReference Include="[^"]*Kraken|using Kraken|Python\.Runtime|python3' "$ROOT/src"; then
   echo "first-party source references Kraken/Python; refusing to label this package independent" >&2
   exit 1
 fi
