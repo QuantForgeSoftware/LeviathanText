@@ -13,7 +13,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_binarization.py` | 3 | replicate | image preprocessing thresholds/BW handling |
 | `test_cli.py` | 11 | replicate | CLI output modes, segmentation/recognition failures |
 | `test_codec.py` | 11 | replicate | label codec strictness/unknown labels |
-| `test_container.py` | 16 | replicate | baseline ↔ bbox geometry + direction |
+| `test_container.py` | 16 | partial | baseline ↔ bbox geometry + direction |
 | `test_dataset.py` | 15 | feature-gap | baseline filtering/merging and input transforms |
 | `test_ketos_arch.py` | 25 | not-applicable | Kraken architecture registry/Torch checkpoint internals |
 | `test_ketos_training.py` | 3 | feature-gap | C# training smoke equivalents |
@@ -25,10 +25,10 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_newpolygons.py` | 24 | not-applicable | legacy Kraken model/polygon compatibility; no Kraken weights |
 | `test_pageseg.py` | 2 | replicate | page segmentation smoke/color/BW |
 | `test_plugins.py` | 1 | not-applicable | Python entry-point discovery; no first-party Python |
-| `test_readingorder.py` | 15 | replicate | geometric reading order + topological sort |
+| `test_readingorder.py` | 15 | partial | geometric reading order + topological sort |
 | `test_repo.py` | 3 | feature-gap | remote model registry/catalog |
 | `test_rpred.py` | 37 | feature-gap | recognition records, RTL/BiDi, bbox/baseline |
-| `test_segmentation_metrics.py` | 5 | replicate | detection metrics empty/extra/tolerance/aggregate |
+| `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate |
 | `test_serialization.py` | 4 | replicate | PAGE/ALTO/hOCR/ABBYY serialization |
 | `test_tasks.py` | 34 | feature-gap | recognition/segmentation/forced-alignment task models |
 | `test_train_utils.py` | 2 | replicate | checkpoint-on-failure/recovery |
@@ -37,7 +37,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 
 **Total: 305 tests across 26 modules.**
 
-Status vocabulary: `replicate` = behavioral scenarios can be written now; `feature-gap` = requires new capability first; `not-applicable` = Python/Torch/Kraken-internal or intentionally different architecture.
+Status vocabulary: `partial` = core scenarios implemented, integration/remaining cases open; `replicate` = behavioral scenarios can be written now; `feature-gap` = requires new capability first; `not-applicable` = Python/Torch/Kraken-internal or intentionally different architecture.
 
 ## Full inventory
 

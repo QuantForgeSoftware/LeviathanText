@@ -125,9 +125,9 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 Full 305-test inventory and status: [docs/quality/kraken-test-parity.md](docs/quality/kraken-test-parity.md). Scenarios are reimplemented in C#/xUnit; Python/Torch/Kraken internals are explicitly marked non-applicable rather than claimed.
 
 - [~] Maintain the 305-test parity matrix and map each test to a Leviathan test or capability item.
-- [ ] Reading order: region containment, over/under and touching lines, LTR/RTL horizontal order, real reversed rows and partial-order topological sort (`test_readingorder.py`, 15 scenarios).
-- [ ] Geometry: baseline ↔ bbox conversion, boundary fallback, text-direction/topline placement, degenerate boxes and input immutability (`test_container.py`, 16 scenarios).
-- [ ] Segmentation metrics: empty truth/prediction semantics, extra-prediction precision penalty, tolerance monotonicity and weighted aggregate (`test_segmentation_metrics.py`, 5 scenarios).
+- [~] Reading order: region containment, over/under and touching lines, LTR/RTL horizontal order, real reversed rows and partial-order topological sort (`test_readingorder.py`, 15 scenarios). *(portable helper + 9 xUnit scenarios; integration into multi-column layout remains.)*
+- [~] Geometry: baseline ↔ bbox conversion, boundary fallback, text-direction/topline placement, degenerate boxes and input immutability (`test_container.py`, 16 scenarios). *(helper + 5 xUnit scenarios; adapters/UI conversion remains.)*
+- [~] Segmentation metrics: empty truth/prediction semantics, extra-prediction precision penalty, tolerance monotonicity and aggregate (`test_segmentation_metrics.py`, 5 scenarios). *(DetectionMetrics helper + 3 xUnit scenarios; metric selection/integration remains.)*
 - [ ] XML/format edges: PAGE/ALTO auto-detection, zero-dimension fallback, baseline direction, malformed documents and round trips (`test_xml.py`, 32 scenarios; overlapping `test_serialization.py`).
 - [ ] ABBYY XML serializer/deserializer with a bounded profile and loss reporting (`test_serialization.py`).
 - [ ] Label codec strictness: encode/decode, unknown labels, strict vs non-strict behavior and add-simple (`test_codec.py`, 11 scenarios).
