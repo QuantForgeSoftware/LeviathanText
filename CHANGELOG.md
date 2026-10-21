@@ -22,7 +22,7 @@ set: C0-0.4-draft.
 - **Pilot profile:** reproducible single-page startup/import/layout/export/backup timing + peak RSS harness (`scripts/profile-pilot.sh`).
 - **Migration rehearsal:** old-binary → current-store migration with explicit rollback refusal (`scripts/migration-rehearsal.sh`) PASS.
 - **PAGE reading order/dimensions:** exported RegionRefIndexed order and legacy capture dimensions.
-- **ALTO metadata:** language/tag/split inheritance from block/line LANG and TAGREFS.
+- **ALTO metadata:** language/tag/split import and LANG export round trips. language/tag/split inheritance from block/line LANG and TAGREFS.
 - **PAGE metadata:** language/tag/split inheritance and custom round trips.
 - **Binarization:** reusable Otsu/BW utility with no-op detection.
 - **ABBYY XML:** bounded FineReader 10 export/import and CLI/API/bundle integration.

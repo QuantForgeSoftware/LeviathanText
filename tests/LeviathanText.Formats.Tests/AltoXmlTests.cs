@@ -144,6 +144,21 @@ public class AltoXmlTests
         Assert.Equal(["hbo", "deu", "heb", "eng"], line.Languages);
         Assert.Equal("train", line.Split);
         Assert.Contains("heading", line.Tags["type"]);
+
+        var reparsed = AltoXml.Import(AltoXml.Export(
+            new NativeSurface
+            {
+                Id = new EntityId(EntityKind.Surface, "s1"), Kind = "page", Captures = [],
+                Regions = imported.Regions, Lines = imported.Lines, Revisions = imported.Revisions,
+            },
+            new NativeCapture
+            {
+                Id = new EntityId(EntityKind.Capture, "cap1"),
+                Frame = new CoordinateFrame { ImageRef = new EntityId(EntityKind.Capture, "cap1"), ImageChecksum = SampleProject.Sum },
+                ImageLocation = "x.png", WidthPx = 200, HeightPx = 60,
+            }, imported.Revisions), new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(["hbo", "deu"], Assert.Single(reparsed.Regions).Languages);
+        Assert.Equal(["hbo", "deu", "heb", "eng"], Assert.Single(reparsed.Lines).Languages);
     }
 
     [Fact]

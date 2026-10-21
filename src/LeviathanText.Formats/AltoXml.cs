@@ -46,16 +46,20 @@ public static class AltoXml
             var polygon = new XElement(Alto + "Polygon",
                 new XAttribute("POINTS", string.Join(" ", line.Polygon.Select(p => $"{p.X:0.#},{p.Y:0.#}"))));
 
-            return new XElement(Alto + "TextLine",
-                new XAttribute("ID", line.Id.Suffix),
+            var attributes = new List<XAttribute> { new("ID", line.Id.Suffix) };
+            if (line.Languages.Count > 0) attributes.Add(new XAttribute("LANG", string.Join(' ', line.Languages)));
+            return new XElement(Alto + "TextLine", attributes,
                 new XElement(Alto + "Shape", polygon),
                 text);
         }
 
         var blocks = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(region =>
-            new XElement(Alto + "TextBlock",
-                new XAttribute("ID", region.Id.Suffix),
-                surface.Lines.Where(l => l.RegionId == region.Id).Select(LineElement)));
+        {
+            var attributes = new List<XAttribute> { new("ID", region.Id.Suffix) };
+            if (region.Languages.Count > 0) attributes.Add(new XAttribute("LANG", string.Join(' ', region.Languages)));
+            return new XElement(Alto + "TextBlock", attributes,
+                surface.Lines.Where(l => l.RegionId == region.Id).Select(LineElement));
+        });
 
         var page = new XElement(Alto + "Page",
             new XAttribute("ID", surface.Id.Suffix),

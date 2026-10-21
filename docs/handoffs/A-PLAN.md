@@ -466,7 +466,7 @@ Blockers recorded so far:
 - **Job ownership binding:** authenticated creation binds jobs to the principal, closing a quota/provenance spoofing path.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
 - **PAGE reading order/dimensions:** exported RegionRefIndexed order and legacy capture dimensions.
-- **ALTO metadata:** language/tag/split inheritance from LANG/TAGREFS.
+- **ALTO metadata:** language/tag/split import and LANG export round trips. language/tag/split inheritance from LANG/TAGREFS.
 - **PAGE metadata:** language/tag/split inheritance and custom round trips.
 - **Binarization:** Otsu/BW utility + tests; imaging-page-seg/dewarp parity remains.
 - **ABBYY XML:** bounded FineReader 10 export/import, CLI/API/bundle; schema/metadata coverage remains partial.
