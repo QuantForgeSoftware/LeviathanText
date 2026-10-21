@@ -60,7 +60,7 @@ public static class PageXml
 
         foreach (var region in page.Elements(Pc + "TextRegion"))
         {
-            var regionId = RequireId(region, "TextRegion");
+            var regionId = ExternalIds.Sanitize(RequireId(region, "TextRegion"));
             var customIndex = TryParseCustomIndex(region);
             var poly = ParsePoints(region.Element(Pc + "Coords")?.Attribute("points")?.Value);
             regions.Add(new NativeRegion
@@ -84,7 +84,7 @@ public static class PageXml
 
             foreach (var line in region.Elements(Pc + "TextLine"))
             {
-                var lineId = RequireId(line, "TextLine");
+                var lineId = ExternalIds.Sanitize(RequireId(line, "TextLine"));
                 var baseline = ParsePoints(line.Element(Pc + "Baseline")?.Attribute("points")?.Value);
                 var linePolygon = ParsePoints(line.Element(Pc + "Coords")?.Attribute("points")?.Value);
 
@@ -112,7 +112,7 @@ public static class PageXml
                 {
                     revision = new TextRevision
                     {
-                        Id = new EntityId(EntityKind.TranscriptionRevision, $"pg-{lineId}"),
+                        Id = new EntityId(EntityKind.TranscriptionRevision, ExternalIds.Sanitize($"pg-{lineId}")),
                         ScopeId = lineEntityId,
                         Layer = TextLayer.L1Diplomatic,
                         Author = new AgentRef

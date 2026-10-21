@@ -230,6 +230,12 @@ For known-transcription corpora, generate a self-contained review packet:
 leviathan --store review.db review packet <projectId> .artifacts/review/p01 --limit 50
 ```
 
+Prepared known-transcription packets:
+`.artifacts/review/p01/packet-50/`, `.artifacts/review/m02a/packet-50/` and
+`.artifacts/review/m01/packet-50/`. Page imports resolve images next to the XML or in a sibling
+`images/`/`image/` directory, and external IDs with spaces/parentheses are sanitized rather than
+dropped.
+
 `index.html` shows each line crop, current L1, and L2 reference; the reviewer marks
 agree/correct/unclear/not-visible, edits corrected text, and downloads `decisions.csv`. The page
 does not mutate the project. Apply returned decisions through the review ledger:

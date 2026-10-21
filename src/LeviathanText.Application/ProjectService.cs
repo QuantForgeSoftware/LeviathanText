@@ -88,12 +88,20 @@ public sealed class InterchangeService(ProjectService projects)
         // Resolve the referenced image next to the PAGE file (name from the document,
         // falling back to the XML basename with common extensions). Unresolved names are
         // kept as-is so the manifest still records what the document declared.
-        var directory = Path.GetDirectoryName(Path.GetFullPath(pageXmlPath))!;
+        var fullXmlPath = Path.GetFullPath(pageXmlPath);
+        var directory = Path.GetDirectoryName(fullXmlPath)!;
         var imageName = result.ImageFilename ?? Path.GetFileNameWithoutExtension(pageXmlPath) + ".jpg";
-        var imagePath = new[] { imageName, Path.GetFileNameWithoutExtension(pageXmlPath) + ".png",
-                                Path.GetFileNameWithoutExtension(pageXmlPath) + ".jpg",
-                                Path.GetFileNameWithoutExtension(pageXmlPath) + ".tif" }
-            .Select(name => Path.Combine(directory, name))
+        var stem = Path.GetFileNameWithoutExtension(pageXmlPath);
+        var imageDirectories = new[]
+        {
+            directory,
+            Path.Combine(directory, "images"),
+            Path.Combine(directory, "image"),
+            Path.Combine(Path.GetDirectoryName(directory)!, "images"),
+            Path.Combine(Path.GetDirectoryName(directory)!, "image"),
+        };
+        var imagePath = new[] { imageName, stem + ".png", stem + ".jpg", stem + ".tif" }
+            .SelectMany(name => imageDirectories.Select(dir => Path.Combine(dir, name)))
             .FirstOrDefault(File.Exists) ?? imageName;
 
         var surface = new NativeSurface
@@ -532,9 +540,10 @@ public sealed class InterchangeService(ProjectService projects)
     {
         static EntityId Scoped(EntityId id, string token)
         {
-            var suffix = id.Suffix;
+            var suffix = ExternalIds.Sanitize(id.Suffix);
             int maxBase = 63 - token.Length - 1;
             if (suffix.Length > maxBase) suffix = suffix[..Math.Max(1, maxBase)];
+            if (suffix.Length == 0) suffix = "id";
             return new EntityId(id.Kind, suffix + "-" + token);
         }
 

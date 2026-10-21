@@ -21,6 +21,7 @@ set: C0-0.4-draft.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
 - **Pilot profile:** reproducible single-page startup/import/layout/export/backup timing + peak RSS harness (`scripts/profile-pilot.sh`).
 - **Migration rehearsal:** old-binary → current-store migration with explicit rollback refusal (`scripts/migration-rehearsal.sh`) PASS.
+- **Known-transcription intake:** sibling `images/` resolution and external-ID sanitization make M01/M02a imports reliable; reviewer packets prepared for P01/M02a/M01.
 - **Reviewer packets:** static HTML packets with line crops, current L1/L2 text, downloadable decisions CSV and `review apply` through the review ledger.
 - **Revision-conflict prompt:** a 409 now surfaces a reload/rebase action in the editor while keeping the draft text.
 - **Invite audit:** successful and rejected acceptances are recorded in the auth audit.

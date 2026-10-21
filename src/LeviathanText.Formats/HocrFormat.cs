@@ -126,7 +126,7 @@ public static class HocrFormat
             var title = (string?)element.Attribute("title") ?? "";
             var (left, top, right, bottom) = ParseBbox(title);
             var text = TextOf(element).Trim();
-            var suffix = (string?)element.Attribute("id") ?? $"hocr-line-{lines.Count}";
+            var suffix = ExternalIds.Sanitize((string?)element.Attribute("id") ?? $"hocr-line-{lines.Count}");
             var lineId = new EntityId(EntityKind.Line, suffix);
             var classes = Classes(element);
             var direction = classes.Contains("ocr_vertical")
@@ -143,7 +143,7 @@ public static class HocrFormat
             {
                 revision = new TextRevision
                 {
-                    Id = new EntityId(EntityKind.TranscriptionRevision, $"hocr-{suffix}"),
+                    Id = new EntityId(EntityKind.TranscriptionRevision, ExternalIds.Sanitize($"hocr-{suffix}")),
                     ScopeId = lineId,
                     Layer = TextLayer.L1Diplomatic,
                     Author = new AgentRef { Id = "hocr-import", IsModel = false },

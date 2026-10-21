@@ -465,6 +465,7 @@ Blockers recorded so far:
   `POST /projects/{id}/import-pdf`; no PDF layout inference.
 - **Job ownership binding:** authenticated creation binds jobs to the principal, closing a quota/provenance spoofing path.
 - **Job priority/quota:** priority ordering and optional max-active-per-owner enforcement; no schema migration (JSON-backed job records).
+- **Known-transcription intake:** sibling image directories resolve and external IDs are sanitized; P01/M02a/M01 reviewer packets prepared.
 - **Reviewer packets:** `review packet` emits crops/current L1/L2/decision CSV; `review apply` records accept/correct/dispute through the review ledger.
 - **Revision-conflict prompt:** 409 responses surface a reload/rebase action in the editor while preserving the draft.
 - **Invite audit:** successful/rejected acceptances are recorded in the auth audit.
@@ -487,5 +488,5 @@ Blockers recorded so far:
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **554 tests (552 passed + 2 opt-in skips), 0 failed across 13 suites;
+- **Verification:** **556 tests (554 passed + 2 opt-in skips), 0 failed across 13 suites;
   Release 0 warnings/0 errors**; 41 web specs; package and backup/restore rehearsals PASS.

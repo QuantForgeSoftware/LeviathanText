@@ -180,7 +180,7 @@ public static class Program
 
                 var current = project;
                 var results = StreamingPipeline.RunAsync(
-                    files.Select(file => (new EntityId(EntityKind.Line, Path.GetFileNameWithoutExtension(file)), (Func<CancellationToken, Task>)(_ =>
+                    files.Select(file => (new EntityId(EntityKind.Line, ExternalIds.Sanitize(Path.GetFileNameWithoutExtension(file))), (Func<CancellationToken, Task>)(_ =>
                     {
                         var (imported, _) = interchange.ImportPage(current, file);
                         current = projects.Load(current.Id);

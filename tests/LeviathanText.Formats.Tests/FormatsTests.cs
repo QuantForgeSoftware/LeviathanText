@@ -73,6 +73,18 @@ public class DiplomaticExportTests
     }
 }
 
+public class ExternalIdsTests
+{
+    [Fact]
+    public void Sanitizes_external_ids_to_the_entity_suffix_alphabet()
+    {
+        Assert.Equal("region_1", ExternalIds.Sanitize("region 1"));
+        Assert.Equal("line__1_", ExternalIds.Sanitize("line (1)"));
+        Assert.Equal("id", ExternalIds.Sanitize(""));
+        Assert.Equal(63, ExternalIds.Sanitize(new string('a', 100)).Length);
+    }
+}
+
 public class PageXmlTests
 {
     private static string FixturePath(string name) =>

@@ -92,7 +92,7 @@ public static class AltoXml
 
         foreach (var block in root.Descendants(Alto + "TextBlock"))
         {
-            var blockId = (string?)block.Attribute("ID") ?? $"altoregion{regionOrder}";
+            var blockId = ExternalIds.Sanitize((string?)block.Attribute("ID") ?? $"altoregion{regionOrder}");
             regions.Add(new NativeRegion
             {
                 Id = new EntityId(EntityKind.Region, blockId),
@@ -104,7 +104,7 @@ public static class AltoXml
 
             foreach (var line in block.Elements(Alto + "TextLine"))
             {
-                var lineId = (string?)line.Attribute("ID") ?? $"altoline{lines.Count}";
+                var lineId = ExternalIds.Sanitize((string?)line.Attribute("ID") ?? $"altoline{lines.Count}");
                 var polygon = ParsePolygon((string?)line.Element(Alto + "Shape")?.Element(Alto + "Polygon")?.Attribute("POINTS"));
                 var text = string.Concat(line.Elements(Alto + "String")
                     .Select(s => (string?)s.Attribute("CONTENT") ?? ""));
@@ -115,7 +115,7 @@ public static class AltoXml
                 {
                     revision = new TextRevision
                     {
-                        Id = new EntityId(EntityKind.TranscriptionRevision, $"alto-{lineId}"),
+                        Id = new EntityId(EntityKind.TranscriptionRevision, ExternalIds.Sanitize($"alto-{lineId}")),
                         ScopeId = lineEntityId,
                         Layer = TextLayer.L1Diplomatic,
                         Author = new AgentRef { Id = "alto-import", IsModel = false },
