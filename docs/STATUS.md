@@ -10,7 +10,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Capability | Evidence |
 | --- | --- |
 | Native project model, revisions (L0/L1/L2), annotations | contract + service/HTTP tests |
-| PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import, PDF page rasterization + L2 text reference, direction/script metadata | 30 format tests; roundtrip smokes |
+| PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import, PDF page rasterization + L2 text reference, ABBYY XML, direction/script metadata | 30 format tests; roundtrip smokes |
 | Plain-text export with mandatory loss report | export tests |
 | Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN: M02a P 0.965/R 0.987, page CER 0.971→0.942; fresh book M01 layout P 0.994/R 0.991 (page CER neutral 0.801→0.805) |
 | Manual correction (move/resize/draw/delete/split/merge/order) | API + overlay editor (view + edit), client undo, surface audit |
@@ -30,7 +30,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Verification
 
-- 588 tests (586 passed + 2 opt-in skips), 0 failed, 13 suites; Release build 0 warnings/0 errors.
+- 583 tests (581 passed + 2 opt-in skips), 0 failed, 13 suites; Release build 0 warnings/0 errors.
 - 41 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
