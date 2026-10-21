@@ -103,6 +103,7 @@ public sealed class InterchangeService(ProjectService projects)
         var imagePath = new[] { imageName, stem + ".png", stem + ".jpg", stem + ".tif" }
             .SelectMany(name => imageDirectories.Select(dir => Path.Combine(dir, name)))
             .FirstOrDefault(File.Exists) ?? imageName;
+        var imageDimensions = TryImageDimensions(imagePath);
 
         var surface = new NativeSurface
         {
@@ -113,6 +114,8 @@ public sealed class InterchangeService(ProjectService projects)
                 Id = captureId,
                 Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = UnknownChecksum() },
                 ImageLocation = imagePath,
+                WidthPx = imageDimensions?.Width,
+                HeightPx = imageDimensions?.Height,
             }],
             Regions = result.Regions,
             Lines = result.Lines,
@@ -493,6 +496,7 @@ public sealed class InterchangeService(ProjectService projects)
             {
                 LegacyFormat.Alto => FromAlto(AltoXml.Import(content, captureId, UnknownChecksum())),
                 LegacyFormat.Hocr => FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum())),
+                LegacyFormat.Abbyy => FromAbbyy(AbbyyXml.Import(content, captureId, UnknownChecksum())),
                 _ => throw new LeviathanException(new LeviathanError
                 {
                     Code = ErrorCode.SchemaVersionUnsupported,
@@ -574,6 +578,7 @@ public sealed class InterchangeService(ProjectService projects)
             "auto" => LegacyFormats.Detect(content),
             "alto" => LegacyFormat.Alto,
             "hocr" => LegacyFormat.Hocr,
+            "abbyy" => LegacyFormat.Abbyy,
             _ => throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.SchemaVersionUnsupported,
@@ -588,6 +593,10 @@ public sealed class InterchangeService(ProjectService projects)
 
     private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
         IReadOnlyList<TextRevision>, IReadOnlyList<PageXml.ImportIssue>) FromHocr(HocrFormat.HocrImportResult result) =>
+        (result.Regions, result.Lines, result.Revisions, result.Unsupported);
+
+    private static (IReadOnlyList<NativeRegion>, IReadOnlyList<NativeLine>,
+        IReadOnlyList<TextRevision>, IReadOnlyList<PageXml.ImportIssue>) FromAbbyy(AbbyyXml.ImportResult result) =>
         (result.Regions, result.Lines, result.Revisions, result.Unsupported);
 
     /// <summary>
@@ -672,6 +681,12 @@ public sealed class InterchangeService(ProjectService projects)
         return HocrFormat.Export(surface, surface.Captures[0], surface.Revisions);
     }
 
+    public string ExportAbbyy(NativeProject project, EntityId surfaceId)
+    {
+        var surface = FindSurface(project, surfaceId);
+        return AbbyyXml.Export(surface, surface.Captures[0], surface.Revisions);
+    }
+
     public string ExportTei(NativeProject project, EntityId surfaceId, string title)
     {
         var surface = FindSurface(project, surfaceId);
@@ -698,6 +713,12 @@ public sealed class InterchangeService(ProjectService projects)
     {
         var n = project.Objects.Count + 1;
         return new EntityId(kind, $"{prefix}{n:x4}-{Guid.NewGuid().ToString("N")[..8]}");
+    }
+
+    private static (int Width, int Height)? TryImageDimensions(string path)
+    {
+        try { return File.Exists(path) ? ImageDecoder.Dimensions(path) : null; }
+        catch (Exception) { return null; }
     }
 
     private static Checksum UnknownChecksum() => new() { Algorithm = "unavailable", Digest = "pending" };

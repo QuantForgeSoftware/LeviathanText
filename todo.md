@@ -129,7 +129,7 @@ Full 305-test inventory and status: [docs/quality/kraken-test-parity.md](docs/qu
 - [~] Geometry: baseline ↔ bbox conversion, boundary fallback, text-direction/topline placement, degenerate boxes and input immutability (`test_container.py`, 16 scenarios). *(helper + 5 xUnit scenarios; adapters/UI conversion remains.)*
 - [~] Segmentation metrics: empty truth/prediction semantics, extra-prediction precision penalty, tolerance monotonicity and aggregate (`test_segmentation_metrics.py`, 5 scenarios). *(DetectionMetrics helper + 3 xUnit scenarios; metric selection/integration remains.)*
 - [~] XML/format edges: PAGE/ALTO auto-detection, zero-dimension fallback, baseline direction, malformed documents and round trips (`test_xml.py`, 32 scenarios; overlapping `test_serialization.py`). *(legacy format auto-detection + malformed-document tests; zero-dimension/reading-order/language/split fields remain.)*
-- [ ] ABBYY XML serializer/deserializer with a bounded profile and loss reporting (`test_serialization.py`).
+- [~] ABBYY XML serializer/deserializer with a bounded profile and loss reporting (`test_serialization.py`). *(bounded FineReader 10 export/import, CLI/API/bundle + 3 xUnit scenarios; schema validation and richer metadata remain.)*
 - [~] Label codec strictness: encode/decode, unknown labels, strict vs non-strict behavior and add-simple (`test_codec.py`, 11 scenarios). *(general LabelCodec + 7 xUnit scenarios; model integration remains optional.)*
 - [ ] Model loading: missing/invalid packages, version compatibility, task filters and safe weight round trips (`test_loaders.py`/`test_models.py`, 21 scenarios).
 - [ ] CLI contracts: output formats, segmentation modes, missing-model failures and XML input line types (`test_cli.py`, 11 scenarios).

@@ -281,7 +281,7 @@ public static class Program
                 return 0;
             }
 
-            case "import" when rest.Length >= 5 && rest[1] is "alto" or "hocr":
+            case "import" when rest.Length >= 5 && rest[1] is "alto" or "hocr" or "abbyy":
             {
                 // Legacy OCR migration: bounded ALTO/hOCR subset + the page image.
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -358,6 +358,13 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 Console.WriteLine(interchange.ExportAlto(project, EntityId.Parse(rest[3], EntityKind.Surface)));
+                return 0;
+            }
+
+            case "export" when rest.Length >= 4 && rest[1] == "abbyy":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                Console.WriteLine(interchange.ExportAbbyy(project, EntityId.Parse(rest[3], EntityKind.Surface)));
                 return 0;
             }
 

@@ -42,6 +42,8 @@ public class ImportPageImageResolutionTests : IDisposable
 
         var capture = Assert.Single(imported.Imported.Surfaces[0].Captures);
         Assert.Equal(Path.Combine(_dir, "images", "page.png"), capture.ImageLocation);
+        Assert.Equal(100, capture.WidthPx);
+        Assert.Equal(60, capture.HeightPx);
         var region = Assert.Single(imported.Imported.Surfaces[0].Regions);
         var line = Assert.Single(imported.Imported.Surfaces[0].Lines);
         Assert.Equal("region_1", region.Id.Suffix.Split('-')[0]);

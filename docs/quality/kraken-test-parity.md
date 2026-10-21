@@ -29,7 +29,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_repo.py` | 3 | feature-gap | remote model registry/catalog |
 | `test_rpred.py` | 37 | feature-gap | recognition records, RTL/BiDi, bbox/baseline |
 | `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate |
-| `test_serialization.py` | 4 | replicate | PAGE/ALTO/hOCR/ABBYY serialization |
+| `test_serialization.py` | 4 | partial | PAGE/ALTO/hOCR/ABBYY serialization |
 | `test_tasks.py` | 34 | feature-gap | recognition/segmentation/forced-alignment task models |
 | `test_train_utils.py` | 2 | replicate | checkpoint-on-failure/recovery |
 | `test_vgsl.py` | 7 | not-applicable | Kraken VGSL model format; Leviathan uses its own package |

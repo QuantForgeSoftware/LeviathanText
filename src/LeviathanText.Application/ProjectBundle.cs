@@ -57,6 +57,7 @@ public static class ProjectBundle
             {
                 Add($"{prefix}/alto.xml", AltoXml.Export(surface, surface.Captures[0], surface.Revisions));
                 Add($"{prefix}/hocr.html", HocrFormat.Export(surface, surface.Captures[0], surface.Revisions));
+            Add($"{prefix}/abbyy.xml", AbbyyXml.Export(surface, surface.Captures[0], surface.Revisions));
             }
         }
 

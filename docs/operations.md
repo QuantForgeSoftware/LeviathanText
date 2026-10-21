@@ -145,7 +145,8 @@ revisions with provenance and returns line/skip counts. Long batch work belongs 
 ## Exports
 
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
-- `export tei` / `export alto` / `export hocr` — bounded profiles (unsupported fields reported).
+- `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported fields reported).
+- Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
 - `export bundle` — zip with native JSON, training export, profile report and all per-surface
   formats + manifest.

@@ -3,7 +3,7 @@ using System.Xml.Linq;
 namespace LeviathanText.Formats;
 
 /// <summary>Bounded format detection for legacy OCR imports (PAGE, ALTO 4, hOCR).</summary>
-public enum LegacyFormat { Page, Alto, Hocr }
+public enum LegacyFormat { Page, Alto, Hocr, Abbyy }
 
 public static class LegacyFormats
 {
@@ -20,7 +20,8 @@ public static class LegacyFormats
             "PcGts" => LegacyFormat.Page,
             "alto" => LegacyFormat.Alto,
             "html" when root.Descendants().Any(e => (string?)e.Attribute("class") == "ocr_page") => LegacyFormat.Hocr,
-            _ => throw new InvalidDataException($"Unsupported legacy document root {root.Name.LocalName}; expected PAGE PcGts, ALTO or hOCR html."),
+            "document" when root.Name.NamespaceName == "http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml" => LegacyFormat.Abbyy,
+            _ => throw new InvalidDataException($"Unsupported legacy document root {root.Name.LocalName}; expected PAGE PcGts, ALTO, hOCR html or FineReader XML."),
         };
     }
 }
