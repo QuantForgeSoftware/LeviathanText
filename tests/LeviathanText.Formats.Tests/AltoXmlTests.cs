@@ -116,6 +116,37 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Language_tags_and_split_inherit_from_block_and_line()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Tags>
+                <OtherTag ID="lang0" TYPE="language" LABEL="deu"/>
+                <OtherTag ID="lang1" TYPE="language" LABEL="eng"/>
+                <OtherTag ID="split0" TYPE="split" LABEL="train"/>
+                <OtherTag ID="type0" TYPE="type" LABEL="heading"/>
+              </Tags>
+              <Layout><Page WIDTH="200" HEIGHT="60"><PrintSpace>
+                <TextBlock ID="b1" LANG="hbo" TAGREFS="lang0 split0">
+                  <TextLine ID="l1" LANG="heb" TAGREFS="lang1 type0">
+                    <Shape><Polygon POINTS="10,10 190,10 190,40 10,40"/></Shape>
+                    <String CONTENT="αβγ"/>
+                  </TextLine>
+                </TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        var imported = AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        var region = Assert.Single(imported.Regions);
+        Assert.Equal(["hbo", "deu"], region.Languages);
+        Assert.Equal("train", region.Split);
+        var line = Assert.Single(imported.Lines);
+        Assert.Equal(["hbo", "deu", "heb", "eng"], line.Languages);
+        Assert.Equal("train", line.Split);
+        Assert.Contains("heading", line.Tags["type"]);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE alto [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +

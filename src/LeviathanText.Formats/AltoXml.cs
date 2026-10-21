@@ -88,23 +88,34 @@ public static class AltoXml
         var regions = new List<NativeRegion>();
         var lines = new List<NativeLine>();
         var revisions = new List<TextRevision>();
+        var tagMap = root.Descendants(Alto + "OtherTag")
+            .Where(e => (string?)e.Attribute("ID") is not null)
+            .ToDictionary(e => (string)e.Attribute("ID")!, e => (
+                Type: (string?)e.Attribute("TYPE"),
+                Label: (string?)e.Attribute("LABEL")));
+        var pageMetadata = MetadataOf(root.Element(Alto + "Layout") ?? root, tagMap);
         int regionOrder = 0;
 
         foreach (var block in root.Descendants(Alto + "TextBlock"))
         {
             var blockId = ExternalIds.Sanitize((string?)block.Attribute("ID") ?? $"altoregion{regionOrder}");
+            var blockMetadata = pageMetadata.Merge(MetadataOf(block, tagMap));
             regions.Add(new NativeRegion
             {
                 Id = new EntityId(EntityKind.Region, blockId),
                 FrameRef = frameEntity,
                 LayoutSource = LayoutSource.Imported,
                 ReadingOrderIndex = regionOrder,
+                Languages = blockMetadata.Languages,
+                Tags = blockMetadata.Tags,
+                Split = blockMetadata.Split,
             });
             regionOrder++;
 
             foreach (var line in block.Elements(Alto + "TextLine"))
             {
                 var lineId = ExternalIds.Sanitize((string?)line.Attribute("ID") ?? $"altoline{lines.Count}");
+                var lineMetadata = blockMetadata.Merge(MetadataOf(line, tagMap));
                 var polygon = ParsePolygon((string?)line.Element(Alto + "Shape")?.Element(Alto + "Polygon")?.Attribute("POINTS"));
                 var text = string.Concat(line.Elements(Alto + "String")
                     .Select(s => (string?)s.Attribute("CONTENT") ?? ""));
@@ -133,6 +144,9 @@ public static class AltoXml
                     Polygon = polygon,
                     Baseline = polygon.Count >= 2 ? [polygon[^1], polygon[^2]] : [],
                     DiplomaticRevisionId = revision?.Id,
+                    Languages = lineMetadata.Languages,
+                    Tags = lineMetadata.Tags,
+                    Split = lineMetadata.Split,
                 });
 
                 foreach (var child in line.Elements())
@@ -143,6 +157,39 @@ public static class AltoXml
         }
 
         return new AltoImportResult(regions, lines, revisions, unsupported);
+    }
+
+    private sealed record Metadata(IReadOnlyList<string> Languages,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> Tags, string? Split)
+    {
+        public Metadata Merge(Metadata other) => new(
+            Languages.Concat(other.Languages).Distinct(StringComparer.Ordinal).ToArray(),
+            Tags.Concat(other.Tags).GroupBy(p => p.Key)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.SelectMany(p => p.Value).Distinct(StringComparer.Ordinal).ToArray()),
+            other.Split ?? Split);
+    }
+
+    private static Metadata MetadataOf(XElement element,
+        IReadOnlyDictionary<string, (string? Type, string? Label)> tagMap)
+    {
+        var languages = ((string?)element.Attribute("LANG") ?? "")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        var tags = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        string? split = null;
+        foreach (var id in ((string?)element.Attribute("TAGREFS") ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!tagMap.TryGetValue(id, out var tag)) continue;
+            if (tag.Type == "language") { if (!string.IsNullOrWhiteSpace(tag.Label)) languages.Add(tag.Label); continue; }
+            if (tag.Type == "split") { split = tag.Label; continue; }
+            var key = tag.Type ?? "tag";
+            if (!string.IsNullOrWhiteSpace(tag.Label))
+            {
+                if (!tags.TryGetValue(key, out var list)) tags[key] = list = [];
+                list.Add(tag.Label);
+            }
+        }
+        return new Metadata(languages.Distinct(StringComparer.Ordinal).ToArray(),
+            tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), split);
     }
 
     private static List<PointD> ParsePolygon(string? points)
