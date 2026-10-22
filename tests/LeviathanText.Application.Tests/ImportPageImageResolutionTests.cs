@@ -9,6 +9,8 @@ public class ImportPageImageResolutionTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"lt-page-images-{Guid.NewGuid():N}");
 
+    public ImportPageImageResolutionTests() => Directory.CreateDirectory(_dir);
+
     [Fact]
     public void Import_resolves_an_image_from_a_sibling_images_directory()
     {
@@ -48,6 +50,26 @@ public class ImportPageImageResolutionTests : IDisposable
         var line = Assert.Single(imported.Imported.Surfaces[0].Lines);
         Assert.Equal("region_1", region.Id.Suffix.Split('-')[0]);
         Assert.Equal("line__1_", line.Id.Suffix.Split('-')[0]);
+    }
+
+    [Fact]
+    public void Import_uses_declared_page_dimensions_when_the_image_is_missing()
+    {
+        var xmlPath = Path.Combine(_dir, "missing-image.xml");
+        File.WriteAllText(xmlPath, """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="missing.png" imageWidth="123" imageHeight="45"/>
+            </PcGts>
+            """);
+
+        using var store = new LocalStore(Path.Combine(_dir, "store-declared.db"));
+        var projects = new ProjectService(store);
+        var project = projects.Create("declared-dimensions");
+        var imported = new InterchangeService(projects).ImportPage(project, xmlPath);
+
+        var capture = Assert.Single(imported.Imported.Surfaces[0].Captures);
+        Assert.Equal(123, capture.WidthPx);
+        Assert.Equal(45, capture.HeightPx);
     }
 
     public void Dispose()

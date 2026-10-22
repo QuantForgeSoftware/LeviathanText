@@ -26,7 +26,14 @@ public static class PageXml
         IReadOnlyList<NativeLine> Lines,
         IReadOnlyList<TextRevision> Revisions,
         IReadOnlyList<ImportIssue> Unsupported,
-        string? ImageFilename);
+        string? ImageFilename)
+    {
+        /// <summary>Declared page width; zero/missing is treated as unavailable.</summary>
+        public int? WidthPx { get; init; }
+
+        /// <summary>Declared page height; zero/missing is treated as unavailable.</summary>
+        public int? HeightPx { get; init; }
+    }
 
     public enum IssueSeverity { Loss, Note }
 
@@ -159,7 +166,11 @@ public static class PageXml
             if (element.Name != Pc + "TextRegion" && element.Name != Pc + "ReadingOrder")
                 unsupported.Add(new ImportIssue(element.Name.LocalName, "unsupported PAGE element is preserved in the source attachment, not flattened"));
 
-        return new PageImportResult(regions, lines, revisions, unsupported, (string?)page.Attribute("imageFilename"));
+        return new PageImportResult(regions, lines, revisions, unsupported, (string?)page.Attribute("imageFilename"))
+        {
+            WidthPx = PositiveInt((string?)page.Attribute("imageWidth")),
+            HeightPx = PositiveInt((string?)page.Attribute("imageHeight")),
+        };
     }
 
     /// <summary>Export a surface's regions/lines (geometry + text via TextEquiv) as a bounded PAGE document (pinned 2019-07-15).</summary>
@@ -335,6 +346,10 @@ public static class PageXml
     }
 
     /// <summary>PAGE `custom="readingOrder {index:N;}"` attribute (Transkribus convention).</summary>
+    private static int? PositiveInt(string? value) =>
+        int.TryParse(value, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : null;
+
     private static int? TryParseCustomIndex(XElement element)
     {
         var custom = (string?)element.Attribute("custom");

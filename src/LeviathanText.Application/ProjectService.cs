@@ -103,7 +103,10 @@ public sealed class InterchangeService(ProjectService projects)
         var imagePath = new[] { imageName, stem + ".png", stem + ".jpg", stem + ".tif" }
             .SelectMany(name => imageDirectories.Select(dir => Path.Combine(dir, name)))
             .FirstOrDefault(File.Exists) ?? imageName;
-        var imageDimensions = TryImageDimensions(imagePath);
+        var imageDimensions = TryImageDimensions(imagePath)
+            ?? (result.WidthPx is { } declaredWidth && result.HeightPx is { } declaredHeight
+                ? (declaredWidth, declaredHeight)
+                : ((int Width, int Height)?)null);
 
         var surface = new NativeSurface
         {
@@ -493,23 +496,35 @@ public sealed class InterchangeService(ProjectService projects)
         var scopeToken = captureId.Suffix.Length >= 8 ? captureId.Suffix[^8..] : captureId.Suffix;
 
         (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
-            IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed =
-            ResolveLegacyFormat(format, content) switch
-            {
-                LegacyFormat.Alto => FromAlto(AltoXml.Import(content, captureId, UnknownChecksum())),
-                LegacyFormat.Hocr => FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum())),
-                LegacyFormat.Abbyy => FromAbbyy(AbbyyXml.Import(content, captureId, UnknownChecksum())),
-                _ => throw new LeviathanException(new LeviathanError
+            IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed;
+        int? declaredWidth = null, declaredHeight = null;
+        switch (ResolveLegacyFormat(format, content))
+        {
+            case LegacyFormat.Alto:
+                var alto = AltoXml.Import(content, captureId, UnknownChecksum());
+                parsed = FromAlto(alto);
+                declaredWidth = alto.WidthPx;
+                declaredHeight = alto.HeightPx;
+                break;
+            case LegacyFormat.Hocr:
+                parsed = FromHocr(HocrFormat.Import(content, captureId, UnknownChecksum()));
+                break;
+            case LegacyFormat.Abbyy:
+                parsed = FromAbbyy(AbbyyXml.Import(content, captureId, UnknownChecksum()));
+                break;
+            default:
+                throw new LeviathanException(new LeviathanError
                 {
                     Code = ErrorCode.SchemaVersionUnsupported,
                     Scope = format,
                     Message = "Legacy-layout import supports 'auto', 'alto' and 'hocr'.",
-                }),
-            };
+                });
+        }
 
         var (scopedRegions, scopedLines, scopedRevisions) =
             ScopeImportedIds(parsed.Regions, parsed.Lines, parsed.Revisions, scopeToken);
-        var legacyDimensions = TryImageDimensions(imagePath);
+        var legacyDimensions = TryImageDimensions(imagePath)
+            ?? (declaredWidth is { } width && declaredHeight is { } height ? (width, height) : ((int Width, int Height)?)null);
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),

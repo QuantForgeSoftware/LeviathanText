@@ -21,7 +21,14 @@ public static class AltoXml
         IReadOnlyList<NativeRegion> Regions,
         IReadOnlyList<NativeLine> Lines,
         IReadOnlyList<TextRevision> Revisions,
-        IReadOnlyList<PageXml.ImportIssue> Unsupported);
+        IReadOnlyList<PageXml.ImportIssue> Unsupported)
+    {
+        /// <summary>Declared page width; zero/missing is treated as unavailable.</summary>
+        public int? WidthPx { get; init; }
+
+        /// <summary>Declared page height; zero/missing is treated as unavailable.</summary>
+        public int? HeightPx { get; init; }
+    }
 
     public static string Export(NativeSurface surface, NativeCapture capture, IReadOnlyList<TextRevision> revisions)
     {
@@ -48,6 +55,9 @@ public static class AltoXml
 
             var attributes = new List<XAttribute> { new("ID", line.Id.Suffix) };
             if (line.Languages.Count > 0) attributes.Add(new XAttribute("LANG", string.Join(' ', line.Languages)));
+            if (DirectionAttribute(line.Direction) is { } lineDirection) attributes.Add(lineDirection);
+            if (line.Baseline.Count >= 2)
+                attributes.Add(new XAttribute("BASELINE", string.Join(' ', line.Baseline.Select(p => $"{p.X:0.#} {p.Y:0.#}"))));
             return new XElement(Alto + "TextLine", attributes,
                 new XElement(Alto + "Shape", polygon),
                 text);
@@ -57,6 +67,7 @@ public static class AltoXml
         {
             var attributes = new List<XAttribute> { new("ID", region.Id.Suffix) };
             if (region.Languages.Count > 0) attributes.Add(new XAttribute("LANG", string.Join(' ', region.Languages)));
+            if (DirectionAttribute(region.Direction) is { } regionDirection) attributes.Add(regionDirection);
             return new XElement(Alto + "TextBlock", attributes,
                 surface.Lines.Where(l => l.RegionId == region.Id).Select(LineElement));
         });
@@ -97,7 +108,8 @@ public static class AltoXml
             .ToDictionary(e => (string)e.Attribute("ID")!, e => (
                 Type: (string?)e.Attribute("TYPE"),
                 Label: (string?)e.Attribute("LABEL")));
-        var pageMetadata = MetadataOf(root.Element(Alto + "Layout") ?? root, tagMap);
+        var page = root.Descendants(Alto + "Page").FirstOrDefault();
+        var pageMetadata = MetadataOf(page ?? root, tagMap);
         int regionOrder = 0;
 
         foreach (var block in root.Descendants(Alto + "TextBlock"))
@@ -113,6 +125,7 @@ public static class AltoXml
                 Languages = blockMetadata.Languages,
                 Tags = blockMetadata.Tags,
                 Split = blockMetadata.Split,
+                Direction = blockMetadata.Direction,
             });
             regionOrder++;
 
@@ -146,11 +159,14 @@ public static class AltoXml
                     RegionId = new EntityId(EntityKind.Region, blockId),
                     FrameRef = frameEntity,
                     Polygon = polygon,
-                    Baseline = polygon.Count >= 2 ? [polygon[^1], polygon[^2]] : [],
+                    Baseline = ParseBaseline((string?)line.Attribute("BASELINE")) is { Count: >= 2 } baseline
+                        ? baseline
+                        : polygon.Count >= 2 ? [polygon[^1], polygon[^2]] : [],
                     DiplomaticRevisionId = revision?.Id,
                     Languages = lineMetadata.Languages,
                     Tags = lineMetadata.Tags,
                     Split = lineMetadata.Split,
+                    Direction = lineMetadata.Direction,
                 });
 
                 foreach (var child in line.Elements())
@@ -160,17 +176,23 @@ public static class AltoXml
             }
         }
 
-        return new AltoImportResult(regions, lines, revisions, unsupported);
+        return new AltoImportResult(regions, lines, revisions, unsupported)
+        {
+            WidthPx = PositiveInt((string?)page?.Attribute("WIDTH")),
+            HeightPx = PositiveInt((string?)page?.Attribute("HEIGHT")),
+        };
     }
 
     private sealed record Metadata(IReadOnlyList<string> Languages,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> Tags, string? Split)
+        IReadOnlyDictionary<string, IReadOnlyList<string>> Tags, string? Split,
+        TextDirection? Direction)
     {
         public Metadata Merge(Metadata other) => new(
             Languages.Concat(other.Languages).Distinct(StringComparer.Ordinal).ToArray(),
             Tags.Concat(other.Tags).GroupBy(p => p.Key)
                 .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.SelectMany(p => p.Value).Distinct(StringComparer.Ordinal).ToArray()),
-            other.Split ?? Split);
+            other.Split ?? Split,
+            other.Direction ?? Direction);
     }
 
     private static Metadata MetadataOf(XElement element,
@@ -193,7 +215,42 @@ public static class AltoXml
             }
         }
         return new Metadata(languages.Distinct(StringComparer.Ordinal).ToArray(),
-            tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), split);
+            tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), split,
+            ParseDirection((string?)element.Attribute("BASEDIRECTION")));
+    }
+
+    private static TextDirection? ParseDirection(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "ltr" => TextDirection.Ltr,
+        "rtl" => TextDirection.Rtl,
+        "ttb" => TextDirection.VerticalTopToBottom,
+        "btt" => TextDirection.VerticalBottomToTop,
+        _ => null,
+    };
+
+    private static XAttribute? DirectionAttribute(TextDirection? direction) => direction switch
+    {
+        TextDirection.Ltr => new XAttribute("BASEDIRECTION", "ltr"),
+        TextDirection.Rtl => new XAttribute("BASEDIRECTION", "rtl"),
+        TextDirection.VerticalTopToBottom => new XAttribute("BASEDIRECTION", "ttb"),
+        TextDirection.VerticalBottomToTop => new XAttribute("BASEDIRECTION", "btt"),
+        _ => null,
+    };
+
+    private static int? PositiveInt(string? value) =>
+        int.TryParse(value, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : null;
+
+    private static List<PointD> ParseBaseline(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+        var numbers = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var result = new List<PointD>();
+        for (int i = 0; i + 1 < numbers.Length; i += 2)
+            if (double.TryParse(numbers[i], System.Globalization.CultureInfo.InvariantCulture, out var x)
+                && double.TryParse(numbers[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var y))
+                result.Add(new PointD(x, y));
+        return result;
     }
 
     private static List<PointD> ParsePolygon(string? points)

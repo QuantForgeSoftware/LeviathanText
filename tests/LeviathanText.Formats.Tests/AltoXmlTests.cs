@@ -162,6 +162,74 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Direction_baseline_and_declared_dimensions_inherit_and_roundtrip()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="200" HEIGHT="60" LANG="grc" BASEDIRECTION="rtl"><PrintSpace>
+                <TextBlock ID="b1" BASEDIRECTION="ltr">
+                  <TextLine ID="l1" BASELINE="10 50 190 48">
+                    <Shape><Polygon POINTS="10,10 190,10 190,40 10,40"/></Shape>
+                    <String CONTENT="αβγ"/>
+                  </TextLine>
+                  <TextLine ID="l2" BASEDIRECTION="ttb" BASELINE="12 58 188 56">
+                    <Shape><Polygon POINTS="12,12 188,12 188,44 12,44"/></Shape>
+                    <String CONTENT="δε"/>
+                  </TextLine>
+                </TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        var imported = AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(200, imported.WidthPx);
+        Assert.Equal(60, imported.HeightPx);
+        var region = Assert.Single(imported.Regions);
+        Assert.Equal(TextDirection.Ltr, region.Direction);
+        Assert.Equal(["grc"], region.Languages);
+        Assert.Equal(TextDirection.Ltr, imported.Lines[0].Direction);
+        Assert.Equal(TextDirection.VerticalTopToBottom, imported.Lines[1].Direction);
+        Assert.Equal([new PointD(10, 50), new PointD(190, 48)], imported.Lines[0].Baseline);
+
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "s1"), Kind = "page", Captures = [],
+            Regions = imported.Regions, Lines = imported.Lines, Revisions = imported.Revisions,
+        };
+        var capture = new NativeCapture
+        {
+            Id = new EntityId(EntityKind.Capture, "cap1"),
+            Frame = new CoordinateFrame { ImageRef = new EntityId(EntityKind.Capture, "cap1"), ImageChecksum = SampleProject.Sum },
+            ImageLocation = "x.png", WidthPx = 200, HeightPx = 60,
+        };
+        var exported = AltoXml.Export(surface, capture, imported.Revisions);
+        Assert.Contains("BASEDIRECTION=\"ltr\"", exported);
+        Assert.Contains("BASEDIRECTION=\"ttb\"", exported);
+        Assert.Contains("BASELINE=\"10 50 190 48\"", exported);
+
+        var reparsed = AltoXml.Import(exported, capture.Id, SampleProject.Sum);
+        Assert.Equal(TextDirection.Ltr, Assert.Single(reparsed.Regions).Direction);
+        Assert.Equal(TextDirection.VerticalTopToBottom, reparsed.Lines[1].Direction);
+        Assert.Equal(imported.Lines[0].Baseline, reparsed.Lines[0].Baseline);
+    }
+
+    [Fact]
+    public void Zero_dimensions_are_reported_as_unavailable()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="0" HEIGHT="0"><PrintSpace>
+                <TextBlock ID="b1"><TextLine ID="l1">
+                  <Shape><Polygon POINTS="0,0 10,0 10,10 0,10"/></Shape>
+                </TextLine></TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        var imported = AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Null(imported.WidthPx);
+        Assert.Null(imported.HeightPx);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE alto [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +
