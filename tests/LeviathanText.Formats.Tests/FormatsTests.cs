@@ -248,6 +248,47 @@ public class PageXmlTests
     }
 
     [Fact]
+    public void Explicit_reading_order_groups_are_preserved_as_total_or_partial()
+    {
+        var xml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="ro.jpg" imageWidth="200" imageHeight="100">
+                <ReadingOrder>
+                  <OrderedGroup id="ro_main" caption="Main text">
+                    <RegionRefIndexed regionRef="r2" index="0"/>
+                    <RegionRefIndexed regionRef="r1" index="1"/>
+                  </OrderedGroup>
+                </ReadingOrder>
+              </Page>
+            </PcGts>
+            """;
+        var imported = PageXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        var group = Assert.Single(imported.ReadingOrders);
+        Assert.Equal("ro_main", group.Id);
+        Assert.Equal("Main text", group.Caption);
+        Assert.True(group.IsTotal);
+        Assert.Equal(["r2", "r1"], group.RegionRefs);
+
+        var partialXml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="ro.jpg" imageWidth="200" imageHeight="100">
+                <ReadingOrder>
+                  <UnorderedGroup id="ug">
+                    <OrderedGroup id="ro_main"><RegionRefIndexed regionRef="r1" index="0"/></OrderedGroup>
+                    <OrderedGroup id="ro_margin"><RegionRefIndexed regionRef="r3" index="0"/></OrderedGroup>
+                  </UnorderedGroup>
+                </ReadingOrder>
+              </Page>
+            </PcGts>
+            """;
+        var partial = PageXml.Import(partialXml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(2, partial.ReadingOrders.Count);
+        Assert.All(partial.ReadingOrders, group => Assert.False(group.IsTotal));
+        Assert.Equal(["r1"], partial.ReadingOrders.Single(g => g.Id == "ro_main").RegionRefs);
+        Assert.Equal(["r3"], partial.ReadingOrders.Single(g => g.Id == "ro_margin").RegionRefs);
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE PcGts [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>" +

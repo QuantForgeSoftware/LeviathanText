@@ -33,7 +33,17 @@ public static class PageXml
 
         /// <summary>Declared page height; zero/missing is treated as unavailable.</summary>
         public int? HeightPx { get; init; }
+
+        /// <summary>Explicit reading-order groups, including partial groups under an unordered parent.</summary>
+        public IReadOnlyList<ReadingOrderGroup> ReadingOrders { get; init; } = [];
     }
+
+    /// <summary>A source reading-order group, with region references in declared order.</summary>
+    public sealed record ReadingOrderGroup(
+        string Id,
+        string? Caption,
+        bool IsTotal,
+        IReadOnlyList<string> RegionRefs);
 
     public enum IssueSeverity { Loss, Note }
 
@@ -65,6 +75,7 @@ public static class PageXml
             .SelectMany(ro => ro.Descendants(Pc + "RegionRefIndexed"))
             .GroupBy(rr => (string?)rr.Attribute("regionRef"))
             .ToDictionary(g => g.Key ?? "", g => (int?)g.First().Attribute("index"));
+        var readingOrders = ParseReadingOrders(page, Pc);
 
         foreach (var region in page.Elements(Pc + "TextRegion"))
         {
@@ -170,6 +181,7 @@ public static class PageXml
         {
             WidthPx = PositiveInt((string?)page.Attribute("imageWidth")),
             HeightPx = PositiveInt((string?)page.Attribute("imageHeight")),
+            ReadingOrders = readingOrders,
         };
     }
 
@@ -346,6 +358,38 @@ public static class PageXml
     }
 
     /// <summary>PAGE `custom="readingOrder {index:N;}"` attribute (Transkribus convention).</summary>
+    private static IReadOnlyList<ReadingOrderGroup> ParseReadingOrders(XElement page, XNamespace pc)
+    {
+        var groups = new List<ReadingOrderGroup>();
+        foreach (var readingOrder in page.Elements(pc + "ReadingOrder"))
+        {
+            foreach (var child in readingOrder.Elements())
+            {
+                if (child.Name == pc + "OrderedGroup")
+                    AddGroup(child, isTotal: true);
+                else if (child.Name == pc + "UnorderedGroup")
+                    foreach (var ordered in child.Elements(pc + "OrderedGroup"))
+                        AddGroup(ordered, isTotal: false);
+            }
+        }
+        return groups;
+
+        void AddGroup(XElement group, bool isTotal)
+        {
+            var refs = group.Descendants(pc + "RegionRefIndexed")
+                .Select((reference, fallback) => (Reference: reference, Fallback: fallback))
+                .OrderBy(pair => (int?)pair.Reference.Attribute("index") ?? pair.Fallback)
+                .Select(pair => ExternalIds.Sanitize((string?)pair.Reference.Attribute("regionRef") ?? ""))
+                .Where(id => id.Length > 0)
+                .ToArray();
+            groups.Add(new ReadingOrderGroup(
+                ExternalIds.Sanitize((string?)group.Attribute("id") ?? $"ro{groups.Count}"),
+                (string?)group.Attribute("caption"),
+                isTotal,
+                refs));
+        }
+    }
+
     private static int? PositiveInt(string? value)
     {
         if (value is null) return null;
