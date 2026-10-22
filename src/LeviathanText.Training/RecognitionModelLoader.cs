@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LeviathanText.Contracts;
 using LeviathanText.Recognition;
 
@@ -24,14 +25,55 @@ public static class RecognitionModelLoader
 {
     public const string ManifestFileName = "run-manifest.json";
 
-    public static LoadedRecognitionModel Load(string packageDirectory)
+    /// <summary>Load the single recognition package, or fail with ModelIncompatible.</summary>
+    public static LoadedRecognitionModel Load(string packageDirectory) => Load(packageDirectory, null);
+
+    /// <summary>
+    /// Load the package only when it serves one of <paramref name="tasks"/>.
+    /// A task mismatch is reported as ModelIncompatible; use <see cref="LoadAll"/> for
+    /// the catalog-style behavior of getting an empty result instead.
+    /// </summary>
+    public static LoadedRecognitionModel Load(string packageDirectory, IReadOnlyCollection<string>? tasks)
+    {
+        var models = LoadAll(packageDirectory, tasks);
+        if (models.Count == 0)
+            throw Incompatible(packageDirectory, "package does not declare a requested task");
+        return models[0];
+    }
+
+    /// <summary>
+    /// Load zero or one package after validating its package format and task filter.
+    /// This mirrors catalog loading: an incompatible task is skipped, not guessed at.
+    /// </summary>
+    public static IReadOnlyList<LoadedRecognitionModel> LoadAll(
+        string packageDirectory,
+        IReadOnlyCollection<string>? tasks = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageDirectory);
         if (!Directory.Exists(packageDirectory))
-            throw new DirectoryNotFoundException($"Model package directory not found: {packageDirectory}");
+            throw Incompatible(packageDirectory, "package directory does not exist");
 
-        var manifestPath = Path.Combine(packageDirectory, ManifestFileName);
-        var manifest = File.Exists(manifestPath) ? TrainingRunManifestWriter.Read(manifestPath) : null;
+        TrainingRunManifest? manifest;
+        try
+        {
+            var manifestPath = Path.Combine(packageDirectory, ManifestFileName);
+            manifest = File.Exists(manifestPath) ? TrainingRunManifestWriter.Read(manifestPath) : null;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
+        {
+            throw Incompatible(packageDirectory, "run manifest is not readable");
+        }
+
+        if (manifest is not null)
+        {
+            if (manifest.PackageFormatVersion > ModelPackageFormat.Current)
+                throw Incompatible(manifest.ModelName,
+                    $"package format {manifest.PackageFormatVersion} is newer than supported format {ModelPackageFormat.Current}");
+            var task = string.IsNullOrWhiteSpace(manifest.Task) ? ModelTasks.Recognition : manifest.Task;
+            if (tasks is not null && !tasks.Contains(task, StringComparer.OrdinalIgnoreCase))
+                return [];
+        }
+
         var modelName = manifest?.ModelName ?? FindModelName(packageDirectory);
 
         CheckpointMetadata metadata;
@@ -39,7 +81,8 @@ public static class RecognitionModelLoader
         {
             metadata = CheckpointStore.ReadMetadata(packageDirectory, modelName, ".best");
         }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException
+                                   or JsonException or InvalidDataException)
         {
             throw Incompatible(modelName, "checkpoint metadata is missing or its name does not match the manifest");
         }
@@ -68,15 +111,15 @@ public static class RecognitionModelLoader
         model.load(modelPath);
         model.eval();
 
-        return new LoadedRecognitionModel(labels, model, metadata, manifest);
+        return [new LoadedRecognitionModel(labels, model, metadata, manifest)];
     }
 
     private static string FindModelName(string directory)
     {
         var metadataFiles = Directory.GetFiles(directory, "*.best.json");
         if (metadataFiles.Length != 1)
-            throw new InvalidDataException(
-                $"Expected exactly one *.best.json in the package, found {metadataFiles.Length}. Provide {ManifestFileName} or a single model.");
+            throw Incompatible(directory,
+                $"expected exactly one *.best.json in the package, found {metadataFiles.Length}; provide {ManifestFileName} or a single model");
         return Path.GetFileName(metadataFiles[0]).Replace(".best.json", string.Empty, StringComparison.Ordinal);
     }
 

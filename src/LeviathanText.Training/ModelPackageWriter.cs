@@ -59,6 +59,8 @@ public static class ModelPackageWriter
         sb.AppendLine($"# Model card — {modelName}");
         sb.AppendLine();
         sb.AppendLine($"- Contract: `{LeviathanText.Contracts.ContractVersion.Current}`");
+        sb.AppendLine($"- Task: `{manifest.Task}`");
+        sb.AppendLine($"- Package format: `{manifest.PackageFormatVersion}`");
         sb.AppendLine($"- Created: {manifest.CreatedAt:O}");
         sb.AppendLine($"- Config hash: `{manifest.ConfigHash}`");
         sb.AppendLine($"- Checkpoint SHA-256: `{manifest.CheckpointDigest}`");

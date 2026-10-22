@@ -11,9 +11,28 @@ namespace LeviathanText.Training;
 /// checkpoint alone cannot prove: which architecture produced it, which split and label
 /// set were used, the split hash for leakage currency, and the checkpoint digest.
 /// </summary>
+public static class ModelTasks
+{
+    public const string Recognition = "recognition";
+    public const string Segmentation = "segmentation";
+    public const string ReadingOrder = "reading_order";
+}
+
+public static class ModelPackageFormat
+{
+    /// <summary>Bumped only when an older loader can no longer interpret the package safely.</summary>
+    public const int Current = 1;
+}
+
 public sealed record TrainingRunManifest
 {
     public required string ModelName { get; init; }
+
+    /// <summary>Task family this package serves. Older manifests default to recognition.</summary>
+    public string Task { get; init; } = ModelTasks.Recognition;
+
+    /// <summary>Package-format version, separate from the application contract version.</summary>
+    public int PackageFormatVersion { get; init; } = ModelPackageFormat.Current;
     public required string ConfigHash { get; init; }
     public required long NumClasses { get; init; }
     public required long HiddenSize { get; init; }
@@ -83,6 +102,8 @@ public static class TrainingRunManifestWriter
         return new TrainingRunManifest
         {
             ModelName = config.ModelName,
+            Task = ModelTasks.Recognition,
+            PackageFormatVersion = ModelPackageFormat.Current,
             ConfigHash = config.ComputeHash(),
             NumClasses = model.NumClasses,
             HiddenSize = model.HiddenSize,
