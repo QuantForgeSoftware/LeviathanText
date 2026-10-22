@@ -27,6 +27,32 @@ public class ForcedAlignmentTaskTests
         Assert.Equal(2, record.Graphemes.Count);
         Assert.True(record.Box[2].X > record.Box[0].X);
         Assert.True(record.Box[2].Y > record.Box[0].Y);
+
+        var baselineOcr = record.ToBaselineOcrRecord();
+        Assert.Equal(record.LineId, baselineOcr.LineId);
+        Assert.Equal(record.RegionId, baselineOcr.RegionId);
+        Assert.Equal("αβ", baselineOcr.Prediction);
+        Assert.Equal(2, baselineOcr.Cuts.Count);
+        Assert.All(baselineOcr.Cuts, cut => Assert.Equal(4, cut.Box.Count));
+        Assert.NotEmpty(baselineOcr.Baseline);
+        Assert.Equal(record.Box, baselineOcr.Boundary);
+    }
+
+    [Fact]
+    public void Baseline_ocr_record_serializes_with_cuts()
+    {
+        var labels = new LabelSet(Vocabulary);
+        var model = new CrnnModel(labels.NumClasses, hiddenSize: 8);
+        var record = ForcedAlignmentTask.Align(
+            model, labels, Line("line1", "region1"), new LineImage(16, 64, new float[16 * 64]), "αβ");
+        var json = System.Text.Json.JsonSerializer.Serialize(record.ToBaselineOcrRecord());
+
+        Assert.Contains("\"Cuts\"", json);
+        Assert.Contains("\"Boundary\"", json);
+        var round = System.Text.Json.JsonSerializer.Deserialize<BaselineOcrRecord>(json);
+        Assert.NotNull(round);
+        Assert.Equal("αβ", round.Prediction);
+        Assert.Equal(2, round.Cuts.Count);
     }
 
     [Fact]

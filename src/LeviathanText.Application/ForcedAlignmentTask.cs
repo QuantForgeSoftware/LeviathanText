@@ -11,7 +11,39 @@ public sealed record ForcedAlignmentRecord(
     EntityId RegionId,
     string Text,
     IReadOnlyList<PointD> Box,
-    IReadOnlyList<AlignedGrapheme> Graphemes);
+    IReadOnlyList<PointD> Baseline,
+    IReadOnlyList<AlignedGrapheme> Graphemes)
+{
+    public BaselineOcrRecord ToBaselineOcrRecord()
+    {
+        var left = Box.Count >= 4 ? Box[0].X : 0;
+        var right = Box.Count >= 4 ? Box[2].X : 0;
+        var top = Box.Count >= 4 ? Box[0].Y : 0;
+        var bottom = Box.Count >= 4 ? Box[2].Y : 0;
+        var cuts = new List<BaselineCut>(Graphemes.Count);
+        for (int i = 0; i < Graphemes.Count; i++)
+        {
+            double x0 = left + (right - left) * i / Graphemes.Count;
+            double x1 = left + (right - left) * (i + 1) / Graphemes.Count;
+            cuts.Add(new BaselineCut(Graphemes[i].Text,
+                [new PointD(x0, top), new PointD(x1, top), new PointD(x1, bottom), new PointD(x0, bottom)],
+                Graphemes[i].Confidence));
+        }
+        return new BaselineOcrRecord(LineId, RegionId, Text, Baseline, Box, cuts);
+    }
+}
+
+/// <summary>One aligned grapheme cut; boxes are proportional approximations within the line box.</summary>
+public sealed record BaselineCut(string Text, IReadOnlyList<PointD> Box, Confidence Confidence);
+
+/// <summary>Baseline-OCR-shaped serialization of an aligned line.</summary>
+public sealed record BaselineOcrRecord(
+    EntityId LineId,
+    EntityId RegionId,
+    string Prediction,
+    IReadOnlyList<PointD> Baseline,
+    IReadOnlyList<PointD> Boundary,
+    IReadOnlyList<BaselineCut> Cuts);
 
 /// <summary>
 /// Task-level wrapper over <see cref="CtcForcedAligner"/>. It does not choose a model or
@@ -44,7 +76,8 @@ public static class ForcedAlignmentTask
             new PointD(left, top), new PointD(right, top),
             new PointD(right, bottom), new PointD(left, bottom),
         };
-        return new ForcedAlignmentRecord(line.Id, line.RegionId, result.Text, box, result.Graphemes);
+        var baseline = line.Baseline.Count >= 2 ? line.Baseline : [new PointD(left, bottom), new PointD(right, bottom)];
+        return new ForcedAlignmentRecord(line.Id, line.RegionId, result.Text, box, baseline, result.Graphemes);
     }
 
     public static IReadOnlyList<ForcedAlignmentRecord> Align(
