@@ -55,6 +55,9 @@ public static class Program
             case "image" when rest.Length >= 4 && rest[1] == "segment":
                 return ImageSegment(rest);
 
+            case "image" when rest.Length >= 4 && rest[1] == "ocr":
+                return ImageOcr(rest);
+
             case "backup" when rest.Length >= 2:
             {
                 // Consistent backup set: VACUUM INTO database copy + cached images + manifest.
@@ -1219,6 +1222,167 @@ public static class Program
         return 0;
     }
 
+    private static int ImageOcr(string[] args)
+    {
+        string? Flag(string name) =>
+            Array.IndexOf(args, name) is var index && index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+
+        var input = args[2];
+        var output = args[3];
+        var package = Flag("--package")
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = "--package",
+                Message = "A verified model package is required for image OCR.",
+            });
+        var mode = Flag("--mode") ?? "segment";
+        var format = Flag("--format") ?? "text";
+        if (mode is not ("line" or "segment"))
+            throw new ArgumentException($"Unsupported --mode '{mode}'; use line or segment.");
+        if (format is not ("text" or "json" or "page" or "alto"))
+            throw new ArgumentException($"Unsupported --format '{format}'; use text, json, page or alto.");
+        if (SamePath(input, output))
+        {
+            Console.Error.WriteLine("refusing to overwrite the source image; choose a different output path");
+            return 1;
+        }
+
+        var loaded = RecognitionModelLoader.Load(package);
+        var recognizer = loaded.CreateRecognizer();
+        using var decoded = ImageDecoder.Decode(input);
+        var entries = new List<(int Left, int Top, int Right, int Bottom, string Text, IReadOnlyList<GraphemeConfidence> Confidence)>();
+
+        if (mode == "line")
+        {
+            var result = recognizer.Recognize([RecognitionPipeline.ToLineImage(decoded.Bitmap)])[0];
+            entries.Add((0, 0, decoded.Bitmap.Width, decoded.Bitmap.Height, result.Text, result.Graphemes));
+        }
+        else
+        {
+            var layout = ProjectionProfileLayout.Detect(decoded.Bitmap);
+            var images = new List<LineImage>();
+            var boxes = new List<(int Left, int Top, int Right, int Bottom)>();
+            foreach (var line in layout.Lines)
+            {
+                var points = new[]
+                {
+                    new SKPoint(line.Left, line.Top), new SKPoint(line.Right, line.Top),
+                    new SKPoint(line.Right, line.Bottom), new SKPoint(line.Left, line.Bottom),
+                };
+                var extracted = LineCropper.Extract(decoded.Bitmap, points);
+                try
+                {
+                    images.Add(RecognitionPipeline.ToLineImage(extracted.Bitmap));
+                    boxes.Add((line.Left, line.Top, line.Right, line.Bottom));
+                }
+                finally
+                {
+                    extracted.Bitmap.Dispose();
+                }
+            }
+            if (images.Count > 0)
+            {
+                var results = recognizer.Recognize(images);
+                for (int i = 0; i < boxes.Count; i++)
+                    entries.Add((boxes[i].Left, boxes[i].Top, boxes[i].Right, boxes[i].Bottom,
+                        results[i].Text, results[i].Graphemes));
+            }
+        }
+
+        var captureId = new EntityId(EntityKind.Capture, "image");
+        var capture = new NativeCapture
+        {
+            Id = captureId,
+            Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = decoded.SourceChecksum },
+            ImageLocation = Path.GetFullPath(input),
+            WidthPx = decoded.Bitmap.Width,
+            HeightPx = decoded.Bitmap.Height,
+        };
+        var regionId = new EntityId(EntityKind.Region, "region0");
+        var revisionByLine = new Dictionary<int, TextRevision>();
+        var surfaceLines = new List<NativeLine>();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            var lineId = new EntityId(EntityKind.Line, $"line{i:x4}");
+            var revisionId = new EntityId(EntityKind.TranscriptionRevision, $"ocr-{i:x4}");
+            revisionByLine[i] = new TextRevision
+            {
+                Id = revisionId,
+                ScopeId = lineId,
+                Layer = TextLayer.L0RawRecognition,
+                Author = new AgentRef
+                {
+                    Id = $"model:{loaded.Manifest?.ModelName ?? "package"}",
+                    IsModel = true,
+                    ModelIdentity = loaded.Manifest?.ModelName ?? "package",
+                },
+                CreatedAt = DateTimeOffset.UtcNow,
+                Text = entry.Text,
+            };
+            surfaceLines.Add(new NativeLine
+            {
+                Id = lineId,
+                RegionId = regionId,
+                FrameRef = captureId,
+                Polygon =
+                [
+                    new PointD(entry.Left, entry.Top), new PointD(entry.Right, entry.Top),
+                    new PointD(entry.Right, entry.Bottom), new PointD(entry.Left, entry.Bottom),
+                ],
+                Baseline = [new PointD(entry.Left, entry.Bottom), new PointD(entry.Right, entry.Bottom)],
+                DiplomaticRevisionId = revisionId,
+            });
+        }
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "surface0"),
+            Kind = "page",
+            Captures = [capture],
+            Regions =
+            [
+                new NativeRegion
+                {
+                    Id = regionId,
+                    FrameRef = captureId,
+                    Polygon =
+                    [
+                        new PointD(0, 0), new PointD(decoded.Bitmap.Width, 0),
+                        new PointD(decoded.Bitmap.Width, decoded.Bitmap.Height), new PointD(0, decoded.Bitmap.Height),
+                    ],
+                    LayoutSource = LayoutSource.Automatic,
+                    ReadingOrderIndex = 0,
+                },
+            ],
+            Lines = surfaceLines,
+            Revisions = [.. revisionByLine.Values],
+        };
+
+        var content = format switch
+        {
+            "page" => PageXml.Export(surface, capture, surface.Revisions),
+            "alto" => AltoXml.Export(surface, capture, surface.Revisions),
+            "json" => System.Text.Json.JsonSerializer.Serialize(new
+            {
+                type = "ocr",
+                image = Path.GetFileName(input),
+                mode,
+                lines = entries.Select(entry => new
+                {
+                    bbox = new[] { entry.Left, entry.Top, entry.Right, entry.Bottom },
+                    text = entry.Text,
+                }).ToArray(),
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }),
+            _ => string.Join(Environment.NewLine, entries.Select(entry => entry.Text)) + Environment.NewLine,
+        };
+        var directory = Path.GetDirectoryName(Path.GetFullPath(output));
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllText(output, content);
+        Console.WriteLine($"recognized: {output} ({entries.Count} line(s), {format}, {mode})");
+        return 0;
+    }
+
     private static int ImageSegment(string[] args)
     {
         string? Flag(string name) =>
@@ -1357,6 +1521,7 @@ public static class Program
               leviathan [--store <path>] project list
               leviathan image binarize <input-image> <output.png>
               leviathan image segment <input-image> <output> [--format json|page|alto] [--direction horizontal-lr|horizontal-rl]
+              leviathan image ocr <input-image> <output> --package <model-package-dir> [--mode line|segment] [--format text|json|page|alto]
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>

@@ -236,7 +236,8 @@ public sealed class RecognitionPipeline
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(joined))).ToLowerInvariant();
     }
 
-    private static LineImage ToLineImage(SKBitmap crop)
+    /// <summary>Resize/pad a page or line crop to the recognizer's fixed-height input.</summary>
+    public static LineImage ToLineImage(SKBitmap crop)
     {
         int targetHeight = CrnnModel.InputHeight;
         int targetWidth = Math.Max(8, (int)Math.Round((float)crop.Width * targetHeight / crop.Height));

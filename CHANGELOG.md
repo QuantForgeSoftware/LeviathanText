@@ -21,6 +21,7 @@ set: C0-0.4-draft.
 - **Member management UI:** admin-only project panel loads accounts/members and grants/revokes opt-in project access; no invitation tokens or presence.
 - **Pilot profile:** reproducible single-page startup/import/layout/export/backup timing + peak RSS harness (`scripts/profile-pilot.sh`).
 - **Migration rehearsal:** old-binary → current-store migration with explicit rollback refusal (`scripts/migration-rehearsal.sh`) PASS.
+- **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
 - **ALTO geometry/direction:** BASEDIRECTION inheritance, BASELINE parse/export and declared page dimensions with image fallback.
 - **Image CLI:** `image binarize` and `image segment` (JSON/PAGE/ALTO, horizontal direction, source-overwrite guard).
 - **Training recovery:** failed/cancelled runs write a reloadable `.failure` checkpoint without replacing `.best`.

@@ -1,4 +1,7 @@
 using System.Text.Json;
+using LeviathanText.Contracts;
+using LeviathanText.Recognition;
+using LeviathanText.Training;
 using SkiaSharp;
 
 namespace LeviathanText.Cli.Tests;
@@ -116,6 +119,72 @@ public sealed class ImageCommandTests : IDisposable
     public void Missing_image_is_reported_as_a_nonzero_cli_failure()
     {
         Assert.NotEqual(0, Run("image", "binarize", PathOf("missing.png"), PathOf("out.png")));
+    }
+
+    [Fact]
+    public void Ocr_line_mode_writes_text_from_a_verified_package()
+    {
+        var input = PathOf("ocr-line.png");
+        var output = PathOf("ocr-line.txt");
+        var package = CreatePackage();
+        WritePageWithBars(input);
+
+        Assert.Equal(0, Run("image", "ocr", input, output, "--package", package, "--mode", "line", "--format", "text"));
+        Assert.True(File.Exists(output));
+    }
+
+    [Fact]
+    public void Ocr_segment_mode_emits_line_records_and_page_formats()
+    {
+        var input = PathOf("ocr-segment.png");
+        var jsonPath = PathOf("ocr.json");
+        var pagePath = PathOf("ocr.page.xml");
+        var altoPath = PathOf("ocr.alto.xml");
+        var package = CreatePackage();
+        WritePageWithBars(input);
+
+        Assert.Equal(0, Run("image", "ocr", input, jsonPath, "--package", package, "--mode", "segment", "--format", "json"));
+        using var json = JsonDocument.Parse(File.ReadAllText(jsonPath));
+        Assert.Equal("ocr", json.RootElement.GetProperty("type").GetString());
+        Assert.True(json.RootElement.GetProperty("lines").GetArrayLength() > 0);
+
+        Assert.Equal(0, Run("image", "ocr", input, pagePath, "--package", package, "--mode", "segment", "--format", "page"));
+        Assert.Contains("PcGts", File.ReadAllText(pagePath));
+        Assert.Equal(0, Run("image", "ocr", input, altoPath, "--package", package, "--mode", "segment", "--format", "alto"));
+        Assert.Contains("alto", File.ReadAllText(altoPath).ToLowerInvariant());
+    }
+
+    [Fact]
+    public void Ocr_without_a_package_fails_clearly()
+    {
+        var input = PathOf("ocr-missing-package.png");
+        WritePageWithBars(input);
+
+        Assert.NotEqual(0, Run("image", "ocr", input, PathOf("ocr.txt"), "--mode", "line"));
+    }
+
+    private string CreatePackage()
+    {
+        var directory = PathOf("package");
+        Directory.CreateDirectory(directory);
+        var labels = new LabelSet(["α", "β"]);
+        var model = new CrnnModel(labels.NumClasses, hiddenSize: 8);
+        model.save(CheckpointStore.ModelPath(directory, "tiny", ".best"));
+        CheckpointStore.WriteMetadata(directory, "tiny", new CheckpointMetadata
+        {
+            Epoch = 1,
+            GlobalStep = 1,
+            BestValidationCer = 1.0,
+            LabelSetHash = CheckpointStore.LabelSetHash(labels),
+            Labels = labels.Labels,
+            ConfigHash = "test",
+            HiddenSize = 8,
+            InputHeightPixels = CrnnModel.InputHeight,
+            WidthDownsampleFactor = CrnnModel.DefaultWidthDownsampleFactor,
+            TorchVersion = "test",
+            CreatedAt = DateTimeOffset.UtcNow,
+        }, ".best");
+        return directory;
     }
 
     private static void WritePageWithBars(string path)

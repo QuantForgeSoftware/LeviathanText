@@ -30,7 +30,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Verification
 
-- 606 tests (604 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors.
+- 609 tests (607 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors.
 - 41 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
