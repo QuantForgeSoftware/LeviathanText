@@ -563,6 +563,45 @@ public static class Program
                 return 0;
             }
 
+            case "review" when rest.Length >= 3 && rest[1] == "active":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length ? int.Parse(rest[limitIndex + 1]) : 100;
+                var outIndex = Array.IndexOf(rest, "--out");
+                var queue = ActiveLearningQueue.Build(project, limit);
+                if (outIndex >= 0 && outIndex + 1 < rest.Length)
+                {
+                    File.WriteAllText(rest[outIndex + 1], ActiveLearningQueue.ToCsv(queue));
+                    Console.WriteLine($"active-learning queue: {queue.Count} line(s) -> {rest[outIndex + 1]}");
+                }
+                else
+                {
+                    foreach (var entry in queue.Take(20))
+                        Console.WriteLine($"{entry.Priority:0.###}\t{entry.LineId}\t{entry.Reasons}");
+                    Console.Error.WriteLine($"active-learning queue: {queue.Count} line(s)");
+                }
+                return 0;
+            }
+
+            case "runs" when rest.Length >= 5 && rest[1] == "regress-suite":
+            {
+                var baseline = store.LoadRun(rest[2])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[2], Message = "No such baseline run." });
+                var candidate = store.LoadRun(rest[3])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[3], Message = "No such candidate run." });
+                var criteriaIndex = Array.IndexOf(rest, "--criteria");
+                if (criteriaIndex < 0 || criteriaIndex + 1 >= rest.Length)
+                    throw new ArgumentException("Usage: runs regress-suite <baseline> <candidate> --criteria <criteria.json>");
+                var criteria = LeviathanText.Contracts.Serialization.ContractJson
+                    .FromJson<List<RegressionCriterion>>(File.ReadAllText(rest[criteriaIndex + 1]));
+                var report = RegressionSuite.Evaluate(baseline, candidate, criteria);
+                foreach (var check in report.Checks)
+                    Console.WriteLine($"{check.Metric}\tprofile={check.Profile ?? "*"}\tbaseline={check.Baseline:0.######}\tcandidate={check.Candidate:0.######}\tregression={check.Regression:0.######}\tmax={check.MaxRegression:0.######}\t{(check.Passed ? "PASS" : "FAIL")}{ (check.Reason is null ? "" : " " + check.Reason) }");
+                Console.WriteLine(report.Passed ? "suite: PASS" : "suite: FAIL");
+                return report.Passed ? 0 : 1;
+            }
+
             case "runs" when rest.Length >= 5 && rest[1] == "regress":
             {
                 var metric = rest[2];
@@ -1675,6 +1714,7 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
+              leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>

@@ -105,6 +105,23 @@ leviathan --store pilot.db runs compare bestDevCer            # ascending; --hig
 leviathan --store pilot.db runs regress cer <baselineRunId> <candidateRunId> --max-regression 0.01
 ```
 
+For a profile-specific gate, write criteria JSON and evaluate the whole suite:
+
+```json
+[
+  {"metric":"cer","maxRegression":0.01},
+  {"metric":"markErrorRate","maxRegression":0.005},
+  {"metric":"devF1","maxRegression":0.01,"higherIsBetter":true}
+]
+```
+
+```bash
+leviathan --store pilot.db runs regress-suite <baselineRunId> <candidateRunId> --criteria criteria.json
+```
+
+Criteria may carry `"profile"` to apply only when the run's `profile` config matches. Missing
+metrics fail; the command exits nonzero if any criterion regresses.
+
 Each run stores kind/name/created/by, the **dataset digest** (split hash or layout data digest),
 config map, metrics map, learning-curve series and artifact paths. The workspace lists runs and
 renders the curve; `GET /runs` / `GET /runs/{id}` expose the same. This is an experiment index,
@@ -131,6 +148,16 @@ To apply frozen thresholds, pass an acceptance file; the command exits nonzero o
 
 `--acceptance criteria.json` records PASS/FAIL in the JSON/Markdown report and run notes. The
 tool never invents threshold values; the project owner/Greek reviewer must freeze them.
+
+## Active-learning queue
+
+```bash
+leviathan --store pilot.db review active <projectId> [--limit 100] [--out queue.csv]
+```
+
+Ranks lines by explicit reasons: missing/empty L0, low mean confidence, never reviewed and
+reviewer disagreement. Scores are a transparent review heuristic, not calibrated risk; the CSV
+contains the reasons for audit.
 
 ## Review queue
 
