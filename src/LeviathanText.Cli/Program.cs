@@ -1225,6 +1225,112 @@ public static class Program
         return 0;
     }
 
+    private static int ImageOcrXml(string[] args)
+    {
+        string? Flag(string name) =>
+            Array.IndexOf(args, name) is var index && index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+        var xmlPath = args[2];
+        var output = args[3];
+        var package = Flag("--package")
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = "--package",
+                Message = "A verified model package is required for XML OCR.",
+            });
+        var linetype = Flag("--linetype") ?? "auto";
+        var format = Flag("--format") ?? "text";
+        if (linetype is not ("auto" or "baselines" or "bbox"))
+            throw new ArgumentException($"Unsupported --linetype '{linetype}'; use auto, baselines or bbox.");
+        if (format is not ("text" or "json"))
+            throw new ArgumentException($"XML OCR supports --format text or json (not '{format}').");
+
+        var content = File.ReadAllText(xmlPath);
+        var kind = LegacyFormats.Detect(content);
+        (IReadOnlyList<NativeRegion> Regions, IReadOnlyList<NativeLine> Lines,
+            IReadOnlyList<TextRevision> Revisions, IReadOnlyList<PageXml.ImportIssue> Unsupported) parsed;
+        string? declaredImage = null;
+        switch (kind)
+        {
+            case LegacyFormat.Page:
+                var page = PageXml.Import(content, new EntityId(EntityKind.Capture, "xml"), new Checksum { Algorithm = "unavailable", Digest = "pending" });
+                parsed = (page.Regions, page.Lines, page.Revisions, page.Unsupported);
+                declaredImage = page.ImageFilename;
+                break;
+            case LegacyFormat.Alto:
+                var alto = AltoXml.Import(content, new EntityId(EntityKind.Capture, "xml"), new Checksum { Algorithm = "unavailable", Digest = "pending" });
+                parsed = (alto.Regions, alto.Lines, alto.Revisions, alto.Unsupported);
+                break;
+            default:
+                throw new ArgumentException("XML OCR supports PAGE PcGts and ALTO documents; hOCR/ABBYY OCR input is not implemented.");
+        }
+
+        var imagePath = Flag("--image") ?? declaredImage;
+        if (string.IsNullOrWhiteSpace(imagePath))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = "--image",
+                Message = "The XML document does not name an image; pass --image <path>.",
+            });
+        if (!Path.IsPathRooted(imagePath))
+            imagePath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(xmlPath))!, imagePath);
+        if (!File.Exists(imagePath))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = imagePath,
+                Message = "The page image named by the XML document was not found.",
+            });
+
+        using var decoded = ImageDecoder.Decode(imagePath);
+        var selected = parsed.Lines.Where(line => line.Polygon.Count >= 3 || line.Baseline.Count >= 2).ToList();
+        var images = new List<LineImage>();
+        var boxes = new List<(int Left, int Top, int Right, int Bottom)>();
+        foreach (var line in selected)
+        {
+            var geometry = linetype == "baselines" ? line.Baseline
+                : linetype == "bbox" ? line.Polygon
+                : line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
+            if (geometry.Count < 2) continue;
+            var points = geometry.Select(p => new SKPoint((float)p.X, (float)p.Y)).ToArray();
+            var extracted = LineCropper.Extract(decoded.Bitmap, points);
+            try
+            {
+                images.Add(RecognitionPipeline.ToLineImage(extracted.Bitmap));
+                boxes.Add((
+                    (int)Math.Floor(points.Min(p => p.X)), (int)Math.Floor(points.Min(p => p.Y)),
+                    (int)Math.Ceiling(points.Max(p => p.X)), (int)Math.Ceiling(points.Max(p => p.Y))));
+            }
+            finally
+            {
+                extracted.Bitmap.Dispose();
+            }
+        }
+
+        var recognizer = RecognitionModelLoader.Load(package).CreateRecognizer();
+        var results = images.Count == 0 ? [] : recognizer.Recognize(images);
+        var entries = results.Select((result, i) => new
+        {
+            bbox = new[] { boxes[i].Left, boxes[i].Top, boxes[i].Right, boxes[i].Bottom },
+            text = result.Text,
+        }).ToArray();
+        var outputText = format == "json"
+            ? System.Text.Json.JsonSerializer.Serialize(new
+            {
+                type = "ocr",
+                image = Path.GetFileName(imagePath),
+                linetype,
+                lines = entries,
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })
+            : string.Join(Environment.NewLine, entries.Select(entry => entry.text)) + Environment.NewLine;
+        var directory = Path.GetDirectoryName(Path.GetFullPath(output));
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllText(output, outputText);
+        Console.WriteLine($"recognized: {output} ({entries.Length} XML line(s), {format}, {linetype})");
+        return 0;
+    }
+
     private static int ImageDewarp(string[] args)
     {
         string? Flag(string name) =>
@@ -1251,6 +1357,8 @@ public static class Program
 
         var input = args[2];
         var output = args[3];
+        if (Flag("--input-format") == "xml" || input.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            return ImageOcrXml(args);
         var package = Flag("--package")
             ?? throw new LeviathanException(new LeviathanError
             {
@@ -1544,6 +1652,7 @@ public static class Program
               leviathan image binarize <input-image> <output.png>
               leviathan image segment <input-image> <output> [--format json|page|alto] [--direction horizontal-lr|horizontal-rl]
               leviathan image ocr <input-image> <output> --package <model-package-dir> [--mode line|segment] [--format text|json|page|alto]
+              leviathan image ocr <input.page.xml> <output> --package <model-package-dir> [--image <page-image>] [--linetype auto|baselines|bbox] [--format text|json]
               leviathan image dewarp <input-image> <output.png> [--height 64]
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>

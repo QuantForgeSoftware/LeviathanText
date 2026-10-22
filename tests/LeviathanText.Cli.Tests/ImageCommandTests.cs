@@ -197,6 +197,37 @@ public sealed class ImageCommandTests : IDisposable
     }
 
     [Fact]
+    public void Ocr_accepts_page_xml_input_and_honours_linetype()
+    {
+        var image = PathOf("xml-page.png");
+        WritePageWithBars(image);
+        var xml = PathOf("input.page.xml");
+        File.WriteAllText(xml, """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="xml-page.png" imageWidth="180" imageHeight="100">
+                <TextRegion id="r1"><Coords points="0,0 180,0 180,100 0,100"/>
+                  <TextLine id="l1"><Coords points="15,15 165,15 165,23 15,23"/><Baseline points="15,23 165,23"/></TextLine>
+                  <TextLine id="l2"><Coords points="15,40 165,40 165,48 15,48"/><Baseline points="15,48 165,48"/></TextLine>
+                </TextRegion>
+              </Page>
+            </PcGts>
+            """);
+        var output = PathOf("xml-ocr.json");
+        var package = CreatePackage();
+
+        Assert.Equal(0, Run("image", "ocr", xml, output, "--package", package,
+            "--linetype", "auto", "--format", "json"));
+        using var json = JsonDocument.Parse(File.ReadAllText(output));
+        Assert.Equal(2, json.RootElement.GetProperty("lines").GetArrayLength());
+        Assert.Equal("auto", json.RootElement.GetProperty("linetype").GetString());
+
+        Assert.Equal(0, Run("image", "ocr", xml, output, "--package", package,
+            "--linetype", "baselines", "--format", "json"));
+        using var baselineJson = JsonDocument.Parse(File.ReadAllText(output));
+        Assert.Equal(2, baselineJson.RootElement.GetProperty("lines").GetArrayLength());
+    }
+
+    [Fact]
     public void Ocr_without_a_package_fails_clearly()
     {
         var input = PathOf("ocr-missing-package.png");
