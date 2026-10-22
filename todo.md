@@ -4,6 +4,20 @@ Open and in-progress checklist items, grouped by the plan sections/phases. Plan 
 
 Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle end.
 
+## Now — doable without external inputs
+
+These are the active code/docs slices that do not require reviewer decisions, fresh image/label pairs, rights grants, or verified model weights. Parent capability sections below retain only their blocked work.
+
+- [ ] **Codec resize/merge parity:** implement `fail`/`new`/`union` resizing, NFD normalization and encode/decode tests (`test_merging.py`).
+- [ ] **RTL recognition records:** bbox/baseline records, logical/display order, slicing/cuts and region/order tests; full BiDi and RTL recognition remain blocked.
+- [ ] **Forced-alignment baseline-OCR records:** aligned cuts/confidence serialization and record-count/region tests.
+- [ ] **Tokenizer/script coverage:** unknown-grapheme reporting, script detection and mixed-script routing checks.
+- [ ] **XML edge matrix:** additional PAGE/ALTO metadata, malformed/schema-shaped round trips and available XSD validation.
+- [ ] **DATA-01 ledger validation:** object IDs, parent-image lineage, label granularity, language/period/material, separate image/text/annotation/code/weight licences, evidence URL and unresolved questions.
+- [ ] **PDF reading-order/column inference mechanics:** heuristic and synthetic multi-column tests; no real-document accuracy claim until measured.
+- [ ] **Chained `segment → ocr` CLI convenience:** explicit command/alias over the existing `image ocr --mode segment`.
+- [ ] **Publication docs:** installation, transcription, training, provider-configuration, model-card and known-failure docs; verified fresh-offline-with-installed-models remains blocked until weights exist.
+
 ## 3. Reference capability inventory and release scope
 
 ### Greek transcription contract — required before labeling data
@@ -28,7 +42,6 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 - [ ] Assemble independently licensed initial corpora and consented/owned project samples. Record provenance, allowed uses and redistribution terms separately for images, annotations and weights.
 - [ ] Split by physical witness/object and, for generalization tests, by hand/collection before augmentation. Keep fragments, alternate lighting captures, crops and derived images of one object in the same split. Track repeated passages and editions separately when evaluating AI or language-assisted reading.
 - [~] Build region/baseline detection and reading-order training modules; specify their annotations, loss functions and evaluation contracts before implementation. *(line detection: patch/row CNN trained on PAGE boxes with page-level splits, opt-in per material, architecture/package validation, dev-tuned decoding; measured M02a P 0.965/R 0.987 vs projection 0.523/0.545 and page CER 0.971→0.942. Reading-order learning and region (column) segmentation remain; P01 model not adopted).*
-- [ ] Support configurable alphabets/tokenizers, unknown-character reporting and mixed-script routing. Avoid a Latin-only core assumption.
 - [ ] Bundle or distribute an initial model only after its rights and measured capabilities are recorded. A working engine without usable weights is not a usable OCR release.
 - [~] Define a native model package: architecture/version, weights, tokenizer, preprocessing, directions/scripts, runtime requirements, provenance, metrics, hashes and license metadata. *(manifest/model card now carry architecture, tokenizer/preprocessing, directions/scripts, runtime, provenance, license, metrics and checkpoint/label hashes; distribution remains blocked on verified weights/licence.)*
 - [~] Reject executable model payloads; enforce archive size/path limits and compatibility checks. *(model/metadata/manifest/optimizer size bounds, executable-payload rejection and incompatible-package checks; packages are directories, so archive-path checks are not applicable.)*
@@ -43,7 +56,6 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 ### Intake backlog, ownership and unresolved gaps
 
-- [ ] **DATA-01 (shared convention; integrator):** define the ledger fields: source ID/version/commit, URL/DOI, retrieval date, checksum, object/surface/hand/TM or inventory IDs, parent-image lineage, label granularity, language/period/material, transcription profile, separate image/text/annotation/code/weight license identifiers, exact evidence URL/notice, attribution, exceptions, allowed intended use and unresolved questions. Record a source as pending if its evidence is missing.
 - [ ] **MAN-01 (D-M):** acquire and inventory M01/M02, count valid image/PAGE pairs and lines, reconcile count discrepancies, sample-check image provenance and abbreviation/diacritic treatment. Add M03 only with its distinct obligations retained. Propose witness/hand holdouts, not a random line split.
 - [ ] **PAP-01 (D-P):** inspect P01's 27 named pairs; convert its annotations into the agreed diplomatic profile and label the five extra images as unannotated. Audit line/character counts and source-image notices before setting volume targets.
 - [ ] **PAP-02 (D-P):** produce an include/exclude ledger for reusable P02/P03 images; resolve P04's source-rights mapping. Match P05 texts to authorized photographs, including a Greek-only P06 inventory, and estimate missing line-label work.
@@ -89,7 +101,7 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 - [ ] Add printed Greek editions/critical apparatus layouts and other scripts according to user priorities.
 - [~] Add explicit RTL/BiDi/vertical direction and script metadata per region/line, and use it in editing/display/interchange without guessing from language. *(native fields + PAGE readingDirection/primaryScript + hOCR dir/ocr_vertical + ALTO BASEDIRECTION + bounded TEI rend round-trip; API orientation endpoints; editor/display support. Remaining: full BiDi layout and vertical recognition.)*
-- [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization + optional coordinate-bearing PDF text as L2 reference with gap-based line segmentation are implemented; PDF reading-order/column inference and ABBYY XML remain.)*
+- [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization + optional coordinate-bearing PDF text as L2 reference with gap-based line segmentation and ABBYY XML import/export are implemented; PDF reading-order/column mechanics are tracked in Now.)*
 - [ ] Extend AI to translation, structured extraction, optional lexical/morphological annotations and bulk workflows with source references.
 - [ ] Reconcile every reference capability row against acceptance evidence before claiming full parity.
 - [ ] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions.
@@ -98,8 +110,6 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 - [~] Package CLI, server, workers, Angular assets and required model artifacts for the supported target matrix; verify operation without Kraken or Python. *(osx-arm64 framework-dependent package + manifest + CLI smoke verified; web assets served at /ui when WebRoot is set. Other targets untested; model weights are intentionally not bundled.)*
 - [~] Complete throughput/resource profiling, backup/restore, schema migrations, install/update/rollback checks and dependency inventory. *(backup/restore rehearsal PASS; schema v1–v7 migration tests and an old-binary migration/rollback rehearsal PASS; dependency inventory includes PDFium; throughput: single-page startup/import/layout/export/backup profile recorded, sustained collection load remains; installers/updaters and cross-platform rollback remain.)*
-- [ ] Publish supported materials/hands/captures, annotation conventions, model cards, benchmark results and known failure conditions.
-- [ ] Publish installation, transcription, training, provider-configuration and migration instructions; verify a fresh offline installation with installed models.
 
 ## 8. Migration and rollout
 
@@ -125,18 +135,15 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 Full 305-test inventory and status: [docs/quality/kraken-test-parity.md](docs/quality/kraken-test-parity.md). Scenarios are reimplemented in C#/xUnit; Python/Torch/Kraken internals are explicitly marked non-applicable rather than claimed.
 
 - [~] Maintain the 305-test parity matrix and map each test to a Leviathan test or capability item.
+- [~] Portable remaining parity slices (XML matrix, CLI chain, RTL records, forced-alignment records) are consolidated in [Now](#now--doable-without-external-inputs); the full 305-test inventory remains in [docs/quality/kraken-test-parity.md](docs/quality/kraken-test-parity.md).
 - [~] Reading order: region containment, over/under and touching lines, LTR/RTL horizontal order, real reversed rows and partial-order topological sort (`test_readingorder.py`, 15 scenarios). *(portable helper + 9 xUnit scenarios; integration into multi-column layout remains.)*
 - [~] Geometry: baseline ↔ bbox conversion, boundary fallback, text-direction/topline placement, degenerate boxes and input immutability (`test_container.py`, 16 scenarios). *(helper + 5 xUnit scenarios; adapters/UI conversion remains.)*
 - [~] Segmentation metrics: empty truth/prediction semantics, extra-prediction precision penalty, tolerance monotonicity and aggregate (`test_segmentation_metrics.py`, 5 scenarios). *(DetectionMetrics helper + 3 xUnit scenarios; metric selection/integration remains.)*
-- [~] XML/format edges: PAGE/ALTO auto-detection, zero-dimension fallback, baseline direction, malformed documents and round trips (`test_xml.py`, 32 scenarios; overlapping `test_serialization.py`). *(legacy auto-detection, malformed docs, PAGE/ALTO language/tag/split inheritance, ALTO LANG/BASEDIRECTION/BASELINE export, PAGE/ALTO explicit ReadingOrder group preservation (total vs partial unordered), PAGE explicit ReadingOrder export, declared page dimensions with image fallback and invalid-dimension rejection, ALTO pixel-unit/empty-source validation, ALTO Rect/line-level geometry fallback; remaining: full XML metadata/schema edge matrix.)*
 - [~] ABBYY XML serializer/deserializer with a bounded profile and loss reporting (`test_serialization.py`). *(bounded FineReader 10 export/import, CLI/API/bundle + 3 xUnit scenarios; schema validation and richer metadata remain.)*
 - [~] Label codec strictness: encode/decode, unknown labels, strict vs non-strict behavior and add-simple (`test_codec.py`, 11 scenarios). *(general LabelCodec + 7 xUnit scenarios; model integration remains optional.)*
 - [~] Model loading: missing/invalid packages, version compatibility, task filters and safe weight round trips (`test_loaders.py`/`test_models.py`, 21 scenarios). *(task/package-format fields, task-filtered `LoadAll`, malformed/missing-package rejection, size bounds, read-only package catalog + 8 xUnit scenarios; legacy/format migration and multi-model containers remain.)*
-- [~] CLI contracts: output formats, segmentation modes, missing-model failures and XML input line types (`test_cli.py`, 11 scenarios). *(image-only `image binarize`, `image segment` and `image ocr` with JSON/PAGE/ALTO/text output, line/segment modes, direction flag, PAGE/ALTO XML input and auto/baselines/bbox line types, source-overwrite guard + 10 CLI process tests; a single chained segment→ocr command remains.)*
 - [~] Training recovery: checkpoint-on-failure, resume and interruption behavior (`test_train_utils.py`/`test_ketos_training.py`, 5 scenarios). *(separate reloadable `.failure` checkpoint on exception/cancellation, original error preserved, resume already covered + 2 xUnit scenarios; segmentation/reading-order training smokes remain.)*
-- [~] Dataset/baseline operations: filters, merges, input transform validation and baseline set behavior (`test_dataset.py`/`test_merging.py`, 17 scenarios). *(ordered class map, target rasterization, channel-major line input transform, PAGE/image baseline dataset loader with explicit missing-image/geometry issues + 11 xUnit scenarios; codec-merging parity remains.)*
+- [~] Dataset/baseline operations: filters, merges, input transform validation and baseline set behavior (`test_dataset.py`/`test_merging.py`, 17 scenarios). *(ordered class map, target rasterization, channel-major line input transform, PAGE/image baseline dataset loader with explicit missing-image/geometry issues + 11 xUnit scenarios; codec merging is tracked in Now.)*
 - [~] Imaging behavior: binarization/BW handling, page segmentation and dewarp failures (`test_binarization.py`/`test_pageseg.py`/`test_lineest.py`, 8 scenarios). *(Otsu/BW utility + 3 xUnit scenarios; bi-level page-segmentation contract + 3 tests; bounded line dewarper (grayscale/BW, color rejection, drift reduction) + 5 tests. Full center-normalizer parity remains.)*
-- [~] RTL/BiDi and recognition records: bbox/baseline records, logical/display ordering and RTL predictions (`test_rpred.py`/`test_tasks.py`, 71 scenarios). *(bounded logical/display grapheme-order record with explicit RTL flag/offset rebasing + 4 xUnit scenarios; bbox/baseline records, slicing/cuts, full BiDi and RTL recognition remain.)*
-- [~] Forced alignment task: region assignment, record count and baseline OCR (`test_align.py`, 9 scenarios). *(bounded CTC Viterbi aligner, task records with line/region/bbox and per-grapheme spans + 8 xUnit scenarios; full task-model API and baseline-OCR serialization remain.)*
 - [ ] Remote model registry/catalog behavior (`test_repo.py`, 3 scenarios).
 - [ ] Not applicable by design: Apache Arrow dataset backend, PyTorch layers, Kraken VGSL, legacy Kraken weights/polygons and Python entry points (`test_arrow_dataset.py`, `test_layers.py`, `test_vgsl.py`, `test_newpolygons.py`, `test_plugins.py`).
