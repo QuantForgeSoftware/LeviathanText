@@ -34,7 +34,13 @@ public static class ModelPackageWriter
 
         Directory.CreateDirectory(packageDirectory);
 
-        var modelPath = Copy(CheckpointStore.ModelPath(sourceCheckpointDirectory, modelName, ".best"), packageDirectory);
+        var sourceModel = CheckpointStore.ModelPath(sourceCheckpointDirectory, modelName, ".best");
+        ModelPackageLimits.EnsureFileSize(sourceModel, ModelPackageLimits.MaxModelBytes, "model weights");
+        ModelPackageLimits.EnsureFileSize(CheckpointStore.OptimizerPath(sourceCheckpointDirectory, modelName, ".best"),
+            ModelPackageLimits.MaxOptimizerBytes, "optimizer state");
+        ModelPackageLimits.EnsureFileSize(CheckpointStore.MetadataPath(sourceCheckpointDirectory, modelName, ".best"),
+            ModelPackageLimits.MaxMetadataBytes, "checkpoint metadata");
+        var modelPath = Copy(sourceModel, packageDirectory);
         var optimizerPath = Copy(CheckpointStore.OptimizerPath(sourceCheckpointDirectory, modelName, ".best"), packageDirectory);
         var metadataPath = Copy(CheckpointStore.MetadataPath(sourceCheckpointDirectory, modelName, ".best"), packageDirectory);
 

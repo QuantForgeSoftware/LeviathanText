@@ -107,6 +107,23 @@ public class ModelLoaderTaskTests
     }
 
     [Fact]
+    public void Oversized_model_and_metadata_are_rejected()
+    {
+        var directory = NewPackage();
+        var modelPath = CheckpointStore.ModelPath(directory, "tiny", ".best");
+        using (var stream = new FileStream(modelPath, FileMode.Open, FileAccess.Write))
+            stream.SetLength(ModelPackageLimits.MaxModelBytes + 1);
+
+        var modelEx = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, modelEx.Error.Code);
+
+        var metadataPath = CheckpointStore.MetadataPath(directory, "tiny", ".best");
+        File.WriteAllBytes(metadataPath, new byte[ModelPackageLimits.MaxMetadataBytes + 1]);
+        var metadataEx = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, metadataEx.Error.Code);
+    }
+
+    [Fact]
     public void Missing_package_directory_is_model_incompatible()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-model-loader-tests", Guid.NewGuid().ToString("N"));

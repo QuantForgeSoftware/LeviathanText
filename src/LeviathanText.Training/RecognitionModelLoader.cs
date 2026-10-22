@@ -57,6 +57,7 @@ public static class RecognitionModelLoader
         try
         {
             var manifestPath = Path.Combine(packageDirectory, ManifestFileName);
+            ModelPackageLimits.EnsureFileSize(manifestPath, ModelPackageLimits.MaxManifestBytes, "run manifest");
             manifest = File.Exists(manifestPath) ? TrainingRunManifestWriter.Read(manifestPath) : null;
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException)
@@ -79,6 +80,9 @@ public static class RecognitionModelLoader
         CheckpointMetadata metadata;
         try
         {
+            ModelPackageLimits.EnsureFileSize(
+                CheckpointStore.MetadataPath(packageDirectory, modelName, ".best"),
+                ModelPackageLimits.MaxMetadataBytes, "checkpoint metadata");
             metadata = CheckpointStore.ReadMetadata(packageDirectory, modelName, ".best");
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException
@@ -97,6 +101,14 @@ public static class RecognitionModelLoader
         var modelPath = CheckpointStore.ModelPath(packageDirectory, modelName, ".best");
         if (!File.Exists(modelPath))
             throw Incompatible(modelName, "model weights are missing from the package");
+        try
+        {
+            ModelPackageLimits.EnsureFileSize(modelPath, ModelPackageLimits.MaxModelBytes, "model weights");
+        }
+        catch (InvalidDataException)
+        {
+            throw Incompatible(modelName, "model weights exceed the package size limit");
+        }
 
         if (manifest is not null && !string.IsNullOrEmpty(manifest.CheckpointDigest)
             && !string.Equals(TrainingRunManifestWriter.FileDigest(modelPath), manifest.CheckpointDigest, StringComparison.Ordinal))

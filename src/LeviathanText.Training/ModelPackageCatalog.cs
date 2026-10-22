@@ -71,9 +71,14 @@ public static class ModelPackageCatalog
                 modelName = Path.GetFileName(metadataFiles[0]).Replace(".best.json", string.Empty, StringComparison.Ordinal);
             }
 
+            ModelPackageLimits.EnsureFileSize(
+                CheckpointStore.MetadataPath(directory, modelName, ".best"),
+                ModelPackageLimits.MaxMetadataBytes, "checkpoint metadata");
             var metadata = CheckpointStore.ReadMetadata(directory, modelName, ".best");
             if (metadata.Labels.Count == 0) return null;
-            if (!File.Exists(CheckpointStore.ModelPath(directory, modelName, ".best"))) return null;
+            var modelPath = CheckpointStore.ModelPath(directory, modelName, ".best");
+            if (!File.Exists(modelPath)) return null;
+            ModelPackageLimits.EnsureFileSize(modelPath, ModelPackageLimits.MaxModelBytes, "model weights");
             var labels = new Recognition.LabelSet(metadata.Labels);
             if (!string.Equals(CheckpointStore.LabelSetHash(labels), metadata.LabelSetHash, StringComparison.Ordinal))
                 return null;
