@@ -42,6 +42,26 @@ public sealed class CorpusManifestAuditTests
     }
 
     [Fact]
+    public void Extended_audit_requires_lineage_licence_and_profile_fields()
+    {
+        var extended = Valid.Replace("""
+            "allowed_intended_use": "dev",
+            """, """
+            "allowed_intended_use": "dev",
+            "source_commit": "abc123", "object_ids": ["obj-1"], "parent_image_lineage": "capture-1",
+            "label_granularity": "line", "language": "grc", "period": "roman", "material": "papyrus",
+            "transcription_profile": "profile-v1", "license_code": "MIT", "license_weight": "cc-by-4.0",
+            "evidence_url": "https://example.test/evidence", "unresolved_questions": "none",
+            """);
+        Assert.Empty(CorpusManifestAudit.Audit(extended, extended: true));
+
+        var issues = CorpusManifestAudit.Audit(Valid, extended: true);
+        Assert.Contains(issues, issue => issue.Field == "object_ids" && issue.Severity == CorpusManifestAudit.Severity.Error);
+        Assert.Contains(issues, issue => issue.Field == "transcription_profile");
+        Assert.Contains(issues, issue => issue.Field == "license_weight");
+    }
+
+    [Fact]
     public void Empty_sources_are_an_error()
     {
         var issues = CorpusManifestAudit.Audit("""

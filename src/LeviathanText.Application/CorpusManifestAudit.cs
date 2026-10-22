@@ -15,6 +15,13 @@ public static class CorpusManifestAudit
 
     public sealed record Issue(string SourceId, string Field, Severity Severity, string Message);
 
+    private static readonly string[] ExtendedSourceFields =
+    [
+        "source_commit", "object_ids", "parent_image_lineage", "label_granularity",
+        "language", "period", "material", "transcription_profile", "license_code",
+        "license_weight", "evidence_url", "unresolved_questions",
+    ];
+
     private static readonly string[] RequiredSourceFields =
     [
         "source_id", "source_version", "url_doi", "retrieval_date", "content_checksums",
@@ -22,7 +29,7 @@ public static class CorpusManifestAudit
         "license_evidence", "attribution", "allowed_intended_use",
     ];
 
-    public static IReadOnlyList<Issue> Audit(string json)
+    public static IReadOnlyList<Issue> Audit(string json, bool extended = false)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -55,6 +62,14 @@ public static class CorpusManifestAudit
                     || (value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(value.GetString())))
                     issues.Add(new Issue(id, field, Severity.Error, "Required source field is missing or empty."));
             }
+
+            if (extended)
+                foreach (var field in ExtendedSourceFields)
+                    if (!source.TryGetProperty(field, out var value)
+                        || value.ValueKind is JsonValueKind.Null
+                        || (value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(value.GetString())))
+                        issues.Add(new Issue(id, field, Severity.Error,
+                            "Required extended-ledger field is missing or empty."));
 
             foreach (var licenseField in new[] { "license_image", "license_text", "license_annotation" })
                 if (source.TryGetProperty(licenseField, out var license)

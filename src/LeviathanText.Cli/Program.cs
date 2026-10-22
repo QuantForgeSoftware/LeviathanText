@@ -750,12 +750,13 @@ public static class Program
             {
                 var directory = rest[2];
                 var strict = rest.Contains("--strict");
+                var extended = rest.Contains("--extended");
                 var files = Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories)
                     .OrderBy(f => f, StringComparer.Ordinal).ToList();
                 int errors = 0, warnings = 0;
                 foreach (var file in files)
                 {
-                    var issues = CorpusManifestAudit.Audit(File.ReadAllText(file));
+                    var issues = CorpusManifestAudit.Audit(File.ReadAllText(file), extended);
                     errors += issues.Count(i => i.Severity == CorpusManifestAudit.Severity.Error);
                     warnings += issues.Count(i => i.Severity == CorpusManifestAudit.Severity.Warning);
                     foreach (var issue in issues)
