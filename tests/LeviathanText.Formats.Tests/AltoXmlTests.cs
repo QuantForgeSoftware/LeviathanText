@@ -230,6 +230,31 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Explicit_reading_order_groups_are_preserved()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <ReadingOrder>
+                <OrderedGroup ID="ro_total"><ElementRef REF="l1"/><ElementRef REF="l2"/></OrderedGroup>
+                <UnorderedGroup ID="ug">
+                  <OrderedGroup ID="ro_a"><ElementRef REF="l1"/></OrderedGroup>
+                  <OrderedGroup ID="ro_b"><ElementRef REF="l2"/></OrderedGroup>
+                </UnorderedGroup>
+              </ReadingOrder>
+              <Layout><Page WIDTH="100" HEIGHT="50"><PrintSpace>
+                <TextBlock ID="b1"><TextLine ID="l1"><Shape><Polygon POINTS="0,0 10,0 10,10 0,10"/></Shape></TextLine>
+                  <TextLine ID="l2"><Shape><Polygon POINTS="0,20 10,20 10,30 0,30"/></Shape></TextLine></TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        var imported = AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(3, imported.ReadingOrders.Count);
+        Assert.True(imported.ReadingOrders.Single(g => g.Id == "ro_total").IsTotal);
+        Assert.False(imported.ReadingOrders.Single(g => g.Id == "ro_a").IsTotal);
+        Assert.Equal(["l1"], imported.ReadingOrders.Single(g => g.Id == "ro_a").RegionRefs);
+    }
+
+    [Fact]
     public void Invalid_declared_dimensions_are_refused()
     {
         var xml = """

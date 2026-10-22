@@ -27,6 +27,7 @@ set: C0-0.4-draft.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
 - **Model catalog:** read-only package discovery with task/format metadata and API listing.
 - **Segmentation class map:** ordered filter/merge/canonical mapping and region/baseline target rasterization.
+- **ALTO reading-order groups:** total and partial explicit groups are preserved.
 - **PAGE reading-order groups:** total ordered groups and partial groups under unordered parents are preserved.
 - **XML dimensions:** invalid declared page dimensions are rejected; zero/missing still falls back to the image.
 - **ALTO geometry/direction:** BASEDIRECTION inheritance, BASELINE parse/export and declared page dimensions with image fallback.

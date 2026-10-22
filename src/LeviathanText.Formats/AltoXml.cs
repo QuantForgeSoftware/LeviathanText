@@ -28,6 +28,9 @@ public static class AltoXml
 
         /// <summary>Declared page height; zero/missing is treated as unavailable.</summary>
         public int? HeightPx { get; init; }
+
+        /// <summary>Explicit ALTO reading-order groups; element refs are source IDs.</summary>
+        public IReadOnlyList<PageXml.ReadingOrderGroup> ReadingOrders { get; init; } = [];
     }
 
     public static string Export(NativeSurface surface, NativeCapture capture, IReadOnlyList<TextRevision> revisions)
@@ -110,6 +113,7 @@ public static class AltoXml
                 Label: (string?)e.Attribute("LABEL")));
         var page = root.Descendants(Alto + "Page").FirstOrDefault();
         var pageMetadata = MetadataOf(page ?? root, tagMap);
+        var readingOrders = ParseReadingOrders(root);
         int regionOrder = 0;
 
         foreach (var block in root.Descendants(Alto + "TextBlock"))
@@ -180,6 +184,7 @@ public static class AltoXml
         {
             WidthPx = PositiveInt((string?)page?.Attribute("WIDTH")),
             HeightPx = PositiveInt((string?)page?.Attribute("HEIGHT")),
+            ReadingOrders = readingOrders,
         };
     }
 
@@ -217,6 +222,38 @@ public static class AltoXml
         return new Metadata(languages.Distinct(StringComparer.Ordinal).ToArray(),
             tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), split,
             ParseDirection((string?)element.Attribute("BASEDIRECTION")));
+    }
+
+    private static IReadOnlyList<PageXml.ReadingOrderGroup> ParseReadingOrders(XElement root)
+    {
+        var groups = new List<PageXml.ReadingOrderGroup>();
+        foreach (var readingOrder in root.Elements(Alto + "ReadingOrder"))
+        {
+            foreach (var child in readingOrder.Elements())
+            {
+                if (child.Name == Alto + "OrderedGroup")
+                    AddGroup(child, isTotal: true);
+                else if (child.Name == Alto + "UnorderedGroup")
+                    foreach (var ordered in child.Elements(Alto + "OrderedGroup"))
+                        AddGroup(ordered, isTotal: false);
+            }
+        }
+        return groups;
+
+        void AddGroup(XElement group, bool isTotal)
+        {
+            var refs = group.Descendants()
+                .Where(element => element.Name == Alto + "ElementRef" || element.Name == Alto + "RegionRef")
+                .Select(element => ExternalIds.Sanitize(
+                    (string?)element.Attribute("REF") ?? (string?)element.Attribute("ref") ?? ""))
+                .Where(id => id.Length > 0)
+                .ToArray();
+            groups.Add(new PageXml.ReadingOrderGroup(
+                ExternalIds.Sanitize((string?)group.Attribute("ID") ?? $"ro{groups.Count}"),
+                (string?)group.Attribute("TAGREFS"),
+                isTotal,
+                refs));
+        }
     }
 
     private static TextDirection? ParseDirection(string? value) => value?.Trim().ToLowerInvariant() switch
