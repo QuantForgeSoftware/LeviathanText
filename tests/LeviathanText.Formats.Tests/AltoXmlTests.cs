@@ -255,6 +255,30 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Non_pixel_measurement_unit_and_empty_source_image_are_refused()
+    {
+        var badUnit = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Description><MeasurementUnit>mm</MeasurementUnit></Description>
+              <Layout><Page WIDTH="100" HEIGHT="50"/></Layout>
+            </alto>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            AltoXml.Import(badUnit, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+
+        var emptyImage = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Description><MeasurementUnit>pixel</MeasurementUnit>
+                <sourceImageInformation><fileName></fileName></sourceImageInformation>
+              </Description>
+              <Layout><Page WIDTH="100" HEIGHT="50"/></Layout>
+            </alto>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            AltoXml.Import(emptyImage, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+    }
+
+    [Fact]
     public void Invalid_declared_dimensions_are_refused()
     {
         var xml = """

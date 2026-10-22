@@ -102,6 +102,15 @@ public static class AltoXml
         if (root.Name.Namespace.NamespaceName != Alto.NamespaceName)
             throw new InvalidDataException($"ALTO namespace {root.Name.Namespace} is not the pinned v4 namespace.");
 
+        var description = root.Element(Alto + "Description");
+        var measurementUnit = (string?)description?.Element(Alto + "MeasurementUnit");
+        if (!string.IsNullOrWhiteSpace(measurementUnit)
+            && !string.Equals(measurementUnit, "pixel", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"ALTO measurement unit '{measurementUnit}' is unsupported; coordinates are interpreted as pixels.");
+        var sourceImage = description?.Element(Alto + "sourceImageInformation")?.Element(Alto + "fileName");
+        if (sourceImage is not null && string.IsNullOrWhiteSpace(sourceImage.Value))
+            throw new InvalidDataException("ALTO sourceImageInformation/fileName is present but empty.");
+
         var unsupported = new List<PageXml.ImportIssue>();
         var regions = new List<NativeRegion>();
         var lines = new List<NativeLine>();

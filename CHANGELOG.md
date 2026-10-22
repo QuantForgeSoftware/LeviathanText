@@ -29,6 +29,7 @@ set: C0-0.4-draft.
 - **Model package limits:** bounded model/metadata/manifest/optimizer sizes before loading.
 - **Model catalog:** read-only package discovery with task/format metadata and API listing.
 - **Segmentation class map:** ordered filter/merge/canonical mapping and region/baseline target rasterization.
+- **ALTO validation:** non-pixel measurement units and empty source-image names are rejected.
 - **ALTO reading-order groups:** total and partial explicit groups are preserved.
 - **PAGE reading-order groups:** total ordered groups and partial groups under unordered parents are preserved.
 - **XML dimensions:** invalid declared page dimensions are rejected; zero/missing still falls back to the image.
