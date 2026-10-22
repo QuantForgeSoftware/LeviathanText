@@ -25,6 +25,7 @@ set: C0-0.4-draft.
 - **Page segmentation:** bi-level bbox contract rejecting color input, wired into `image segment`.
 - **XML OCR CLI:** PAGE/ALTO input with image resolution and auto/baselines/bbox line types.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
+- **Line input transforms:** deterministic resize, channel-major 1/3-channel output and forced binarization.
 - **Forced alignment:** bounded CTC Viterbi alignment with per-grapheme time spans and confidence.
 - **Model package safety:** executable payloads are rejected before loading.
 - **Model package limits:** bounded model/metadata/manifest/optimizer sizes before loading.
