@@ -26,7 +26,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_pageseg.py` | 2 | partial | bi-level bbox contract; full page-seg model remains |
 | `test_plugins.py` | 1 | not-applicable | Python entry-point discovery; no first-party Python |
 | `test_readingorder.py` | 15 | partial | geometric reading order + topological sort |
-| `test_repo.py` | 3 | feature-gap | remote model registry/catalog |
+| `test_repo.py` | 3 | partial | strict registry index parsing/HTTP fetch; download UI/trust remain |
 | `test_rpred.py` | 37 | partial | record ordering primitive; cuts/bbox/baseline records and full BiDi remain |
 | `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate |
 | `test_serialization.py` | 4 | partial | PAGE/ALTO/hOCR/ABBYY serialization |

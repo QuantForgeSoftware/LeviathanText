@@ -34,6 +34,8 @@ set: C0-0.4-draft.
 - **Tokenizer coverage:** script detection, unknown-grapheme report and mixed-script routing.
 - **Forced-alignment baseline OCR:** baseline/boundary, per-grapheme cuts and JSON round trips.
 - **Recognition records:** bbox/baseline/region geometry and bounded slicing/cuts.
+- **Column grouping:** bounded line-center column split with synthetic tests.
+- **Model registry:** strict remote index parser and bounded HTTP fetch.
 - **Active learning/regression:** reason-coded review priority queue and declarative per-profile run regression suite.
 - **Source excerpts:** authenticated per-line crop endpoint and editor preview.
 - **Offset invariants:** shared C#/Angular scalar/UTF-16 fixture.
