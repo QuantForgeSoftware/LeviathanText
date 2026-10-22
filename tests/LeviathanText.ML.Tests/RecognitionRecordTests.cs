@@ -57,6 +57,45 @@ public class RecognitionRecordTests
     }
 
     [Fact]
+    public void Bbox_baseline_region_and_slice_are_preserved()
+    {
+        var record = new RecognitionRecord("l1", "αβγ",
+        [
+            new GraphemeConfidence(0, 1, Confidence.Of(0.9, ConfidenceScale.RawModelProbability)),
+            new GraphemeConfidence(1, 2, Confidence.Of(0.8, ConfidenceScale.RawModelProbability)),
+            new GraphemeConfidence(2, 3, Confidence.Of(0.7, ConfidenceScale.RawModelProbability)),
+        ])
+        {
+            RegionId = new EntityId(EntityKind.Region, "r1"),
+            Bbox = (10, 20, 110, 40),
+            Baseline = [(10, 38), (110, 36)],
+        };
+
+        var slice = record.Slice(1, 3);
+        Assert.Equal("βγ", slice.Text);
+        Assert.Equal(10 + 100.0 / 3, slice.Bbox!.Value.Left, 6);
+        Assert.Equal(110, slice.Bbox!.Value.Right, 6);
+        Assert.Equal(0.75, slice.Confidence.Value, 6);
+        Assert.Equal(new EntityId(EntityKind.Region, "r1"), record.RegionId);
+        Assert.Equal(2, record.Baseline.Count);
+    }
+
+    [Fact]
+    public void Slice_supports_step_and_rejects_invalid_ranges()
+    {
+        var record = new RecognitionRecord("l1", "αβγ",
+        [
+            new GraphemeConfidence(0, 1, Confidence.None),
+            new GraphemeConfidence(1, 2, Confidence.None),
+            new GraphemeConfidence(2, 3, Confidence.None),
+        ]) { Bbox = (0, 0, 90, 10) };
+
+        Assert.Equal("αγ", record.Slice(0, 3, 2).Text);
+        Assert.Throws<ArgumentOutOfRangeException>(() => record.Slice(1, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => record.Slice(-1, 2));
+    }
+
+    [Fact]
     public void Mismatched_grapheme_and_confidence_counts_fail()
     {
         var record = new RecognitionRecord("l1", "αβ", [new GraphemeConfidence(0, 1, Confidence.None)], Rtl: true);

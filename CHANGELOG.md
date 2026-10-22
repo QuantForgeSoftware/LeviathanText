@@ -27,6 +27,7 @@ set: C0-0.4-draft.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
 - **Baseline dataset loader:** normalized PAGE/image samples with multi-class targets and explicit issues.
 - **Model cards:** architecture, tokenizer/preprocessing, directions/scripts, runtime, provenance and license metadata.
+- **Recognition records:** bbox/baseline/region geometry and bounded slicing/cuts.
 - **Codec resize modes:** `fail`/`new`/`union` label-set resizing with explicit NFD normalization.
 - **RTL record ordering:** explicit logical/display flags with bounded grapheme reversal and offset rebasing.
 - **Forced-alignment records:** line/region identity, source bbox and per-grapheme spans.

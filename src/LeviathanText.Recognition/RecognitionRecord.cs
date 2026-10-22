@@ -1,3 +1,4 @@
+using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
 
 namespace LeviathanText.Recognition;
@@ -15,6 +16,40 @@ public sealed record RecognitionRecord(
     bool Rtl = false,
     bool IsDisplayOrder = false)
 {
+    /// <summary>Source region, when the record came from a region-scoped line.</summary>
+    public EntityId? RegionId { get; init; }
+
+    /// <summary>Approximate line box; cuts are subdivided across graphemes.</summary>
+    public (double Left, double Top, double Right, double Bottom)? Bbox { get; init; }
+
+    /// <summary>Source baseline points, when available.</summary>
+    public IReadOnlyList<(double X, double Y)> Baseline { get; init; } = [];
+
+    public RecognitionSlice Slice(int start, int end, int step = 1)
+    {
+        if (step < 1) throw new ArgumentOutOfRangeException(nameof(step));
+        var texts = LeviathanText.Core.Unicode.Graphemes.Enumerate(Text).Select(g => g.Text).ToArray();
+        if (start < 0 || end > texts.Length || start >= end)
+            throw new ArgumentOutOfRangeException(nameof(start), "Slice range is outside the record.");
+        var selected = new List<int>();
+        for (int i = start; i < end; i += step) selected.Add(i);
+        if (selected.Count == 0) throw new ArgumentException("Slice selects no graphemes.", nameof(start));
+
+        var selectedTexts = selected.Select(i => texts[i]).ToArray();
+        var confidences = selected.Where(i => i < Graphemes.Count).Select(i => Graphemes[i].Confidence).ToList();
+        var confidence = confidences.Count == 0 || confidences.All(c => c.IsNone)
+            ? Confidence.None
+            : Confidence.Of(confidences.Where(c => !c.IsNone).Average(c => c.Value), ConfidenceScale.RawModelProbability);
+        var bbox = Bbox is { } box
+            ? (
+                box.Left + (box.Right - box.Left) * start / texts.Length,
+                box.Top,
+                box.Left + (box.Right - box.Left) * end / texts.Length,
+                box.Bottom)
+            : ((double Left, double Top, double Right, double Bottom)?)null;
+        return new RecognitionSlice(string.Concat(selectedTexts), bbox, confidence);
+    }
+
     public RecognitionRecord LogicalOrder() =>
         !Rtl || !IsDisplayOrder ? this : Reordered(displayOrder: false);
 
@@ -45,3 +80,10 @@ public sealed record RecognitionRecord(
         };
     }
 }
+
+
+/// <summary>A bounded slice of a recognition record, with an approximate box and mean confidence.</summary>
+public sealed record RecognitionSlice(
+    string Text,
+    (double Left, double Top, double Right, double Bottom)? Bbox,
+    Confidence Confidence);
