@@ -80,7 +80,7 @@ public sealed class ImageCommandTests : IDisposable
 
         using var json = JsonDocument.Parse(File.ReadAllText(output));
         var root = json.RootElement;
-        Assert.Equal("baselines", root.GetProperty("type").GetString());
+        Assert.Equal("bbox", root.GetProperty("type").GetString());
         Assert.Equal("horizontal-rl", root.GetProperty("text_direction").GetString());
         Assert.True(root.GetProperty("lines").GetArrayLength() > 0);
         Assert.Equal(input, Path.Combine(_root, root.GetProperty("image").GetString()!));
@@ -103,6 +103,19 @@ public sealed class ImageCommandTests : IDisposable
         var altoText = File.ReadAllText(alto);
         Assert.Contains("alto", altoText.ToLowerInvariant());
         Assert.Contains("TextLine", altoText);
+    }
+
+    [Fact]
+    public void Segment_rejects_a_color_page_unless_it_is_binarized_first()
+    {
+        var input = PathOf("color-page.png");
+        using (var bitmap = new SKBitmap(48, 24))
+        {
+            bitmap.Erase(new SKColor(180, 30, 30));
+            SavePng(bitmap, input);
+        }
+
+        Assert.NotEqual(0, Run("image", "segment", input, PathOf("color-lines.json")));
     }
 
     [Fact]

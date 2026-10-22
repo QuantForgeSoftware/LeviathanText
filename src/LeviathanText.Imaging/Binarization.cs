@@ -16,14 +16,9 @@ public static class Binarization
 
         var histogram = new int[256];
         int pixels = source.Width * source.Height;
-        bool onlyBlackWhite = true;
+        bool onlyBlackWhite = IsBlackWhite(source);
         foreach (var pixel in source.Pixels)
-        {
-            int luminance = Luminance(pixel);
-            histogram[luminance]++;
-            if (pixel.Red is not (0 or 255) || pixel.Green is not (0 or 255) || pixel.Blue is not (0 or 255))
-                onlyBlackWhite = false;
-        }
+            histogram[Luminance(pixel)]++;
         if (onlyBlackWhite) return source.Copy();
 
         int threshold = Otsu(histogram, pixels);
@@ -36,6 +31,17 @@ public static class Binarization
                 result.SetPixel(x, y, color);
             }
         return result;
+    }
+
+    /// <summary>True when every pixel is pure black or pure white on all channels.</summary>
+    public static bool IsBlackWhite(SKBitmap source)
+    {
+        if (source.Width == 0 || source.Height == 0)
+            throw new ArgumentException("Cannot inspect an empty image.", nameof(source));
+        foreach (var pixel in source.Pixels)
+            if (pixel.Red is not (0 or 255) || pixel.Green is not (0 or 255) || pixel.Blue is not (0 or 255))
+                return false;
+        return true;
     }
 
     public static int Otsu(IReadOnlyList<int> histogram, int total)

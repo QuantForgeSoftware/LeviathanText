@@ -1408,7 +1408,7 @@ public static class Program
             throw new ArgumentException($"Unsupported --format '{format}'; use json, page or alto.");
 
         using var decoded = ImageDecoder.Decode(input);
-        var result = ProjectionProfileLayout.Detect(decoded.Bitmap);
+        var result = PageSegmentation.Segment(decoded.Bitmap, Path.GetFileName(input));
         var captureId = new EntityId(EntityKind.Capture, "image");
         var regionId = new EntityId(EntityKind.Region, "region0");
         var capture = new NativeCapture
@@ -1460,7 +1460,7 @@ public static class Program
             "alto" => AltoXml.Export(surface, capture, []),
             _ => System.Text.Json.JsonSerializer.Serialize(new
             {
-                type = "baselines",
+                type = result.Type,
                 image = Path.GetFileName(input),
                 width = decoded.Bitmap.Width,
                 height = decoded.Bitmap.Height,
