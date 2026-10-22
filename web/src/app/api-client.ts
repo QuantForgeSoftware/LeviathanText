@@ -196,6 +196,10 @@ export class ApiClient {
     return cachedRequest(`line:${lineId}`, this.http.get<LinePayload>(`/api/v1/lines/${lineId}`));
   }
 
+  lineCropUrl(lineId: string): string {
+    return eventsUrlWithKey(`/api/v1/lines/${lineId}/crop`);
+  }
+
   lineLayerHistory(lineId: string, layer: string): Observable<RevisionPayload[]> {
     return this.http.get<RevisionPayload[]>(`/api/v1/lines/${lineId}/revisions?layer=${layer}`);
   }

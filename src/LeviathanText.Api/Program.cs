@@ -918,6 +918,38 @@ api.MapGet("lines/{lineId}", (ProjectService projects, TranscriptionService tran
     });
 });
 
+api.MapGet("lines/{lineId}/crop", (ProjectService projects, ImageResolver imageResolver, string lineId) =>
+{
+    var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
+    var project = projects.LoadProjectForLine(lineEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
+    var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Lines.Any(l => l.Id == lineEntityId));
+    var line = surface.Lines.Single(l => l.Id == lineEntityId);
+    var geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
+    if (geometry.Count < 2)
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = lineId,
+            Message = "Line has no geometry for an excerpt.",
+        });
+
+    var resolved = imageResolver.EnsureLocal(project, surface.Id);
+    using var decoded = LeviathanText.Imaging.ImageDecoder.Decode(resolved.Capture.ImageLocation);
+    var points = geometry.Select(p => new SkiaSharp.SKPoint((float)p.X, (float)p.Y)).ToList();
+    var extracted = LeviathanText.Imaging.LineCropper.Extract(decoded.Bitmap, points);
+    try
+    {
+        using var image = SkiaSharp.SKImage.FromBitmap(extracted.Bitmap);
+        using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 95);
+        return Results.File(data.ToArray(), "image/png");
+    }
+    finally
+    {
+        extracted.Bitmap.Dispose();
+    }
+});
+
 api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AppendRevisionRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);

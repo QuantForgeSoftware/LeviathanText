@@ -189,6 +189,12 @@ made; use the local scripted/Ollama smoke paths for verification.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`.
 
+## Source excerpts
+
+`GET /api/v1/lines/{lineId}/crop` returns a bounded PNG crop for the line's own geometry.
+The workspace shows it above the editor as a task-specific source excerpt; the full capture
+link remains available. The crop is evidence review, not a new image or an L1 claim.
+
 ## Direction and script
 
 Direction/script are declared metadata, not inferred. `PUT /lines/{id}/orientation` and

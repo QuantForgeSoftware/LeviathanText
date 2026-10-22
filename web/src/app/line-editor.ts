@@ -23,7 +23,10 @@ interface UndoStack {
       <section>
         <h3>Line <code>{{ data.line }}</code></h3>
         @if (imageUrl()) {
-          <p class="hint"><a [href]="imageUrl()" target="_blank" rel="noopener">Open source capture</a></p>
+          <figure class="source-excerpt">
+            <img [src]="cropUrl()" alt="Line source excerpt" />
+            <figcaption class="hint"><a [href]="imageUrl()" target="_blank" rel="noopener">Open source capture</a></figcaption>
+          </figure>
         }
 
         <label>Diplomatic (L1)
@@ -243,6 +246,8 @@ interface UndoStack {
     .orientation { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .hint { color: #667; font-size: 0.85rem; }
     .conflict { background: #fff4d6; padding: 0.4rem; }
+    .source-excerpt { margin: 0.4rem 0; }
+    .source-excerpt img { max-width: 100%; max-height: 8rem; border: 1px solid #ccd; }
     li.selected { background: #e8f0fe; outline: 1px solid #47a; }
   `],
 })
@@ -251,6 +256,7 @@ export class LineEditor {
   authorId = input.required<string>();
   imageUrl = input<string>('');
 
+  protected readonly cropUrl = computed(() => this.api.lineCropUrl(this.lineId()));
   protected readonly payload = signal<LinePayload | null>(null);
   protected readonly text = signal('');
   protected readonly caret = signal(0);

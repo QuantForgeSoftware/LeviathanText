@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "name": "bmp_greek",
+      "text": "αβγ",
+      "utf16Offsets": [0, 1, 2, 3],
+      "scalarOffsets": [0, 1, 2, 3]
+    },
+    {
+      "name": "astral_between_greek",
+      "text": "α😀β",
+      "utf16Offsets": [0, 1, 3, 4],
+      "scalarOffsets": [0, 1, 2, 3]
+    },
+    {
+      "name": "combining_cluster",
+      "text": "άβ",
+      "utf16Offsets": [0, 1, 2, 3],
+      "scalarOffsets": [0, 1, 2, 3]
+    }
+  ]
+}

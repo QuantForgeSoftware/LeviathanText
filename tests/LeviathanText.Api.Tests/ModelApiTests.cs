@@ -110,6 +110,11 @@ public sealed class ModelApiTests : IDisposable
             await client.GetStringAsync($"/api/v1/projects/{project["id"]}"));
         var lineId = projectJson.RootElement.GetProperty("objects")[0].GetProperty("surfaces")[0]
             .GetProperty("lines")[0].GetProperty("id").GetString()!;
+        var crop = await client.GetAsync($"/api/v1/lines/{lineId}/crop");
+        Assert.Equal(HttpStatusCode.OK, crop.StatusCode);
+        Assert.Equal("image/png", crop.Content.Headers.ContentType?.MediaType);
+        Assert.True((await crop.Content.ReadAsByteArrayAsync()).Length > 100);
+
         var revisions = await client.GetStringAsync($"/api/v1/lines/{lineId}/revisions?layer=L0RawRecognition");
         Assert.Contains("L0RawRecognition", revisions);
         Assert.Contains("model:tiny", revisions);

@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <Content Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\web\src\app\fixtures\offset-fixtures.json" Link="Fixtures\offset-fixtures.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
