@@ -11,7 +11,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 - [x] **Codec resize/merge parity:** `fail`/`new`/`union` label-set resize with explicit NFD normalization and 4 xUnit tests (`test_merging.py`).
 - [x] **RTL recognition records:** bbox/baseline geometry, region identity, logical/display order, slicing/cuts and 6 xUnit tests; full BiDi and RTL recognition remain blocked.
 - [x] **Forced-alignment baseline-OCR records:** baseline/boundary, per-grapheme cuts, confidence, region identity and JSON round-trip tests.
-- [ ] **Tokenizer/script coverage:** unknown-grapheme reporting, script detection and mixed-script routing checks.
+- [x] **Tokenizer/script coverage:** unknown-grapheme reporting, bounded script detection and mixed-script routing checks + 4 xUnit tests.
 - [ ] **XML edge matrix:** additional PAGE/ALTO metadata, malformed/schema-shaped round trips and available XSD validation.
 - [ ] **DATA-01 ledger validation:** object IDs, parent-image lineage, label granularity, language/period/material, separate image/text/annotation/code/weight licences, evidence URL and unresolved questions.
 - [ ] **PDF reading-order/column inference mechanics:** heuristic and synthetic multi-column tests; no real-document accuracy claim until measured.
