@@ -53,6 +53,7 @@ public static class ModelPackageCatalog
         try
         {
             if (!Directory.Exists(directory)) return null;
+            ModelPackageLimits.EnsureNoExecutablePayloads(directory);
             var manifestPath = Path.Combine(directory, RecognitionModelLoader.ManifestFileName);
             TrainingRunManifest? manifest = null;
             if (File.Exists(manifestPath))

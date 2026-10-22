@@ -31,7 +31,7 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 - [ ] Support configurable alphabets/tokenizers, unknown-character reporting and mixed-script routing. Avoid a Latin-only core assumption.
 - [ ] Bundle or distribute an initial model only after its rights and measured capabilities are recorded. A working engine without usable weights is not a usable OCR release.
 - [ ] Define a native model package: architecture/version, weights, tokenizer, preprocessing, directions/scripts, runtime requirements, provenance, metrics, hashes and license metadata.
-- [~] Reject executable model payloads; enforce archive size/path limits and compatibility checks. *(model/metadata/manifest/optimizer size bounds and incompatible-package rejection; executable-payload inspection and archive-path checks remain because packages are directories, not archives.)*
+- [~] Reject executable model payloads; enforce archive size/path limits and compatibility checks. *(model/metadata/manifest/optimizer size bounds, executable-payload rejection and incompatible-package checks; packages are directories, so archive-path checks are not applicable.)*
 - [ ] Treat Kraken `.mlmodel`/`.safetensors` weight compatibility as optional research, not guaranteed migration. Weight files alone do not define a compatible architecture. Never require Kraken to load models.
 
 ### Corpus acquisition and annotation deliverable

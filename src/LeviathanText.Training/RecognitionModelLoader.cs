@@ -52,6 +52,14 @@ public static class RecognitionModelLoader
         ArgumentException.ThrowIfNullOrWhiteSpace(packageDirectory);
         if (!Directory.Exists(packageDirectory))
             throw Incompatible(packageDirectory, "package directory does not exist");
+        try
+        {
+            ModelPackageLimits.EnsureNoExecutablePayloads(packageDirectory);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw Incompatible(packageDirectory, ex.Message);
+        }
 
         TrainingRunManifest? manifest;
         try

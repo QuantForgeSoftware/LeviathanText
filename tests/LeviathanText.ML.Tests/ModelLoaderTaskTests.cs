@@ -124,6 +124,19 @@ public class ModelLoaderTaskTests
     }
 
     [Fact]
+    public void Executable_payload_in_package_is_rejected()
+    {
+        var directory = NewPackage();
+        File.WriteAllText(Path.Combine(directory, "payload.dll"), "not executable data");
+
+        var ex = Assert.Throws<LeviathanException>(() => RecognitionModelLoader.Load(directory));
+        Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
+        Assert.Contains("executable payload", ex.Error.Message);
+        Assert.DoesNotContain(ModelPackageCatalog.List(Path.GetDirectoryName(directory)!),
+            package => package.Directory == directory);
+    }
+
+    [Fact]
     public void Missing_package_directory_is_model_incompatible()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-model-loader-tests", Guid.NewGuid().ToString("N"));

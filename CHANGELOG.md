@@ -25,6 +25,7 @@ set: C0-0.4-draft.
 - **Page segmentation:** bi-level bbox contract rejecting color input, wired into `image segment`.
 - **XML OCR CLI:** PAGE/ALTO input with image resolution and auto/baselines/bbox line types.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
+- **Model package safety:** executable payloads are rejected before loading.
 - **Model package limits:** bounded model/metadata/manifest/optimizer sizes before loading.
 - **Model catalog:** read-only package discovery with task/format metadata and API listing.
 - **Segmentation class map:** ordered filter/merge/canonical mapping and region/baseline target rasterization.
