@@ -303,7 +303,7 @@ Blockers recorded so far:
   `LEVIATHANTEXT_LAYOUT_MODEL_DIR/<kind>/`, and an Application-level detector parameter;
   projection remains the default. Model packages are validated (architecture match, weights
   digest) and carry a model card; broken packages are skipped with a warning.
-- **Verification:** 482 tests (481 passed + 1 opt-in skipped), 0 failed across 13 suites;
+- **Verification:** 482 tests (481 passed + 1 opt-in skipped), 0 failed across 14 suites;
   Release build 0 warnings/0 errors; 26 web specs; `scripts/pilot-demo.sh` PASS. The first
   solution-level run reported 39/45 ML tests once (test-host anomaly, no failures); rerun with
   TRX logging executed all 45 and reproduced the green result.
@@ -407,7 +407,7 @@ Blockers recorded so far:
   use exact means and worst spans; the editor renders confidence bands.
 - **Offline reads:** successful project/line/diplomatic reads are cached in localStorage with an
   offline banner; caches clear on key change; mutations are not replayed.
-- **Verification:** **522 tests (520 passed + 2 opt-in skipped), 0 failed across 13 suites;
+- **Verification:** **522 tests (520 passed + 2 opt-in skipped), 0 failed across 14 suites;
   Release 0 warnings/0 errors**; 35 web specs; demo and fresh-install smokes PASS.
 
 ### Handoff revision 21 — 2026-10-20 (imports, offline, safety, docs)
@@ -424,7 +424,7 @@ Blockers recorded so far:
   overview, changelog, upgrade/rollback guidance.
 - **Plan reconciliation:** completed model/training items archived (55 total); remaining items
   annotated with delivered evidence and blockers.
-- **Verification:** **516 tests (520 passed + 2 opt-in skips), 0 failed across 13 suites; Release
+- **Verification:** **516 tests (520 passed + 2 opt-in skips), 0 failed across 14 suites; Release
   0 warnings/0 errors**; 35 web specs; demo/fresh-install PASS; locked P01 evaluation remains opt-in.
 
 ### Handoff revision 22 — 2026-10-20 (per-project membership)
@@ -496,5 +496,5 @@ Blockers recorded so far:
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **637 tests (635 passed + 2 opt-in skips), 0 failed across 13 suites;
+- **Verification:** **636 tests (634 passed + 2 opt-in skips), 0 failed across 14 suites;
   Release 0 warnings/0 errors**; 41 web specs; package and backup/restore rehearsals PASS.
