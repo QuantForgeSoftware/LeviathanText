@@ -255,6 +255,29 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Rect_and_line_level_geometry_are_used_when_polygons_are_absent()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="200" HEIGHT="100"><PrintSpace>
+                <TextBlock ID="b1">
+                  <TextLine ID="rect"><Shape><Rect HPOS="10" VPOS="20" WIDTH="80" HEIGHT="20"/></Shape></TextLine>
+                  <TextLine ID="attrs" HPOS="12" VPOS="60" WIDTH="60" HEIGHT="15"/>
+                </TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        var imported = AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum);
+        Assert.Equal(2, imported.Lines.Count);
+        Assert.Equal([new PointD(10, 20), new PointD(90, 20), new PointD(90, 40), new PointD(10, 40)],
+            imported.Lines[0].Polygon);
+        Assert.Equal([new PointD(12, 60), new PointD(72, 60), new PointD(72, 75), new PointD(12, 75)],
+            imported.Lines[1].Polygon);
+        Assert.Equal(imported.Lines[0].Polygon[^1], imported.Lines[0].Baseline[0]);
+        Assert.Equal(imported.Lines[0].Polygon[^2], imported.Lines[0].Baseline[1]);
+    }
+
+    [Fact]
     public void Non_pixel_measurement_unit_and_empty_source_image_are_refused()
     {
         var badUnit = """

@@ -146,7 +146,7 @@ public static class AltoXml
             {
                 var lineId = ExternalIds.Sanitize((string?)line.Attribute("ID") ?? $"altoline{lines.Count}");
                 var lineMetadata = blockMetadata.Merge(MetadataOf(line, tagMap));
-                var polygon = ParsePolygon((string?)line.Element(Alto + "Shape")?.Element(Alto + "Polygon")?.Attribute("POINTS"));
+                var polygon = ParseGeometry(line);
                 var text = string.Concat(line.Elements(Alto + "String")
                     .Select(s => (string?)s.Attribute("CONTENT") ?? ""));
 
@@ -302,6 +302,42 @@ public static class AltoXml
                 && double.TryParse(numbers[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var y))
                 result.Add(new PointD(x, y));
         return result;
+    }
+
+    private static List<PointD> ParseGeometry(XElement line)
+    {
+        var shape = line.Element(Alto + "Shape");
+        var polygon = ParsePolygon((string?)shape?.Element(Alto + "Polygon")?.Attribute("POINTS"));
+        if (polygon.Count >= 2) return polygon;
+
+        var rect = shape?.Element(Alto + "Rect");
+        if (rect is not null)
+        {
+            var fromRect = ParseRect(rect);
+            if (fromRect.Count == 4) return fromRect;
+        }
+        var fromLine = ParseRect(line);
+        return fromLine.Count == 4 ? fromLine : [];
+    }
+
+    private static List<PointD> ParseRect(XElement element)
+    {
+        static double? Number(XElement e, string name) =>
+            double.TryParse((string?)e.Attribute(name), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
+        var left = Number(element, "HPOS");
+        var top = Number(element, "VPOS");
+        var width = Number(element, "WIDTH");
+        var height = Number(element, "HEIGHT");
+        if (left is null || top is null || width is null || height is null || width <= 0 || height <= 0)
+            return [];
+        return
+        [
+            new PointD(left.Value, top.Value),
+            new PointD(left.Value + width.Value, top.Value),
+            new PointD(left.Value + width.Value, top.Value + height.Value),
+            new PointD(left.Value, top.Value + height.Value),
+        ];
     }
 
     private static List<PointD> ParsePolygon(string? points)
