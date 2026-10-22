@@ -235,8 +235,9 @@ public sealed class InterchangeService(ProjectService projects)
                 var regionId = NewId(EntityKind.Region, project, "reg");
                 var lines = new List<NativeLine>();
                 var revisions = new List<TextRevision>();
-                foreach (var textLine in textPage.Lines)
+                foreach (var ordered in PdfReadingOrder.Order(textPage.Lines, textPage.Width))
                 {
+                    var textLine = ordered.Line;
                     double left = Math.Clamp(textLine.Left * scaleX, 0, width);
                     double right = Math.Clamp(textLine.Right * scaleX, 0, width);
                     double top = Math.Clamp((textPage.Height - textLine.Top) * scaleY, 0, height);
