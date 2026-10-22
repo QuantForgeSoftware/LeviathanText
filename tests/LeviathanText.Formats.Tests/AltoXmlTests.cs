@@ -230,6 +230,18 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Invalid_declared_dimensions_are_refused()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="foo" HEIGHT="bar"/></Layout>
+            </alto>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE alto [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +

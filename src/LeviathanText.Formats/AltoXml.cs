@@ -237,9 +237,14 @@ public static class AltoXml
         _ => null,
     };
 
-    private static int? PositiveInt(string? value) =>
-        int.TryParse(value, System.Globalization.NumberStyles.Integer,
-            System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : null;
+    private static int? PositiveInt(string? value)
+    {
+        if (value is null) return null;
+        if (!int.TryParse(value, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed) || parsed < 0)
+            throw new InvalidDataException($"Declared page dimension '{value}' is not a non-negative integer.");
+        return parsed > 0 ? parsed : null;
+    }
 
     private static List<PointD> ParseBaseline(string? value)
     {

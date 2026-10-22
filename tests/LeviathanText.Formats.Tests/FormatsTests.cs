@@ -236,6 +236,18 @@ public class PageXmlTests
     }
 
     [Fact]
+    public void Invalid_declared_page_dimensions_are_refused()
+    {
+        var xml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="x.png" imageWidth="foo" imageHeight="bar"/>
+            </PcGts>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            PageXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE PcGts [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>" +

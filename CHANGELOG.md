@@ -25,6 +25,7 @@ set: C0-0.4-draft.
 - **Page segmentation:** bi-level bbox contract rejecting color input, wired into `image segment`.
 - **XML OCR CLI:** PAGE/ALTO input with image resolution and auto/baselines/bbox line types.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
+- **XML dimensions:** invalid declared page dimensions are rejected; zero/missing still falls back to the image.
 - **ALTO geometry/direction:** BASEDIRECTION inheritance, BASELINE parse/export and declared page dimensions with image fallback.
 - **Image CLI:** `image binarize` and `image segment` (JSON/PAGE/ALTO, horizontal direction, source-overwrite guard).
 - **Training recovery:** failed/cancelled runs write a reloadable `.failure` checkpoint without replacing `.best`.
