@@ -33,6 +33,30 @@ public sealed record TrainingRunManifest
 
     /// <summary>Package-format version, separate from the application contract version.</summary>
     public int PackageFormatVersion { get; init; } = ModelPackageFormat.Current;
+
+    /// <summary>Architecture family used to interpret the weights.</summary>
+    public string Architecture { get; init; } = "CrnnModel";
+
+    /// <summary>Tokenizer/label-codec profile; the full label list remains in checkpoint metadata.</summary>
+    public string TokenizerProfile { get; init; } = "grapheme-ctc";
+
+    /// <summary>Documented preprocessing recipe applied before inference/training.</summary>
+    public string Preprocessing { get; init; } = "line-crop>resize>luminance>ctc";
+
+    /// <summary>Directions the packaged model actually supports, comma-separated.</summary>
+    public string SupportedDirections { get; init; } = "ltr";
+
+    /// <summary>Known script coverage; <c>unknown</c> is an explicit non-claim.</summary>
+    public string Scripts { get; init; } = "unknown";
+
+    /// <summary>Runtime/backend requirement recorded for reproduction.</summary>
+    public string Runtime { get; init; } = "TorchSharp-CPU";
+
+    /// <summary>Rights identifier for weights; <c>unverified</c> blocks redistribution claims.</summary>
+    public string License { get; init; } = "unverified";
+
+    /// <summary>Source/provenance note; empty means not supplied, not public domain.</summary>
+    public string Provenance { get; init; } = "";
     public required string ConfigHash { get; init; }
     public required long NumClasses { get; init; }
     public required long HiddenSize { get; init; }
@@ -104,6 +128,13 @@ public static class TrainingRunManifestWriter
             ModelName = config.ModelName,
             Task = ModelTasks.Recognition,
             PackageFormatVersion = ModelPackageFormat.Current,
+            Architecture = "CrnnModel",
+            TokenizerProfile = "grapheme-ctc",
+            Preprocessing = "line-crop>resize>luminance>ctc",
+            SupportedDirections = "ltr",
+            Scripts = "unknown",
+            Runtime = "TorchSharp-CPU",
+            License = "unverified",
             ConfigHash = config.ComputeHash(),
             NumClasses = model.NumClasses,
             HiddenSize = model.HiddenSize,

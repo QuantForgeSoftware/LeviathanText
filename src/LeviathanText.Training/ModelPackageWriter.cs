@@ -67,6 +67,13 @@ public static class ModelPackageWriter
         sb.AppendLine($"- Contract: `{LeviathanText.Contracts.ContractVersion.Current}`");
         sb.AppendLine($"- Task: `{manifest.Task}`");
         sb.AppendLine($"- Package format: `{manifest.PackageFormatVersion}`");
+        sb.AppendLine($"- Architecture: `{manifest.Architecture}`; tokenizer `{manifest.TokenizerProfile}`");
+        sb.AppendLine($"- Preprocessing: `{manifest.Preprocessing}`");
+        sb.AppendLine($"- Directions: `{manifest.SupportedDirections}`; scripts: `{manifest.Scripts}`");
+        sb.AppendLine($"- Runtime: `{manifest.Runtime}`");
+        sb.AppendLine($"- License: `{manifest.License}`");
+        if (!string.IsNullOrWhiteSpace(manifest.Provenance))
+            sb.AppendLine($"- Provenance: {manifest.Provenance.Trim()}");
         sb.AppendLine($"- Created: {manifest.CreatedAt:O}");
         sb.AppendLine($"- Config hash: `{manifest.ConfigHash}`");
         sb.AppendLine($"- Checkpoint SHA-256: `{manifest.CheckpointDigest}`");

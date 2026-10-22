@@ -57,6 +57,10 @@ public class ModelPackageTests
         var card = File.ReadAllText(package.ModelCardPath);
         Assert.Contains("packaged-crnn", card);
         Assert.Contains("width downsample 4", card);
+        Assert.Contains("Architecture: `CrnnModel`", card);
+        Assert.Contains("tokenizer `grapheme-ctc`", card);
+        Assert.Contains("Directions: `ltr`", card);
+        Assert.Contains("License: `unverified`", card);
         Assert.Contains("Reserved for pilot review.", card);
         Assert.Contains("not a threshold", card);
 
