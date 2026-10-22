@@ -129,6 +129,35 @@ public sealed class ImageCommandTests : IDisposable
     }
 
     [Fact]
+    public void Dewarp_writes_target_height_and_rejects_color()
+    {
+        var input = PathOf("dewarp.png");
+        var output = PathOf("dewarped.png");
+        using (var bitmap = new SKBitmap(100, 40))
+        {
+            bitmap.Erase(SKColors.White);
+            for (int x = 0; x < 100; x++)
+            {
+                int center = 10 + x * 20 / 99;
+                for (int y = center - 2; y <= center + 2; y++) bitmap.SetPixel(x, y, SKColors.Black);
+            }
+            SavePng(bitmap, input);
+        }
+
+        Assert.Equal(0, Run("image", "dewarp", input, output, "--height", "48"));
+        using var result = SKBitmap.Decode(output);
+        Assert.Equal(48, result.Height);
+
+        var color = PathOf("dewarp-color.png");
+        using (var bitmap = new SKBitmap(20, 20))
+        {
+            bitmap.Erase(new SKColor(180, 20, 20));
+            SavePng(bitmap, color);
+        }
+        Assert.NotEqual(0, Run("image", "dewarp", color, PathOf("dewarp-color-out.png")));
+    }
+
+    [Fact]
     public void Missing_image_is_reported_as_a_nonzero_cli_failure()
     {
         Assert.NotEqual(0, Run("image", "binarize", PathOf("missing.png"), PathOf("out.png")));

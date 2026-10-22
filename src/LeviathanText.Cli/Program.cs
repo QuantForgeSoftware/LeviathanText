@@ -58,6 +58,9 @@ public static class Program
             case "image" when rest.Length >= 4 && rest[1] == "ocr":
                 return ImageOcr(rest);
 
+            case "image" when rest.Length >= 4 && rest[1] == "dewarp":
+                return ImageDewarp(rest);
+
             case "backup" when rest.Length >= 2:
             {
                 // Consistent backup set: VACUUM INTO database copy + cached images + manifest.
@@ -1222,6 +1225,25 @@ public static class Program
         return 0;
     }
 
+    private static int ImageDewarp(string[] args)
+    {
+        string? Flag(string name) =>
+            Array.IndexOf(args, name) is var index && index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+        var input = args[2];
+        var output = args[3];
+        if (SamePath(input, output))
+        {
+            Console.Error.WriteLine("refusing to overwrite the source image; choose a different output path");
+            return 1;
+        }
+        var targetHeight = Flag("--height") is { } heightText ? int.Parse(heightText) : 64;
+        using var decoded = ImageDecoder.Decode(input);
+        using var dewarped = LineDewarper.Dewarp(decoded.Bitmap, new LineDewarper.Options { TargetHeight = targetHeight });
+        SavePng(dewarped, output);
+        Console.WriteLine($"dewarped: {output} ({dewarped.Width}x{dewarped.Height})");
+        return 0;
+    }
+
     private static int ImageOcr(string[] args)
     {
         string? Flag(string name) =>
@@ -1522,6 +1544,7 @@ public static class Program
               leviathan image binarize <input-image> <output.png>
               leviathan image segment <input-image> <output> [--format json|page|alto] [--direction horizontal-lr|horizontal-rl]
               leviathan image ocr <input-image> <output> --package <model-package-dir> [--mode line|segment] [--format text|json|page|alto]
+              leviathan image dewarp <input-image> <output.png> [--height 64]
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
