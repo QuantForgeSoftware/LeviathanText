@@ -8,7 +8,7 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 These are the active code/docs slices that do not require reviewer decisions, fresh image/label pairs, rights grants, or verified model weights. Parent capability sections below retain only their blocked work.
 
-- [ ] **Codec resize/merge parity:** implement `fail`/`new`/`union` resizing, NFD normalization and encode/decode tests (`test_merging.py`).
+- [x] **Codec resize/merge parity:** `fail`/`new`/`union` label-set resize with explicit NFD normalization and 4 xUnit tests (`test_merging.py`).
 - [ ] **RTL recognition records:** bbox/baseline records, logical/display order, slicing/cuts and region/order tests; full BiDi and RTL recognition remain blocked.
 - [ ] **Forced-alignment baseline-OCR records:** aligned cuts/confidence serialization and record-count/region tests.
 - [ ] **Tokenizer/script coverage:** unknown-grapheme reporting, script detection and mixed-script routing checks.
