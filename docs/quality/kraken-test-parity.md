@@ -14,16 +14,16 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_cli.py` | 11 | replicate | CLI output modes, segmentation/recognition failures |
 | `test_codec.py` | 11 | partial | label codec strictness/unknown labels |
 | `test_container.py` | 16 | partial | baseline ↔ bbox geometry + direction |
-| `test_dataset.py` | 15 | feature-gap | baseline filtering/merging and input transforms |
+| `test_dataset.py` | 15 | partial | class-map filtering/merging and target rasterization; image transforms/loader remain |
 | `test_ketos_arch.py` | 25 | not-applicable | Kraken architecture registry/Torch checkpoint internals |
 | `test_ketos_training.py` | 3 | feature-gap | C# training smoke equivalents |
 | `test_layers.py` | 12 | not-applicable | PyTorch layer implementations |
-| `test_lineest.py` | 3 | feature-gap | dewarp behavior; current backend differs |
+| `test_lineest.py` | 3 | partial | bounded centroid dewarper; full center-normalizer parity remains |
 | `test_loaders.py` | 20 | replicate | model package/version/weights validation |
 | `test_merging.py` | 2 | feature-gap | line merge/resize behavior |
 | `test_models.py` | 1 | replicate | invalid model rejection |
 | `test_newpolygons.py` | 24 | not-applicable | legacy Kraken model/polygon compatibility; no Kraken weights |
-| `test_pageseg.py` | 2 | replicate | page segmentation smoke/color/BW |
+| `test_pageseg.py` | 2 | partial | bi-level bbox contract; full page-seg model remains |
 | `test_plugins.py` | 1 | not-applicable | Python entry-point discovery; no first-party Python |
 | `test_readingorder.py` | 15 | partial | geometric reading order + topological sort |
 | `test_repo.py` | 3 | feature-gap | remote model registry/catalog |
@@ -31,7 +31,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate |
 | `test_serialization.py` | 4 | partial | PAGE/ALTO/hOCR/ABBYY serialization |
 | `test_tasks.py` | 34 | feature-gap | recognition/segmentation/forced-alignment task models |
-| `test_train_utils.py` | 2 | replicate | checkpoint-on-failure/recovery |
+| `test_train_utils.py` | 2 | partial | failure/cancellation checkpoints; Lightning callback parity not applicable |
 | `test_vgsl.py` | 7 | not-applicable | Kraken VGSL model format; Leviathan uses its own package |
 | `test_xml.py` | 32 | partial | PAGE/ALTO parsing edge cases |
 
