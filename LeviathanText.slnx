@@ -19,6 +19,7 @@
     <Project Path="tests/LeviathanText.AI.Tests/LeviathanText.AI.Tests.csproj" />
     <Project Path="tests/LeviathanText.Api.Tests/LeviathanText.Api.Tests.csproj" />
     <Project Path="tests/LeviathanText.Application.Tests/LeviathanText.Application.Tests.csproj" />
+    <Project Path="tests/LeviathanText.Cli.Tests/LeviathanText.Cli.Tests.csproj" />
     <Project Path="tests/LeviathanText.Contracts.Tests/LeviathanText.Contracts.Tests.csproj" />
     <Project Path="tests/LeviathanText.Core.Tests/LeviathanText.Core.Tests.csproj" />
     <Project Path="tests/LeviathanText.Evaluation.Tests/LeviathanText.Evaluation.Tests.csproj" />

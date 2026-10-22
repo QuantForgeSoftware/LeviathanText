@@ -7,6 +7,7 @@ using LeviathanText.Layout;
 using LeviathanText.Infrastructure;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
+using SkiaSharp;
 
 namespace LeviathanText.Cli;
 
@@ -47,6 +48,12 @@ public static class Program
         switch (rest[0])
         {
             case "help": return Help();
+
+            case "image" when rest.Length >= 4 && rest[1] == "binarize":
+                return ImageBinarize(rest[2], rest[3]);
+
+            case "image" when rest.Length >= 4 && rest[1] == "segment":
+                return ImageSegment(rest);
 
             case "backup" when rest.Length >= 2:
             {
@@ -1198,6 +1205,130 @@ public static class Program
         }
     }
 
+    private static int ImageBinarize(string input, string output)
+    {
+        if (SamePath(input, output))
+        {
+            Console.Error.WriteLine("refusing to overwrite the source image; choose a different output path");
+            return 1;
+        }
+        using var decoded = ImageDecoder.Decode(input);
+        using var binary = Binarization.ToBlackWhite(decoded.Bitmap);
+        SavePng(binary, output);
+        Console.WriteLine($"binarized: {output} ({binary.Width}x{binary.Height})");
+        return 0;
+    }
+
+    private static int ImageSegment(string[] args)
+    {
+        string? Flag(string name) =>
+            Array.IndexOf(args, name) is var index && index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+
+        var input = args[2];
+        var output = args[3];
+        if (SamePath(input, output))
+        {
+            Console.Error.WriteLine("refusing to overwrite the source image; choose a different output path");
+            return 1;
+        }
+
+        var directionText = Flag("--direction") ?? "horizontal-lr";
+        var direction = directionText switch
+        {
+            "horizontal-lr" or "ltr" => TextDirection.Ltr,
+            "horizontal-rl" or "rtl" => TextDirection.Rtl,
+            _ => throw new ArgumentException($"Unsupported --direction '{directionText}'; use horizontal-lr or horizontal-rl."),
+        };
+        var format = Flag("--format") ?? (Path.GetExtension(output).Equals(".json", StringComparison.OrdinalIgnoreCase) ? "json" : "page");
+        if (format is not ("json" or "page" or "alto"))
+            throw new ArgumentException($"Unsupported --format '{format}'; use json, page or alto.");
+
+        using var decoded = ImageDecoder.Decode(input);
+        var result = ProjectionProfileLayout.Detect(decoded.Bitmap);
+        var captureId = new EntityId(EntityKind.Capture, "image");
+        var regionId = new EntityId(EntityKind.Region, "region0");
+        var capture = new NativeCapture
+        {
+            Id = captureId,
+            Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = decoded.SourceChecksum },
+            ImageLocation = Path.GetFullPath(input),
+            WidthPx = decoded.Bitmap.Width,
+            HeightPx = decoded.Bitmap.Height,
+        };
+        var region = new NativeRegion
+        {
+            Id = regionId,
+            FrameRef = captureId,
+            Polygon =
+            [
+                new PointD(0, 0), new PointD(decoded.Bitmap.Width, 0),
+                new PointD(decoded.Bitmap.Width, decoded.Bitmap.Height), new PointD(0, decoded.Bitmap.Height),
+            ],
+            LayoutSource = LayoutSource.Automatic,
+            ReadingOrderIndex = 0,
+            Direction = direction,
+        };
+        var lines = result.Lines.Select((line, index) => new NativeLine
+        {
+            Id = new EntityId(EntityKind.Line, $"line{index:x4}"),
+            RegionId = regionId,
+            FrameRef = captureId,
+            Polygon =
+            [
+                new PointD(line.Left, line.Top), new PointD(line.Right, line.Top),
+                new PointD(line.Right, line.Bottom), new PointD(line.Left, line.Bottom),
+            ],
+            Baseline = [new PointD(line.Left, line.Bottom), new PointD(line.Right, line.Bottom)],
+            Direction = direction,
+        }).ToList();
+        var surface = new NativeSurface
+        {
+            Id = new EntityId(EntityKind.Surface, "surface0"),
+            Kind = "page",
+            Captures = [capture],
+            Regions = [region],
+            Lines = lines,
+        };
+
+        var content = format switch
+        {
+            "page" => PageXml.Export(surface, capture, []),
+            "alto" => AltoXml.Export(surface, capture, []),
+            _ => System.Text.Json.JsonSerializer.Serialize(new
+            {
+                type = "baselines",
+                image = Path.GetFileName(input),
+                width = decoded.Bitmap.Width,
+                height = decoded.Bitmap.Height,
+                text_direction = direction == TextDirection.Rtl ? "horizontal-rl" : "horizontal-lr",
+                method = result.Method,
+                parameters_hash = result.ParametersHash,
+                lines = lines.Select(line => new
+                {
+                    id = line.Id.Suffix,
+                    bbox = new[] { line.Polygon[0].X, line.Polygon[0].Y, line.Polygon[2].X, line.Polygon[2].Y },
+                    baseline = line.Baseline.Select(p => new[] { p.X, p.Y }).ToArray(),
+                }).ToArray(),
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }),
+        };
+        File.WriteAllText(output, content);
+        Console.WriteLine($"segmented: {output} ({lines.Count} lines, {format}, {result.Method})");
+        return 0;
+    }
+
+    private static bool SamePath(string first, string second) =>
+        string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), StringComparison.OrdinalIgnoreCase);
+
+    private static void SavePng(SKBitmap bitmap, string output)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(output));
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(output);
+        data.SaveTo(stream);
+    }
+
     private static (string StorePath, string[] Args) ExtractStore(string[] args)
     {
         string? storePath = null;
@@ -1224,6 +1355,8 @@ public static class Program
               leviathan [--store <path>] backup <target-dir>
               leviathan [--store <path>] restore <backup-dir> [--into <store>] [--force]
               leviathan [--store <path>] project list
+              leviathan image binarize <input-image> <output.png>
+              leviathan image segment <input-image> <output> [--format json|page|alto] [--direction horizontal-lr|horizontal-rl]
               leviathan [--store <path>] import page <projectId> <page.xml>
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
