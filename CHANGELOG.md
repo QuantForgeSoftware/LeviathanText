@@ -25,6 +25,7 @@ set: C0-0.4-draft.
 - **Page segmentation:** bi-level bbox contract rejecting color input, wired into `image segment`.
 - **XML OCR CLI:** PAGE/ALTO input with image resolution and auto/baselines/bbox line types.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
+- **Baseline dataset loader:** normalized PAGE/image samples with multi-class targets and explicit issues.
 - **Model cards:** architecture, tokenizer/preprocessing, directions/scripts, runtime, provenance and license metadata.
 - **RTL record ordering:** explicit logical/display flags with bounded grapheme reversal and offset rebasing.
 - **Forced-alignment records:** line/region identity, source bbox and per-grapheme spans.
