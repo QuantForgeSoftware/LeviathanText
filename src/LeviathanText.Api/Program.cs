@@ -740,18 +740,17 @@ api.MapGet("models", (IConfiguration configuration) =>
     var root = ModelsRoot(configuration);
     if (!Directory.Exists(root)) return Results.Ok(Array.Empty<object>());
 
-    var packages = Directory.GetDirectories(root).Select(directory =>
+    var packages = ModelPackageCatalog.List(root).Select(package => new
     {
-        var manifest = Path.Combine(directory, "run-manifest.json");
-        var metadata = Directory.GetFiles(directory, "*.best.json");
-        if (!File.Exists(manifest) && metadata.Length != 1) return null;
-        return new
-        {
-            name = Path.GetFileName(directory),
-            modifiedAt = Directory.GetLastWriteTimeUtc(directory),
-            hasManifest = File.Exists(manifest),
-        };
-    }).Where(p => p is not null).ToList();
+        name = package.Name,
+        task = package.Task,
+        model = package.ModelName,
+        classes = package.NumClasses,
+        hiddenSize = package.HiddenSize,
+        packageFormat = package.PackageFormatVersion,
+        modifiedAt = package.ModifiedAt,
+        hasManifest = File.Exists(Path.Combine(package.Directory, RecognitionModelLoader.ManifestFileName)),
+    }).ToList();
     return Results.Ok(packages);
 });
 
