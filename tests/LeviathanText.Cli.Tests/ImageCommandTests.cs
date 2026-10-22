@@ -228,6 +228,20 @@ public sealed class ImageCommandTests : IDisposable
     }
 
     [Fact]
+    public void Segment_ocr_convenience_uses_detected_lines()
+    {
+        var input = PathOf("segment-ocr.png");
+        var output = PathOf("segment-ocr.json");
+        WritePageWithBars(input);
+
+        Assert.Equal(0, Run("image", "segment-ocr", input, output,
+            "--package", CreatePackage(), "--format", "json"));
+        using var json = JsonDocument.Parse(File.ReadAllText(output));
+        Assert.True(json.RootElement.GetProperty("lines").GetArrayLength() > 0);
+        Assert.Equal("ocr", json.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
     public void Ocr_without_a_package_fails_clearly()
     {
         var input = PathOf("ocr-missing-package.png");

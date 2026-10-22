@@ -58,6 +58,17 @@ public static class Program
             case "image" when rest.Length >= 4 && rest[1] == "ocr":
                 return ImageOcr(rest);
 
+            case "image" when rest.Length >= 4 && rest[1] == "segment-ocr":
+            {
+                var forwarded = new List<string>(rest);
+                if (!forwarded.Contains("--mode"))
+                {
+                    forwarded.Add("--mode");
+                    forwarded.Add("segment");
+                }
+                return ImageOcr([.. forwarded]);
+            }
+
             case "image" when rest.Length >= 4 && rest[1] == "dewarp":
                 return ImageDewarp(rest);
 
@@ -1653,6 +1664,7 @@ public static class Program
               leviathan image binarize <input-image> <output.png>
               leviathan image segment <input-image> <output> [--format json|page|alto] [--direction horizontal-lr|horizontal-rl]
               leviathan image ocr <input-image> <output> --package <model-package-dir> [--mode line|segment] [--format text|json|page|alto]
+              leviathan image segment-ocr <input-image> <output> --package <model-package-dir> [--format text|json|page|alto]
               leviathan image ocr <input.page.xml> <output> --package <model-package-dir> [--image <page-image>] [--linetype auto|baselines|bbox] [--format text|json]
               leviathan image dewarp <input-image> <output.png> [--height 64]
               leviathan [--store <path>] import page <projectId> <page.xml>

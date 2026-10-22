@@ -15,7 +15,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 - [ ] **XML edge matrix:** additional PAGE/ALTO metadata, malformed/schema-shaped round trips and available XSD validation.
 - [x] **DATA-01 ledger validation:** opt-in extended audit for object IDs, parent-image lineage, granularity, language/period/material, transcription profile, evidence URL, unresolved questions and code/weight licences.
 - [ ] **PDF reading-order/column inference mechanics:** heuristic and synthetic multi-column tests; no real-document accuracy claim until measured.
-- [ ] **Chained `segment → ocr` CLI convenience:** explicit command/alias over the existing `image ocr --mode segment`.
+- [x] **Chained `segment → ocr` CLI convenience:** `image segment-ocr` forwards to the existing segment/OCR path; process test added.
 - [ ] **Publication docs:** installation, transcription, training, provider-configuration, model-card and known-failure docs; verified fresh-offline-with-installed-models remains blocked until weights exist.
 
 ## 3. Reference capability inventory and release scope
