@@ -26,7 +26,7 @@
 | At-least-once execution with idempotent output | Recognition uses a stable run id (job id); re-running the same run appends no duplicate L0 revisions | **conforms** |
 | Error vocabulary (§6) | Closed `ErrorCode` set mapped to HTTP; transport-level auth/read-only errors use separate `code` strings | **documented deviation** (auth is transport, not pipeline) |
 | Greek profile (§1–§6): layers, marks, offsets, uncertainty | Scalar offsets in annotations; no folding in L1; mark rendering; gap extent; alternatives; profile inspector | **conforms** for implemented kinds; **profile definitions await specialist** |
-| Abbreviations / historical correction sequences | Annotations cover erasures/additions/overwritten; no dedicated abbreviation expansion kind or editor for historical correction order | **open gap** |
+| Abbreviations / historical correction sequences | Abbreviation annotations now link L1 spans to L2 revisions; correction sequences carry group/order-basis metadata and a replay panel. Specialist validation of real cases remains. | **implemented; validation pending** |
 | Annotation correction | Append-only retraction ledger; active views/training exports exclude retracted ids; CSV marks them | **conforms (pilot)** |
 | Double review / adjudication (DATA-03 readiness) | Append-only review ledger anchored to revisions; corrections create L1 revisions; disagreement summary + adjudication CSV; CLI/API/UI | **conforms (pilot)**; reviewer identity is a free string — no accounts/roles yet |
 | Scoring (examples §1–2) | `RecognitionScorer` (scalar+grapheme+mark attribution); explicit uncertainty spans in training export; blank/missed-line cases covered by page-CER matching | **conforms** to the documented semantics |

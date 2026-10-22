@@ -221,6 +221,79 @@ public sealed class TranscriptionServiceTests
     }
 
     [Fact]
+    public void Abbreviation_requires_a_matching_l2_expansion_link()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (withL2, _, l2) = service.AppendLineRevision(project, lineId, TextLayer.L2Editorial, "κυρίου", Editor);
+
+        var (updated, _, abbreviation) = service.AddAnnotation(withL2, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "abbr-1"),
+            Kind = AnnotationKind.Abbreviation,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 2),
+            ExpansionText = "κυρίου",
+            ExpansionRevisionId = l2.Id,
+            ExpansionRange = new ScalarRange(0, 6),
+        });
+        Assert.Equal(AnnotationKind.Abbreviation, abbreviation.Kind);
+        Assert.Equal(l2.Id, abbreviation.ExpansionRevisionId);
+        Assert.Contains(updated.Objects[0].Surfaces[0].Annotations, a => a.Id == abbreviation.Id);
+
+        var mismatch = Assert.Throws<LeviathanException>(() => service.AddAnnotation(updated, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "abbr-2"),
+            Kind = AnnotationKind.Abbreviation,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 2),
+            ExpansionText = "wrong",
+            ExpansionRevisionId = l2.Id,
+            ExpansionRange = new ScalarRange(0, 6),
+        }));
+        Assert.Contains("does not equal", mismatch.Error.Message);
+    }
+
+    [Fact]
+    public void Correction_sequence_requires_group_and_rejects_duplicate_explicit_index()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (withFirst, _, _) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "seq-1"),
+            Kind = AnnotationKind.CorrectionSequence,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(0, 1),
+            SequenceId = "main",
+            SequenceIndex = 0,
+            OrderBasis = AnnotationOrderBasis.Explicit,
+        });
+
+        var duplicate = Assert.Throws<LeviathanException>(() => service.AddAnnotation(withFirst, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "seq-duplicate"),
+            Kind = AnnotationKind.CorrectionSequence,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(1, 2),
+            SequenceId = "main",
+            SequenceIndex = 0,
+            OrderBasis = AnnotationOrderBasis.Explicit,
+        }));
+        Assert.Contains("already used", duplicate.Error.Message);
+
+        var missingGroup = Assert.Throws<LeviathanException>(() => service.AddAnnotation(withFirst, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "seq-no-group"),
+            Kind = AnnotationKind.CorrectionSequence,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(1, 2),
+            SequenceIndex = 1,
+        }));
+        Assert.Contains("requires a SequenceId", missingGroup.Error.Message);
+    }
+
+    [Fact]
     public void Retraction_hides_an_annotation_without_deleting_it()
     {
         var (lineId, service, store) = Setup();

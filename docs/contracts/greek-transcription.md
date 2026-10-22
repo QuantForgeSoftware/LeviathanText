@@ -74,7 +74,8 @@ Distinct statuses (project-plan §3):
 | `alternative-reading` | Competing readings retained | Multiple readings coexist; none is silently chosen |
 | `erased` / `added` / `overwritten` | Witness correction states | Include visible residue description |
 | `different-hand` | Distinct writing agent | Attribution only with evidence; `unattributed` default |
-| `correction-sequence` | Ordered witness interventions | Only recorded when evidence supports the order |
+| `abbreviation` | Visible abbreviation with linked L2 expansion | Reversible L1→L2 revision/range link; never rewrites L1 |
+| `correction-sequence` | Ordered witness interventions | Sequence group/index and explicit/inferred/unknown order basis; never inferred from annotation time |
 | `unannotated-region` | Region exists, no annotation decision made | Distinct from "no text present" |
 
 **Bracket conventions**: Leiden-style brackets/underdots in imported editions are parsed into these annotations (or preserved in an attachment with an unsupported-markup report). They are **never** stored as literal characters inside L1 diplomatic text.

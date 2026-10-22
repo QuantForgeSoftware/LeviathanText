@@ -13,7 +13,7 @@ public static class AnnotationCsv
     public static string Export(NativeProject project)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("annotation_id,surface_id,line_id,kind,start,end,gap_extent,alternative_text,hand_label,description,anchored_revision,retracted,retracted_by,retraction_reason");
+        builder.AppendLine("annotation_id,surface_id,line_id,kind,start,end,gap_extent,alternative_text,hand_label,description,anchored_revision,retracted,retracted_by,retraction_reason,expansion_text,expansion_revision,expansion_start,expansion_end,sequence_id,sequence_index,order_basis");
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {
@@ -41,6 +41,13 @@ public static class AnnotationCsv
                     retraction is null ? "false" : "true",
                     retraction?.Reviewer ?? "",
                     retraction?.Reason ?? "",
+                    annotation.ExpansionText ?? "",
+                    annotation.ExpansionRevisionId?.ToString() ?? "",
+                    annotation.ExpansionRange?.Start.ToString() ?? "",
+                    annotation.ExpansionRange?.End.ToString() ?? "",
+                    annotation.SequenceId ?? "",
+                    annotation.SequenceIndex?.ToString() ?? "",
+                    annotation.OrderBasis?.ToString() ?? "",
                 });
             }
         }

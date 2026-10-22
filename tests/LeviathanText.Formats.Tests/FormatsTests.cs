@@ -360,6 +360,39 @@ public class TeiXmlTests
     }
 
     [Fact]
+    public void Abbreviation_export_uses_choice_abbr_expan_and_reimports_text()
+    {
+        var lineId = new EntityId(EntityKind.Line, "line-abbr");
+        var revision = new TextRevision
+        {
+            Id = new EntityId(EntityKind.TranscriptionRevision, "rev-abbr"),
+            ScopeId = lineId,
+            Layer = TextLayer.L1Diplomatic,
+            Author = SampleProject.Agent,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Text = "κϲ",
+        };
+        var annotations = new[]
+        {
+            new Annotation
+            {
+                Id = new EntityId(EntityKind.Annotation, "abbr-1"),
+                Kind = AnnotationKind.Abbreviation,
+                AnchoredRevisionId = revision.Id,
+                Range = new ScalarRange(0, 2),
+                ExpansionText = "κυρίου",
+            },
+        };
+        var xml = TeiXml.Export([(lineId, revision, annotations)], "abbr");
+        Assert.Contains("<abbr>κϲ</abbr>", xml);
+        Assert.Contains("<expan>κυρίου</expan>", xml);
+
+        var reparsed = TeiXml.Import(xml);
+        Assert.Equal("κϲ", reparsed.Revisions[0].Text);
+        Assert.Contains(reparsed.Annotations, a => a.Kind == AnnotationKind.Abbreviation && a.ExpansionText == "κυρίου");
+    }
+
+    [Fact]
     public void Direction_and_script_roundtrip_in_the_bounded_tei_rend_attribute()
     {
         var lineId = new EntityId(EntityKind.Line, "line-1");

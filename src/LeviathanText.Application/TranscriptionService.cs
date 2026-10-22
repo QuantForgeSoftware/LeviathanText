@@ -204,6 +204,80 @@ public sealed class TranscriptionService(IProjectStore store)
                 Message = "An alternative reading must carry AlternativeText.",
             });
 
+        if (annotation.Kind == AnnotationKind.Abbreviation)
+        {
+            if (string.IsNullOrWhiteSpace(annotation.ExpansionText))
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = annotation.Id.ToString(),
+                    Message = "An abbreviation must carry ExpansionText.",
+                });
+            if (annotation.ExpansionRevisionId is not { } expansionRevisionId || annotation.ExpansionRange is not { } expansionRange)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = annotation.Id.ToString(),
+                    Message = "An abbreviation must link both ExpansionRevisionId and ExpansionRange.",
+                });
+            var expansionRevision = surface.Revisions.FirstOrDefault(r =>
+                r.Id == expansionRevisionId && r.ScopeId == lineId && r.Layer == TextLayer.L2Editorial);
+            if (expansionRevision is null)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.InputMissing,
+                    Scope = annotation.Id.ToString(),
+                    Message = "The linked expansion revision is not an L2 revision of this line.",
+                });
+            int expansionLength = LeviathanText.Core.Unicode.ScalarText.ScalarLength(expansionRevision.Text);
+            if (expansionRange.Start < 0 || expansionRange.End <= expansionRange.Start || expansionRange.End > expansionLength)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = annotation.Id.ToString(),
+                    Message = "The expansion range falls outside the linked L2 revision.",
+                });
+            var linkedText = LeviathanText.Core.Unicode.ScalarText.Slice(
+                expansionRevision.Text, expansionRange.Start, expansionRange.End);
+            if (!string.Equals(linkedText, annotation.ExpansionText, StringComparison.Ordinal))
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = annotation.Id.ToString(),
+                    Message = "ExpansionText does not equal the text at ExpansionRange in the linked L2 revision.",
+                });
+        }
+
+        if (annotation.SequenceIndex is < 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Message = "SequenceIndex must be non-negative.",
+            });
+        if (annotation.SequenceIndex is not null && string.IsNullOrWhiteSpace(annotation.SequenceId))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Message = "SequenceIndex requires a SequenceId.",
+            });
+        if (annotation.SequenceIndex is { } sequenceIndex
+            && !string.IsNullOrWhiteSpace(annotation.SequenceId)
+            && surface.Annotations.Any(existing =>
+                existing.Kind == AnnotationKind.CorrectionSequence
+                && existing.SequenceId == annotation.SequenceId
+                && existing.SequenceIndex == sequenceIndex
+                && existing.OrderBasis is not AnnotationOrderBasis.Inferred))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = annotation.Id.ToString(),
+                Message = "An explicit correction-sequence index is already used by another annotation.",
+            });
+        if (annotation.SequenceIndex is not null && annotation.OrderBasis is null)
+            annotation = annotation with { OrderBasis = AnnotationOrderBasis.Explicit };
+
         surface = surface with { Annotations = [.. surface.Annotations.Append(annotation)] };
         foundProject = WithSurface(foundProject, surface);
         store.SaveProject(foundProject);

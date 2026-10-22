@@ -34,6 +34,8 @@ set: C0-0.4-draft.
 - **Tokenizer coverage:** script detection, unknown-grapheme report and mixed-script routing.
 - **Forced-alignment baseline OCR:** baseline/boundary, per-grapheme cuts and JSON round trips.
 - **Recognition records:** bbox/baseline/region geometry and bounded slicing/cuts.
+- **Abbreviation editor:** reversible L1→L2 expansion links, API/CSV/TEI support and editor flow.
+- **Correction replay:** correction-sequence groups/index/order basis and a bounded replay panel.
 - **Codec resize modes:** `fail`/`new`/`union` label-set resizing with explicit NFD normalization.
 - **RTL record ordering:** explicit logical/display flags with bounded grapheme reversal and offset rebasing.
 - **Forced-alignment records:** line/region identity, source bbox and per-grapheme spans.

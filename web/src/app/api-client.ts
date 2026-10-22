@@ -159,6 +159,12 @@ export interface AnnotationView {
   alternativeText?: string;
   handLabel?: string;
   description?: string;
+  expansionText?: string;
+  expansionRevisionId?: string;
+  expansionRange?: { start: number; end: number };
+  sequenceId?: string;
+  sequenceIndex?: number;
+  orderBasis?: string;
 }
 
 @Injectable({ providedIn: 'root' })

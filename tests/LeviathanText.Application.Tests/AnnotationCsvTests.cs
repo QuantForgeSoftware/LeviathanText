@@ -27,6 +27,12 @@ public sealed class AnnotationCsvTests
                             AnchoredRevisionId = revisionId,
                             Range = new ScalarRange(1, 3),
                             Description = "faded, \"maybe\"",
+                            ExpansionText = "κυρίου",
+                            ExpansionRevisionId = new EntityId(EntityKind.TranscriptionRevision, "rev-l2"),
+                            ExpansionRange = new ScalarRange(4, 10),
+                            SequenceId = "main",
+                            SequenceIndex = 2,
+                            OrderBasis = AnnotationOrderBasis.Explicit,
                         },
                     ],
                 }],
@@ -40,6 +46,9 @@ public sealed class AnnotationCsvTests
         Assert.Contains("Unclear", row);
         Assert.Contains(",1,3,", row);
         Assert.Contains("\"faded, \"\"maybe\"\"\"", row);
+        Assert.Contains("κυρίου", row);
+        Assert.Contains("rev-l2", row);
+        Assert.Contains(",main,2,Explicit", row);
         Assert.Contains(surface.Lines[0].Id.ToString(), row);
     }
 }

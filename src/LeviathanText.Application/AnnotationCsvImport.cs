@@ -74,6 +74,13 @@ public static class AnnotationCsvImport
                     AlternativeText = NullIfEmpty(Cell(row, Column("alternative_text"))),
                     HandLabel = NullIfEmpty(Cell(row, Column("hand_label"))),
                     Description = NullIfEmpty(Cell(row, Column("description"))),
+                    ExpansionText = NullIfEmpty(Cell(row, Column("expansion_text"))),
+                    ExpansionRevisionId = ParseRevision(Cell(row, Column("expansion_revision"))),
+                    ExpansionRange = ParseRange(Cell(row, Column("expansion_start")), Cell(row, Column("expansion_end"))),
+                    SequenceId = NullIfEmpty(Cell(row, Column("sequence_id"))),
+                    SequenceIndex = int.TryParse(Cell(row, Column("sequence_index")), out var sequenceIndex) ? sequenceIndex : null,
+                    OrderBasis = Enum.TryParse<AnnotationOrderBasis>(Cell(row, Column("order_basis")), ignoreCase: true, out var basis)
+                        ? basis : null,
                 };
 
                 var (updated, _, _) = transcription.AddAnnotation(project, lineId, annotation);
@@ -92,4 +99,10 @@ public static class AnnotationCsvImport
     }
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static EntityId? ParseRevision(string? value) =>
+        EntityId.TryParse(value, EntityKind.TranscriptionRevision, out var id) ? id : null;
+
+    private static ScalarRange? ParseRange(string? start, string? end) =>
+        int.TryParse(start, out var from) && int.TryParse(end, out var to) ? new ScalarRange(from, to) : null;
 }

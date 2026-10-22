@@ -36,6 +36,16 @@ public enum AnnotationKind
     GlyphForm,
     /// <summary>Visible nonalphabetic sign from the profile's sign inventory (e.g. overbar, filling marker).</summary>
     Sign,
+    /// <summary>Visible abbreviation with a linked L2 expansion; the L1 span is never rewritten.</summary>
+    Abbreviation,
+}
+
+/// <summary>How a correction-sequence index was established.</summary>
+public enum AnnotationOrderBasis
+{
+    Unknown,
+    Explicit,
+    Inferred,
 }
 
 /// <summary>Extent certainty for <see cref="AnnotationKind.Lost"/> spans.</summary>
@@ -77,6 +87,24 @@ public sealed record Annotation
 
     /// <summary>For GlyphForm / Sign / UnidentifiedMark: profile sign ID or a free-text description.</summary>
     public string? Description { get; init; }
+
+    /// <summary>For Abbreviation: the editorial expansion text.</summary>
+    public string? ExpansionText { get; init; }
+
+    /// <summary>For Abbreviation: the L2 revision carrying the expansion.</summary>
+    public EntityId? ExpansionRevisionId { get; init; }
+
+    /// <summary>For Abbreviation: the expansion's scalar range in the L2 revision.</summary>
+    public ScalarRange? ExpansionRange { get; init; }
+
+    /// <summary>For CorrectionSequence: optional grouping id shared by ordered interventions.</summary>
+    public string? SequenceId { get; init; }
+
+    /// <summary>For CorrectionSequence: optional explicit order within the sequence group.</summary>
+    public int? SequenceIndex { get; init; }
+
+    /// <summary>Whether SequenceIndex was explicit, inferred or not established.</summary>
+    public AnnotationOrderBasis? OrderBasis { get; init; }
 
     public AgentRef? Author { get; init; }
 }

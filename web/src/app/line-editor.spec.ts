@@ -260,3 +260,97 @@ describe('LineEditor (annotation retraction)', () => {
     expect(fixture.nativeElement.textContent).toContain('No annotations on this line');
   });
 });
+
+describe('LineEditor (abbreviation expansion)', () => {
+  it('creates an L2 revision and a linked Abbreviation annotation without changing L1', () => {
+    let appended = '';
+    let annotation: Record<string, unknown> | null = null;
+    const stub = {
+      line: () => of({
+        line: 'ln-abbr', diplomatic: 'κϲ',
+        history: [{ id: 'rev-l1', layer: 'L1Diplomatic', text: 'κϲ', author: 'human', at: '' }],
+      }),
+      annotations: () => of([]),
+      appendRevision: (_line: string, layer: string, text: string) => {
+        appended = `${layer}:${text}`;
+        return of({ revisionId: 'rev-l2' });
+      },
+      addAnnotation: (_line: string, body: unknown) => {
+        annotation = body as Record<string, unknown>;
+        return of({ annotationId: 'ann-abbr' });
+      },
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-abbr');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+
+    const kind = Array.from(fixture.nativeElement.querySelectorAll('select'))
+      .find((s: unknown) => (s as HTMLSelectElement).querySelector('option[value="Abbreviation"]')) as HTMLSelectElement;
+    kind.value = 'Abbreviation';
+    kind.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const numbers = fixture.nativeElement.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
+    numbers[0].value = '0';
+    numbers[0].dispatchEvent(new Event('input'));
+    numbers[1].value = '2';
+    numbers[1].dispatchEvent(new Event('input'));
+    const expansion = fixture.nativeElement.querySelector('input[placeholder="expanded text"]') as HTMLInputElement;
+    expansion.value = 'κυρίου';
+    expansion.dispatchEvent(new Event('input'));
+    const add = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.trim() === 'Add') as HTMLButtonElement;
+    add.click();
+    fixture.detectChanges();
+
+    expect(appended).toBe('L2Editorial:κυρίου');
+    expect(annotation).not.toBeNull();
+    expect(annotation!['kind']).toBe('Abbreviation');
+    expect(annotation!['expansionText']).toBe('κυρίου');
+    expect(annotation!['expansionRevisionId']).toBe('rev-l2');
+    expect(annotation!['range']).toEqual({ start: 0, end: 2 });
+  });
+});
+
+describe('LineEditor (correction sequence)', () => {
+  it('orders explicit sequence entries and exposes replay controls', () => {
+    const stub = {
+      line: () => of({
+        line: 'ln-seq', diplomatic: 'αβ',
+        history: [{ id: 'rev-l1', layer: 'L1Diplomatic', text: 'αβ', author: 'human', at: '' }],
+      }),
+      annotations: () => of([
+        { id: 'ann-2', kind: 'CorrectionSequence', anchoredRevisionId: 'rev-l1', range: { start: 1, end: 2 }, sequenceId: 'main', sequenceIndex: 1, orderBasis: 'Explicit', handLabel: 'second' },
+        { id: 'ann-1', kind: 'CorrectionSequence', anchoredRevisionId: 'rev-l1', range: { start: 0, end: 1 }, sequenceId: 'main', sequenceIndex: 0, orderBasis: 'Explicit', handLabel: 'first' },
+      ]),
+      appendRevision: () => of({ revisionId: 'rev-l2' }),
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-seq');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Correction sequence (2)');
+    const sequenceButtons = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .map((b: unknown) => (b as HTMLButtonElement).textContent?.trim() ?? '')
+      .filter(label => label.startsWith('main /'));
+    expect(sequenceButtons).toEqual(['main / 0', 'main / 1']);
+    const next = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.trim() === 'Next') as HTMLButtonElement;
+    next.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Selected intervention spans scalars 1–2');
+  });
+});

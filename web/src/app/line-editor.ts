@@ -108,9 +108,28 @@ interface UndoStack {
           @if (formKind() === 'AlternativeReading') {
             <label>Alternative <input [value]="formAlternative()" (input)="onAlternative($event)" /></label>
           }
+          @if (formKind() === 'Abbreviation') {
+            <label>Expansion <input placeholder="expanded text" [value]="formExpansion()" (input)="onExpansion($event)" /></label>
+            <span class="hint">Creates an L2 revision; L1 stays unchanged.</span>
+          }
           @if (formKind() === 'DifferentHand' || formKind() === 'CorrectionSequence') {
-            <label>Hand / sequence label
+            <label>Hand label
               <input [value]="formHandLabel()" (input)="onHandLabel($event)" placeholder="unattributed or hand ID" />
+            </label>
+          }
+          @if (formKind() === 'CorrectionSequence') {
+            <label>Sequence group
+              <input [value]="formSequenceId()" (input)="onSequenceId($event)" placeholder="e.g. main" />
+            </label>
+            <label>Sequence index
+              <input type="number" min="0" [value]="formSequenceIndex() ?? ''" (input)="onSequenceIndex($event)" />
+            </label>
+            <label>Order basis
+              <select [value]="formOrderBasis()" (change)="onOrderBasis($event)">
+                <option value="Unknown">unknown</option>
+                <option value="Explicit">explicit</option>
+                <option value="Inferred">inferred</option>
+              </select>
             </label>
           }
           <label>Note <input [value]="formDescription()" (input)="onDescription($event)" /></label>
@@ -139,6 +158,12 @@ interface UndoStack {
                   — alt: {{ annotation.alternativeText }}
                   <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
                 }
+                @if (annotation.expansionText) {
+                  — expansion: {{ annotation.expansionText }}
+                }
+                @if (annotation.sequenceId || annotation.sequenceIndex !== undefined) {
+                  — sequence: {{ annotation.sequenceId || 'ungrouped' }} / {{ annotation.sequenceIndex ?? '?' }} ({{ annotation.orderBasis || 'unknown' }})
+                }
                 <button type="button" (click)="retractAnnotation(annotation)">Retract</button>
               </li>
             } @empty {
@@ -146,6 +171,29 @@ interface UndoStack {
             }
           </ul>
         </details>
+
+        @if (correctionEvents().length > 0) {
+          <details open>
+            <summary>Correction sequence ({{ correctionEvents().length }})</summary>
+            <div class="tools">
+              <button type="button" (click)="stepCorrection(-1)" [disabled]="selectedCorrection() <= 0">Previous</button>
+              <button type="button" (click)="stepCorrection(1)" [disabled]="selectedCorrection() >= correctionEvents().length - 1">Next</button>
+            </div>
+            <ol>
+              @for (event of correctionEvents(); track event.annotation.id; let i = $index) {
+                <li [class.selected]="selectedCorrection() === i">
+                  <button type="button" (click)="selectCorrection(i)">{{ event.label }}</button>
+                  <span>[{{ event.annotation.range.start }}, {{ event.annotation.range.end }})</span>
+                  @if (event.annotation.handLabel) { — hand: {{ event.annotation.handLabel }} }
+                  @if (event.annotation.description) { — {{ event.annotation.description }} }
+                </li>
+              }
+            </ol>
+            @if (selectedCorrectionEvent(); as event) {
+              <p class="hint">Selected intervention spans scalars {{ event.annotation.range.start }}–{{ event.annotation.range.end }}. No text is reconstructed from the sequence.</p>
+            }
+          </details>
+        }
 
         <details open>
           <summary>Reviews ({{ reviews().length }})</summary>
@@ -195,6 +243,7 @@ interface UndoStack {
     .orientation { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .hint { color: #667; font-size: 0.85rem; }
     .conflict { background: #fff4d6; padding: 0.4rem; }
+    li.selected { background: #e8f0fe; outline: 1px solid #47a; }
   `],
 })
 export class LineEditor {
@@ -242,7 +291,7 @@ export class LineEditor {
   protected readonly annotationKinds = [
     'Unclear', 'Illegible', 'Lost', 'SuppliedEditorial', 'AlternativeReading',
     'Erased', 'Added', 'Overwritten', 'DifferentHand', 'CorrectionSequence',
-    'GlyphForm', 'Sign', 'UnidentifiedMark', 'UnannotatedRegion',
+    'GlyphForm', 'Sign', 'UnidentifiedMark', 'UnannotatedRegion', 'Abbreviation',
   ];
   protected readonly formKind = signal('Unclear');
   protected readonly formStart = signal(0);
@@ -250,11 +299,48 @@ export class LineEditor {
   protected readonly formDescription = signal('');
   protected readonly formAlternative = signal('');
   protected readonly formHandLabel = signal('');
+  protected readonly formExpansion = signal('');
+  protected readonly formSequenceId = signal('');
+  protected readonly formSequenceIndex = signal<number | null>(null);
+  protected readonly formOrderBasis = signal('Unknown');
+  protected readonly selectedCorrection = signal(0);
   protected readonly formGapExtent = signal('Unknown');
   protected readonly formEstimatedCount = signal(1);
 
   protected readonly canAnnotate = computed(() =>
     this.formStart() >= 0 && this.formEnd() >= this.formStart() && this.formEnd() <= this.scalarTotal());
+
+  protected readonly correctionEvents = computed(() => {
+    const events = this.annotations()
+      .filter(annotation => annotation.kind === 'CorrectionSequence')
+      .map((annotation, creationIndex) => ({
+        annotation,
+        creationIndex,
+        group: annotation.sequenceId || 'ungrouped',
+        index: annotation.sequenceIndex ?? Number.MAX_SAFE_INTEGER,
+        label: annotation.sequenceId
+          ? `${annotation.sequenceId} / ${annotation.sequenceIndex ?? '?'}`
+          : 'ungrouped',
+      }));
+    return events.sort((a, b) =>
+      a.group.localeCompare(b.group)
+      || a.index - b.index
+      || a.creationIndex - b.creationIndex);
+  });
+
+  protected readonly selectedCorrectionEvent = computed(() => {
+    const events = this.correctionEvents();
+    return events.length === 0 ? null : events[Math.min(this.selectedCorrection(), events.length - 1)];
+  });
+
+  protected selectCorrection(index: number): void {
+    this.selectedCorrection.set(index);
+  }
+
+  protected stepCorrection(delta: number): void {
+    const next = this.selectedCorrection() + delta;
+    if (next >= 0 && next < this.correctionEvents().length) this.selectedCorrection.set(next);
+  }
 
   private readonly api: ApiClient;
 
@@ -302,6 +388,23 @@ export class LineEditor {
     this.formHandLabel.set((event.target as HTMLInputElement).value);
   }
 
+  protected onExpansion(event: Event): void {
+    this.formExpansion.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onSequenceId(event: Event): void {
+    this.formSequenceId.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onSequenceIndex(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.formSequenceIndex.set(value === '' ? null : Math.max(0, Number(value) || 0));
+  }
+
+  protected onOrderBasis(event: Event): void {
+    this.formOrderBasis.set((event.target as HTMLSelectElement).value);
+  }
+
   protected onGapExtent(event: Event): void {
     this.formGapExtent.set((event.target as HTMLSelectElement).value);
   }
@@ -333,6 +436,10 @@ export class LineEditor {
   protected addAnnotation(): void {
     if (!this.canAnnotate()) return;
     const kind = this.formKind();
+    if (kind === 'Abbreviation') {
+      this.addExpansion();
+      return;
+    }
     this.api.addAnnotation(this.lineId(), {
       kind,
       anchoredRevisionId: null,
@@ -342,14 +449,49 @@ export class LineEditor {
       handLabel: kind === 'DifferentHand' || kind === 'CorrectionSequence' ? this.formHandLabel() || null : null,
       gapExtent: kind === 'Lost' ? this.formGapExtent() : null,
       estimatedScalarCount: kind === 'Lost' && this.formGapExtent() === 'Estimated' ? this.formEstimatedCount() : null,
+      sequenceId: kind === 'CorrectionSequence' ? this.formSequenceId() || null : null,
+      sequenceIndex: kind === 'CorrectionSequence' ? this.formSequenceIndex() : null,
+      orderBasis: kind === 'CorrectionSequence' ? this.formOrderBasis() : null,
     }).subscribe({
       next: () => {
         this.formDescription.set('');
         this.formAlternative.set('');
+        this.formExpansion.set('');
         this.loadAnnotations();
       },
       error: () => { /* surfaced by the API; state kept */ },
     });
+  }
+
+  /** Create an L2 expansion revision first, then a reversible L1→L2 annotation link. */
+  private addExpansion(): void {
+    const expansion = this.formExpansion().trim();
+    const start = this.formStart(), end = this.formEnd();
+    if (!expansion || start >= end) return;
+    const composed = applyScalarEdit(this.text(), start, end, expansion);
+    // L2 has its own chain; do not name the L1 revision as its parent.
+    this.api.appendRevision(this.lineId(), 'L2Editorial', composed, this.authorId())
+      .subscribe({
+        next: ({ revisionId }) => {
+          this.api.addAnnotation(this.lineId(), {
+            kind: 'Abbreviation',
+            anchoredRevisionId: null,
+            range: { start, end },
+            expansionText: expansion,
+            expansionRevisionId: revisionId,
+            expansionRange: { start, end: start + scalarCount(expansion) },
+            description: this.formDescription() || null,
+          }).subscribe({
+            next: () => {
+              this.formExpansion.set('');
+              this.formDescription.set('');
+              this.refresh();
+            },
+            error: () => { /* surfaced by the API; state kept */ },
+          });
+        },
+        error: () => { /* surfaced by the API; state kept */ },
+      });
   }
 
   protected readonly reviews = computed(() => this.payload()?.reviews ?? []);

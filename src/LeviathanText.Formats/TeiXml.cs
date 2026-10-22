@@ -84,7 +84,8 @@ public static class TeiXml
         dropped = [];
         var scalars = ScalarText.Count(text);
         var applicable = annotations
-            .Where(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Lost or AnnotationKind.AlternativeReading or AnnotationKind.SuppliedEditorial)
+            .Where(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Lost or AnnotationKind.AlternativeReading
+                or AnnotationKind.SuppliedEditorial or AnnotationKind.Abbreviation)
             .OrderBy(a => a.Range.Start)
             .ToList();
 
@@ -130,6 +131,9 @@ public static class TeiXml
         AnnotationKind.AlternativeReading => new XElement(Tei + "app",
             new XElement(Tei + "lem", inner),
             new XElement(Tei + "rdg", new XAttribute("type", "alternative"), a.AlternativeText ?? "")),
+        AnnotationKind.Abbreviation => new XElement(Tei + "choice",
+            new XElement(Tei + "abbr", inner),
+            new XElement(Tei + "expan", a.ExpansionText ?? "")),
         _ => throw new InvalidOperationException(a.Kind.ToString()),
     };
 
@@ -177,7 +181,7 @@ public static class TeiXml
 
         foreach (var element in body.Descendants())
         {
-            if (element.AncestorsAndSelf().Any(a => a.Name.LocalName is "unclear" or "gap" or "supplied" or "app" or "lem" or "rdg" or "ab" or "lb"))
+            if (element.AncestorsAndSelf().Any(a => a.Name.LocalName is "unclear" or "gap" or "supplied" or "app" or "lem" or "rdg" or "abbr" or "expan" or "choice" or "ab" or "lb"))
                 continue;
             unsupported.Add(new PageXml.ImportIssue(element.Name.LocalName, "outside the bounded EpiDoc profile"));
         }
@@ -293,6 +297,25 @@ public static class TeiXml
                         AnchoredRevisionId = default,
                         Range = new ScalarRange(start, start + ScalarText.Count(lem)),
                         AlternativeText = rdg,
+                    });
+                break;
+            }
+            case "choice":
+            {
+                var abbr = el.Element(Tei + "abbr")?.Value;
+                var expan = el.Element(Tei + "expan")?.Value;
+                int start = ScalarText.Count(text.ToString());
+                var visible = abbr ?? el.Value;
+                text.Append(visible);
+                if (expan is not null)
+                    annotations.Add(new Annotation
+                    {
+                        Id = new EntityId(EntityKind.Annotation, $"abbr{annotations.Count}"),
+                        Kind = AnnotationKind.Abbreviation,
+                        AnchoredRevisionId = default,
+                        Range = new ScalarRange(start, start + ScalarText.Count(visible)),
+                        ExpansionText = expan,
+                        Description = "TEI choice/abbr; linked L2 revision not reconstructed on import",
                     });
                 break;
             }

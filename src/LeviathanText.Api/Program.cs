@@ -1017,6 +1017,14 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
         AlternativeText = request.AlternativeText,
         HandLabel = request.HandLabel,
         Description = request.Description,
+        ExpansionText = request.ExpansionText,
+        ExpansionRevisionId = string.IsNullOrEmpty(request.ExpansionRevisionId)
+            ? null
+            : EntityId.Parse(request.ExpansionRevisionId, EntityKind.TranscriptionRevision),
+        ExpansionRange = request.ExpansionRange,
+        SequenceId = request.SequenceId,
+        SequenceIndex = request.SequenceIndex,
+        OrderBasis = request.OrderBasis,
     };
 
     var (_, _, anchored) = transcription.AddAnnotation(project, lineEntityId, annotation);
@@ -1337,7 +1345,13 @@ public sealed record AddAnnotationRequest(
     GapExtent? GapExtent = null,
     string? AlternativeText = null,
     string? HandLabel = null,
-    string? Description = null);
+    string? Description = null,
+    string? ExpansionText = null,
+    string? ExpansionRevisionId = null,
+    ScalarRange? ExpansionRange = null,
+    string? SequenceId = null,
+    int? SequenceIndex = null,
+    AnnotationOrderBasis? OrderBasis = null);
 
 public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, string? AuthorId = null);
 
