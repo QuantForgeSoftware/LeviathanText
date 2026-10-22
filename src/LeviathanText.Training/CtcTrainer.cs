@@ -39,6 +39,15 @@ public sealed class CtcTrainer
     public double BestValidationCer => _bestValidationCer;
     public TrainingConfig Config => _config;
 
+    /// <summary>
+    /// Path of the last emergency checkpoint written after an exception or cancellation,
+    /// or null when the run did not fail. Load it with suffix <c>.failure</c>.
+    /// </summary>
+    public string? LastEmergencyCheckpointPath { get; private set; }
+
+    /// <summary>Why the last emergency checkpoint could not be written, if it failed.</summary>
+    public string? LastEmergencyCheckpointError { get; private set; }
+
     /// <summary>Average CTC loss over one pass, training the model.</summary>
     public double TrainEpoch(IReadOnlyList<LabeledLine> data, int epochSeed)
     {
@@ -128,29 +137,40 @@ public sealed class CtcTrainer
         var bestPath = CheckpointStore.ModelPath(_config.CheckpointDirectory, _config.ModelName, ".best");
         if (!File.Exists(bestPath)) bestPath = string.Empty; // resumed run with no new epoch yet
 
-        for (int e = _epoch; e < _config.Epochs; e++)
+        try
         {
-            double trainLoss = TrainEpoch(train, _config.Seed + e);
-            var (valLoss, valCer) = Evaluate(validation);
-            _epoch = e + 1;
-
-            history.Add(new EpochRecord(_epoch, trainLoss, valLoss, valCer));
-
-            bool improved = valCer < _bestValidationCer - 1e-6;
-            if (improved)
+            for (int e = _epoch; e < _config.Epochs; e++)
             {
-                _bestValidationCer = valCer;
-                sinceImprovement = 0;
-            }
-            else
-            {
-                sinceImprovement++;
-            }
+                double trainLoss = TrainEpoch(train, _config.Seed + e);
+                var (valLoss, valCer) = Evaluate(validation);
+                _epoch = e + 1;
 
-            var savedPath = SaveCheckpoint(isBest: improved);
-            if (improved) bestPath = savedPath; // only the ".best" artifact is the selected model
+                history.Add(new EpochRecord(_epoch, trainLoss, valLoss, valCer));
 
-            if (sinceImprovement >= _config.EarlyStoppingPatience) break;
+                bool improved = valCer < _bestValidationCer - 1e-6;
+                if (improved)
+                {
+                    _bestValidationCer = valCer;
+                    sinceImprovement = 0;
+                }
+                else
+                {
+                    sinceImprovement++;
+                }
+
+                var savedPath = SaveCheckpoint(isBest: improved);
+                if (improved) bestPath = savedPath; // only the ".best" artifact is the selected model
+
+                if (sinceImprovement >= _config.EarlyStoppingPatience) break;
+            }
+        }
+        catch
+        {
+            // Preserve the partially trained state without hiding the original failure.
+            // This is a separate artifact so a previously selected ".best" checkpoint is
+            // never overwritten by a failed epoch.
+            TrySaveEmergencyCheckpoint();
+            throw;
         }
 
         return new TrainingRunResult(startEpoch, _epoch, _bestValidationCer, bestPath, history);
@@ -191,6 +211,22 @@ public sealed class CtcTrainer
             TorchVersion = torch.__version__,
             CreatedAt = DateTimeOffset.UtcNow,
         }, suffix);
+    }
+
+    private void TrySaveEmergencyCheckpoint()
+    {
+        try
+        {
+            SaveArtifacts(_config.ModelName, ".failure");
+            LastEmergencyCheckpointPath = CheckpointStore.ModelPath(
+                _config.CheckpointDirectory, _config.ModelName, ".failure");
+        }
+        catch (Exception ex)
+        {
+            LastEmergencyCheckpointError = ex.Message;
+            // The original training/interruption exception is the useful error. A failed
+            // emergency save must not replace it.
+        }
     }
 
     /// <summary>Restore the selected best checkpoint into this trainer's model/optimizer.</summary>

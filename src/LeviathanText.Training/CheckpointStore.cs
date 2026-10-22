@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using LeviathanText.Recognition;
 
 namespace LeviathanText.Training;
@@ -42,7 +43,11 @@ public sealed record CheckpointMetadata
 /// </summary>
 public static class CheckpointStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+    };
 
     public static string ModelPath(string directory, string name, string suffix = "") =>
         Path.Combine(directory, $"{name}{suffix}.model");
