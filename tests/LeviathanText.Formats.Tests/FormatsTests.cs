@@ -289,6 +289,23 @@ public class PageXmlTests
     }
 
     [Fact]
+    public void Duplicate_page_element_ids_are_refused()
+    {
+        var xml = """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="dup.jpg" imageWidth="100" imageHeight="50">
+                <TextRegion id="r1"><Coords points="0,0 100,0 100,50 0,50"/>
+                  <TextLine id="same"><Coords points="1,1 90,1 90,20 1,20"/></TextLine>
+                  <TextLine id="same"><Coords points="1,25 90,25 90,45 1,45"/></TextLine>
+                </TextRegion>
+              </Page>
+            </PcGts>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            PageXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+    }
+
+    [Fact]
     public void External_entities_are_refused()
     {
         var xml = "<!DOCTYPE PcGts [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>" +

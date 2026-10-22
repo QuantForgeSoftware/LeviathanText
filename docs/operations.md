@@ -27,6 +27,26 @@ dotnet run --project src/LeviathanText.Cli -- --store pilot.db search <projectId
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export diplomatic <projectId> <surfaceId>
 ```
 
+## Image-only commands
+
+```bash
+# deterministic Otsu/binary conversion (never overwrites the source)
+leviathan image binarize page.jpg page-bw.png
+# bi-level bbox segmentation (color pages must be binarized first)
+leviathan image segment page-bw.png lines.json --format json --direction horizontal-lr
+# alias: segment then OCR in one command
+leviathan image segment-ocr page-bw.png ocr.json --package ./packages/model-a --format json
+# one line or a segmented page; PAGE/ALTO XML input uses the XML's own line geometry
+leviathan image ocr page-bw.png ocr.txt --package ./packages/model-a --mode segment
+leviathan image ocr page.xml ocr.json --package ./packages/model-a --input-format xml --linetype bbox
+# bounded column-centroid dewarp (B/W or grayscale only)
+leviathan image dewarp line.png line-dewarped.png --height 64
+```
+
+Image OCR writes L0-style text/records; it does not create L1 scholarly transcription. PAGE/ALTO
+XML OCR accepts `auto`, `baselines` or `bbox` line types. `image segment` rejects color input;
+`image dewarp` rejects true color and does not claim full center-normalizer parity.
+
 Image-only paths (IIIF or scanned pages without PAGE layout):
 
 ```bash
@@ -141,6 +161,21 @@ read the same kind-named directories from `LEVIATHANTEXT_LAYOUT_MODEL_DIR` (defa
 `GET /api/v1/models`; clients name a package (never a path). `POST
 /api/v1/surfaces/{id}/recognize {"model":"<name>"}` loads the verified package, persists L0
 revisions with provenance and returns line/skip counts. Long batch work belongs in jobs.
+
+Packages are data directories with a `run-manifest.json`, checkpoint metadata, weights and a
+`model-card.md`. The card records task/format, architecture, tokenizer/preprocessing profile,
+directions/scripts, runtime, provenance, license, hashes and pilot metrics. A package with an
+executable payload, oversized artifact, broken label hash, future package format or
+mismatched weights is rejected. A card's metrics are not an acceptance threshold.
+
+## AI providers
+
+Providers are configured under `LeviathanText:AiProviders:<name>` with
+`ProviderId`, `Host` (`Local`/`Hosted`), `Protocol` (`OpenAiChatCompletions`/`OllamaChat`),
+`Endpoint`, `ModelId`, optional `CredentialEnvironmentVariable`, timeout/token/response caps
+and optional spend caps. Credentials are read from the named environment variable at call
+time, never stored in proposal records. No hosted-provider accuracy or availability claim is
+made; use the local scripted/Ollama smoke paths for verification.
 
 ## Exports
 
@@ -377,7 +412,8 @@ implemented.
 ## Known limits to communicate
 
 - TIFF is not supported by the current imaging backend (clean `RejectedArchive`). PDF pages can
-  be rasterized into captures (bounded DPI/page count/size), but PDF text/layout is not imported.
+  be rasterized into captures (bounded DPI/page count/size). Optional PDF text is L2 reference;
+  clean two-column gutter order is inferred mechanically, but complex/rotated layouts are not.
 - Region/line direction and script metadata is stored and displayed; BiDi layout and vertical
   recognition are not implemented (recognition remains LTR).
 - Automatic layout handles single-column pages; multi-column/curved/rotated pages are unsupported.

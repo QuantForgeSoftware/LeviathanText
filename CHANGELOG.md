@@ -27,6 +27,7 @@ set: C0-0.4-draft.
 - **Image OCR CLI:** `image ocr` with line/segment modes, verified model packages and text/JSON/PAGE/ALTO output.
 - **Baseline dataset loader:** normalized PAGE/image samples with multi-class targets and explicit issues.
 - **Model cards:** architecture, tokenizer/preprocessing, directions/scripts, runtime, provenance and license metadata.
+- **Docs:** image-only commands, model cards, provider configuration and PDF limits.
 - **PDF reading order:** clean two-column gutter ordering with single-column fallback.
 - **Segment-OCR CLI:** explicit `image segment-ocr` convenience command.
 - **Corpus ledger:** opt-in extended DATA-01 field validation and CLI `--extended`.

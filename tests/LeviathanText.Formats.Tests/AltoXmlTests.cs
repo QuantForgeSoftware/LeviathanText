@@ -278,6 +278,23 @@ public class AltoXmlTests
     }
 
     [Fact]
+    public void Duplicate_alto_element_ids_are_refused()
+    {
+        var xml = """
+            <alto xmlns="http://www.loc.gov/standards/alto/ns-v4#">
+              <Layout><Page WIDTH="100" HEIGHT="50"><PrintSpace>
+                <TextBlock ID="b1">
+                  <TextLine ID="same"><Shape><Polygon POINTS="0,0 10,0 10,10 0,10"/></Shape></TextLine>
+                  <TextLine ID="same"><Shape><Polygon POINTS="0,20 10,20 10,30 0,30"/></Shape></TextLine>
+                </TextBlock>
+              </PrintSpace></Page></Layout>
+            </alto>
+            """;
+        Assert.Throws<InvalidDataException>(() =>
+            AltoXml.Import(xml, new EntityId(EntityKind.Capture, "cap1"), SampleProject.Sum));
+    }
+
+    [Fact]
     public void Non_pixel_measurement_unit_and_empty_source_image_are_refused()
     {
         var badUnit = """

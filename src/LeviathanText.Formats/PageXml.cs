@@ -76,10 +76,11 @@ public static class PageXml
             .GroupBy(rr => (string?)rr.Attribute("regionRef"))
             .ToDictionary(g => g.Key ?? "", g => (int?)g.First().Attribute("index"));
         var readingOrders = ParseReadingOrders(page, Pc);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var region in page.Elements(Pc + "TextRegion"))
         {
-            var regionId = ExternalIds.Sanitize(RequireId(region, "TextRegion"));
+            var regionId = UniqueId(seenIds, ExternalIds.Sanitize(RequireId(region, "TextRegion")), "TextRegion");
             var customIndex = TryParseCustomIndex(region);
             var regionMetadata = pageMetadata.Merge(MetadataOf(region));
             var poly = ParsePoints(region.Element(Pc + "Coords")?.Attribute("points")?.Value);
@@ -107,7 +108,7 @@ public static class PageXml
 
             foreach (var line in region.Elements(Pc + "TextLine"))
             {
-                var lineId = ExternalIds.Sanitize(RequireId(line, "TextLine"));
+                var lineId = UniqueId(seenIds, ExternalIds.Sanitize(RequireId(line, "TextLine")), "TextLine");
                 var lineMetadata = regionMetadata.Merge(MetadataOf(line));
                 var baseline = ParsePoints(line.Element(Pc + "Baseline")?.Attribute("points")?.Value);
                 var linePolygon = ParsePoints(line.Element(Pc + "Coords")?.Attribute("points")?.Value);
@@ -358,6 +359,13 @@ public static class PageXml
     }
 
     /// <summary>PAGE `custom="readingOrder {index:N;}"` attribute (Transkribus convention).</summary>
+    private static string UniqueId(HashSet<string> seen, string id, string element)
+    {
+        if (!seen.Add(id))
+            throw new InvalidDataException($"Duplicate {element} id '{id}' is not allowed.");
+        return id;
+    }
+
     private static IReadOnlyList<ReadingOrderGroup> ParseReadingOrders(XElement page, XNamespace pc)
     {
         var groups = new List<ReadingOrderGroup>();

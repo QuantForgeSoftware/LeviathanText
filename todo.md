@@ -12,11 +12,11 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 - [x] **RTL recognition records:** bbox/baseline geometry, region identity, logical/display order, slicing/cuts and 6 xUnit tests; full BiDi and RTL recognition remain blocked.
 - [x] **Forced-alignment baseline-OCR records:** baseline/boundary, per-grapheme cuts, confidence, region identity and JSON round-trip tests.
 - [x] **Tokenizer/script coverage:** unknown-grapheme reporting, bounded script detection and mixed-script routing checks + 4 xUnit tests.
-- [ ] **XML edge matrix:** additional PAGE/ALTO metadata, malformed/schema-shaped round trips and available XSD validation.
+- [x] **XML edge matrix:** duplicate-ID rejection, Rect/line geometry fallback, dimension/unit/source validation, reading-order groups and round-trip tests; official XSD validation remains dependent on pinned schemas.
 - [x] **DATA-01 ledger validation:** opt-in extended audit for object IDs, parent-image lineage, granularity, language/period/material, transcription profile, evidence URL, unresolved questions and code/weight licences.
 - [x] **PDF reading-order/column inference mechanics:** clean two-column gutter ordering with single-column fallback and synthetic tests; no real-document accuracy claim.
 - [x] **Chained `segment → ocr` CLI convenience:** `image segment-ocr` forwards to the existing segment/OCR path; process test added.
-- [ ] **Publication docs:** installation, transcription, training, provider-configuration, model-card and known-failure docs; verified fresh-offline-with-installed-models remains blocked until weights exist.
+- [x] **Publication docs:** image commands, model cards, AI provider configuration, PDF limits and known failures added to `docs/operations.md`; verified fresh-offline-with-installed-models remains blocked until weights exist.
 
 ## 3. Reference capability inventory and release scope
 

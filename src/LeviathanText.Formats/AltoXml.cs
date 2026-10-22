@@ -123,11 +123,13 @@ public static class AltoXml
         var page = root.Descendants(Alto + "Page").FirstOrDefault();
         var pageMetadata = MetadataOf(page ?? root, tagMap);
         var readingOrders = ParseReadingOrders(root);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
         int regionOrder = 0;
 
         foreach (var block in root.Descendants(Alto + "TextBlock"))
         {
-            var blockId = ExternalIds.Sanitize((string?)block.Attribute("ID") ?? $"altoregion{regionOrder}");
+            var blockId = UniqueId(seenIds,
+                ExternalIds.Sanitize((string?)block.Attribute("ID") ?? $"altoregion{regionOrder}"), "TextBlock");
             var blockMetadata = pageMetadata.Merge(MetadataOf(block, tagMap));
             regions.Add(new NativeRegion
             {
@@ -144,7 +146,8 @@ public static class AltoXml
 
             foreach (var line in block.Elements(Alto + "TextLine"))
             {
-                var lineId = ExternalIds.Sanitize((string?)line.Attribute("ID") ?? $"altoline{lines.Count}");
+                var lineId = UniqueId(seenIds,
+                    ExternalIds.Sanitize((string?)line.Attribute("ID") ?? $"altoline{lines.Count}"), "TextLine");
                 var lineMetadata = blockMetadata.Merge(MetadataOf(line, tagMap));
                 var polygon = ParseGeometry(line);
                 var text = string.Concat(line.Elements(Alto + "String")
@@ -231,6 +234,13 @@ public static class AltoXml
         return new Metadata(languages.Distinct(StringComparer.Ordinal).ToArray(),
             tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.ToArray()), split,
             ParseDirection((string?)element.Attribute("BASEDIRECTION")));
+    }
+
+    private static string UniqueId(HashSet<string> seen, string id, string element)
+    {
+        if (!seen.Add(id))
+            throw new InvalidDataException($"Duplicate {element} ID '{id}' is not allowed.");
+        return id;
     }
 
     private static IReadOnlyList<PageXml.ReadingOrderGroup> ParseReadingOrders(XElement root)
