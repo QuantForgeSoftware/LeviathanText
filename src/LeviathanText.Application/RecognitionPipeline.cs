@@ -87,8 +87,8 @@ public sealed class RecognitionPipeline
 
         // Large JPEG pages use bounded horizontal band decoding per line; PNG/TIFF
         // keep the full-frame path until a portable tiled decoder exists.
-        bool useBanded = capture.ImageLocation.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
-            || capture.ImageLocation.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
+        var extension = Path.GetExtension(capture.ImageLocation).ToLowerInvariant();
+        bool useBanded = extension is ".jpg" or ".jpeg" or ".png";
         if (useBanded)
         {
             var (width, height) = ImageDecoder.Dimensions(capture.ImageLocation);

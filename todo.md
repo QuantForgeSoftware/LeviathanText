@@ -78,7 +78,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 
 ### Phase 1 — Greek engine, minimal training and CLI
 
-- [~] Implement image preparation, tiling, manual/imported line annotations, baseline/layout inference, extraction, recognition and alignment, with bounded resource use. *(done: import/crop/extraction, auto layout (projection R=0.506 on real pages; learned attempt underperforms — recorded), recognition + alignment plumbing, bulk import via bounded pipeline; open: PNG/TIFF tiling and automatic layout for multi-column/curved pages; large JPEG line extraction now uses bounded scanline bands)*
+- [~] Implement image preparation, tiling, manual/imported line annotations, baseline/layout inference, extraction, recognition and alignment, with bounded resource use. *(done: import/crop/extraction, auto layout (projection R=0.506 on real pages; learned attempt underperforms — recorded), recognition + alignment plumbing, bulk import via bounded pipeline; large JPEG/PNG line extraction now uses bounded scanline bands. Remaining: TIFF backend and automatic multi-column/curved layout.)*
 - [~] Support unspaced Greek recognition, visible diacritics and signs, uncertain spans and explicit model/profile selection per material/hand. Keep model outputs separate from expert annotations. *(label set supports spaces/diacritics; profile selection is per-run; model-vs-expert separation is contractual; unspaced accuracy unmeasured at scale)*
 
 ### Phase 2 — scholarly workspace and initial AI assistance
