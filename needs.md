@@ -1,179 +1,129 @@
 # Human decisions and needs
 
-Status: 2026-10-23. This is the human-input register for LeviathanText. It lists what
-engineering cannot decide or obtain without the project owner, Greek specialist, reviewer,
-rights holder, or custodian. The code-only work queue is tracked in `todo.md`.
+Status: 2026-10-23. Decisions below were made by the project owner, who also acts as Greek
+specialist and pilot evaluator/custodian. They authorize pilot work; they do not create
+rights, reviewer evidence, or independent validation.
 
-## 0. Critical path
+## Decisions adopted
 
-### H1. Return reviewer decisions for the known-transcription packets
+| ID | Decision |
+|---|---|
+| D1 | Ratify `greek-diplomatic-1.0-draft` as the pilot profile. The executable policy is `GreekDiplomaticProfile.cs`. |
+| D2 | Pilot scope is P01 (papyri), M01/M02a (manuscripts) and I01 (inscriptions). M03, P02–P06 and other collections are out of scope until separately cleared. |
+| D3 | Use only verified image/text pairs. Missing pairs are `unknown`, never blank or negative training examples. |
+| D4 | The P01 locked split is spent and must not be reused for a new claim. |
+| D5 | No accuracy/release claim until a fresh held-out witness is adjudicated and a threshold sheet is frozen. Until then all numbers are pilot measurements. |
+| D6 | The project owner accepts the custodian role for pilot evaluation. This is a role conflict; an external claim requires an independent custodian. |
+| D7 | No CSNTM image ingestion or training until written permission covers the intended use. |
+| D8 | Restricted P02/P03/P04/P05/P06 and I01 material stays local-only and out of release packages until rights are confirmed. |
+| D9 | Do not distribute model weights. Ship code only; keep trained models local until rights and capability review are complete. |
+| D10 | Keep the ImageSharp TIFF fallback for the pilot. Commercial distribution requires a Six Labors Split License decision or a different backend. |
+| D11 | Deployment remains single-user/local. Target osx-arm64 only for now; no SSO, tenant isolation, shared-server commitment, or ONNX export decision. |
+| D12 | Freeze feature scope to core Greek HTR. Printed editions, other scripts, searchable PDF, distributed execution, fragment joining and advanced imaging are deferred. |
+| D13 | Remote registries are disabled/opt-in; no model is downloaded or trusted without an explicit SHA-256 and owner approval. |
+| D14 | Hosted AI is disabled. Local providers are the only approved pilot configuration; no restricted material leaves the machine. |
+| D15 | Abbreviation expansions, corrections and word boundaries are L2/L3 proposals; L1 remains visible evidence and is never silently rewritten. |
 
-**Needed from:** Greek reviewer / project owner.
+## Still required: reviewer evidence
 
-- Complete the decisions CSV in:
+### H1. Complete the reviewer decisions
+
+**Owner:** project owner / Greek reviewer.
+
+- Review and return:
   - `.artifacts/review/p01/packet-50/decisions.csv`
   - `.artifacts/review/m02a/packet-50/decisions.csv`
   - `.artifacts/review/m01/packet-50/decisions.csv`
-- Return as `.artifacts/review/<track>/decisions-returned.csv`, with a reviewer identity.
-- Mark `agree`, `correct`, `unclear` or `not-visible`; do not force a decision where the crop
-  is insufficient.
-- For corrections, supply the diplomatic reading, not an expanded/normalized edition.
+- Save as `.artifacts/review/<track>/decisions-returned.csv`.
+- Use `agree`, `correct`, `unclear` or `not-visible`; corrections are diplomatic readings.
+- Do not force a decision where the crop is insufficient.
 
-**Why it blocks:** these are the only image-aligned, reviewer-ready labels currently on the
-critical path. No new accuracy claim or adjudicated release set can be created without them.
+This cannot be replaced by an owner policy decision: it requires looking at the actual
+images. These packets are the critical path to adjudicated labels.
 
-**If unavailable:** keep using them only as unadjudicated pilot data; do not claim expert
-ground truth.
+### H2. Adjudicate the pilot and measure effort
 
-### H2. Ratify the `greek-diplomatic-1.0-draft` decisions
+**Owner:** project owner / Greek reviewer.
 
-**Needed from:** Greek specialist / reviewer.
+- Perform independent second review of candidate transcriptions.
+- Retain unresolved alternatives instead of forcing agreement.
+- Record ambiguity, annotation completeness and correction time.
+- Inventory uncommon signs, ligatures and damage states.
 
-The initial decisions have been made in
-`docs/contracts/greek-transcription.md` §7 and encoded in
-`GreekDiplomaticProfile.cs`. Review and ratify them, especially:
+Until this is done, `D5` applies: pilot measurements only, no release claim.
 
-1. lunate `ϲ` only when visibly lunate; otherwise preserve visible `σ`/`ς`;
-2. no automatic epichoric mapping; use `GlyphForm` until a mapping table is approved;
-3. visible punctuation/numerals only, no modern conversion;
-4. per-character underdots primary, span-level only when boundaries are indeterminate;
-5. scriptio continua preserved; word division only in linked L2 annotations;
-6. visible abbreviation + overbar in L1; expansion linked in L2;
-7. correction order only with evidence, with explicit/inferred/unknown basis;
-8. `Sign` vs `GlyphForm` vs `UnidentifiedMark` boundary.
+## Rights and permissions
 
-**Why it blocks:** labels can be stored now, but not consistently adjudicated or released
-under a specialist-approved profile.
+### H3. CSNTM permission
 
-**If unavailable:** keep the draft label on all outputs and do not claim profile ratification.
+**Owner:** project owner + CSNTM + holding institutions.
 
-### H3. Freeze acceptance thresholds and name a custodian
+Request written permission covering local research/training, derived annotations and crops,
+model weights, redistribution and holding-institution rights. Until then `D7` applies.
 
-**Needed from:** project owner, Greek specialist, evaluator/custodian.
+### H4. P01/P02–P06 and I01 rights
 
-- Select the pilot collections and final evaluation objects.
-- Name a custodian for locked labels distinct from the training owner.
-- Freeze per-track/per-profile thresholds for CER, mark errors, coverage and correction time.
-- Decide which fresh held-out witnesses are acceptable for the next claim.
-- Decide whether the P01 locked split remains spent and cannot be reused for a new claim.
+**Owner:** project owner / rights holders.
 
-**Why it blocks:** no release accuracy claim, model comparison or final acceptance report.
+Resolve image, transcription, annotation and weight redistribution terms per object. Until
+then `D8` applies. Do not treat online availability as permission.
 
-**If unavailable:** continue development measurement only; label every number as pilot,
-unadjudicated, and non-acceptance.
+### H5. Weight and dependency distribution
 
-## 1. Rights and permissions
+**Owner:** project owner / legal.
 
-### H4. CSNTM permission and scope
+`D9` means no weights are packaged. Before any commercial release, decide whether to retain
+ImageSharp under the Six Labors Split License or replace the TIFF fallback.
 
-**Needed from:** project owner + CSNTM + holding institutions.
+## Data and evaluation
 
-Request written permission covering:
+### H6. Complete corpus inventories
 
-- local research use and training;
-- creation of derived annotations and crops;
-- publication of model weights trained on the images;
-- redistribution of images, crops or derivatives;
-- holding-institution rights for each selected manuscript.
+**Owner:** data workers / project owner.
 
-**Decision needed:** if weight distribution is not permitted, keep CSNTM-derived models
-local-only and exclude them from release artifacts.
+- MAN-01: count valid M01/M02 image-PAGE pairs and propose witness/hand holdouts.
+- PAP-01: audit P01's 27 named pairs and label the five extra images unannotated.
+- PAP-02: produce the P02/P03 include/exclude ledger and P04/P05/P06 rights mapping.
+- INS-01: produce I01 image-aligned readings and geometry.
+- DATA-02: deduplicate by object/TM/inventory ID and image lineage.
 
-**If unavailable:** do not ingest CSNTM images beyond permitted viewing; use only existing
-project tracks.
+Only verified pairs may be used (`D3`).
 
-### H5. Rights for P01/P02/P03/P04/P05/P06 and I01
+### H7. Fresh witness and threshold freeze
 
-**Needed from:** project owner / rights holders.
+**Owner:** project owner / custodian.
 
-- Confirm reusable image and transcription rights per object.
-- Resolve P02/P03 inclusion, P04 source mapping and P05/P06 text-photo matching.
-- Confirm I01 image/edition rights and whether derived crops/weights may be distributed.
-- Record exceptions in the corpus ledger; do not treat “available online” as permission.
+`D5` requires a fresh held-out witness before a new accuracy claim. None is cleared yet.
+Acceptable routes:
 
-**If unavailable:** keep restricted material out of training, release packages and model
-cards, or mark it local-only.
+1. written CSNTM permission for a selected witness;
+2. a rights-cleared P02/P03 source;
+3. a reviewer-transcribed object owned by the project.
 
-### H6. Model-weight distribution and dependency licences
+Until one is available, keep all results labeled as pilot/development measurements. Do not
+reuse the spent P01 locked split (`D4`).
 
-**Needed from:** project owner / legal.
+## Product/deployment
 
-- Decide the distribution licence for project-trained weights.
-- Decide whether CSNTM/P01-derived weights may be published.
-- Review the **Six Labors Split License** for ImageSharp (TIFF fallback) against the intended
-  distribution model; if incompatible, approve removal or a different TIFF backend.
-- Confirm attribution requirements for all bundled dependencies.
+### H8. Scope and platform confirmation
 
-**If unavailable:** do not publish weights; ship code only with a local-model workflow.
+`D11`/`D12` close these for the current cycle:
 
-## 2. Data and annotation work
+- single-user/local only;
+- osx-arm64 only;
+- no SSO/shared deployment;
+- no ONNX decision;
+- no printed-edition/other-script/searchable-PDF/distributed/fragment/advanced-imaging work;
+- remote registries opt-in and untrusted by default;
+- local AI providers only.
 
-### H7. Complete the corpus inventories
+Reopen only with an explicit owner decision and a new target/budget.
 
-**Needed from:** data workers / project owner.
+## Return format
 
-- **MAN-01:** inventory M01/M02 image-PAGE pairs and lines; reconcile counts; propose
-  witness/hand holdouts.
-- **PAP-01:** audit P01's 27 named pairs, count lines/characters, label the five extra images
-  as unannotated.
-- **PAP-02:** produce P02/P03 include/exclude ledger; resolve P04 rights; match P05/P06.
-- **INS-01:** produce I01 image-aligned readings and geometry; keep I03 auxiliary.
-- **DATA-02:** deduplicate by object/TM/inventory ID and image lineage; audit overlap.
-
-**If unavailable:** use only verified pairs; report missing pairs as unknown, never as blank
-or negative examples.
-
-### H8. Adjudicate a development pilot and measure effort
-
-**Needed from:** Greek reviewer + data workers.
-
-- Independent second review of proposed test transcriptions against exact images.
-- Adjudicate disagreements; retain unresolved alternatives.
-- Record ambiguity, annotation completeness and actual correction time.
-- Inventory uncommon signs, ligatures, damage states and their counts.
-
-**If unavailable:** do not expand training volume targets or claim generalization.
-
-## 3. Product and deployment decisions
-
-### H9. Deployment scope and platforms
-
-**Needed from:** project owner.
-
-- Confirm the current single-user/local target remains sufficient.
-- Decide whether shared deployment, SSO, tenant isolation and collaboration are in scope.
-- Choose the release target matrix and whether installers/updaters/cross-platform rollback
-  are required now.
-- Decide whether ONNX export or another inference route is required.
-
-**If unavailable:** remain single-user/local, osx-arm64-first, and do not claim cross-platform
-support.
-
-### H10. Scope priorities
-
-**Needed from:** project owner.
-
-- Priority for printed editions/critical apparatus and additional scripts.
-- Priority for searchable PDF, distributed execution, fragment joining and advanced imaging.
-- Whether remote model registries are trusted, and which registries/checksum policy apply.
-- Whether hosted AI providers are allowed; credentials, spend caps, data-retention rules and
-  which tasks may leave the local machine.
-
-**If unavailable:** keep these features disabled/out of scope and retain local-only AI
-configuration.
-
-## 4. What can continue without these decisions
-
-- RTL/BiDi display and record work that does not claim RTL recognition.
-- Full task-model API and segmentation task wrappers.
-- Official XML schema validation with pinned XSDs.
-- Installer/updater and migration rehearsal work that does not need restricted data.
-- Publication docs, model cards for existing local models, and known-failure documentation.
-- Engineering hardening, resource limits and test coverage.
-
-## 5. Return format
-
-For decisions, reply with the ID and the chosen option, or edit the relevant ledger/CSV.
-For rights, provide the exact permission text and scope (images, annotations, weights,
-redistribution). For reviewer work, return the completed CSV and reviewer identity. Do not
-send restricted images or unpublished editions through third-party services.
+- **Reviewer work:** return completed CSVs plus reviewer identity.
+- **Rights:** provide exact permission text and scope (images, annotations, weights,
+  redistribution).
+- **New witness:** provide source, object IDs, rights basis and a statement that it was not
+  used for tuning.
+- Do not send restricted images or unpublished editions through third-party services.

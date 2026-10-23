@@ -9,6 +9,9 @@ public static class GreekDiplomaticProfile
 {
     public const string Id = "greek-diplomatic-1.0-draft";
     public const string Version = "1.0-draft";
+    public const string Status = "ratified-for-pilot";
+    public const string RatifiedBy = "project-owner/Greek-specialist";
+    public static readonly DateOnly RatifiedOn = new(2026, 10, 23);
 
     public enum UnderdotPolicy { PerCharacterPrimary, SpanOnly }
 

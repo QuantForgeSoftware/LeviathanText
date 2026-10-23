@@ -9,6 +9,8 @@ public class GreekDiplomaticProfileTests
     {
         Assert.Equal("greek-diplomatic-1.0-draft", GreekDiplomaticProfile.Id);
         Assert.Equal("1.0-draft", GreekDiplomaticProfile.Version);
+        Assert.Equal("ratified-for-pilot", GreekDiplomaticProfile.Status);
+        Assert.Equal(new DateOnly(2026, 10, 23), GreekDiplomaticProfile.RatifiedOn);
         Assert.Equal(GreekDiplomaticProfile.Id, GreekTextProfile.ProfileId);
         Assert.Equal(GreekDiplomaticProfile.Version, GreekTextProfile.Version);
         Assert.Equal(GreekDiplomaticProfile.Signs.Count,

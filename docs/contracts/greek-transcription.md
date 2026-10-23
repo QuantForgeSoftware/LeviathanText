@@ -89,9 +89,9 @@ Distinct statuses (project-plan §3):
 
 ## 7. Decisions adopted in `greek-diplomatic-1.0-draft`
 
-These are the profile owner's initial decisions, subject to later specialist ratification. A
-change requires a new profile version and a recorded conversion; it is never applied silently
-to existing L1.
+These decisions were ratified for pilot use on 2026-10-23 by the project owner acting as
+Greek specialist. A change requires a new profile version and a recorded conversion; it is
+never applied silently to existing L1.
 
 1. **Sigma:** use `ϲ` (U+03F2) only when the visible form is lunate; otherwise preserve visible
    `σ`/`ς`. Never substitute one form for another. Unknown forms get a `GlyphForm`.
