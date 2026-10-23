@@ -37,6 +37,8 @@ set: C0-0.4-draft.
 - **Owner decisions:** ratified greek-diplomatic-1.0-draft for pilot and froze scope/rights/deployment defaults.
 - **Word boundaries:** zero-width L2 boundary annotations and editor insertion.
 - **Greek profile:** adopted `greek-diplomatic-1.0-draft` decisions and executable sign inventory.
+- **Task models:** segmentation wrapper and configurable projection segmentation.
+- **Registry trust:** deny-by-default host allow-list and checksum/HTTPS policy.
 - **Task models:** recognition and forced-alignment wrappers over the C# pipeline.
 - **Registry CLI:** `models registry` and checksum-verified `models pull`.
 - **TIFF fallback:** bounded ImageSharp decode for TIFF with dimension/resize support.

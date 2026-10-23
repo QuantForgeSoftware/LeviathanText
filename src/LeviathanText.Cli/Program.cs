@@ -578,7 +578,16 @@ public static class Program
                 var index = ModelRegistry.FetchAsync(client, new Uri(rest[2])).GetAwaiter().GetResult();
                 var entry = index.Models.FirstOrDefault(item => item.Id == rest[3])
                     ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[3], Message = "No such registry model." });
-                var downloaded = ModelRegistryDownload.DownloadAsync(client, entry, rest[4]).GetAwaiter().GetResult();
+                var allowHosts = new List<string>();
+                for (int i = 0; i + 1 < rest.Length; i++)
+                    if (rest[i] == "--allow-host") allowHosts.Add(rest[i + 1]);
+                if (allowHosts.Count == 0)
+                    throw new InvalidOperationException("Remote registry is untrusted; pass --allow-host <host>.");
+                var trust = RegistryTrustPolicy.Allow([.. allowHosts]) with
+                {
+                    RequireHttps = !rest.Contains("--insecure-http"),
+                };
+                var downloaded = ModelRegistryDownload.DownloadAsync(client, entry, rest[4], trust).GetAwaiter().GetResult();
                 Console.WriteLine($"downloaded: {downloaded.Directory} ({downloaded.Sha256})");
                 return 0;
             }
@@ -1735,7 +1744,7 @@ public static class Program
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
               leviathan models registry <index-url>
-              leviathan models pull <index-url> <model-id> <target-dir>
+              leviathan models pull <index-url> <model-id> <target-dir> --allow-host <host> [--insecure-http]
               leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]

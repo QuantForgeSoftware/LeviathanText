@@ -195,6 +195,17 @@ directions/scripts, runtime, provenance, license, hashes and pilot metrics. A pa
 executable payload, oversized artifact, broken label hash, future package format or
 mismatched weights is rejected. A card's metrics are not an acceptance threshold.
 
+## Model registries
+
+```bash
+leviathan models registry https://example.test/models.json
+leviathan models pull https://example.test/models.json model-id ./models --allow-host example.test
+```
+
+Registry access is deny-by-default: an explicit host allow-list is required, downloads need a
+SHA-256 checksum, HTTPS is required unless `--insecure-http` is used for a local test, and
+archive paths/sizes are bounded.
+
 ## AI providers
 
 Providers are configured under `LeviathanText:AiProviders:<name>` with

@@ -496,5 +496,5 @@ Blockers recorded so far:
 - **Release hardening:** `scripts/package-release.sh` (osx-arm64 framework-dependent package +
   SHA-256 manifest), `scripts/backup-restore-rehearsal.sh` PASS, and v2/v3/v4→v5 migration
   tests. Linux/Windows packages, installers/updaters and full rollback rehearsal remain open.
-- **Verification:** **698 tests (696 passed + 2 opt-in skips), 0 failed across 14 suites;
+- **Verification:** **703 tests (701 passed + 2 opt-in skips), 0 failed across 14 suites;
   Release 0 warnings/0 errors**; 41 web specs; package and backup/restore rehearsals PASS.

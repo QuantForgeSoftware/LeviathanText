@@ -88,11 +88,13 @@ public static class ModelRegistryDownload
         HttpClient client,
         RemoteModelEntry entry,
         string targetRoot,
+        RegistryTrustPolicy? trustPolicy = null,
         CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
+        trustPolicy?.Validate(entry);
         if (string.IsNullOrWhiteSpace(entry.Sha256))
             throw new InvalidDataException("Registry downloads require a SHA-256 checksum.");
         Directory.CreateDirectory(targetRoot);
