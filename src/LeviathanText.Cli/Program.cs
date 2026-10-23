@@ -563,6 +563,26 @@ public static class Program
                 return 0;
             }
 
+            case "models" when rest.Length >= 3 && rest[1] == "registry":
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                var index = ModelRegistry.FetchAsync(client, new Uri(rest[2])).GetAwaiter().GetResult();
+                foreach (var entry in index.Models)
+                    Console.WriteLine($"{entry.Id}\t{entry.Task}\t{entry.Name}\t{entry.DownloadUrl}\t{entry.Sha256 ?? "no-checksum"}");
+                return 0;
+            }
+
+            case "models" when rest.Length >= 5 && rest[1] == "pull":
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+                var index = ModelRegistry.FetchAsync(client, new Uri(rest[2])).GetAwaiter().GetResult();
+                var entry = index.Models.FirstOrDefault(item => item.Id == rest[3])
+                    ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = rest[3], Message = "No such registry model." });
+                var downloaded = ModelRegistryDownload.DownloadAsync(client, entry, rest[4]).GetAwaiter().GetResult();
+                Console.WriteLine($"downloaded: {downloaded.Directory} ({downloaded.Sha256})");
+                return 0;
+            }
+
             case "review" when rest.Length >= 3 && rest[1] == "active":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1714,6 +1734,8 @@ public static class Program
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]
+              leviathan models registry <index-url>
+              leviathan models pull <index-url> <model-id> <target-dir>
               leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]

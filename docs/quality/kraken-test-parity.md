@@ -30,7 +30,7 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 | `test_rpred.py` | 37 | partial | record ordering primitive; cuts/bbox/baseline records and full BiDi remain |
 | `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate |
 | `test_serialization.py` | 4 | partial | PAGE/ALTO/hOCR/ABBYY serialization |
-| `test_tasks.py` | 34 | feature-gap | recognition/segmentation/forced-alignment task models |
+| `test_tasks.py` | 34 | partial | recognition/forced-alignment wrappers; segmentation/task API and RTL models remain |
 | `test_train_utils.py` | 2 | partial | failure/cancellation checkpoints; Lightning callback parity not applicable |
 | `test_vgsl.py` | 7 | not-applicable | Kraken VGSL model format; Leviathan uses its own package |
 | `test_xml.py` | 32 | partial | PAGE/ALTO parsing edge cases |
