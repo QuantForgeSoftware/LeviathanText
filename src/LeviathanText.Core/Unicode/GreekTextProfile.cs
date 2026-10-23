@@ -11,8 +11,8 @@ namespace LeviathanText.Core.Unicode;
 /// </summary>
 public static class GreekTextProfile
 {
-    public const string ProfileId = "greek-diplomatic-pilot";
-    public const string Version = "1.0";
+    public const string ProfileId = GreekDiplomaticProfile.Id;
+    public const string Version = GreekDiplomaticProfile.Version;
 
     public enum Category
     {

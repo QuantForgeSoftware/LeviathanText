@@ -25,30 +25,27 @@ critical path. No new accuracy claim or adjudicated release set can be created w
 **If unavailable:** keep using them only as unadjudicated pilot data; do not claim expert
 ground truth.
 
-### H2. Approve the Greek transcription profile and open conventions
+### H2. Ratify the `greek-diplomatic-1.0-draft` decisions
 
 **Needed from:** Greek specialist / reviewer.
 
-Decide or approve the first versioned profile (`greek-diplomatic-1.0-draft`) on:
+The initial decisions have been made in
+`docs/contracts/greek-transcription.md` §7 and encoded in
+`GreekDiplomaticProfile.cs`. Review and ratify them, especially:
 
-1. Case handling and lunate/final/medial sigma.
-2. Historical letters, epichoric forms, digraphs and ligature representation.
-3. Punctuation, numerals, strokes, marginal signs and nonalphabetic symbols.
-4. Abbreviations/nomina sacra: visible letters and overbar in L1; expansion policy in L2;
-   whether a dedicated sign ID is required.
-5. Supralinear/interlinear letters, erasures, additions, overwrites and different hands.
-6. Canonical combining-mark order; iota subscript vs adscript.
-7. Underdot scope: per-character, span-level `unclear`, or both.
-8. Scriptio continua and word division: dedicated boundary annotations, not spaces in L1.
-9. Rule for recording correction order only when evidence supports it; how to mark
-   `unknown`/`inferred` sequences.
-10. `UnidentifiedMark` vs `Sign` vs `GlyphForm` boundary.
+1. lunate `ϲ` only when visibly lunate; otherwise preserve visible `σ`/`ς`;
+2. no automatic epichoric mapping; use `GlyphForm` until a mapping table is approved;
+3. visible punctuation/numerals only, no modern conversion;
+4. per-character underdots primary, span-level only when boundaries are indeterminate;
+5. scriptio continua preserved; word division only in linked L2 annotations;
+6. visible abbreviation + overbar in L1; expansion linked in L2;
+7. correction order only with evidence, with explicit/inferred/unknown basis;
+8. `Sign` vs `GlyphForm` vs `UnidentifiedMark` boundary.
 
 **Why it blocks:** labels can be stored now, but not consistently adjudicated or released
-under a named profile.
+under a specialist-approved profile.
 
-**If unavailable:** keep the draft profile, label every output as draft/unadjudicated, and do
-not claim profile conformance.
+**If unavailable:** keep the draft label on all outputs and do not claim profile ratification.
 
 ### H3. Freeze acceptance thresholds and name a custodian
 

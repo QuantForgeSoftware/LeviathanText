@@ -34,6 +34,7 @@ set: C0-0.4-draft.
 - **Tokenizer coverage:** script detection, unknown-grapheme report and mixed-script routing.
 - **Forced-alignment baseline OCR:** baseline/boundary, per-grapheme cuts and JSON round trips.
 - **Recognition records:** bbox/baseline/region geometry and bounded slicing/cuts.
+- **Greek profile:** adopted `greek-diplomatic-1.0-draft` decisions and executable sign inventory.
 - **Task models:** recognition and forced-alignment wrappers over the C# pipeline.
 - **Registry CLI:** `models registry` and checksum-verified `models pull`.
 - **TIFF fallback:** bounded ImageSharp decode for TIFF with dimension/resize support.

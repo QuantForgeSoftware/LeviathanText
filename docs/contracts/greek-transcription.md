@@ -86,10 +86,30 @@ Distinct statuses (project-plan §3):
 - Each dataset asset (manifest `transcription_profile` field) names the profile version its labels follow. Re-labeling under a new profile is a recorded, auditable conversion.
 - Model cards record any label normalization applied at training time, including the exact derived view used.
 
-## 7. Open questions for the Greek specialist
+## 7. Decisions adopted in `greek-diplomatic-1.0-draft`
 
-1. Lunate sigma: dedicated `ϲ`/`ϲ`-vs-`σ` policy vs annotation-only — which encoding do annotators use at speed without ambiguity?
-2. Epichoric/archaic letterform mapping table (esp. for inscriptions): propose the initial mapping set for the pilot collections.
-3. Numerals: minimal sign inventory for the pilot inscription corpus (axial-bar forms, stroked numerals).
-4. Underdot scope: per-character (`ạ`) vs span-level `unclear` annotations — or both, with per-character as primary?
-5. Word-division layer: should L2 word division for scriptio continua inscriptions use a dedicated token-annotation with source-span links (recommended) or plain spaces (rejected: destroys reversibility)?
+These are the profile owner's initial decisions, subject to later specialist ratification. A
+change requires a new profile version and a recorded conversion; it is never applied silently
+to existing L1.
+
+1. **Sigma:** use `ϲ` (U+03F2) only when the visible form is lunate; otherwise preserve visible
+   `σ`/`ς`. Never substitute one form for another. Unknown forms get a `GlyphForm`.
+2. **Historical letters/ligatures:** preserve the visible modern equivalent only when known;
+   otherwise use `GlyphForm`. Ligatures are expanded to their represented letters plus a
+   `GlyphForm`; no automatic epichoric mapping is claimed in 1.0-draft.
+3. **Punctuation/numerals:** transcribe visible marks only; no modern punctuation insertion.
+   Preserve Greek numeral signs/digits and do not convert them to modern values.
+4. **Underdots:** per-character `Unclear` is primary. Span-level `Unclear` is allowed only when
+   character boundaries cannot be established; `Illegible` remains distinct.
+5. **Scriptio continua:** preserve it exactly in L1; never insert word spaces. Word division
+   belongs to L2 boundary annotations with source-span links.
+6. **Abbreviations:** visible letters and overbar stay in L1; expansion is an L2 revision with a
+   reversible range link. The overbar is a `Sign`.
+7. **Correction order:** record only when evidence supports it; `SequenceIndex` plus an
+   `OrderBasis` (`explicit`/`inferred`/`unknown`). Annotation creation time is never evidence.
+8. **Unknown marks:** known inventory symbols use `Sign`; visible forms Unicode cannot express
+   use `GlyphForm`; unknown traces use `UnidentifiedMark`.
+
+The executable policy and minimal sign inventory live in
+`src/LeviathanText.Core/Unicode/GreekDiplomaticProfile.cs`; the profile inspector reports
+without rewriting text.

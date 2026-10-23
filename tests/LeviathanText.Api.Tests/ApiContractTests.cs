@@ -755,7 +755,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var clean = await client.GetAsync($"/api/v1/projects/{projectId}/profile-report");
         Assert.Equal(HttpStatusCode.OK, clean.StatusCode);
         var cleanBody = await clean.Content.ReadAsStringAsync();
-        Assert.Contains("greek-diplomatic-pilot", cleanBody);
+        Assert.Contains("greek-diplomatic-1.0-draft", cleanBody);
         Assert.Contains("\"flagged\":0", cleanBody);
 
         // Append a Latin-bearing L1 revision: reported, and the stored text is untouched.
