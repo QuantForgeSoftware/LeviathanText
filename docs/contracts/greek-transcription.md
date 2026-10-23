@@ -75,6 +75,7 @@ Distinct statuses (project-plan §3):
 | `erased` / `added` / `overwritten` | Witness correction states | Include visible residue description |
 | `different-hand` | Distinct writing agent | Attribution only with evidence; `unattributed` default |
 | `abbreviation` | Visible abbreviation with linked L2 expansion | Reversible L1→L2 revision/range link; never rewrites L1 |
+| `word-boundary` | Zero-width L2 word-division proposal | Boundary position only; never inserts spaces into L1 |
 | `correction-sequence` | Ordered witness interventions | Sequence group/index and explicit/inferred/unknown order basis; never inferred from annotation time |
 | `unannotated-region` | Region exists, no annotation decision made | Distinct from "no text present" |
 

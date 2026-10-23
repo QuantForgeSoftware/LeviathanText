@@ -38,6 +38,8 @@ public enum AnnotationKind
     Sign,
     /// <summary>Visible abbreviation with a linked L2 expansion; the L1 span is never rewritten.</summary>
     Abbreviation,
+    /// <summary>Zero-width L2 word-division proposal at a scalar boundary.</summary>
+    WordBoundary,
 }
 
 /// <summary>How a correction-sequence index was established.</summary>

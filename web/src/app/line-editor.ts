@@ -59,6 +59,7 @@ interface UndoStack {
         <div class="tools">
           <button type="button" (click)="markUnclear()" [disabled]="caret() === 0 && text().length === 0">Mark unclear (at caret)</button>
           <button type="button" (click)="markLost()">Insert lost gap (position)</button>
+          <button type="button" (click)="markWordBoundary()">Insert word boundary (L2 proposal)</button>
           <span class="hint" role="status">position {{ caret() }} (scalars: {{ scalarTotal() }})</span>
           <button type="button" (click)="copyLatestL0()" [disabled]="!latestL0()">Copy latest L0</button>
         </div>
@@ -297,7 +298,7 @@ export class LineEditor {
   protected readonly annotationKinds = [
     'Unclear', 'Illegible', 'Lost', 'SuppliedEditorial', 'AlternativeReading',
     'Erased', 'Added', 'Overwritten', 'DifferentHand', 'CorrectionSequence',
-    'GlyphForm', 'Sign', 'UnidentifiedMark', 'UnannotatedRegion', 'Abbreviation',
+    'GlyphForm', 'Sign', 'UnidentifiedMark', 'UnannotatedRegion', 'Abbreviation', 'WordBoundary',
   ];
   protected readonly formKind = signal('Unclear');
   protected readonly formStart = signal(0);
@@ -575,11 +576,26 @@ export class LineEditor {
   protected readonly canUndo = computed(() => this.undoStack().length > 0);
 
   protected markUnclear(): void {
-    const selectionStart = this.caret();
+    const start = this.caret();
+    const end = Math.min(start + 1, this.scalarTotal());
+    if (start >= end) return;
     this.api.addAnnotation(this.lineId(), {
       kind: 'Unclear',
       anchoredRevisionId: null, // binds server-side to the current revision
-      range: { start: selectionStart, end: selectionStart },
+      range: { start, end },
+    }).subscribe({
+      next: () => this.refresh(),
+      error: () => { /* surfaced by the API; the editor keeps its state */ },
+    });
+  }
+
+  protected markWordBoundary(): void {
+    const position = this.caret();
+    this.api.addAnnotation(this.lineId(), {
+      kind: 'WordBoundary',
+      anchoredRevisionId: null,
+      range: { start: position, end: position },
+      description: 'L2 word-division proposal',
     }).subscribe({
       next: () => this.refresh(),
       error: () => { /* surfaced by the API; the editor keeps its state */ },

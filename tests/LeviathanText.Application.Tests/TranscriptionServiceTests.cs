@@ -294,6 +294,25 @@ public sealed class TranscriptionServiceTests
     }
 
     [Fact]
+    public void Word_boundary_is_allowed_as_a_zero_width_annotation()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+
+        var (_, _, boundary) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "wb-1"),
+            Kind = AnnotationKind.WordBoundary,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(2, 2),
+            Description = "word division proposal",
+        });
+
+        Assert.Equal(AnnotationKind.WordBoundary, boundary.Kind);
+        Assert.True(boundary.Range.IsEmpty);
+    }
+
+    [Fact]
     public void Retraction_hides_an_annotation_without_deleting_it()
     {
         var (lineId, service, store) = Setup();

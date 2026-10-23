@@ -174,12 +174,13 @@ public sealed class TranscriptionService(IProjectStore store)
                 Message = "Annotation range falls outside the anchored revision.",
             });
 
-        if (annotation.Kind != AnnotationKind.Lost && annotation.Range.IsEmpty)
+        if (annotation.Kind is not (AnnotationKind.Lost or AnnotationKind.WordBoundary)
+            && annotation.Range.IsEmpty)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
                 Scope = annotation.Id.ToString(),
-                Message = "Only a lost-text marker may have an empty range (a position); other annotations need a span.",
+                Message = "Only a lost-text marker or word boundary may have an empty range (a position); other annotations need a span.",
             });
 
         if (annotation.Kind == AnnotationKind.Lost)
