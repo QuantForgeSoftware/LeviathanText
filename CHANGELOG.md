@@ -34,6 +34,9 @@ set: C0-0.4-draft.
 - **Tokenizer coverage:** script detection, unknown-grapheme report and mixed-script routing.
 - **Forced-alignment baseline OCR:** baseline/boundary, per-grapheme cuts and JSON round trips.
 - **Recognition records:** bbox/baseline/region geometry and bounded slicing/cuts.
+- **TIFF fallback:** bounded ImageSharp decode for TIFF with dimension/resize support.
+- **Hierarchical order:** explicit reading-order groups expand to line-level orders.
+- **Registry download:** checksum-required, size-bounded, traversal-safe package extraction.
 - **Large-image bands:** PNG scanline band decode/extraction alongside JPEG; TIFF remains unsupported.
 - **Column grouping:** bounded line-center column split with synthetic tests.
 - **Model registry:** strict remote index parser and bounded HTTP fetch.

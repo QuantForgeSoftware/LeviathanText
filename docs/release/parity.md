@@ -15,7 +15,7 @@ are not specialist-adjudicated.
 | Automatic layout | projection baseline + opt-in CNN | P 0.403/R 0.473; learned M02a 0.965/0.987; page CER 0.971→0.942 | single-column only; out-of-domain P01 weak; no columns/rotation |
 | Manual layout | move/resize/draw/delete/split/merge/order + audit | API/UI tests | no entity-level geometry revisions |
 | Region/reading-order learning | not implemented | manual/order only | training data/contracts pending |
-| C# recognition (CRNN+CTC) | implemented | pilot CER reports; L0 provenance + confidence; banded line decode for large JPEGs | data-limited accuracy; CPU only; PNG/TIFF full-frame |
+| C# recognition (CRNN+CTC) | implemented | pilot CER reports; L0 provenance + confidence; banded line decode for large JPEG/PNG | data-limited accuracy; CPU only; TIFF fallback full-frame |
 | Training workflow | from scratch, resume, package, model card | ML/pilot tests | no distributed/GPU; no wide hyper-search |
 | Recognition model distribution | not shipped | — | rights + capability review required |
 | Inscription support | EpiDoc bootstrap + manual placement | ISic001151 smoke | no expert labels; no automated line detection benchmark |

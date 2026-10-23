@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace LeviathanText.Application;
@@ -65,5 +67,93 @@ public static class ModelRegistry
         using var response = await client.GetAsync(indexUri, cancellation);
         response.EnsureSuccessStatusCode();
         return Parse(await response.Content.ReadAsStringAsync(cancellation), indexUri.ToString());
+    }
+}
+
+
+/// <summary>A downloaded, checksum-verified registry package on local disk.</summary>
+public sealed record DownloadedModel(string Id, string Directory, string Sha256, long EncodedBytes);
+
+public static class ModelRegistryDownload
+{
+    public const long MaxEncodedBytes = 1L * 1024 * 1024 * 1024;
+    public const long MaxExtractedBytes = 2L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// Download and extract a registry package. A checksum is mandatory; paths inside the
+    /// archive are confined to the target package directory and extraction is size-bounded.
+    /// Package structure is not validated here; call the model loader afterward.
+    /// </summary>
+    public static async Task<DownloadedModel> DownloadAsync(
+        HttpClient client,
+        RemoteModelEntry entry,
+        string targetRoot,
+        CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
+        if (string.IsNullOrWhiteSpace(entry.Sha256))
+            throw new InvalidDataException("Registry downloads require a SHA-256 checksum.");
+        Directory.CreateDirectory(targetRoot);
+
+        var destination = Path.Combine(Path.GetFullPath(targetRoot), entry.Id);
+        if (Directory.Exists(destination))
+            throw new IOException($"Target package directory already exists: {destination}");
+        Directory.CreateDirectory(destination);
+
+        var archivePath = Path.Combine(Path.GetTempPath(), $"leviathan-registry-{Guid.NewGuid():N}.zip");
+        try
+        {
+            using var response = await client.GetAsync(entry.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellation);
+            response.EnsureSuccessStatusCode();
+            if (response.Content.Headers.ContentLength > MaxEncodedBytes)
+                throw new InvalidDataException("Registry package exceeds the encoded-size limit.");
+            await using (var source = await response.Content.ReadAsStreamAsync(cancellation))
+            await using (var target = File.Create(archivePath))
+            {
+                var buffer = new byte[81920];
+                long total = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
+                {
+                    total += read;
+                    if (total > MaxEncodedBytes) throw new InvalidDataException("Registry package exceeds the encoded-size limit.");
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
+                }
+            }
+
+            var digest = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(archivePath, cancellation))).ToLowerInvariant();
+            if (!string.Equals(digest, entry.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Registry package checksum does not match the registry entry.");
+
+            using var archive = ZipFile.OpenRead(archivePath);
+            long extracted = 0;
+            foreach (var item in archive.Entries)
+            {
+                var path = Path.GetFullPath(Path.Combine(destination, item.FullName));
+                if (!path.StartsWith(destination + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    throw new InvalidDataException($"Archive entry escapes the package directory: {item.FullName}");
+                extracted += item.Length;
+                if (extracted > MaxExtractedBytes) throw new InvalidDataException("Extracted package exceeds the size limit.");
+                if (string.IsNullOrEmpty(item.Name))
+                {
+                    Directory.CreateDirectory(path);
+                    continue;
+                }
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                item.ExtractToFile(path, overwrite: false);
+            }
+            return new DownloadedModel(entry.Id, destination, digest, new FileInfo(archivePath).Length);
+        }
+        catch
+        {
+            try { Directory.Delete(destination, recursive: true); } catch { /* best effort */ }
+            throw;
+        }
+        finally
+        {
+            File.Delete(archivePath);
+        }
     }
 }

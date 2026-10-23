@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using LeviathanText.Application;
 
@@ -38,6 +40,77 @@ public sealed class ModelRegistryTests
         using var client = new HttpClient(new StubHandler(Valid));
         var index = await ModelRegistry.FetchAsync(client, new Uri("https://example.test/models.json"));
         Assert.Equal("p01", Assert.Single(index.Models).Id);
+    }
+
+    [Fact]
+    public async Task Download_verifies_checksum_and_extracts_inside_target()
+    {
+        var bytes = Zip(("run-manifest.json", "{}"));
+        var entry = new RemoteModelEntry("p01", "P01", "recognition",
+            new Uri("https://example.test/p01.zip"),
+            Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant());
+        var root = Path.Combine(Path.GetTempPath(), "lt-registry-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var client = new HttpClient(new BytesHandler(bytes));
+            var result = await ModelRegistryDownload.DownloadAsync(client, entry, root);
+            Assert.Equal("p01", result.Id);
+            Assert.True(File.Exists(Path.Combine(result.Directory, "run-manifest.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Download_rejects_checksum_mismatch_and_archive_traversal()
+    {
+        var bytes = Zip(("run-manifest.json", "{}"));
+        var bad = new RemoteModelEntry("p01", "P01", "recognition",
+            new Uri("https://example.test/p01.zip"), new string('0', 64));
+        var root = Path.Combine(Path.GetTempPath(), "lt-registry-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var client = new HttpClient(new BytesHandler(bytes));
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                ModelRegistryDownload.DownloadAsync(client, bad, root));
+
+            var traversalBytes = Zip(("../escape.txt", "no"));
+            var traversal = bad with
+            {
+                Sha256 = Convert.ToHexString(SHA256.HashData(traversalBytes)).ToLowerInvariant(),
+            };
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                ModelRegistryDownload.DownloadAsync(client, traversal, root));
+            Assert.False(File.Exists(Path.Combine(root, "escape.txt")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static byte[] Zip(params (string Name, string Content)[] entries)
+    {
+        using var memory = new MemoryStream();
+        using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+            foreach (var (name, content) in entries)
+            {
+                var entry = archive.CreateEntry(name);
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write(content);
+            }
+        return memory.ToArray();
+    }
+
+    private sealed class BytesHandler(byte[] body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(body),
+            });
     }
 
     private sealed class StubHandler(string body) : HttpMessageHandler

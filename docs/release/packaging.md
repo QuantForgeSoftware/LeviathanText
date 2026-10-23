@@ -10,9 +10,9 @@ Date: 2026-10-20. This records what was **actually run**, not a release claim.
 - runs the published worker once against the same store.
 Result: **PASS** (no source-tree or network dependency in the published paths).
 
-Dependency inventory: all runtime dependencies resolve through NuGet (SkiaSharp, TorchSharp +
+Dependency inventory: all runtime dependencies resolve through NuGet (SkiaSharp, ImageSharp for TIFF fallback, TorchSharp +
 native libtorch, PDFtoImage/PDFium, PdfPig, ASP.NET/SQLite); no Python or Kraken package/runtime appears
-in the graph.
+in the graph. ImageSharp uses the Six Labors Split License; confirm distribution terms before a commercial release.
 Published outputs are large (~600 MB per binary set) because native libtorch is bundled; a
 distribution should ship one shared runtime, not duplicate it.
 
@@ -60,7 +60,7 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Target-matrix packaging on Windows/Linux and non-macOS libtorch/PDFium/runtime validation (osx-arm64 is the only packaged target verified here).
 - Sustained collection throughput/peak-RAM profiling (single-page startup/import/layout/export/backup profile is recorded in `docs/evaluation/pilot-profile.md`; not a sustained-load benchmark).
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
-- **TIFF is not supported by the current imaging backend** (measured 2026-10-19: the SkiaSharp build has no TIFF codec; the decoder now reports `RejectedArchive/unsupported-image-format` instead of crashing). High-resolution photo/TIFF ingestion remains an open Phase 0 item until a backend is selected or conversion is documented.
+- TIFF is decoded through the ImageSharp fallback; very large TIFF pages still need full-frame decode and the dependency uses the Six Labors Split License. High-resolution tiled decode remains open.
 - Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
   SHA-256 hashed keys, rotation/disable, auth audit and opt-in per-project membership exist.
   SSO/session policy and invitation UI remain open; presence is advisory and store-backed; do not expose an unconfigured

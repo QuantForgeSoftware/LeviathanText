@@ -444,7 +444,7 @@ implemented.
 
 ## Known limits to communicate
 
-- TIFF is not supported by the current imaging backend (clean `RejectedArchive`). PDF pages can
+- TIFF is decoded through a bounded ImageSharp fallback; very large TIFF pages still require full-frame decode. PDF pages can
   be rasterized into captures (bounded DPI/page count/size). Optional PDF text is L2 reference;
   clean two-column gutter order is inferred mechanically, but complex/rotated layouts are not.
 - Region/line direction and script metadata is stored and displayed; BiDi layout and vertical

@@ -23,7 +23,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - L0 revisions persist the **mean** raw confidence (with scale); per-grapheme confidence stays
   in memory, so review-queue ordering is not exactly reproducible later.
 - Retried recognition jobs are idempotent per run id (job id) and do not duplicate L0 sets.
-- Large JPEG pages above 25 MP use bounded scanline band decoding per line; PNG/TIFF still decode full frames, and there is no general tiled decoder.
+- Large JPEG/PNG pages above 25 MP use bounded scanline band decoding per line; TIFF uses a fallback full-frame decode, and there is no general tiled decoder.
 
 ## Layout
 
@@ -40,7 +40,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 ## Imaging
 
-- TIFF is unsupported by the current SkiaSharp build (clean `RejectedArchive`). PDF page
+- TIFF is supported through the ImageSharp fallback; very large TIFF pages still decode the full frame. PDF page
   rasterization is implemented (PDFtoImage/PDFium; bounded DPI/page count/size) but no PDF text
   extraction or layout inference is claimed. ABBYY XML remains unimplemented.
 - Very large PNGs are resampled after a full decode (memory bounded by the 12000 px limit, not

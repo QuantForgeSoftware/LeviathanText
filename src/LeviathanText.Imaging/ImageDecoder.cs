@@ -1,4 +1,6 @@
 using LeviathanText.Contracts;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SkiaSharp;
 
 namespace LeviathanText.Imaging;
@@ -59,13 +61,25 @@ public static class ImageDecoder
         {
             using var codec = SKCodec.Create(new MemoryStream(bytes));
             if (codec is null)
-                throw new LeviathanException(new LeviathanError
-                {
-                    Code = ErrorCode.RejectedArchive,
-                    Scope = path,
-                    Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format" },
-                    Message = "Image format is not supported by the current imaging backend.",
-                });
+            {
+                var fallback = TryDecodeWithImageSharp(bytes)
+                    ?? throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.RejectedArchive,
+                        Scope = path,
+                        Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format" },
+                        Message = "Image format is not supported by the current imaging backend.",
+                    });
+                long fallbackPixels = (long)fallback.Width * fallback.Height;
+                int originalWidth = fallback.Width, originalHeight = fallback.Height;
+                if (fallbackPixels <= maxPixels) return new ScaledImage(fallback, originalWidth, originalHeight, checksum);
+                float factor = (float)Math.Sqrt((double)maxPixels / fallbackPixels);
+                int targetW = Math.Max(1, (int)Math.Round(fallback.Width * factor));
+                int targetH = Math.Max(1, (int)Math.Round(fallback.Height * factor));
+                var scaledFallback = fallback.Resize(new SKImageInfo(targetW, targetH), new SKSamplingOptions(SKFilterMode.Linear));
+                fallback.Dispose();
+                return new ScaledImage(scaledFallback, originalWidth, originalHeight, checksum);
+            }
 
             var info = codec.Info;
             if (info.Width > MaxDimension || info.Height > MaxDimension)
@@ -180,29 +194,24 @@ public static class ImageDecoder
             });
 
         var checksum = ChecksumOf(bytes);
-        SKBitmap? bitmap;
+        SKBitmap? bitmap = null;
         try
         {
             bitmap = SKBitmap.Decode(bytes);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            // Some codecs are missing in a given SkiaSharp build (e.g. TIFF: Decode throws
-            // ArgumentNullException 'codec'). Surface that as a contract error, not a crash.
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RejectedArchive,
-                Scope = path,
-                Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format", ["exception"] = ex.GetType().Name },
-                Message = "Image format is not supported by the current imaging backend.",
-            });
+            // Some codecs are missing in a given SkiaSharp build (e.g. TIFF).
+            // Try the bounded ImageSharp fallback below.
         }
+        bitmap ??= TryDecodeWithImageSharp(bytes);
         if (bitmap is null)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.RejectedArchive,
                 Scope = path,
-                Message = "Image could not be decoded.",
+                Details = new Dictionary<string, string> { ["reason"] = "unsupported-image-format" },
+                Message = "Image format is not supported by the current imaging backend.",
             });
         if (bitmap.Width > MaxDimension || bitmap.Height > MaxDimension)
             throw new LeviathanException(new LeviathanError
@@ -262,15 +271,9 @@ public static class ImageDecoder
             }
         }
 
-        using var full = SKBitmap.Decode(path)
-            ?? throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RejectedArchive,
-                Scope = path,
-                Message = "Image could not be decoded.",
-            });
+        using var decoded = Decode(path);
         var subset = new SKBitmap();
-        full.ExtractSubset(subset, new SKRectI(0, top, Math.Min(width, full.Width), Math.Min(top + height, full.Height)));
+        decoded.Bitmap.ExtractSubset(subset, new SKRectI(0, top, Math.Min(width, decoded.Bitmap.Width), Math.Min(top + height, decoded.Bitmap.Height)));
         return subset;
     }
 
@@ -278,14 +281,45 @@ public static class ImageDecoder
     public static (int Width, int Height) Dimensions(string path)
     {
         using var codec = SKCodec.Create(path);
-        if (codec is null)
-            throw new LeviathanException(new LeviathanError
+        if (codec is not null) return (codec.Info.Width, codec.Info.Height);
+        try
+        {
+            var info = Image.Identify(path);
+            if (info is not null) return (info.Width, info.Height);
+        }
+        catch (Exception) { /* fall through to the contract error */ }
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.RejectedArchive,
+            Scope = path,
+            Message = "Image format is not supported by the current imaging backend.",
+        });
+    }
+
+    private static SKBitmap? TryDecodeWithImageSharp(ReadOnlySpan<byte> bytes)
+    {
+        try
+        {
+            using var image = Image.Load<Rgba32>(bytes);
+            var bitmap = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            image.ProcessPixelRows(accessor =>
             {
-                Code = ErrorCode.RejectedArchive,
-                Scope = path,
-                Message = "Image format is not supported by the current imaging backend.",
+                for (int y = 0; y < accessor.Height; y++)
+                {
+                    var row = accessor.GetRowSpan(y);
+                    for (int x = 0; x < row.Length; x++)
+                    {
+                        var p = row[x];
+                        bitmap.SetPixel(x, y, new SKColor(p.R, p.G, p.B, p.A));
+                    }
+                }
             });
-        return (codec.Info.Width, codec.Info.Height);
+            return bitmap;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     public static Checksum ChecksumOf(Stream stream)
