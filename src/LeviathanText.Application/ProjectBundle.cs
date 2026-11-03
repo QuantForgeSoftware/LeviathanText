@@ -39,6 +39,14 @@ public static class ProjectBundle
             files.Add(name);
         }
 
+        void AddBytes(string name, byte[] content)
+        {
+            var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
+            using var stream = entry.Open();
+            stream.Write(content);
+            files.Add(name);
+        }
+
         Add("project.json", NativeJson.Save(project));
         Add("training-export.json", TrainingDataExport.ToJson(TrainingDataExport.Export(project)));
         Add("profile-report.json", ContractJson.ToJson(ProfileReport.Build(project)));
@@ -57,6 +65,16 @@ public static class ProjectBundle
             var prefix = $"surfaces/{surface.Id}";
             Add($"{prefix}/diplomatic.txt", interchange.ExportDiplomatic(project, surface.Id).Text);
             Add($"{prefix}/tei.xml", interchange.ExportTei(project, surface.Id, $"LeviathanText export {surface.Id}"));
+            try
+            {
+                var (pdf, pdfReport) = interchange.ExportSearchablePdf(project, surface.Id);
+                AddBytes($"{prefix}/searchable.pdf", pdf);
+                Add($"{prefix}/searchable-pdf-loss.txt", pdfReport.ToString());
+            }
+            catch (LeviathanException)
+            {
+                // No capture dimensions/geometry: the native/TEI records remain authoritative.
+            }
             if (surface.Captures.Count > 0)
             {
                 Add($"{prefix}/alto.xml", AltoXml.Export(surface, surface.Captures[0], surface.Revisions));

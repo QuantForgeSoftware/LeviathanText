@@ -38,6 +38,8 @@ public sealed class ProjectBundleTests
             Assert.Contains($"surfaces/{surface.Id}/tei.xml", names);
             Assert.Contains($"surfaces/{surface.Id}/alto.xml", names);
             Assert.Contains($"surfaces/{surface.Id}/hocr.html", names);
+            Assert.Contains($"surfaces/{surface.Id}/searchable.pdf", names);
+            Assert.Contains($"surfaces/{surface.Id}/searchable-pdf-loss.txt", names);
 
             using var reader = new StreamReader(archive.GetEntry("manifest.json")!.Open());
             using var manifest = JsonDocument.Parse(reader.ReadToEnd());
