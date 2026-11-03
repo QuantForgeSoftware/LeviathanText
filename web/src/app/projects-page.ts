@@ -40,6 +40,10 @@ interface ProjectRow {
       @if (payload(selectedId()!); as payload) {
         <section>
           <h2>{{ payload.name }}</h2>
+          <p class="tools">
+            <button type="button" (click)="downloadEdition()">Download edition HTML</button>
+            <span class="hint" role="status">{{ editionStatus() }}</span>
+          </p>
           @if (stats(); as s) {
             <p class="hint">
               {{ s.surfaces }} surface(s) · {{ s.lines }} line(s), {{ s.transcribedLines }} transcribed ·
@@ -145,6 +149,7 @@ export class ProjectsPage {
   protected readonly projects = signal<ProjectRow[]>([]);
   protected readonly createdId = signal('');
   protected readonly selectedId = signal<string | null>(null);
+  protected readonly editionStatus = signal('');
   protected readonly selected = computed(() =>
     this.projects().find(p => p.id === this.selectedId()) ?? null);
   protected readonly payloads = signal<Record<string, ProjectPayload>>({});
@@ -282,6 +287,23 @@ export class ProjectsPage {
       this.api.loadProject(id).subscribe(payload =>
         this.payloads.update(map => ({ ...map, [id]: payload })));
     }
+  }
+
+  protected downloadEdition(): void {
+    const projectId = this.selectedId();
+    if (!projectId) return;
+    this.api.projectEditionHtml(projectId).subscribe({
+      next: html => {
+        const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${projectId}-edition.html`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.editionStatus.set('edition HTML downloaded');
+      },
+      error: () => this.editionStatus.set('edition HTML export failed'),
+    });
   }
 
   protected openSurface(surfaceId: string, lineId = ''): void {

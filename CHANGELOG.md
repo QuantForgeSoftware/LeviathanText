@@ -58,6 +58,7 @@ set: C0-0.4-draft.
   camelCase enum names emitted by the JSON API; Angular spec covers it.
 - **RTL dual-pane display:** L1/L2/diff/boundary panes honor the line's declared direction and
   right-align RTL text; full BiDi layout/vertical recognition remain out of scope.
+- **Project edition download:** the workspace project view downloads the whole-project HTML.
 - **Whole-project edition HTML:** `export edition-html <project> --all` / project-level API
   combines surfaces into one printable document.
 - **Edition HTML:** `export edition-html` / API endpoint renders L1, optional L2 and a

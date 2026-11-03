@@ -242,7 +242,8 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported
   fields reported). TEI carries the facsimile/image link, line numbers, both layers and a
   machine-readable loss report (stderr plus an inline XML comment).
-- `export edition-html <projectId> [--all] [--out <html>]` — whole-project print/reading HTML.
+- `export edition-html <projectId> [--all] [--out <html>]` — whole-project print/reading HTML;
+  the project view also downloads it.
 - `export edition-html <projectId> <surfaceId> [--out <html>]` — one surface with L1, optional L2
   and a line-by-line apparatus; presentation only, with a loss report.
 - `export word-boundaries <projectId> [--out <csv>]` — proposed L2 boundary positions with
