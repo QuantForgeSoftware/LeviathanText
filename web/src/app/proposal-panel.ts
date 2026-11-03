@@ -43,7 +43,11 @@ interface ProviderRow {
         <div class="proposal">
           <p><b>Proposed:</b> <span class="greek">{{ textOf(p) }}</span></p>
           <p class="hint">proposal {{ idOf(p) }} · {{ providerOf(p) }} · {{ statusOf(p) }}</p>
-          <button type="button" (click)="accept()" [disabled]="busy()">Accept as editorial (L2)</button>
+          @if (isAdvisory(p)) {
+            <p class="hint">Advisory result only; it cannot replace the witness reading.</p>
+          } @else {
+            <button type="button" (click)="accept()" [disabled]="busy()">Accept as editorial (L2)</button>
+          }
         </div>
       }
       @if (message()) { <p class="hint">{{ message() }}</p> }
@@ -61,7 +65,8 @@ export class ProposalPanel {
   rangeStart = input.required<number>();
   rangeEnd = input.required<number>();
 
-  protected readonly tasks = ['candidateReading', 'wordDivision', 'expansion', 'accentuation', 'restoration'];
+  protected readonly tasks = ['candidateReading', 'wordDivision', 'expansion', 'accentuation', 'restoration',
+    'translation', 'structuredExtraction', 'lexicalAnnotation', 'morphologicalAnnotation'];
   protected readonly providers = signal<ProviderRow[]>([]);
   protected readonly providerRef = signal('');
   protected readonly task = signal('candidateReading');
@@ -147,6 +152,13 @@ export class ProposalPanel {
 
   protected providerOf(proposal: Record<string, unknown>): string {
     return `${proposal['providerId'] ?? '?'}/${proposal['modelId'] ?? '?'}`;
+  }
+
+  protected isAdvisory(proposal: Record<string, unknown>): boolean {
+    const request = proposal['request'] as Record<string, unknown> | undefined;
+    const task = String(request?.['task'] ?? '');
+    return ['Translation', 'StructuredExtraction', 'LexicalAnnotation', 'MorphologicalAnnotation']
+      .includes(task);
   }
 
   protected statusOf(proposal: Record<string, unknown>): string {

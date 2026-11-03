@@ -66,7 +66,8 @@ set: C0-0.4-draft.
 - **Advisory AI translation/extraction/annotation:** translation, structured-extraction,
   lexical and morphological task kinds/prompts; JSON-object validation applies to the latter
   three, and acceptance is explicitly refused so results cannot replace L1/L2 witness text.
-  Dedicated persistence/UI remains.
+  The proposal panel exposes the advisory tasks and hides the L2 acceptance action for them;
+  dedicated persistence/UI remains.
 - **Invitation management:** admins can list and revoke unused project invitations from the
   API and workspace member panel; consumed invitations remain as history.
 - **Fragment grouping:** native fragments persist external refs/metadata and surface membership,
