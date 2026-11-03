@@ -73,8 +73,11 @@ dotnet run --project src/LeviathanText.Api
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
 # geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}
-# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei | alto | hocr
-#          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv
+# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei[?report=true] | alto | hocr
+#          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv | crosswalk
+#          GET /projects/{id}/attachments/{id} (retained original markup)
+# sessions: POST /sessions, POST /sessions/{id}/heartbeat, DELETE /sessions/{id},
+#           GET /sessions[?surfaceId=], GET /surfaces/{id}/sessions
 # AI: GET /providers, POST /proposals, POST /proposals/{id}/accept, bulk preview/accept
 # models: GET /models (packages under LeviathanText:Models:Directory), POST /surfaces/{id}/recognize
 # jobs: POST /jobs (idempotency key; layout.detect / layout.project / recognize.surface / recognize.project / import.dir),

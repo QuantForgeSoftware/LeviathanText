@@ -1,6 +1,6 @@
 # Operating LeviathanText (pilot)
 
-Date: 2026-10-19. Local-first, single-user by default. This is a pilot operations guide,
+Date: 2026-11-02. Local-first, single-user by default. This is a pilot operations guide,
 not a production runbook.
 
 ## Components

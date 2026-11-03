@@ -22,7 +22,7 @@ public static class MigrationImport
         ProjectService projects, InterchangeService interchange, string tree, string projectName,
         int limit = 0)
     {
-        var inventory = MigrationInventory.Scan(tree, maxFiles: Math.Max(1, limit > 0 ? limit * 10 : 20_000),
+        var inventory = MigrationInventory.Scan(tree, maxFiles: MigrationInventory.DefaultMaxFiles,
             computeHashes: false);
         var documents = inventory.Files
             .Where(file => file.Kind is "page-xml" or "tei-epidoc" or "alto-xml" or "hocr")

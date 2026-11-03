@@ -452,7 +452,8 @@ public sealed class InterchangeService(ProjectService projects)
         if (!string.IsNullOrWhiteSpace(parsed.Document?.Licence)) metadata["tei:licence"] = parsed.Document!.Licence!;
         if (parsed.Document?.PageBreaks is { Count: > 0 } breaks)
         {
-            metadata["tei:pageBreaks"] = breaks.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            metadata["tei:pageBreaks"] = (pageNumber is null ? breaks.Count : 1)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:folio"] = pageNumber!;
             else if (!string.IsNullOrWhiteSpace(breaks[0].Number)) metadata["tei:folio"] = breaks[0].Number!;
         }
