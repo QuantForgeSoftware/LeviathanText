@@ -66,6 +66,21 @@ public class ProposalTests
     }
 
     [Fact]
+    public async Task Lexical_and_morphological_results_must_be_json_objects()
+    {
+        var request = Request(new EntityId(EntityKind.TranscriptionRevision, "r1")) with
+        {
+            Task = AiTaskKind.LexicalAnnotation,
+        };
+        var bad = await new SchemaValidatingAiProvider(new RawStub("not json")).ProposeAsync(request);
+        Assert.Equal("structured-extraction-invalid-json", bad.Failure?.Reason);
+
+        var good = await new SchemaValidatingAiProvider(
+            new RawStub("""{"lemma":"κύριος","confidence":0.8}""")).ProposeAsync(request);
+        Assert.True(good.Succeeded);
+    }
+
+    [Fact]
     public async Task Acceptance_CreatesEditorialLayer_AndLeavesDiplomaticTextIntact()
     {
         var chain = new RevisionChain();
@@ -85,23 +100,27 @@ public class ProposalTests
         Assert.Equal("Κϲ", chain.Current(scope, TextLayer.L1Diplomatic)!.Text); // L1 untouched
     }
 
-    [Fact]
-    public async Task Translation_and_extraction_proposals_are_advisory_only()
+    [Theory]
+    [InlineData(AiTaskKind.Translation)]
+    [InlineData(AiTaskKind.StructuredExtraction)]
+    [InlineData(AiTaskKind.LexicalAnnotation)]
+    [InlineData(AiTaskKind.MorphologicalAnnotation)]
+    public async Task Advisory_tasks_are_refused_by_text_acceptance(AiTaskKind task)
     {
         var chain = new RevisionChain();
         var scope = new EntityId(EntityKind.Surface, "s1");
         var human = new AgentRef { Id = "u1", IsModel = false };
         var l1 = chain.Append(scope, TextLayer.L1Diplomatic, "Κϲ", human);
         var provider = new ScriptedAiProvider("local-stub", "stub-1", _ => "Lord");
-        var translation = (await provider.ProposeAsync(Request(l1.Id) with
+        var proposal = (await provider.ProposeAsync(Request(l1.Id) with
         {
-            Task = AiTaskKind.Translation,
+            Task = task,
         })).Proposal!;
 
         var ex = Assert.Throws<LeviathanException>(() =>
-            new ProposalAcceptanceService(chain).Accept(translation, human));
+            new ProposalAcceptanceService(chain).Accept(proposal, human));
         Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
-        var preview = new BulkProposalAcceptanceService(chain).Preview([translation]);
+        var preview = new BulkProposalAcceptanceService(chain).Preview([proposal]);
         Assert.False(preview.IsFullyApplicable);
         Assert.Equal(BulkAcceptanceBlocker.UnsupportedTask, Assert.Single(preview.Items).Blocker);
         Assert.Equal("Κϲ", chain.Current(scope, TextLayer.L1Diplomatic)!.Text);

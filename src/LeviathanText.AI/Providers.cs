@@ -61,7 +61,8 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
         }
 
         var reason = Validate(raw, maxTextLength);
-        if (reason is null && request.Task == AiTaskKind.StructuredExtraction)
+        if (reason is null && request.Task is AiTaskKind.StructuredExtraction
+            or AiTaskKind.LexicalAnnotation or AiTaskKind.MorphologicalAnnotation)
             reason = ValidateStructuredJson(raw!);
         if (reason is not null)
             return ProposalOutcome.Failed(new AiProposalFailure

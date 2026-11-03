@@ -126,7 +126,8 @@ public sealed class BulkProposalAcceptanceService(RevisionChain chain)
     {
         if (proposal.Status != ProposalStatus.Proposed)
             return (BulkAcceptanceBlocker.NotProposed, $"Proposal is {proposal.Status}, not Proposed.");
-        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction)
+        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction
+            or AiTaskKind.LexicalAnnotation or AiTaskKind.MorphologicalAnnotation)
             return (BulkAcceptanceBlocker.UnsupportedTask,
                 "Translation/structured-extraction results are advisory and cannot replace line text.");
 

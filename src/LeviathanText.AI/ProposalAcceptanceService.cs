@@ -20,7 +20,8 @@ public sealed class ProposalAcceptanceService(RevisionChain chain)
                 Scope = proposal.Id.ToString(),
                 Message = $"Proposal {proposal.Id} is {proposal.Status}; only Proposed proposals can be accepted.",
             });
-        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction)
+        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction
+            or AiTaskKind.LexicalAnnotation or AiTaskKind.MorphologicalAnnotation)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,

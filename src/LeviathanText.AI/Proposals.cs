@@ -17,6 +17,10 @@ public enum AiTaskKind
     Translation,
     /// <summary>Extract structured data from the selected reading; result is not a text replacement.</summary>
     StructuredExtraction,
+    /// <summary>Lexical analysis of the selected reading; result is not a text replacement.</summary>
+    LexicalAnnotation,
+    /// <summary>Morphological analysis of the selected reading; result is not a text replacement.</summary>
+    MorphologicalAnnotation,
 }
 
 /// <summary>Acceptance lifecycle of a proposal (interchange-and-api.md §2.3).</summary>

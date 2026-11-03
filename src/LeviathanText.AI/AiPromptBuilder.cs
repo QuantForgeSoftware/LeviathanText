@@ -57,13 +57,16 @@ public static class AiPromptBuilder
         AiTaskKind.Restoration => "restoration",
         AiTaskKind.Translation => "translation",
         AiTaskKind.StructuredExtraction => "structured-extraction",
+        AiTaskKind.LexicalAnnotation => "lexical-annotation",
+        AiTaskKind.MorphologicalAnnotation => "morphological-annotation",
         _ => task.ToString(),
     };
 
     private static string ResultLabel(AiTaskKind task) => task switch
     {
         AiTaskKind.Translation => "Translation:",
-        AiTaskKind.StructuredExtraction => "JSON result:",
+        AiTaskKind.StructuredExtraction or AiTaskKind.LexicalAnnotation
+            or AiTaskKind.MorphologicalAnnotation => "JSON result:",
         _ => "Replacement text:",
     };
 
@@ -83,6 +86,10 @@ public static class AiPromptBuilder
             "Translate the selected reading into English. Return only the translation; do not treat it as a replacement for the Greek witness text.",
         AiTaskKind.StructuredExtraction =>
             "Extract a JSON object from the selected reading using only fields supported by the source. Return JSON only; do not invent values.",
+        AiTaskKind.LexicalAnnotation =>
+            "Return a JSON object with only source-supported lexical fields (lemma, partOfSpeech, gloss, confidence). Omit uncertain fields; do not invent a lexicon entry.",
+        AiTaskKind.MorphologicalAnnotation =>
+            "Return a JSON object with only source-supported morphological fields (case, number, gender, tense, mood, voice, person, confidence). Omit uncertain fields; do not invent a parse.",
         _ => "Return the replacement text for the selected span.",
     };
 }

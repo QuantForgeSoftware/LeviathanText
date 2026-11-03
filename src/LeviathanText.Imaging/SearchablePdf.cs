@@ -39,7 +39,8 @@ public static class SearchablePdf
                 if (bitmap is not null)
                 {
                     using var image = SKImage.FromBitmap(bitmap);
-                    canvas.DrawImage(image, new SKRect(0, 0, pageWidth, pageHeight));
+                    canvas.DrawImage(image, new SKRect(0, 0, pageWidth, pageHeight),
+                        new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
                 }
 
                 using var font = new SKFont(SKTypeface.Default, 10);

@@ -386,6 +386,8 @@ public class HttpProviderTests
     [InlineData(AiTaskKind.Restoration, "supplied editorial restoration")]
     [InlineData(AiTaskKind.Translation, "Translate the selected reading")]
     [InlineData(AiTaskKind.StructuredExtraction, "Extract a JSON object")]
+    [InlineData(AiTaskKind.LexicalAnnotation, "lexical fields")]
+    [InlineData(AiTaskKind.MorphologicalAnnotation, "morphological fields")]
     public void Prompt_builder_keeps_task_rules_separate(AiTaskKind task, string expectedRule)
     {
         var prompt = AiPromptBuilder.Build(Request(task, "κυριου", "keep the lacuna"));

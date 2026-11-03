@@ -219,7 +219,8 @@ archive paths/sizes are bounded.
 ## AI providers
 
 AI task kinds include candidate reading, word division, expansion, accentuation, restoration,
-translation and structured extraction. Translation/extraction results are advisory proposals and
+translation, structured extraction, lexical annotation and morphological annotation.
+Translation/extraction/lexical/morphological results are advisory JSON/plain-text proposals and
 are refused by the text-acceptance path; they must not replace the Greek line reading.
 
 Providers are configured under `LeviathanText:AiProviders:<name>` with

@@ -51,7 +51,8 @@ public static class AiEvaluationBridge
         // Translation/extraction are advisory, not text-replacement suggestions; including
         // them in correction-effort scoring would misstate the edit burden.
         var editable = proposals.Where(proposal =>
-            proposal.Request.Task is not (AiTaskKind.Translation or AiTaskKind.StructuredExtraction));
+            proposal.Request.Task is not (AiTaskKind.Translation or AiTaskKind.StructuredExtraction
+                or AiTaskKind.LexicalAnnotation or AiTaskKind.MorphologicalAnnotation));
         return CorrectionEffortScorer.Score(reference, raw, final, editable.Select(ToAudit).ToArray(), time);
     }
 }
