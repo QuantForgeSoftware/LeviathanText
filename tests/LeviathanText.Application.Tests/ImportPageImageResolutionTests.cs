@@ -50,6 +50,10 @@ public class ImportPageImageResolutionTests : IDisposable
         var line = Assert.Single(imported.Imported.Surfaces[0].Lines);
         Assert.Equal("region_1", region.Id.Suffix.Split('-')[0]);
         Assert.Equal("line__1_", line.Id.Suffix.Split('-')[0]);
+        var attachment = Assert.Single(imported.Imported.Attachments);
+        Assert.Equal("original-page-markup", attachment.Role);
+        Assert.Contains("PcGts", attachment.Content);
+        Assert.Equal(attachment.Sha256, imported.Imported.Metadata["page:sourceSha256"]);
     }
 
     [Fact]

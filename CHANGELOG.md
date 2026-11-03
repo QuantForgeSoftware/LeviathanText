@@ -12,9 +12,10 @@ set: C0-0.4-draft.
   orig/reg (and sic/corr), add/del/handShift, facsimile image links, `idno`/`licence`/responsibility
   provenance and a machine-readable export loss report.
 - **Original-markup attachments:** the exact imported source XML is retained (2 MiB cap) with a
-  SHA-256 digest; unsupported markup is aggregated by name/count instead of silently flattened.
-  `GET /projects/{id}/attachments/{id}` downloads the retained source; `validate tei` reports
-  the profile shape and strict loss status without writing a project.
+  SHA-256 digest for TEI, EpiDoc, PAGE, ALTO, hOCR and ABBYY; unsupported markup is aggregated
+  by name/count instead of silently flattened. `GET /projects/{id}/attachments/{id}` downloads
+  the retained source; `validate tei` reports the profile shape and strict loss status without
+  writing a project.
 - **`import tei` CLI and `POST /projects/{id}/import-tei`** for the layered profile; `export tei`
   now prints its loss report to stderr. `--skip-duplicates` (API `skipDuplicate`) reports an
   existing object when the retained source hash matches.

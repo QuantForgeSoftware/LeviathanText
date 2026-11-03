@@ -125,9 +125,27 @@ public sealed class InterchangeService(ProjectService projects)
             Revisions = result.Revisions,
         };
 
+        var sourceHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(xml)));
+        var attachments = new List<NativeAttachment>();
+        if (System.Text.Encoding.UTF8.GetByteCount(xml) <= TeiXml.MaxAttachmentBytes)
+        {
+            attachments.Add(new NativeAttachment
+            {
+                Id = $"att-{Guid.NewGuid().ToString("N")[..12]}",
+                Name = Path.GetFileName(pageXmlPath),
+                MediaType = "application/xml",
+                Sha256 = sourceHash,
+                Content = xml,
+                Role = "original-page-markup",
+            });
+        }
+
         var imported = new NativeObject
         {
             Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Metadata = new Dictionary<string, string> { ["page:sourceSha256"] = sourceHash },
+            Attachments = attachments,
             Surfaces = [surface],
         };
 
@@ -727,9 +745,28 @@ public sealed class InterchangeService(ProjectService projects)
             Revisions = scopedRevisions,
         };
 
+        var sourceHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(content)));
+        var attachments = new List<NativeAttachment>();
+        if (System.Text.Encoding.UTF8.GetByteCount(content) <= TeiXml.MaxAttachmentBytes)
+        {
+            attachments.Add(new NativeAttachment
+            {
+                Id = $"att-{Guid.NewGuid().ToString("N")[..12]}",
+                Name = Path.GetFileName(documentPath),
+                MediaType = format.Equals("hocr", StringComparison.OrdinalIgnoreCase)
+                    ? "text/html" : "application/xml",
+                Sha256 = sourceHash,
+                Content = content,
+                Role = $"original-{format}-markup",
+            });
+        }
+
         var imported = new NativeObject
         {
             Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            Metadata = new Dictionary<string, string> { ["legacy:sourceSha256"] = sourceHash },
+            Attachments = attachments,
             Surfaces = [surface],
         };
         projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });

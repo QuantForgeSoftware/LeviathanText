@@ -340,6 +340,9 @@ checkout inspection remain separate authorized steps.
 leviathan --store pilot.db import tei <projectId> <record.xml> <photo.jpg> [--kind page] [--skip-duplicates]
 ```
 
+PAGE, ALTO/hOCR/ABBYY and TEI imports also retain the bounded original markup as a
+checksummed attachment (`original-*-markup`) when it fits the 2 MiB cap.
+
 `--skip-duplicates` compares the exact source hash with retained attachments/source metadata
 and reports the existing object/surface instead of creating a second import. The API equivalent
 is `skipDuplicate: true`.
