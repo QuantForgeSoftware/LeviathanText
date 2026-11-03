@@ -58,6 +58,15 @@ describe('markSegments', () => {
     ]);
   });
 
+  it('accepts camelCase API annotation kinds', () => {
+    const segments = markSegments('αβγ', [
+      { start: 0, end: 1, kind: 'unclear' },
+      { start: 1, end: 2, kind: 'suppliedEditorial' },
+      { start: 2, end: 3, kind: 'erased' },
+    ]);
+    expect(segments.map(segment => segment.kind)).toEqual(['unclear', 'supplied', 'erased']);
+  });
+
   it('is scalar-safe with astral characters and clamps ranges', () => {
     const segments = markSegments('a\uD835\uDD38b', [{ start: 1, end: 99, kind: 'SuppliedEditorial' }]);
     expect(segments).toEqual([

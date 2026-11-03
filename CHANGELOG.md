@@ -52,6 +52,8 @@ set: C0-0.4-draft.
 - **Opt-in bundle images:** `export bundle --images` / `?images=true` copies local source
   images with per-file/total caps and an omission ledger.
 - **Bundle edition HTML:** bundles include each surface's edition.html and loss report.
+- **API enum-case rendering:** mark classes and advisory-task detection now accept the
+  camelCase enum names emitted by the JSON API; Angular spec covers it.
 - **RTL dual-pane display:** L1/L2/diff/boundary panes honor the line's declared direction and
   right-align RTL text; full BiDi layout/vertical recognition remain out of scope.
 - **Edition HTML:** `export edition-html` / API endpoint renders L1, optional L2 and a

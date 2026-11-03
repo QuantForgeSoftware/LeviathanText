@@ -431,8 +431,9 @@ export class LineEditor {
   }
 
   protected isAdvisory(annotation: AnnotationView): boolean {
-    return ['Translation', 'StructuredExtraction', 'LexicalAnnotation', 'MorphologicalAnnotation']
-      .includes(annotation.kind);
+    return ['Translation', 'translation', 'StructuredExtraction', 'structuredExtraction',
+      'LexicalAnnotation', 'lexicalAnnotation', 'MorphologicalAnnotation',
+      'morphologicalAnnotation'].includes(annotation.kind);
   }
 
   /** Compose an L2 editorial revision from the current L1 text and an alternative span. */

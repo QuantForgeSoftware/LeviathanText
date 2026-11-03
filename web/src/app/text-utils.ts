@@ -87,12 +87,19 @@ export function markSegments(text: string, ranges: MarkRange[]): MarkSegment[] {
 function markClass(kind: string): string {
   switch (kind) {
     case 'Unclear':
-    case 'Illegible': return 'unclear';
-    case 'Lost': return 'lost';
-    case 'SuppliedEditorial': return 'supplied';
-    case 'AlternativeReading': return 'alternative';
+    case 'unclear':
+    case 'Illegible':
+    case 'illegible': return 'unclear';
+    case 'Lost':
+    case 'lost': return 'lost';
+    case 'SuppliedEditorial':
+    case 'suppliedEditorial': return 'supplied';
+    case 'AlternativeReading':
+    case 'alternativeReading': return 'alternative';
     case 'Erased':
-    case 'Overwritten': return 'erased';
+    case 'erased':
+    case 'Overwritten':
+    case 'overwritten': return 'erased';
     default: return '';
   }
 }

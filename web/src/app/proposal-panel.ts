@@ -158,8 +158,9 @@ export class ProposalPanel {
   protected isAdvisory(proposal: Record<string, unknown>): boolean {
     const request = proposal['request'] as Record<string, unknown> | undefined;
     const task = String(request?.['task'] ?? '');
-    return ['Translation', 'StructuredExtraction', 'LexicalAnnotation', 'MorphologicalAnnotation']
-      .includes(task);
+    return ['Translation', 'translation', 'StructuredExtraction', 'structuredExtraction',
+      'LexicalAnnotation', 'lexicalAnnotation', 'MorphologicalAnnotation',
+      'morphologicalAnnotation'].includes(task);
   }
 
   protected saveAdvisory(proposal: Record<string, unknown>): void {
