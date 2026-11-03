@@ -322,7 +322,7 @@ export class LineEditor {
 
   protected readonly correctionEvents = computed(() => {
     const events = this.annotations()
-      .filter(annotation => annotation.kind === 'CorrectionSequence')
+      .filter(annotation => annotation.kind === 'CorrectionSequence' || annotation.kind === 'correctionSequence')
       .map((annotation, creationIndex) => ({
         annotation,
         creationIndex,

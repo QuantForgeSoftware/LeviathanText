@@ -9,7 +9,7 @@ describe('DualPane (diff)', () => {
       line: () => of({ line: 'ln1', diplomatic: 'abc', history: [] }),
       lineLayerHistory: () => of([{ id: 'rev-l2', layer: 'L2Editorial', text: 'axc', author: 'editor', at: '' }]),
       annotations: () => of([{
-        id: 'ann-b', kind: 'WordBoundary', anchoredRevisionId: 'rev-l1',
+        id: 'ann-b', kind: 'wordBoundary', anchoredRevisionId: 'rev-l1',
         range: { start: 1, end: 1 },
       }]),
     };

@@ -78,7 +78,7 @@ export class DualPane {
     });
     this.api.annotations(this.lineId()).subscribe(annotations => {
       this.boundaries.set(annotations
-        .filter(annotation => annotation.kind === 'WordBoundary')
+        .filter(annotation => annotation.kind === 'WordBoundary' || annotation.kind === 'wordBoundary')
         .map(annotation => annotation.range.start)
         .sort((a, b) => a - b));
     });
