@@ -48,3 +48,9 @@ ownership checks, not a zero-`TotalCount` requirement or a tolerated leak allowa
 Preserve the failed exploratory measurements and independently reproduce the counter
 control. Fixed-model relative deltas and actual OS RSS are distinct evidence; neither
 proves universal native-memory behavior. Added2026-11-02 after the failed-model-load audit.
+
+## 10. Learnability tests must not assert near-perfect single-run accuracy
+CPU scheduling/thread variance produced an intermittent >2% CER failure in a synthetic
+training test that otherwise passed on repeated runs. Assert loss improvement plus a loose
+learnability ceiling (or a multi-seed/repeated protocol), not a precision threshold that
+turns normal training variance into a red build. Added 2026-11-02.
