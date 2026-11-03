@@ -47,6 +47,7 @@ public static class ProjectBundle
             files.Add(name);
         }
 
+        var imageEntries = new Dictionary<EntityId, string>();
         if (includeImages)
         {
             var omitted = new List<string>();
@@ -67,7 +68,9 @@ public static class ProjectBundle
                     continue;
                 }
                 totalImageBytes += info.Length;
-                AddBytes($"images/{capture.Id}{info.Extension}", File.ReadAllBytes(imagePath));
+                var entry = $"images/{capture.Id}{info.Extension}";
+                AddBytes(entry, File.ReadAllBytes(imagePath));
+                imageEntries[capture.Id] = entry;
             }
             if (omitted.Count > 0)
                 Add("images-omitted.txt", string.Join('\n', omitted) + "\n");
@@ -84,7 +87,11 @@ public static class ProjectBundle
         Add("fragment-crosswalk.csv", ProvenanceCrosswalk.ToFragmentCsv(ProvenanceCrosswalk.BuildFragments(project)));
         Add("integrity.json", ProjectIntegrity.ToJson(ProjectIntegrity.Audit(project)));
         Add("overlap.json", CorpusOverlap.ToJson(CorpusOverlap.Audit(project)));
-        var projectEdition = EditionHtml.ExportProject(project, project.Name);
+        var projectEdition = EditionHtml.ExportProject(project, project.Name, surface =>
+        {
+            var capture = surface.Captures.FirstOrDefault();
+            return capture is not null && imageEntries.TryGetValue(capture.Id, out var entry) ? entry : null;
+        });
         Add("edition.html", projectEdition.Html);
         Add("edition-loss.txt", projectEdition.Report.ToString());
         var reviews = new ReviewService(ProjectStoreFree.Instance);
@@ -107,7 +114,11 @@ public static class ProjectBundle
                 // A missing/corrupt capture or missing geometry must not make the text bundle
                 // fail; the native/TEI records remain authoritative.
             }
-            var edition = EditionHtml.Export(project, surface.Id, $"{project.Name} — {surface.Id}");
+            var editionCapture = surface.Captures.FirstOrDefault();
+            var editionImage = editionCapture is not null
+                && imageEntries.TryGetValue(editionCapture.Id, out var editionEntry)
+                ? $"../../{editionEntry}" : null;
+            var edition = EditionHtml.Export(project, surface.Id, $"{project.Name} — {surface.Id}", editionImage);
             Add($"{prefix}/edition.html", edition.Html);
             Add($"{prefix}/edition-loss.txt", edition.Report.ToString());
             if (surface.Captures.Count > 0)

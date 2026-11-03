@@ -14,7 +14,7 @@ public static class EditionHtml
 {
     public sealed record Result(string Html, LossReport Report);
 
-    public static Result Export(NativeProject project, EntityId surfaceId, string title)
+    public static Result Export(NativeProject project, EntityId surfaceId, string title, string? imageSource = null)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -49,7 +49,7 @@ public static class EditionHtml
         html.AppendLine($"<h1>{Encode(title)}</h1>");
         html.AppendLine("<div class=\"surface\"><figure>");
         if (capture is not null)
-            html.AppendLine($"<img src=\"{Encode(capture.ImageLocation)}\" alt=\"source capture\">");
+            html.AppendLine($"<img src=\"{Encode(imageSource ?? capture.ImageLocation)}\" alt=\"source capture\">");
         else
             html.AppendLine("<p class=\"editorial\">No capture attached.</p>");
         html.AppendLine("</figure><main><ol class=\"lines\">");
@@ -118,11 +118,11 @@ public static class EditionHtml
     }
 
     /// <summary>Render every surface as one printable edition document.</summary>
-    public static Result ExportProject(NativeProject project, string title)
+    public static Result ExportProject(NativeProject project, string title, Func<NativeSurface, string?>? imageSource = null)
     {
         var sections = new List<Result>();
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
-            sections.Add(Export(project, surface.Id, $"{title} — {surface.Id}"));
+            sections.Add(Export(project, surface.Id, $"{title} — {surface.Id}", imageSource?.Invoke(surface)));
         if (sections.Count == 0)
         {
             var empty = new LossReport

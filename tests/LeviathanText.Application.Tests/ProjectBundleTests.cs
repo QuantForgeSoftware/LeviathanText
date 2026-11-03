@@ -37,6 +37,8 @@ public sealed class ProjectBundleTests
             var names = archive.Entries.Select(e => e.FullName).ToList();
             Assert.Contains($"images/{capture.Id}.png", names);
             Assert.DoesNotContain("images-omitted.txt", names);
+            using var editionReader = new StreamReader(archive.GetEntry("edition.html")!.Open());
+            Assert.Contains($"images/{capture.Id}.png", editionReader.ReadToEnd());
             using var stream = archive.GetEntry($"images/{capture.Id}.png")!.Open();
             using var memory = new MemoryStream();
             stream.CopyTo(memory);
