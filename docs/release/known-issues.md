@@ -68,7 +68,8 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
   presence, server-issued TTL sessions (heartbeat/revoke, node/surface binding) and a bounded
   three-way merge for stale text revisions exist. Sessions are coordination records, not
   tokens; there are no edit locks. Annotation and review writes can name the revision they
-  observed and fail on a stale one; geometry/order writes remain last-write-wins.
+  observed and fail on a stale one; geometry/order/retraction writes use the project version and
+  fail on stale state rather than silently overwriting (no field-level merge).
   Basic auth audit entries exist (mutations/denials). The workspace has an API-key panel
   (localStorage; X-Api-Key + SSE query token); local-only mode remains the default. The surface
   view creates/heartbeats/revokes its session and shows the serving node; surface and workspace

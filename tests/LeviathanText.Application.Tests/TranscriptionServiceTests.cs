@@ -522,4 +522,27 @@ public sealed class TranscriptionServiceTests
         Assert.Throws<LeviathanException>(() =>
             service.RetractAnnotation(retracted, new EntityId(EntityKind.Annotation, "missing"), "reviewer-a"));
     }
+
+    [Fact]
+    public void Concurrent_retractions_do_not_silently_overwrite_the_project()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (withAnnotation, _, annotation) = service.AddAnnotation(project, lineId, new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "ann-race"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = default,
+            Range = new ScalarRange(1, 2),
+        });
+        var first = LoadCurrent(store, withAnnotation.Id);
+        var second = LoadCurrent(store, withAnnotation.Id);
+
+        service.RetractAnnotation(first, annotation.Id, "reviewer-a");
+        var stale = Assert.Throws<LeviathanException>(() =>
+            service.RetractAnnotation(second, annotation.Id, "reviewer-b"));
+
+        Assert.Equal(ErrorCode.RevisionConflict, stale.Error.Code);
+        Assert.Single(LoadCurrent(store, withAnnotation.Id).Objects[0].Surfaces[0].AnnotationRetractions);
+    }
 }

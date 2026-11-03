@@ -69,9 +69,9 @@ Evidence: `SessionServiceTests` (create/heartbeat/list/revoke, ownership, expiry
 - No WebSocket/SignalR push; clients poll or heartbeat.
 - No edit locks. Annotation writes now send the revision they were drawn against and fail
   `stale-annotation-anchor` if it was superseded; review decisions accept an optional
-  `revisionId` and fail `revision-conflict` if it is stale. Geometry/order writes still rely
-  on the project version and last-write-wins; the version check prevents a silent overwrite for
-  documented read-modify-write flows.
+  `revisionId` and fail `revision-conflict` if it is stale. Geometry/order/retraction writes use
+  the optimistic project version and fail `revision-conflict` when stale; tests cover concurrent
+  geometry and retraction. They are not field-level merged.
 - The surface view creates/heartbeats/revokes its own session and shows the serving node; a
   surface panel lists/revokes sessions for that surface, and the workspace collection page has
   an admin-visible session console (non-admins see their own). There is still no cross-project

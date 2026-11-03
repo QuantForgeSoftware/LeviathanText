@@ -19,6 +19,24 @@ public sealed class GeometryServiceTests
         store.LoadProject(id) ?? throw new InvalidOperationException("project missing");
 
     [Fact]
+    public void Concurrent_geometry_writes_are_rejected_instead_of_lost()
+    {
+        var (lineId, _, service, store) = Setup();
+        var first = Load(store, SampleProjectBuilder.Build().Id);
+        var second = Load(store, SampleProjectBuilder.Build().Id);
+        IReadOnlyList<PointD> polygon = [new(5, 5), new(120, 5), new(120, 40), new(5, 40)];
+        IReadOnlyList<PointD> baseline = [new(6, 38), new(118, 36)];
+
+        service.SetLineGeometry(first, lineId, polygon, baseline);
+        var stale = Assert.Throws<LeviathanException>(() =>
+            service.SetLineGeometry(second, lineId, polygon, baseline));
+
+        Assert.Equal(ErrorCode.RevisionConflict, stale.Error.Code);
+        Assert.Equal(polygon, Load(store, first.Id).Objects[0].Surfaces[0]
+            .Lines.Single(l => l.Id == lineId).Polygon);
+    }
+
+    [Fact]
     public void A_line_geometry_edit_can_be_restored_from_the_append_only_audit()
     {
         var (lineId, surfaceId, service, store) = Setup();
