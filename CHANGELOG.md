@@ -50,7 +50,8 @@ set: C0-0.4-draft.
 - **Bundle searchable PDFs:** bundles include each surface's searchable PDF and its loss report
   when capture/line geometry permits.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
-  positions with source context; in-editor rendering remains pending.
+  positions with source context; the dual-pane reading view also previews them with `·`
+  without changing witness text.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.

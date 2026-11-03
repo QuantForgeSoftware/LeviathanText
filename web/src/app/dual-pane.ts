@@ -23,6 +23,10 @@ import { scalarCount, scalarDiff } from './text-utils';
             <p class="greek">{{ diplomatic() }}</p>
           }
           <p class="hint">{{ scalarCountOf(diplomatic()) }} scalars</p>
+          @if (boundaries().length > 0) {
+            <p class="boundary greek">{{ withBoundaries(diplomatic()) }}</p>
+            <p class="hint">· proposed word boundaries (derived; witness text is unchanged)</p>
+          }
         </div>
         <div class="pane">
           <h4>Editorial (L2)</h4>
@@ -46,6 +50,7 @@ import { scalarCount, scalarDiff } from './text-utils';
     .greek { font-size: 1.4rem; margin: 0; }
     .hint { color: #667; font-size: 0.85rem; }
     .changed { background: rgba(255, 200, 0, 0.28); border-bottom: 1px solid #c90; }
+    .boundary { color: #345; }
   `],
 })
 export class DualPane {
@@ -55,6 +60,7 @@ export class DualPane {
   protected readonly diplomatic = signal('—');
   protected readonly editorial = signal('—');
   protected readonly hasEditorial = signal(false);
+  protected readonly boundaries = signal<number[]>([]);
   protected readonly diff = computed(() => scalarDiff(this.diplomatic(), this.editorial()));
 
   private readonly api: ApiClient;
@@ -67,11 +73,23 @@ export class DualPane {
     this.api.line(this.lineId()).subscribe(data => {
       this.diplomatic.set(data.diplomatic ?? '—');
     });
+    this.api.annotations(this.lineId()).subscribe(annotations => {
+      this.boundaries.set(annotations
+        .filter(annotation => annotation.kind === 'WordBoundary')
+        .map(annotation => annotation.range.start)
+        .sort((a, b) => a - b));
+    });
     this.api.lineLayerHistory(this.lineId(), 'L2Editorial').subscribe(history => {
       const latest = history.length > 0 ? history[history.length - 1].text : null;
       this.hasEditorial.set(latest !== null);
       this.editorial.set(latest ?? '—');
     });
+  }
+
+  protected withBoundaries(text: string): string {
+    const scalars = Array.from(text);
+    const positions = new Set(this.boundaries().filter(position => position > 0 && position < scalars.length));
+    return scalars.map((scalar, index) => positions.has(index) ? `·${scalar}` : scalar).join('');
   }
 
   protected scalarCountOf(text: string): number {

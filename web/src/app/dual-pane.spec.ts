@@ -8,6 +8,10 @@ describe('DualPane (diff)', () => {
     const stub = {
       line: () => of({ line: 'ln1', diplomatic: 'abc', history: [] }),
       lineLayerHistory: () => of([{ id: 'rev-l2', layer: 'L2Editorial', text: 'axc', author: 'editor', at: '' }]),
+      annotations: () => of([{
+        id: 'ann-b', kind: 'WordBoundary', anchoredRevisionId: 'rev-l1',
+        range: { start: 1, end: 1 },
+      }]),
     };
     TestBed.configureTestingModule({
       imports: [DualPane],
@@ -22,5 +26,7 @@ describe('DualPane (diff)', () => {
       .map((e: unknown) => (e as HTMLElement).textContent);
     expect(changed).toEqual(['b', 'x']);
     expect(fixture.nativeElement.textContent).toContain('prefix/suffix diff');
+    expect(fixture.nativeElement.textContent).toContain('a·bc');
+    expect(fixture.nativeElement.textContent).toContain('proposed word boundaries');
   });
 });
