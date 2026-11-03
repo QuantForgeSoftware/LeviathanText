@@ -589,6 +589,12 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
     });
 });
 
+api.MapGet("projects/{id}/overlap", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Ok(CorpusOverlap.Audit(project));
+});
+
 api.MapGet("projects/{id}/integrity", (ProjectService projects, string id, string? format) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

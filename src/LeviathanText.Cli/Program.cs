@@ -914,6 +914,20 @@ public static class Program
                 return 0;
             }
 
+            case "data" when rest.Length >= 3 && rest[1] == "audit-overlap":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var overlaps = CorpusOverlap.Audit(project);
+                if (rest.Contains("--json")) Console.WriteLine(CorpusOverlap.ToJson(overlaps));
+                else
+                {
+                    foreach (var overlap in overlaps)
+                        Console.WriteLine($"{overlap.Kind}\t{overlap.Value}\t{overlap.Entities}\t{overlap.Note}");
+                    Console.WriteLine($"{overlaps.Count} overlap(s)");
+                }
+                return 0;
+            }
+
             case "data" when rest.Length >= 4 && rest[1] == "inventory-inscriptions":
             {
                 var records = rest[2];
@@ -1941,6 +1955,7 @@ public static class Program
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] project audit <projectId> [--json|--csv]
+              leviathan [--store <path>] data audit-overlap <projectId> [--json]
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
               leviathan [--store <path>] export crosswalk <projectId> [--lines|--fragments] [--out <csv>]
               leviathan [--store <path>] export searchable-pdf <projectId> <surfaceId> <out.pdf>

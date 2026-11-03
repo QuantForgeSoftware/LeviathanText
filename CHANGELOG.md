@@ -59,6 +59,8 @@ set: C0-0.4-draft.
   API and workspace member panel; consumed invitations remain as history.
 - **Fragment grouping:** native fragments persist external refs/metadata and surface membership,
   with API create/list and a `fragment-crosswalk.csv`; source importers do not infer boundaries.
+- **Corpus overlap audit:** `data audit-overlap` / `GET /projects/{id}/overlap` reports repeated
+  external identifiers and image checksums for split/lineage review.
 - **Project integrity audit:** `project audit` / `GET /projects/{id}/integrity` reports
   duplicate IDs, dangling references and out-of-range annotations without rewriting data.
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native

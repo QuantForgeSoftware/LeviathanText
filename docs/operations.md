@@ -254,6 +254,8 @@ made; use the local scripted/Ollama smoke paths for verification.
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.
 - `project audit <projectId> [--json|--csv]` — read-only duplicate-ID, dangling-reference and
   annotation-range audit; also `GET /projects/{id}/integrity[?format=csv]`.
+- `data audit-overlap <projectId> [--json]` — repeated external refs/image checksums/surface
+  refs for corpus lineage; also `GET /projects/{id}/overlap`.
 - `POST /projects/{id}/objects/{objectId}/fragments` groups existing surfaces with external
   refs/metadata; `GET` lists them and `crosswalk?fragments=true` exports the fragment map.
   Fragment boundaries are never inferred from source availability.
