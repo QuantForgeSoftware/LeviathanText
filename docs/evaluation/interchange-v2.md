@@ -40,6 +40,9 @@ unless a record says otherwise.
 - `validate tei --schema <xsd>` optionally validates an operator-supplied XSD and reports its
   SHA-256; the schema is not bundled or downloaded, so the operator pins the exact file. The
   bounded profile lint and import remain the default.
+- Additional bounded EpiDoc constructs: `<space>` becomes bounded whitespace, `<damage>` becomes
+  unclear/lost text, and `<ex>` becomes supplied L2 expansion. Each is reported and covered by
+  a round-trip test; original markup remains in the source attachment.
 - Profile lint is part of the same import report: duplicate `@xml:id`, `<pb>` without `@n`,
   `<gap>` without `@extent`, `<app>` without a reading and `<choice>` without a supported child
   are reported instead of silently normalized (`validate tei` prints them).

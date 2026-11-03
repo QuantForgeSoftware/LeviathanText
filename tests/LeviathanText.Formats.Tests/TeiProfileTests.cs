@@ -563,6 +563,25 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Space_damage_and_expansion_are_bounded_and_reported()
+    {
+        var imported = TeiXml.Import(Document(
+            "<div type=\"edition\"><ab><lb/>α<space/>β<damage>γ</damage><ex>δ</ex></ab></div>"));
+
+        Assert.Equal("α βγ", Revision(imported, TextLayer.L1Diplomatic).Text);
+        Assert.Equal("α βγδ", Revision(imported, TextLayer.L2Editorial).Text);
+        Assert.Contains(imported.Annotations, a => a.Kind == AnnotationKind.Unclear && a.Description == "damage");
+        Assert.Contains(imported.Annotations, a => a.Kind == AnnotationKind.SuppliedEditorial && a.Description == "ex");
+        Assert.Contains(imported.Unsupported, i => i.Element == "damage" && i.Severity == PageXml.IssueSeverity.Note);
+        Assert.Contains(imported.Unsupported, i => i.Element == "ex" && i.Severity == PageXml.IssueSeverity.Note);
+
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("α βγ", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal("α βγδ", Revision(reparsed, TextLayer.L2Editorial).Text);
+    }
+
+    [Fact]
     public void Cross_layer_mapping_never_lands_on_another_annotation_span()
     {
         var imported = TeiXml.Import(Document(

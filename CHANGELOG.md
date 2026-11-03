@@ -52,6 +52,8 @@ set: C0-0.4-draft.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
   positions with source context; the dual-pane reading view also previews them with `·`
   without changing witness text.
+- **EpiDoc profile:** `<space>`, `<damage>` and `<ex>` now have bounded import/export
+  mappings with round-trip tests and explicit reports; original markup stays attached.
 - **Cross-layer mapping safety:** repeated witness text now cannot attach a cross-layer
   annotation to a span already claimed by the rendered layer, which previously duplicated
   text after export/re-import in a combining-mark/del case.

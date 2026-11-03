@@ -937,6 +937,42 @@ public static class TeiXml
                     ReportNestedMarkup(element, unsupported);
                     break;
                 }
+                case "space":
+                    Append(" ");
+                    break;
+                case "damage":
+                {
+                    var inner = VisibleText(element);
+                    if (inner.Length > 0)
+                    {
+                        Append(inner);
+                        Add(AnnotationKind.Unclear, TextLayer.L1Diplomatic, l1Start,
+                            ScalarText.Count(_l1.ToString()), a => a with { Description = "damage" });
+                    }
+                    else
+                    {
+                        Add(AnnotationKind.Lost, TextLayer.L1Diplomatic, l1Start, l1Start,
+                            a => a with { Description = "damage" });
+                    }
+                    Report("damage", PageXml.IssueSeverity.Note,
+                        "damage is represented as unclear/lost; the element name is retained in the source attachment",
+                        unsupported);
+                    ReportNestedMarkup(element, unsupported);
+                    break;
+                }
+                case "ex":
+                {
+                    var inner = VisibleText(element);
+                    Append(inner, l1: false, l2: true);
+                    _hasL2 = true;
+                    Add(AnnotationKind.SuppliedEditorial, TextLayer.L2Editorial, l2Start,
+                        ScalarText.Count(_l2.ToString()), a => a with { Description = "ex" });
+                    Report("ex", PageXml.IssueSeverity.Note,
+                        "editorial expansion is represented as supplied L2 text; the element name is retained in the source attachment",
+                        unsupported);
+                    ReportNestedMarkup(element, unsupported);
+                    break;
+                }
                 case "gap":
                 {
                     if (element.Attribute("extent") is null)
