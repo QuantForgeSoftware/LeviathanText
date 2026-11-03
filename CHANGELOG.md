@@ -17,7 +17,8 @@ set: C0-0.4-draft.
   the retained source; `validate tei` reports the profile shape and strict loss status without
   writing a project.
 - **`import tei` CLI and `POST /projects/{id}/import-tei`** for the layered profile; `export tei`
-  now prints its loss report to stderr. `--skip-duplicates` (API `skipDuplicate`) reports an
+  now prints its loss report to stderr and reports multi-page sources when only the first folio
+  is exported. `--skip-duplicates` (API `skipDuplicate`) reports an
   existing object when the retained source hash matches.
 - **TEI profile lint:** duplicate `@xml:id`, `<pb>` without `@n`, `<gap>` without `@extent`,
   `<app>` without a reading and `<choice>` without a supported child are reported by import /

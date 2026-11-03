@@ -361,6 +361,11 @@ public class TeiProfileTests
         Assert.Contains(exported.Report.Entries, e => e.Category == "image-link");
         Assert.Contains(exported.Report.Entries, e => e.Category == "geometry" && e.Count == 3);
         Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-kind");
+
+        var multiPage = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(lineId, l1, null, [])], "pages",
+            new TeiXml.TeiExportContext(PageBreakCount: 3));
+        Assert.Contains(multiPage.Report.Entries, e => e.Category == "page-breaks" && e.Count == 2);
         Assert.Contains("loss-report:", exported.Xml);
     }
 }

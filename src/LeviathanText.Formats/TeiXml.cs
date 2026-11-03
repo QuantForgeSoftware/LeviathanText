@@ -75,7 +75,8 @@ public static class TeiXml
         string? SourceHash = null,
         int GeometryCount = 0,
         IReadOnlyDictionary<EntityId, TeiLineOrientation>? Orientations = null,
-        string? Folio = null);
+        string? Folio = null,
+        int PageBreakCount = 0);
 
     public sealed record TeiExportLine(
         EntityId LineId,
@@ -147,6 +148,9 @@ public static class TeiXml
         if (context.Graphics is not { Count: > 0 })
             losses.Add(new LossEntry("image-link", 1,
                 "no image link was supplied; a TEI export cannot carry the capture reference"));
+        if (context.PageBreakCount > 1)
+            losses.Add(new LossEntry("page-breaks", context.PageBreakCount - 1,
+                "only the first folio is exported; import each page separately to retain all page links"));
 
         var grouped = losses
             .GroupBy(l => l.Category)

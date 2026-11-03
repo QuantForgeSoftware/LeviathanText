@@ -1005,7 +1005,9 @@ public sealed class InterchangeService(ProjectService projects)
             GeometryCount: surface.Lines.Count(l => l.Baseline.Count > 0 || l.Polygon.Count > 0),
             Orientations: surface.Lines.ToDictionary(l => l.Id,
                 l => new TeiXml.TeiLineOrientation(l.Id, l.Direction, l.Script)),
-            Folio: owner?.Metadata.GetValueOrDefault("tei:folio")));
+            Folio: owner?.Metadata.GetValueOrDefault("tei:folio"),
+            PageBreakCount: int.TryParse(owner?.Metadata.GetValueOrDefault("tei:pageBreaks"),
+                out var pageBreaks) ? pageBreaks : 0));
     }
 
     private static NativeSurface FindSurface(NativeProject project, EntityId surfaceId) =>
