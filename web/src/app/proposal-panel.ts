@@ -45,6 +45,7 @@ interface ProviderRow {
           <p class="hint">proposal {{ idOf(p) }} · {{ providerOf(p) }} · {{ statusOf(p) }}</p>
           @if (isAdvisory(p)) {
             <p class="hint">Advisory result only; it cannot replace the witness reading.</p>
+            <button type="button" (click)="saveAdvisory(p)" [disabled]="busy()">Save as advisory annotation</button>
           } @else {
             <button type="button" (click)="accept()" [disabled]="busy()">Accept as editorial (L2)</button>
           }
@@ -159,6 +160,39 @@ export class ProposalPanel {
     const task = String(request?.['task'] ?? '');
     return ['Translation', 'StructuredExtraction', 'LexicalAnnotation', 'MorphologicalAnnotation']
       .includes(task);
+  }
+
+  protected saveAdvisory(proposal: Record<string, unknown>): void {
+    const kind = this.advisoryKind(proposal);
+    if (!kind) return;
+    this.busy.set(true);
+    this.api.addAnnotation(this.lineId(), {
+      kind,
+      range: { start: this.rangeStart(), end: this.rangeEnd() },
+      alternativeText: this.textOf(proposal),
+      description: `${kind} · ${this.providerOf(proposal)}`,
+    }).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.message.set('advisory result saved as annotation');
+      },
+      error: () => {
+        this.busy.set(false);
+        this.message.set('could not save advisory result');
+      },
+    });
+  }
+
+  private advisoryKind(proposal: Record<string, unknown>): string | null {
+    const request = proposal['request'] as Record<string, unknown> | undefined;
+    const task = String(request?.['task'] ?? '');
+    switch (task) {
+      case 'Translation': case 'translation': return 'Translation';
+      case 'StructuredExtraction': case 'structuredExtraction': return 'StructuredExtraction';
+      case 'LexicalAnnotation': case 'lexicalAnnotation': return 'LexicalAnnotation';
+      case 'MorphologicalAnnotation': case 'morphologicalAnnotation': return 'MorphologicalAnnotation';
+      default: return null;
+    }
   }
 
   protected statusOf(proposal: Record<string, unknown>): string {

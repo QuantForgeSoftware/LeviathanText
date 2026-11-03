@@ -40,6 +40,14 @@ public enum AnnotationKind
     Abbreviation,
     /// <summary>Zero-width L2 word-division proposal at a scalar boundary.</summary>
     WordBoundary,
+    /// <summary>Advisory translation of the selected span; never replaces witness text.</summary>
+    Translation,
+    /// <summary>Advisory structured extraction for the selected span; never replaces witness text.</summary>
+    StructuredExtraction,
+    /// <summary>Advisory lexical analysis for the selected span; never replaces witness text.</summary>
+    LexicalAnnotation,
+    /// <summary>Advisory morphological analysis for the selected span; never replaces witness text.</summary>
+    MorphologicalAnnotation,
 }
 
 /// <summary>How a correction-sequence index was established.</summary>

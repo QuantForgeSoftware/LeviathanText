@@ -222,7 +222,7 @@ AI task kinds include candidate reading, word division, expansion, accentuation,
 translation, structured extraction, lexical annotation and morphological annotation.
 Translation/extraction/lexical/morphological results are advisory JSON/plain-text proposals and
 are refused by the text-acceptance path and the proposal panel hides acceptance for them;
-they must not replace the Greek line reading.
+advisory results can be saved as project annotations. They must not replace the Greek line reading.
 
 Providers are configured under `LeviathanText:AiProviders:<name>` with
 `ProviderId`, `Host` (`Local`/`Hosted`), `Protocol` (`OpenAiChatCompletions`/`OllamaChat`),

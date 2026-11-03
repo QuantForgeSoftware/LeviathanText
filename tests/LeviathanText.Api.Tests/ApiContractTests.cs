@@ -198,6 +198,24 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Advisory_annotation_kind_round_trips_through_the_api()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "advisory-annotation-e2e");
+        var created = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/annotations", new
+        {
+            kind = "Translation",
+            range = new { start = 0, end = 1 },
+            alternativeText = "Lord",
+            description = "advisory translation",
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var annotations = await client.GetStringAsync($"/api/v1/lines/{lineId}/annotations");
+        Assert.Contains("translation", annotations);
+        Assert.Contains("Lord", annotations);
+    }
+
+    [Fact]
     public async Task Word_boundary_export_lists_the_proposed_division()
     {
         var client = NewClient();

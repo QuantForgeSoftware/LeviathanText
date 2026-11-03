@@ -161,7 +161,9 @@ interface UndoStack {
                 @if (annotation.description) { — {{ annotation.description }} }
                 @if (annotation.alternativeText) {
                   — alt: {{ annotation.alternativeText }}
-                  <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
+                  @if (!isAdvisory(annotation)) {
+                    <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
+                  }
                 }
                 @if (annotation.expansionText) {
                   — expansion: {{ annotation.expansionText }}
@@ -426,6 +428,11 @@ export class LineEditor {
       next: () => this.loadAnnotations(),
       error: () => { /* surfaced by the API; state kept */ },
     });
+  }
+
+  protected isAdvisory(annotation: AnnotationView): boolean {
+    return ['Translation', 'StructuredExtraction', 'LexicalAnnotation', 'MorphologicalAnnotation']
+      .includes(annotation.kind);
   }
 
   /** Compose an L2 editorial revision from the current L1 text and an alternative span. */
