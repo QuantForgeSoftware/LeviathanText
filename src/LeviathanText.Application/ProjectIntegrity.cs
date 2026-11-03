@@ -54,7 +54,7 @@ public static class ProjectIntegrity
                 foreach (var region in surface.Regions)
                 {
                     Register(region.Id, $"surface {surface.Id}");
-                    if (!captures.Contains(region.FrameRef))
+                    if (region.FrameRef != default && !captures.Contains(region.FrameRef))
                         issues.Add(new Issue("dangling-frame", region.Id.ToString(),
                             "Region frame is not a capture on this surface."));
                 }
@@ -68,10 +68,11 @@ public static class ProjectIntegrity
                 foreach (var line in surface.Lines)
                 {
                     Register(line.Id, $"surface {surface.Id}");
-                    if (!regions.Contains(line.RegionId))
+                    // A default region/capture is an unplaced line, not corruption.
+                    if (line.RegionId != default && !regions.Contains(line.RegionId))
                         issues.Add(new Issue("dangling-region", line.Id.ToString(),
                             "Line region does not exist on this surface."));
-                    if (!captures.Contains(line.FrameRef))
+                    if (line.FrameRef != default && !captures.Contains(line.FrameRef))
                         issues.Add(new Issue("dangling-frame", line.Id.ToString(),
                             "Line frame is not a capture on this surface."));
                     if (line.DiplomaticRevisionId is { } pointer

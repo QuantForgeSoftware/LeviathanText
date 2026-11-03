@@ -14,6 +14,28 @@ public sealed class ProjectIntegrityTests
     }
 
     [Fact]
+    public void Unplaced_lines_are_not_reported_as_dangling_corruption()
+    {
+        var project = SampleProjectBuilder.Build();
+        var surface = project.Objects[0].Surfaces[0];
+        var unplaced = surface.Lines[0] with { RegionId = default, FrameRef = default };
+        var modified = project with
+        {
+            Objects =
+            [
+                project.Objects[0] with
+                {
+                    Surfaces = [surface with { Lines = [unplaced] }],
+                },
+            ],
+        };
+
+        var issues = ProjectIntegrity.Audit(modified);
+
+        Assert.DoesNotContain(issues, issue => issue.Code is "dangling-region" or "dangling-frame");
+    }
+
+    [Fact]
     public void Duplicate_dangling_and_out_of_range_references_are_reported_read_only()
     {
         var project = SampleProjectBuilder.Build();
