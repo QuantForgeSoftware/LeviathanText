@@ -50,6 +50,38 @@ public sealed class ProjectBundleTests
     }
 
     [Fact]
+    public void Missing_opt_in_images_are_reported_instead_of_failing_the_bundle()
+    {
+        var project = SampleProjectBuilder.Build();
+        var surface = project.Objects[0].Surfaces[0];
+        var capture = surface.Captures[0] with
+        {
+            ImageLocation = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.png"),
+        };
+        var modified = project with
+        {
+            Objects =
+            [
+                project.Objects[0] with
+                {
+                    Surfaces = [surface with { Captures = [capture] }],
+                },
+            ],
+        };
+        var path = Path.Combine(Path.GetTempPath(), $"lt-bundle-{Guid.NewGuid():N}.zip");
+        try
+        {
+            ProjectBundle.Export(modified, path, includeImages: true);
+            using var archive = ZipFile.OpenRead(path);
+            Assert.Contains("images-omitted.txt", archive.Entries.Select(e => e.FullName));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Bundle_contains_manifest_project_and_per_surface_exports()
     {
         var project = SampleProjectBuilder.Build();
