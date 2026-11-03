@@ -682,6 +682,8 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             Assert.Contains("lineId,lineSourceId,lineNumber", lineCrosswalk);
             var integrity = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/integrity");
             Assert.Contains("[", integrity);
+            var overlap = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/overlap");
+            Assert.Contains("[", overlap);
 
             var tei = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei");
             Assert.Contains("<facsimile>", tei);
