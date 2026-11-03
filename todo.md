@@ -41,7 +41,7 @@ Plan: [project-plan.md §12](project-plan.md#12-ntvmr--csntm-manuscript-pairing-
 
 These are the active code/docs slices that do not require reviewer decisions, fresh image/label pairs, rights grants, or verified model weights. Parent capability sections below retain only their blocked work.
 
-- [~] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Optional operator-supplied XSD validation with schema SHA-256 reporting and DOCTYPE refusal is implemented and tested; `<space>`, `<damage>` and `<ex>` are bounded with round-trip tests. The official schema file is deliberately not bundled/downloaded, so choosing and recording a pinned schema version remains.)*
+- [~] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Optional operator-supplied XSD validation with schema SHA-256 reporting, a required-hash pin (`--expect-schema-sha256`) and DOCTYPE refusal is implemented and tested; `<space>`, `<damage>`, `<ex>` and `<certainty>` are bounded with round-trip tests. The official schema file is deliberately not bundled/downloaded, so choosing the pinned schema file remains an operator/reviewer decision.)*
 
 ## 3. Reference capability inventory and release scope
 

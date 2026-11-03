@@ -991,11 +991,25 @@ public static class Program
                 var result = LeviathanText.Formats.TeiXml.Import(xml);
                 var issues = new List<PageXml.ImportIssue>(result.Unsupported);
                 var schemaIndex = Array.IndexOf(rest, "--schema");
+                var expectedHashIndex = Array.IndexOf(rest, "--expect-schema-sha256");
+                var expectedHash = expectedHashIndex >= 0 && expectedHashIndex + 1 < rest.Length
+                    ? rest[expectedHashIndex + 1]
+                    : null;
                 if (schemaIndex >= 0 && schemaIndex + 1 < rest.Length)
                 {
-                    var (schemaIssues, _) = LeviathanText.Formats.TeiXml.ValidateAgainstSchema(
+                    var (schemaIssues, schemaHash) = LeviathanText.Formats.TeiXml.ValidateAgainstSchema(
                         xml, rest[schemaIndex + 1]);
                     issues.AddRange(schemaIssues);
+                    if (expectedHash is not null
+                        && !expectedHash.Equals(schemaHash, StringComparison.OrdinalIgnoreCase))
+                        issues.Add(new PageXml.ImportIssue("schema-pin",
+                            $"schema hash {schemaHash} does not match the pinned hash {expectedHash}",
+                            PageXml.IssueSeverity.Loss));
+                }
+                else if (expectedHash is not null)
+                {
+                    issues.Add(new PageXml.ImportIssue("schema-pin",
+                        "--expect-schema-sha256 requires --schema", PageXml.IssueSeverity.Loss));
                 }
                 foreach (var issue in issues)
                     Console.Error.WriteLine($"{issue.Severity}\t{issue.Element}\t{issue.Description}");
@@ -1007,7 +1021,8 @@ public static class Program
                                   $"graphics={result.Document?.Graphics.Count ?? 0}\t" +
                                   $"attachment={(result.OriginalMarkup is null ? "omitted" : "retained")}");
                 var losses = issues.Count(i => i.Severity == PageXml.IssueSeverity.Loss);
-                return losses > 0 && rest.Contains("--strict") ? 1 : 0;
+                return (losses > 0 && rest.Contains("--strict"))
+                    || issues.Any(issue => issue.Element == "schema-pin") ? 1 : 0;
             }
 
             case "validate" when rest.Length >= 3 && rest[1] == "text":
@@ -1955,7 +1970,7 @@ public static class Program
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
               leviathan migrate inventory <existing-tree> [--out <report.json|csv>] [--csv] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
-              leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]
+              leviathan validate tei <record.xml> [--schema <tei.xsd>] [--expect-schema-sha256 <hash>] [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>

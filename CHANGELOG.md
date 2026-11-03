@@ -52,6 +52,8 @@ set: C0-0.4-draft.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
   positions with source context; the dual-pane reading view also previews them with `·`
   without changing witness text.
+- **TEI schema pinning:** `validate tei --schema <xsd> --expect-schema-sha256 <hash>` fails
+  when the supplied schema identity differs from the pin; mismatches fail without `--strict`.
 - **EpiDoc profile:** `<space>`, `<damage>`, `<ex>` and `<certainty>` now have bounded
   import/export mappings with round-trip tests and explicit reports; original markup stays
   attached.

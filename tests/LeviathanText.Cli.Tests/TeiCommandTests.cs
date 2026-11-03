@@ -120,6 +120,13 @@ public sealed class TeiCommandTests : IDisposable
 
         Assert.Equal(0, Run("validate", "tei", valid, "--schema", schema));
         Assert.Equal(1, Run("validate", "tei", invalid, "--schema", schema, "--strict"));
+
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(schema)));
+        Assert.Equal(0, Run("validate", "tei", valid, "--schema", schema,
+            "--expect-schema-sha256", hash));
+        Assert.Equal(1, Run("validate", "tei", valid, "--schema", schema,
+            "--expect-schema-sha256", new string('0', 64)));
     }
 
     private string SurfaceId(string projectId)
