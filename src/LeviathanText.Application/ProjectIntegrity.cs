@@ -142,11 +142,20 @@ public static class ProjectIntegrity
                 {
                     if (!linesById.ContainsKey(review.LineId))
                         issues.Add(new Issue("dangling-review-line", review.Id, "Reviewed line is missing."));
-                    if (!revisions.ContainsKey(review.RevisionId))
+                    if (!revisions.TryGetValue(review.RevisionId, out var reviewedRevision))
                         issues.Add(new Issue("dangling-review-revision", review.Id, "Reviewed revision is missing."));
-                    if (review.CorrectedRevisionId is { } corrected && !revisions.ContainsKey(corrected))
-                        issues.Add(new Issue("dangling-review-correction", review.Id,
-                            "Corrected revision is missing."));
+                    else if (reviewedRevision.ScopeId != review.LineId)
+                        issues.Add(new Issue("review-scope-mismatch", review.Id,
+                            "Reviewed revision belongs to a different line."));
+                    if (review.CorrectedRevisionId is { } corrected)
+                    {
+                        if (!revisions.TryGetValue(corrected, out var correctedRevision))
+                            issues.Add(new Issue("dangling-review-correction", review.Id,
+                                "Corrected revision is missing."));
+                        else if (correctedRevision.ScopeId != review.LineId)
+                            issues.Add(new Issue("review-correction-scope-mismatch", review.Id,
+                                "Corrected revision belongs to a different line."));
+                    }
                 }
             }
         }

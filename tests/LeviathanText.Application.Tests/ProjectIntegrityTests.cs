@@ -87,6 +87,18 @@ public sealed class ProjectIntegrityTests
                                 SourceTagged("ln-source-a"), SourceTagged("ln-source-b")],
                             Revisions = [.. surface.Revisions, cycle],
                             Annotations = [.. surface.Annotations, annotation],
+                            ReviewDecisions =
+                            [
+                                new ReviewDecision
+                                {
+                                    Id = "review-bad",
+                                    LineId = danglingLine.Id,
+                                    RevisionId = revision.Id,
+                                    Reviewer = "tester",
+                                    Outcome = ReviewOutcome.Accept,
+                                    At = DateTimeOffset.UtcNow,
+                                },
+                            ],
                             AnnotationRetractions =
                             [
                                 .. surface.AnnotationRetractions,
@@ -110,6 +122,7 @@ public sealed class ProjectIntegrityTests
         Assert.Contains(issues, i => i.Code == "dangling-region");
         Assert.Contains(issues, i => i.Code == "annotation-out-of-range");
         Assert.Contains(issues, i => i.Code == "dangling-retraction");
+        Assert.Contains(issues, i => i.Code == "review-scope-mismatch");
         Assert.Contains(issues, i => i.Code == "duplicate-source-id");
         Assert.Contains(issues, i => i.Code == "revision-cycle");
         Assert.Contains(issues, i => i.Code == "dangling-fragment-surface");
