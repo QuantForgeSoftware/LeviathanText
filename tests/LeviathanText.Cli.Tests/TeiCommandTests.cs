@@ -75,6 +75,10 @@ public sealed class TeiCommandTests : IDisposable
         Assert.Equal(0, Run("export", "searchable-pdf", projectId, SurfaceId(projectId), pdf));
         Assert.Equal("%PDF"u8.ToArray(), File.ReadAllBytes(pdf)[..4]);
 
+        var projectPdf = PathOf("project.pdf");
+        Assert.Equal(0, Run("export", "searchable-pdf", projectId, projectPdf, "--all"));
+        Assert.Equal("%PDF"u8.ToArray(), File.ReadAllBytes(projectPdf)[..4]);
+
         var boundaries = PathOf("boundaries.csv");
         Assert.Equal(0, Run("export", "word-boundaries", projectId, "--out", boundaries));
         Assert.Contains("lineId,revisionId,layer,scalarPosition", File.ReadAllText(boundaries));

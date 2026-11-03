@@ -16,25 +16,35 @@ public static class SearchablePdf
 
     public sealed record TextLine(string Text, double Left, double Top, double Right, double Bottom);
 
+    public sealed record Page(string? ImagePath, int Width, int Height,
+        IReadOnlyList<TextLine> Lines);
+
     public static byte[] Export(string imagePath, int width, int height,
-        IReadOnlyList<TextLine> lines, string title)
+        IReadOnlyList<TextLine> lines, string title) =>
+        ExportPages([new Page(imagePath, width, height, lines)], title);
+
+    public static byte[] ExportPages(IReadOnlyList<Page> pages, string title)
     {
-        ArgumentNullException.ThrowIfNull(lines);
-        if (width <= 0 || height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width), "PDF page dimensions must be positive.");
-        if (width > MaxPagePixels || height > MaxPagePixels)
-            throw new ArgumentOutOfRangeException(nameof(width), "PDF page dimensions exceed the bounded limit.");
+        ArgumentNullException.ThrowIfNull(pages);
+        if (pages.Count == 0) throw new ArgumentException("At least one PDF page is required.", nameof(pages));
+        foreach (var page in pages)
+        {
+            if (page.Width <= 0 || page.Height <= 0)
+                throw new ArgumentOutOfRangeException(nameof(page.Width), "PDF page dimensions must be positive.");
+            if (page.Width > MaxPagePixels || page.Height > MaxPagePixels)
+                throw new ArgumentOutOfRangeException(nameof(page.Width), "PDF page dimensions exceed the bounded limit.");
+        }
 
-        using var bitmap = LoadImage(imagePath);
         double scale = 72.0 / SourceDpi;
-        int pageWidth = Math.Max(1, (int)Math.Ceiling(width * scale));
-        int pageHeight = Math.Max(1, (int)Math.Ceiling(height * scale));
-
         using var stream = new MemoryStream();
         using (var document = SKDocument.CreatePdf(stream, new SKDocumentPdfMetadata { Title = title }))
         {
-            using (var canvas = document.BeginPage(pageWidth, pageHeight))
+            foreach (var page in pages)
             {
+                using var bitmap = LoadImage(page.ImagePath);
+                int pageWidth = Math.Max(1, (int)Math.Ceiling(page.Width * scale));
+                int pageHeight = Math.Max(1, (int)Math.Ceiling(page.Height * scale));
+                using var canvas = document.BeginPage(pageWidth, pageHeight);
                 canvas.Clear(SKColors.White);
                 if (bitmap is not null)
                 {
@@ -45,7 +55,7 @@ public static class SearchablePdf
 
                 using var font = new SKFont(SKTypeface.Default, 10);
                 using var paint = new SKPaint { Color = SKColors.Transparent };
-                foreach (var line in lines)
+                foreach (var line in page.Lines)
                 {
                     if (string.IsNullOrWhiteSpace(line.Text)) continue;
                     double lineHeight = Math.Max(1, (line.Bottom - line.Top) * scale);

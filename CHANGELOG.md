@@ -78,6 +78,8 @@ set: C0-0.4-draft.
 - **Cross-layer mapping safety:** repeated witness text now cannot attach a cross-layer
   annotation to a span already claimed by the rendered layer, which previously duplicated
   text after export/re-import in a combining-mark/del case.
+- **Project searchable PDF:** `export searchable-pdf <project> <out.pdf> --all` / project
+  API creates one page per surface with selectable L1 text.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.

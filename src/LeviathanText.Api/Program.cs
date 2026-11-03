@@ -512,6 +512,16 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/edition.html", (ProjectService pr
         : Results.Text(result.Html, "text/html");
 });
 
+api.MapGet("projects/{id}/searchable-pdf", (ProjectService projects, string id, bool? report) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var (pdf, lossReport) = new InterchangeService(projects)
+        .ExportSearchablePdfProject(project, $"LeviathanText {project.Name}");
+    return report == true
+        ? Results.Ok(new { pdf = Convert.ToBase64String(pdf), lossReport })
+        : Results.File(pdf, "application/pdf", $"{project.Id}.pdf", enableRangeProcessing: false);
+});
+
 api.MapGet("projects/{id}/surfaces/{surfaceId}/searchable-pdf", (ProjectService projects,
     string id, string surfaceId, bool? report) =>
 {

@@ -248,8 +248,9 @@ made; use the local scripted/Ollama smoke paths for verification.
   and a line-by-line apparatus; presentation only, with a loss report.
 - `export word-boundaries <projectId> [--out <csv>]` — proposed L2 boundary positions with
   source context; also `GET /projects/{id}/word-boundaries`. It never edits witness text.
-- `export searchable-pdf <projectId> <surfaceId> <out.pdf>` — the capture image plus invisible
-  L1 line text at its source rectangle. Unplaced lines, L2, alternatives and annotations are
+- `export searchable-pdf <projectId> <surfaceId> <out.pdf>` — one surface; add `--all` with a
+  project-level output path for one page per surface. The capture image plus invisible L1 line
+  text is placed at its source rectangle. Unplaced lines, L2, alternatives and annotations are
   listed in the loss report; the native/TEI records remain authoritative. The API equivalent
   is `.../searchable-pdf`; add `?report=true` for `{ pdf: base64, lossReport }`.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.

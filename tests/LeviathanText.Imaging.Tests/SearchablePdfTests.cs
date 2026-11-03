@@ -30,6 +30,21 @@ public sealed class SearchablePdfTests : IDisposable
     }
 
     [Fact]
+    public void Multiple_pages_keep_their_text_layers()
+    {
+        var bytes = SearchablePdf.ExportPages(
+        [
+            new SearchablePdf.Page(null, 100, 50, [new SearchablePdf.TextLine("πρῶτος", 1, 1, 20, 20)]),
+            new SearchablePdf.Page(null, 100, 50, [new SearchablePdf.TextLine("δεύτερος", 1, 1, 20, 20)]),
+        ], "multi");
+
+        using var pdf = PdfDocument.Open(bytes);
+        Assert.Equal(2, pdf.NumberOfPages);
+        Assert.Contains("πρῶτος", pdf.GetPage(1).Text);
+        Assert.Contains("δεύτερος", pdf.GetPage(2).Text);
+    }
+
+    [Fact]
     public void Missing_image_still_produces_a_bounded_page()
     {
         var bytes = SearchablePdf.Export(Path.Combine(_root, "missing.png"), 120, 80,

@@ -523,6 +523,17 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 5 && rest[1] == "searchable-pdf" && rest.Contains("--all"):
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var (pdf, report) = interchange.ExportSearchablePdfProject(project,
+                    $"LeviathanText {project.Name}");
+                File.WriteAllBytes(rest[3], pdf);
+                if (!report.IsLossless) Console.Error.WriteLine(report);
+                Console.WriteLine($"searchable project PDF written: {rest[3]} ({pdf.Length} bytes)");
+                return 0;
+            }
+
             case "export" when rest.Length >= 5 && rest[1] == "searchable-pdf":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -2028,6 +2039,7 @@ public static class Program
               leviathan [--store <path>] export edition-html <projectId> [--all] [--out <html>]
               leviathan [--store <path>] export edition-html <projectId> <surfaceId> [--out <html>]
               leviathan [--store <path>] export searchable-pdf <projectId> <surfaceId> <out.pdf>
+              leviathan [--store <path>] export searchable-pdf <projectId> <out.pdf> --all
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]

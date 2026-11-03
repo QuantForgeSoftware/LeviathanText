@@ -42,6 +42,7 @@ interface ProjectRow {
           <h2>{{ payload.name }}</h2>
           <p class="tools">
             <button type="button" (click)="downloadEdition()">Download edition HTML</button>
+            <button type="button" (click)="downloadProjectPdf()">Download searchable PDF</button>
             <span class="hint" role="status">{{ editionStatus() }}</span>
           </p>
           @if (stats(); as s) {
@@ -287,6 +288,23 @@ export class ProjectsPage {
       this.api.loadProject(id).subscribe(payload =>
         this.payloads.update(map => ({ ...map, [id]: payload })));
     }
+  }
+
+  protected downloadProjectPdf(): void {
+    const projectId = this.selectedId();
+    if (!projectId) return;
+    this.api.projectSearchablePdf(projectId).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${projectId}.pdf`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.editionStatus.set('searchable PDF downloaded');
+      },
+      error: () => this.editionStatus.set('searchable PDF export failed'),
+    });
   }
 
   protected downloadEdition(): void {

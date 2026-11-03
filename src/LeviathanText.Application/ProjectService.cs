@@ -1163,6 +1163,69 @@ public sealed class InterchangeService(ProjectService projects)
         return (pdf, report);
     }
 
+    /// <summary>Searchable PDF for every surface in a project, one PDF page per surface.</summary>
+    public (byte[] Pdf, LossReport Report) ExportSearchablePdfProject(NativeProject project, string title)
+    {
+        var pages = new List<SearchablePdf.Page>();
+        int unplaced = 0, omitted = 0, editorial = 0, uncertainty = 0, alternatives = 0, revisions = 0;
+        foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+        {
+            var capture = surface.Captures.FirstOrDefault();
+            var revisionMap = surface.Revisions.GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
+            var lines = new List<SearchablePdf.TextLine>();
+            foreach (var line in surface.Lines)
+            {
+                if (line.DiplomaticRevisionId is not { } revisionId
+                    || !revisionMap.TryGetValue(revisionId, out var revision)
+                    || string.IsNullOrWhiteSpace(revision.Text))
+                    continue;
+                IReadOnlyList<PointD> geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
+                if (geometry.Count == 0) { unplaced++; continue; }
+                lines.Add(new SearchablePdf.TextLine(revision.Text,
+                    geometry.Min(p => p.X), geometry.Min(p => p.Y),
+                    geometry.Max(p => p.X), geometry.Max(p => p.Y)));
+            }
+            int width = capture?.WidthPx ?? 0, height = capture?.HeightPx ?? 0;
+            if (width <= 0 || height <= 0)
+            {
+                var points = surface.Lines.SelectMany(line => line.Polygon.Count > 0 ? line.Polygon : line.Baseline).ToList();
+                if (points.Count == 0) { omitted++; continue; }
+                width = Math.Max(1, (int)Math.Ceiling(points.Max(p => p.X)));
+                height = Math.Max(1, (int)Math.Ceiling(points.Max(p => p.Y)));
+            }
+            pages.Add(new SearchablePdf.Page(capture?.ImageLocation, width, height, lines));
+            editorial += surface.Revisions.Count(r => r.Layer == TextLayer.L2Editorial);
+            revisions += surface.Revisions.Count;
+            var active = surface.Annotations
+                .Where(a => !surface.AnnotationRetractions.Any(r => r.AnnotationId == a.Id)).ToList();
+            uncertainty += active.Count(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible or AnnotationKind.Lost);
+            alternatives += active.Count(a => a.Kind == AnnotationKind.AlternativeReading);
+        }
+        if (pages.Count == 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = project.Id.ToString(),
+                Message = "No surface has capture dimensions or line geometry for PDF export.",
+            });
+        var entries = new List<LossEntry>
+        {
+            new("editorial-layer", editorial, "L2 readings are not represented in the PDF"),
+            new("uncertainty", uncertainty, "uncertainty annotations are not searchable text"),
+            new("alternatives", alternatives, "alternative readings are not represented"),
+            new("provenance", revisions, "revision history remains in the native project"),
+            new("unplaced-lines", unplaced, "lines without geometry were omitted"),
+            new("omitted-surfaces", omitted, "surfaces without dimensions or geometry were omitted"),
+        };
+        var report = new LossReport
+        {
+            Format = "searchable-pdf",
+            ContractVersion = ContractVersion.Current,
+            Entries = [.. entries.Where(e => e.Count > 0)],
+        };
+        return (SearchablePdf.ExportPages(pages, title), report);
+    }
+
     private static NativeSurface FindSurface(NativeProject project, EntityId surfaceId) =>
         project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
