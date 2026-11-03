@@ -37,6 +37,17 @@ public static class CorpusOverlap
 
         foreach (var group in project.Objects
                      .SelectMany(obj => obj.Surfaces)
+                     .SelectMany(surface => surface.Lines
+                         .Where(line => line.Tags.TryGetValue("source-id", out var value) && value.Count > 0)
+                         .Select(line => (surface, line)))
+                     .GroupBy(item => item.line.Tags["source-id"][0], StringComparer.Ordinal)
+                     .Where(group => group.Select(item => item.line.Id).Distinct().Count() > 1))
+            rows.Add(new Overlap("line-source-id", group.Key,
+                string.Join(", ", group.Select(item => $"{item.surface.Id}/{item.line.Id}").Distinct()),
+                "The same source line id is attached to multiple native lines; deduplicate import lineage."));
+
+        foreach (var group in project.Objects
+                     .SelectMany(obj => obj.Surfaces)
                      .SelectMany(surface => surface.ExternalRefs.Select(pair => (surface, pair)))
                      .Where(item => !string.IsNullOrWhiteSpace(item.pair.Value))
                      .GroupBy(item => $"{item.pair.Key}={item.pair.Value}", StringComparer.Ordinal)
