@@ -71,7 +71,7 @@ public static class SearchablePdf
         return stream.ToArray();
     }
 
-    private static SKBitmap? LoadImage(string imagePath)
+    private static SKBitmap? LoadImage(string? imagePath)
     {
         if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return null;
         using var decoded = ImageDecoder.DecodeBounded(imagePath, 40_000_000);
