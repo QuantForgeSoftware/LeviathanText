@@ -1,6 +1,6 @@
 # Throughput measurements (pilot machine)
 
-Date: 2026-10-19. Pilot machine: macOS arm64, .NET 10, local SQLite. Measured commands, not estimates.
+Date: 2026-11-02 (rows added through this cycle). Pilot machine: macOS arm64, .NET 10, local SQLite. Measured commands, not estimates.
 
 | Operation | Measurement | Method / caveats |
 | --- | --- | --- |
@@ -15,5 +15,10 @@ Date: 2026-10-19. Pilot machine: macOS arm64, .NET 10, local SQLite. Measured co
 | Peak RSS, 27-page batch recognition (CLI) | **~244 MB** | no growth observed across surfaces (models loaded per surface and disposed) |
 | Layout model training (P01, 17 train / 4 dev pages, 100 epochs) | **~24 s** | CPU; package 348 KB incl. metadata/card |
 | Learned layout inference (one P01 page) | **~0.9 s**, **~279 MB peak RSS** | CLI (`layout detect --model`); includes .NET + libtorch startup |
+| Bulk migration import (M01, 120 PAGE + images) | **4.07 s wall → ~1,769 pages/min**, **914 MB peak RSS** | `migrate import` into a fresh store; single run, includes .NET startup, image decode and attachment retention; no recognition/training |
+| Page-filtered TEI import (P46 page 1440, 30 lines / 11 L2) | **structural smoke, sub-second order** | Single CLI process; source 7.8 KB TEI + stand-in image; not a reading/accuracy timing benchmark |
 
-Not measured: sustained collection-scale runs (thousands of pages), peak RSS under load, GPU backends. Those remain release-checklist items.
+Not measured: sustained collection-scale runs (thousands of pages), repeated multi-process load,
+peak RSS under concurrent workloads, GPU backends, and supported non-macOS targets. Those remain
+release-checklist items. The 120-page migration row is a single-process bulk import, not a
+sustained-load or worker-concurrency benchmark.

@@ -41,7 +41,8 @@ actionable checklist in [todo.md](../todo.md), completed work in
 - Page workflow (projection layout): 0.973 mean CER including layout misses; control 0.943 (3 seeds; wide spread). With the opt-in learned layout: 0.942 vs 0.971 on the same recognizer/page set.
 - Layout: density post-filter adopted (held-out precision 0.335→0.381, recall unchanged);
   merge-rule candidate **rejected** after out-of-domain regression (recorded).
-- Throughput: 113 pages/min CLI import; 45 pages/s in-process bulk; layout job ~4 s incl. fetch.
+- Throughput: 113 pages/min CLI import; 45 pages/s in-process bulk; 120-page migration import
+  4.07 s (~1,769 pages/min, 914 MB peak RSS, single process); layout job ~4 s incl. fetch.
 
 ## What is blocked on humans, not code
 
