@@ -78,6 +78,9 @@ public static class ProjectBundle
                 // A missing/corrupt capture or missing geometry must not make the text bundle
                 // fail; the native/TEI records remain authoritative.
             }
+            var edition = EditionHtml.Export(project, surface.Id, $"{project.Name} — {surface.Id}");
+            Add($"{prefix}/edition.html", edition.Html);
+            Add($"{prefix}/edition-loss.txt", edition.Report.ToString());
             if (surface.Captures.Count > 0)
             {
                 Add($"{prefix}/alto.xml", AltoXml.Export(surface, surface.Captures[0], surface.Revisions));

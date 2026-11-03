@@ -40,6 +40,8 @@ public sealed class ProjectBundleTests
             Assert.Contains($"surfaces/{surface.Id}/tei.xml", names);
             Assert.Contains($"surfaces/{surface.Id}/alto.xml", names);
             Assert.Contains($"surfaces/{surface.Id}/hocr.html", names);
+            Assert.Contains($"surfaces/{surface.Id}/edition.html", names);
+            Assert.Contains($"surfaces/{surface.Id}/edition-loss.txt", names);
             Assert.Contains($"surfaces/{surface.Id}/searchable.pdf", names);
             Assert.Contains($"surfaces/{surface.Id}/searchable-pdf-loss.txt", names);
 
