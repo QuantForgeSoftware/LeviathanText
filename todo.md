@@ -126,7 +126,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 - [~] Add ABBYY XML and PDF/document ingestion needed for Kraken parity. *(PDF page rasterization + optional coordinate-bearing PDF text as L2 reference with gap-based line segmentation and two-column gutter ordering; ABBYY XML import/export with loss reporting. Remaining: PDF figures/rotation/full reading-order model and ABBYY schema versions.)*
 - [ ] Extend AI to translation, structured extraction, optional lexical/morphological annotations and bulk workflows with source references.
 - [~] Reconcile every reference capability row against acceptance evidence before claiming full parity. *(2026-11-02: [parity matrix](docs/release/parity.md) refreshed — TEI/PDF/ABBYY/collaboration rows corrected, new session row added, limits restated. Acceptance thresholds remain unfrozen, so this is an evidence reconciliation, not a parity claim.)*
-- [ ] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions.
+- [~] Consider searchable PDF, distributed execution, automatic fragment joining and advanced imaging as separately estimated extensions. *(Bounded searchable-PDF export now draws the capture with invisible L1 line text at source rectangles and reports unplaced/L2/annotation loss; distributed execution, automatic fragment joining and advanced imaging remain separate.)*
 
 ### Release checklist — applies before every usable release
 

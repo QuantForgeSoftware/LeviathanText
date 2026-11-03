@@ -178,6 +178,22 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Searchable_pdf_endpoint_returns_a_pdf()
+    {
+        var client = NewClient();
+        var (projectId, _, surfaceId) = await ImportFixtureAsync(client, "searchable-pdf-e2e");
+
+        var response = await client.GetAsync(
+            $"/api/v1/projects/{projectId}/surfaces/{surfaceId}/searchable-pdf");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.True(bytes.Length > 4);
+        Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
+    }
+
+    [Fact]
     public async Task Line_geometry_round_trips_through_the_api()
     {
         var client = NewClient();

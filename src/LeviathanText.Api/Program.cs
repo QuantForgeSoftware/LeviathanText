@@ -462,6 +462,15 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/abbyy", (ProjectService projects,
         "application/xml");
 });
 
+api.MapGet("projects/{id}/surfaces/{surfaceId}/searchable-pdf", (ProjectService projects, string id, string surfaceId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var (pdf, report) = new InterchangeService(projects)
+        .ExportSearchablePdf(project, EntityId.Parse(surfaceId, EntityKind.Surface));
+    return Results.File(pdf, "application/pdf", $"{surfaceId}.pdf",
+        enableRangeProcessing: false);
+});
+
 api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, string id, string surfaceId, bool? report) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

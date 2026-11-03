@@ -70,6 +70,10 @@ public sealed class TeiCommandTests : IDisposable
         Assert.Contains("source.jpg", exported);
         Assert.Contains("n=\"1\"", exported);
         Assert.Contains("<supplied", exported);
+
+        var pdf = PathOf("out.pdf");
+        Assert.Equal(0, Run("export", "searchable-pdf", projectId, SurfaceId(projectId), pdf));
+        Assert.Equal("%PDF"u8.ToArray(), File.ReadAllBytes(pdf)[..4]);
     }
 
     [Fact]

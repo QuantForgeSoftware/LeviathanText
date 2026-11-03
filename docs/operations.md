@@ -235,6 +235,9 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported
   fields reported). TEI carries the facsimile/image link, line numbers, both layers and a
   machine-readable loss report (stderr plus an inline XML comment).
+- `export searchable-pdf <projectId> <surfaceId> <out.pdf>` — the capture image plus invisible
+  L1 line text at its source rectangle. Unplaced lines, L2, alternatives and annotations are
+  listed in the loss report; the native/TEI records remain authoritative.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
 - `export bundle` — zip with native JSON, training export, profile report, integrity audit,

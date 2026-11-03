@@ -1084,6 +1084,85 @@ public sealed class InterchangeService(ProjectService projects)
                 out var pageBreaks) ? pageBreaks : 0));
     }
 
+    /// <summary>
+    /// Searchable-PDF convenience export: the original capture is drawn as the page and each
+    /// line's L1 text is placed invisibly at its source rectangle. The returned loss report
+    /// keeps the scholarly layers and annotations distinct from this visual/search artifact.
+    /// </summary>
+    public (byte[] Pdf, LossReport Report) ExportSearchablePdf(NativeProject project, EntityId surfaceId)
+    {
+        var surface = FindSurface(project, surfaceId);
+        var capture = surface.Captures.FirstOrDefault()
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = surfaceId.ToString(),
+                Message = "Surface has no capture for PDF export.",
+            });
+        int width = capture.WidthPx ?? 0;
+        int height = capture.HeightPx ?? 0;
+
+        var revisions = surface.Revisions.ToDictionary(r => r.Id);
+        var lines = new List<SearchablePdf.TextLine>();
+        int unplaced = 0;
+        foreach (var line in surface.Lines)
+        {
+            if (line.DiplomaticRevisionId is not { } revisionId
+                || !revisions.TryGetValue(revisionId, out var revision)
+                || string.IsNullOrWhiteSpace(revision.Text))
+                continue;
+            IReadOnlyList<PointD> geometry = line.Polygon.Count >= 3 ? line.Polygon : line.Baseline;
+            if (geometry.Count == 0)
+            {
+                unplaced++;
+                continue;
+            }
+            double left = geometry.Min(p => p.X), right = geometry.Max(p => p.X);
+            double top = geometry.Min(p => p.Y), bottom = geometry.Max(p => p.Y);
+            lines.Add(new SearchablePdf.TextLine(revision.Text, left, top, right, bottom));
+        }
+
+        if (width <= 0 || height <= 0)
+        {
+            var points = surface.Lines.SelectMany(line => line.Polygon.Count > 0 ? line.Polygon : line.Baseline).ToList();
+            if (points.Count == 0)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = surfaceId.ToString(),
+                    Message = "Capture dimensions or line geometry are required for PDF export.",
+                });
+            width = Math.Max(1, (int)Math.Ceiling(points.Max(p => p.X)));
+            height = Math.Max(1, (int)Math.Ceiling(points.Max(p => p.Y)));
+        }
+
+        var active = surface.Annotations
+            .Where(a => !surface.AnnotationRetractions.Any(r => r.AnnotationId == a.Id))
+            .ToList();
+        var entries = new List<LossEntry>
+        {
+            new("editorial-layer", surface.Revisions.Count(r => r.Layer == TextLayer.L2Editorial),
+                "L2 editorial readings and their links are not represented in the PDF"),
+            new("uncertainty", active.Count(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible or AnnotationKind.Lost),
+                "unclear/illegible/lost annotations are not searchable text in the PDF"),
+            new("alternatives", active.Count(a => a.Kind == AnnotationKind.AlternativeReading),
+                "alternative readings are not represented in the PDF"),
+            new("provenance", surface.Revisions.Count,
+                "revision history and authorship remain in the native project"),
+            new("unplaced-lines", unplaced,
+                "lines without geometry were omitted from the PDF text layer"),
+        };
+        var report = new LossReport
+        {
+            Format = "searchable-pdf",
+            ContractVersion = ContractVersion.Current,
+            Entries = [.. entries.Where(entry => entry.Count > 0)],
+        };
+        var pdf = SearchablePdf.Export(capture.ImageLocation, width, height, lines,
+            $"LeviathanText {surface.Id}");
+        return (pdf, report);
+    }
+
     private static NativeSurface FindSurface(NativeProject project, EntityId surfaceId) =>
         project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError

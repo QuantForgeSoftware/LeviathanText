@@ -73,7 +73,7 @@ dotnet run --project src/LeviathanText.Api
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
 # transcription: GET/POST /lines/{id}/revisions, GET /lines/{id}/annotations, POST /lines/{id}/annotations
 # geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}
-# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei[?report=true] | alto | hocr
+# exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei[?report=true] | alto | hocr | searchable-pdf
 #          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv | crosswalk
 #          GET /projects/{id}/attachments/{id} (retained original markup)
 # sessions: POST /sessions, POST /sessions/{id}/heartbeat, DELETE /sessions/{id},

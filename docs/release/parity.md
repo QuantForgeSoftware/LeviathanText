@@ -33,7 +33,7 @@ are not specialist-adjudicated.
 | Packaging | publish + fresh-install smoke + osx-arm64 package/manifest | `scripts/package-release.sh` PASS; backup rehearsal PASS | no installers/updaters; Linux/Windows untested; models not bundled |
 | Migration from Kraken | public formats + read-only inventory | `migrate inventory` smoke on M01/291-file reference checkout; import paths | no automatic project migration or product comparison |
 | RTL/vertical metadata | partial | native/PAGE/hOCR/TEI direction+script fields, API/UI, tests | no full BiDi layout or vertical recognition; ALTO direction unmapped |
-| Searchable PDF / distributed execution | not implemented | — | separately estimated extensions |
+| Searchable PDF / distributed execution | searchable PDF: bounded; distributed execution: not implemented | capture + invisible L1 line text, CLI/API, loss report/tests | no distributed execution or automatic fragment joining; advanced imaging remains separate |
 
 **Verdict:** usable pilot for Greek transcription on curated data; not a drop-in Kraken
 replacement and not release-ready. The critical path is adjudicated data and fresh held-out
