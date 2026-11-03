@@ -57,5 +57,11 @@ public sealed class EditionHtmlTests
         Assert.Contains("&lt;damage&gt;", result.Html);
         Assert.Contains("edition-html", result.Report.Format);
         Assert.Contains(result.Report.Entries, entry => entry.Category == "presentation-only");
+
+        var projectEdition = EditionHtml.ExportProject(modified, "Whole project");
+        Assert.Contains("Whole project", projectEdition.Html);
+        Assert.Contains("surface-section", projectEdition.Html);
+        Assert.Contains(l1.Text, projectEdition.Html);
+        Assert.Contains(projectEdition.Report.Entries, entry => entry.Category == "presentation-only");
     }
 }

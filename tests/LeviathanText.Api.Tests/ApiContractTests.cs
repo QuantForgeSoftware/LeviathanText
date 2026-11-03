@@ -216,6 +216,18 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Project_edition_html_combines_surfaces()
+    {
+        var client = NewClient();
+        var (projectId, _, _) = await ImportFixtureAsync(client, "project-edition-e2e");
+        var response = await client.GetAsync($"/api/v1/projects/{projectId}/edition.html");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("<html", html);
+        Assert.Contains("surface-section", html);
+    }
+
+    [Fact]
     public async Task Edition_html_endpoint_returns_escaped_html_and_report()
     {
         var client = NewClient();

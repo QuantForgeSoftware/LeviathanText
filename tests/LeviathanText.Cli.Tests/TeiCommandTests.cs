@@ -82,6 +82,10 @@ public sealed class TeiCommandTests : IDisposable
         var edition = PathOf("edition.html");
         Assert.Equal(0, Run("export", "edition-html", projectId, SurfaceId(projectId), "--out", edition));
         Assert.Contains("<html", File.ReadAllText(edition));
+
+        var projectEdition = PathOf("project-edition.html");
+        Assert.Equal(0, Run("export", "edition-html", projectId, "--all", "--out", projectEdition));
+        Assert.Contains("surface-section", File.ReadAllText(projectEdition));
     }
 
     [Fact]

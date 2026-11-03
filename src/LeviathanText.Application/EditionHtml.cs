@@ -117,6 +117,47 @@ public static class EditionHtml
         return new Result(html.ToString(), report);
     }
 
+    /// <summary>Render every surface as one printable edition document.</summary>
+    public static Result ExportProject(NativeProject project, string title)
+    {
+        var sections = new List<Result>();
+        foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+            sections.Add(Export(project, surface.Id, $"{title} — {surface.Id}"));
+        if (sections.Count == 0)
+        {
+            var empty = new LossReport
+            {
+                Format = "edition-html",
+                ContractVersion = ContractVersion.Current,
+                Entries = [new LossEntry("presentation-only", 1,
+                    "HTML edition is a reading/printing aid; no surfaces were present")],
+            };
+            return new Result($"<!doctype html><html><head><meta charset=\"utf-8\"><title>{Encode(title)}</title></head>" +
+                              $"<body><h1>{Encode(title)}</h1><p>No surfaces in this project.</p></body></html>", empty);
+        }
+        var prefix = sections[0].Html[..(sections[0].Html.IndexOf("<body>", StringComparison.Ordinal) + 6)];
+        var suffix = sections[0].Html[sections[0].Html.LastIndexOf("</body>", StringComparison.Ordinal)..];
+        var body = new StringBuilder();
+        foreach (var section in sections)
+        {
+            var start = section.Html.IndexOf("<body>", StringComparison.Ordinal) + 6;
+            var end = section.Html.LastIndexOf("</body>", StringComparison.Ordinal);
+            body.AppendLine("<section class=\"surface-section\">");
+            body.AppendLine(section.Html[start..end]);
+            body.AppendLine("</section>");
+        }
+        var entries = sections.SelectMany(s => s.Report.Entries)
+            .GroupBy(e => (e.Category, e.Description))
+            .Select(g => new LossEntry(g.Key.Category, g.Sum(e => e.Count), g.Key.Description))
+            .ToList();
+        return new Result(prefix + body.ToString() + suffix, new LossReport
+        {
+            Format = "edition-html",
+            ContractVersion = ContractVersion.Current,
+            Entries = entries,
+        });
+    }
+
     private static string Apparatus(Annotation annotation) => annotation.Kind switch
     {
         AnnotationKind.AlternativeReading => annotation.AlternativeText ?? annotation.Description ?? "",
