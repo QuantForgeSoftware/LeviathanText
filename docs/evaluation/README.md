@@ -31,6 +31,8 @@
   M02a pages (one-to-one matching).
 - [searchable-pdf.md](searchable-pdf.md) — bounded capture + invisible L1 text PDF export,
   loss reporting and limits.
+- [worker-resource.md](worker-resource.md) — short API+worker import burst RSS observation;
+  no model load/leak claim.
 - [route-resource.md](route-resource.md) — bounded single-process API/store route RSS probe;
   no model loading, worker concurrency or leak claim.
 - [migration-inventory.md](migration-inventory.md) — read-only tree inventory and bounded

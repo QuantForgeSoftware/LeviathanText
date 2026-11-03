@@ -70,8 +70,8 @@ actionable checklist in [todo.md](../todo.md), completed work in
 - Hosted AI provider calls unproven (local Ollama transport smoke only).
 - Backend/CPU-only; GPU paths unmeasured. NT-20's repeated-loading RSS growth remains
   unexplained and collection-scale/supported-platform resource profiling is incomplete. A
-  bounded 2,000-request API/store route probe showed no monotonic RSS growth; it is not a leak
-  proof or a model-loading result.
+  bounded 2,000-request API/store route probe showed no monotonic RSS growth, and a 200-page
+  single-worker import burst stayed ~130–150 MiB; neither is a leak proof or a model-loading result.
 
 ## Next recommended steps
 
