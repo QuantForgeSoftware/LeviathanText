@@ -47,13 +47,11 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 
 ### Greek transcription contract — required before labeling data
 
-- [x] Preserve scriptio continua where present. Word boundaries, expanded abbreviations and added diacritics belong to derived readings, with reversible links to the source spans. Do not infer missing accents from the fact that the language is Greek. *(L1 spacing policy adopted; zero-width WordBoundary annotations, editor insertion, dual-pane derived boundary preview and `export word-boundaries` CSV are implemented; witness text is never rewritten.)*
 - [~] Support polytonic accents, smooth/rough breathings, diaeresis, iota subscript/adscript and combining sequences wherever present, including later manuscript hands and editorial readings. Preserve their presence and absence. *(mark ordering/NFC mapping and per-character Unclear editing implemented; specialist ratification and broader corpus validation remain.)*
 
 ### Scholarly interchange
 
 - [~] Define a bounded TEI P5/EpiDoc profile for surfaces/image links, lines, original/regularized readings, abbreviations/expansions, unclear/gap/supplied text, additions/deletions and responsibility. Pin schema versions and specify supported import/export round trips before implementation. *(Layered profile implemented and round-trip tested, including facsimile, `@n`/`@xml:id`, L1/L2 links and loss reporting — [evidence](docs/evaluation/interchange-v2.md). Remaining: XSD/RelaxNG schema pinning/validation and the uncovered EpiDoc constructs.)*
-- [x] Preserve stable object, surface, fragment and line identifiers and provenance. Export readable diplomatic text plus a structured version that retains uncertainty and editorial interventions; explain any information lost in plain text or OCR-only formats. *(Line `@xml:id`/`@n`, `idno`, licence/title/responsibility and image links round-trip; export loss reports are machine-readable. Surface/line/fragment crosswalks join native ids to external refs, image hashes, revision and source ids; native fragments persist external refs/metadata and surface membership; project integrity/overlap audits are read-only.)*
 
 - [~] Support local high-resolution image sets first and a bounded IIIF import workflow in the Greek workspace, preserving source/canvas identifiers, attribution and available views. Keep cached projects usable offline. *(IIIF P3 import with per-view captures/attribution and checksummed on-demand image cache; offline after fetch. TIFF works through a bounded ImageSharp fallback; general tiled decode remains unsupported; high-res sets work when decodable.)*
 

@@ -5,8 +5,8 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-11-03 (archive run from `46d2597`).
-Entries are verbatim, including commit references and links. 85 items.
+Archive build: 2026-11-03 (archive run from `176d091`).
+Entries are verbatim, including commit references and links. 87 items.
 
 
 ## 1. Request and boundaries
@@ -30,9 +30,12 @@ Entries are verbatim, including commit references and links. 85 items.
 - [x] Keep diplomatic text, editorial reading, scholarly annotations, and application revision history distinct. Historical corrections in the witness are not application edits. Do not claim to identify a hand or reconstruct a correction sequence automatically without evidence. *(L0/L1/L2 + L3 annotation ledger; hands/sequences require explicit labels; no automatic attribution.)*
 - [x] Preserve imported text and original model output; derive canonical NFC text for interchange/scoring with explicit offset mappings. Do not apply compatibility folding, case folding, sigma substitution, spelling modernization, or accent stripping to the diplomatic layer by default. Training label normalization is a model-versioned decision. *(raw imports retained as attachments where bounded; L0 kept separate; NFC remapping already tested.)*
 
+- [x] Preserve scriptio continua where present. Word boundaries, expanded abbreviations and added diacritics belong to derived readings, with reversible links to the source spans. Do not infer missing accents from the fact that the language is Greek. *(L1 spacing policy adopted; zero-width WordBoundary annotations, editor insertion, dual-pane derived boundary preview and `export word-boundaries` CSV are implemented; witness text is never rewritten.)*
+
 ### Scholarly interchange — completed 2026-11-02
 
 - [x] Preserve unsupported imported markup in the original attachment and report it; do not silently flatten scholarly distinctions or claim universal TEI compatibility. *(Checksummed bounded `NativeAttachment` + aggregated name/count report for TEI and EpiDoc imports.)*
+- [x] Preserve stable object, surface, fragment and line identifiers and provenance. Export readable diplomatic text plus a structured version that retains uncertainty and editorial interventions; explain any information lost in plain text or OCR-only formats. *(Line `@xml:id`/`@n`, `idno`, licence/title/responsibility and image links round-trip; export loss reports are machine-readable. Surface/line/fragment crosswalks join native ids to external refs, image hashes, revision and source ids; native fragments persist external refs/metadata and surface membership; project integrity/overlap audits are read-only.)*
 
 ## 5. Independent model and data strategy
 
@@ -159,5 +162,3 @@ Authorized18:07:20–20:07:20 CST window complete; actual closure 2026-11-02 20:
 - [x] **REV-02 (concurrency instance):** protect migrated persisted projects with version checks, detect concurrent first transcriptions and validate merge bases against line/layer/history. Retain failing baseline and passing candidate regression evidence. *(Completed in `9ff4a94`; migration/merge regression evidence in the same handoff.)*
 - [x] **REV-03 (root):** confine registry destinations, validate every redirect before a request, support format-2 catalog entries and add regression tests through the registry/API paths. *(Completed in `9ff4a94`; API/CLI/application registry tests pass.)*
 - [x] **REV-04 (root + independent reviewer):** review the combined fixes, run affected suites and the zero-warning solution build, document exact results and remaining limits, then archive completed review tasks. *(Root rerun: Release build 0/0; Application 201, Formats 87, Infrastructure 29, API 64, CLI 33, Worker 20 = 434/434; Angular 51/51. [Integration verification](docs/handoffs/review-integration-2026-11-03.md).)*
-
-
