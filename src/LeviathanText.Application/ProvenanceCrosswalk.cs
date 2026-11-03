@@ -22,6 +22,16 @@ public static class ProvenanceCrosswalk
         int Lines,
         string LineSourceIds);
 
+    public sealed record LineRow(
+        string ObjectId,
+        string SurfaceId,
+        string LineId,
+        string LineSourceId,
+        int? LineNumber,
+        string RevisionId,
+        string ImageSha256,
+        string Tags);
+
     public static IReadOnlyList<Row> Build(NativeProject project)
     {
         var rows = new List<Row>();
@@ -49,6 +59,53 @@ public static class ProvenanceCrosswalk
             }
         }
         return rows;
+    }
+
+    public static IReadOnlyList<LineRow> BuildLines(NativeProject project)
+    {
+        var rows = new List<LineRow>();
+        foreach (var obj in project.Objects)
+        {
+            foreach (var surface in obj.Surfaces)
+            {
+                var checksum = surface.Captures.FirstOrDefault()?.Frame.ImageChecksum.Digest ?? "";
+                foreach (var line in surface.Lines)
+                {
+                    rows.Add(new LineRow(
+                        obj.Id.ToString(),
+                        surface.Id.ToString(),
+                        line.Id.ToString(),
+                        line.Tags.TryGetValue("source-id", out var source) && source.Count > 0 ? source[0] : "",
+                        line.LineNumber,
+                        line.DiplomaticRevisionId?.ToString() ?? "",
+                        checksum,
+                        string.Join('|', line.Tags.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                            .Select(pair => $"{pair.Key}={string.Join(';', pair.Value)}"))));
+                }
+            }
+        }
+        return rows;
+    }
+
+    public static string ToLineCsv(IReadOnlyList<LineRow> rows)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("objectId,surfaceId,lineId,lineSourceId,lineNumber,revisionId,imageSha256,tags");
+        foreach (var row in rows)
+        {
+            builder.AppendLine(string.Join(',', new[]
+            {
+                Quote(row.ObjectId),
+                Quote(row.SurfaceId),
+                Quote(row.LineId),
+                Quote(row.LineSourceId),
+                row.LineNumber?.ToString(CultureInfo.InvariantCulture) ?? "",
+                Quote(row.RevisionId),
+                Quote(row.ImageSha256),
+                Quote(row.Tags),
+            }));
+        }
+        return builder.ToString();
     }
 
     public static string ToCsv(IReadOnlyList<Row> rows)

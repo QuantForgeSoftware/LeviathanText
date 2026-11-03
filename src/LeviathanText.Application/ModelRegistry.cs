@@ -202,15 +202,30 @@ public static class ModelRegistryDownload
                     var path = Path.GetFullPath(Path.Combine(package, item.FullName));
                     if (!path.StartsWith(package + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                         throw new InvalidDataException($"Archive entry escapes the package directory: {item.FullName}");
-                    extracted += item.Length;
-                    if (extracted > MaxExtractedBytes) throw new InvalidDataException("Extracted package exceeds the size limit.");
                     if (string.IsNullOrEmpty(item.Name))
                     {
                         Directory.CreateDirectory(path);
                         continue;
                     }
+                    if (item.Length > MaxExtractedBytes)
+                        throw new InvalidDataException("Extracted package exceeds the size limit.");
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                    item.ExtractToFile(path, overwrite: false);
+                    // Count bytes actually written, not the central-directory length, so a
+                    // malformed archive cannot under-report and bypass the extraction cap.
+                    using var source = item.Open();
+                    using var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
+                        FileShare.None, 81920, FileOptions.SequentialScan);
+                    var buffer = new byte[81920];
+                    long itemBytes = 0;
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
+                    {
+                        itemBytes += read;
+                        extracted += read;
+                        if (itemBytes > MaxExtractedBytes || extracted > MaxExtractedBytes)
+                            throw new InvalidDataException("Extracted package exceeds the size limit.");
+                        await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
+                    }
                 }
             }
             cancellation.ThrowIfCancellationRequested();

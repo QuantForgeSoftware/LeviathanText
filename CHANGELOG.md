@@ -48,8 +48,8 @@ set: C0-0.4-draft.
   panel; host allow-list/HTTPS gate, checksum-required download and safe extraction reuse the
   CLI trust policy.
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native
-  object/surface/capture/line ids to external refs, image hashes and line source ids without
-  renumbering anything; bundle exports include `crosswalk.csv`.
+  object/surface/capture ids to external refs, image hashes and line source ids; `--lines` /
+  `?lines=true` adds a per-line native/source/revision map. Bundles include both CSVs.
 - **Bounded migration import:** `migrate import` creates a new project and imports discovered
   PAGE/TEI/ALTO/hOCR documents with sibling-image resolution, writing an
   imported/skipped/failed ledger; missing images are reported, not guessed.

@@ -555,10 +555,13 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
     });
 });
 
-api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id) =>
+api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id, bool? lines) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    return Results.Text(ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project)), "text/csv");
+    var csv = lines == true
+        ? ProvenanceCrosswalk.ToLineCsv(ProvenanceCrosswalk.BuildLines(project))
+        : ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
+    return Results.Text(csv, "text/csv");
 });
 
 api.MapGet("projects/{id}/attachments/{attachmentId}", (ProjectService projects, string id, string attachmentId) =>

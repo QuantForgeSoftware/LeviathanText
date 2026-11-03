@@ -103,6 +103,13 @@ public sealed class TeiImportTests : IDisposable
         var csv = ProvenanceCrosswalk.ToCsv([crosswalk]);
         Assert.Contains("objectId,objectRefs,surfaceId,surfaceRefs", csv);
         Assert.Contains("tei:surfaceId=surf-source", csv);
+
+        var lineRows = ProvenanceCrosswalk.BuildLines(reloaded);
+        Assert.Equal(2, lineRows.Count);
+        Assert.Contains(lineRows, row => row.LineSourceId == "source-line" && row.LineNumber == 1);
+        var lineCsv = ProvenanceCrosswalk.ToLineCsv(lineRows);
+        Assert.Contains("lineId,lineSourceId,lineNumber", lineCsv);
+        Assert.Contains("source-line", lineCsv);
     }
 
     [Fact]

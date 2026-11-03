@@ -45,6 +45,7 @@ public static class ProjectBundle
         Add("lines.csv", LineCsv.Export(project));
         Add("annotations.csv", AnnotationCsv.Export(project));
         Add("crosswalk.csv", ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project)));
+        Add("line-crosswalk.csv", ProvenanceCrosswalk.ToLineCsv(ProvenanceCrosswalk.BuildLines(project)));
         var reviews = new ReviewService(ProjectStoreFree.Instance);
         Add("review-summary.json", ContractJson.ToJson(reviews.Summarize(project)));
         Add("adjudication.csv", reviews.ExportAdjudicationCsv(project));
