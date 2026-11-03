@@ -61,6 +61,8 @@ set: C0-0.4-draft.
 - **Project edition download:** the workspace project view downloads the whole-project HTML.
 - **Whole-project edition HTML:** `export edition-html <project> --all` / project-level API
   combines surfaces into one printable document.
+- **Edition HTML safety:** active image schemes (`javascript:`, `vbscript:`, HTML data
+  URLs) are rejected and tested.
 - **Edition HTML:** `export edition-html` / API endpoint renders L1, optional L2 and a
   line-by-line apparatus as printable HTML with escaping and a loss report; CLI/API/UI tested.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
