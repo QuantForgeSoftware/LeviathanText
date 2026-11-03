@@ -5,7 +5,7 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-11-03 (archive run from `176d091`).
+Archive build: 2026-11-03 (archive run from `a528303`).
 Entries are verbatim, including commit references and links. 87 items.
 
 
