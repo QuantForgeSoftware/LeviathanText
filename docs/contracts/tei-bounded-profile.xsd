@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LeviathanText bounded TEI/EpiDoc profile, version C0-0.4-draft.
+  This is a deliberately narrow profile of TEI P5, not the official TEI/EpiDoc schema.
+  It pins the root/header/facsimile/text/body/div/ab structure and the inline vocabulary
+  the exporter emits. The official EpiDoc schema remains an operator-supplied pin.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tei="http://www.tei-c.org/ns/1.0"
+           targetNamespace="http://www.tei-c.org/ns/1.0"
+           elementFormDefault="qualified">
+
+  <xs:group name="inline">
+    <xs:choice>
+      <xs:element ref="tei:lb"/>
+      <xs:element ref="tei:pb"/>
+      <xs:element ref="tei:milestone"/>
+      <xs:element ref="tei:space"/>
+      <xs:element ref="tei:unclear"/>
+      <xs:element ref="tei:supplied"/>
+      <xs:element ref="tei:gap"/>
+      <xs:element ref="tei:choice"/>
+      <xs:element ref="tei:app"/>
+      <xs:element ref="tei:add"/>
+      <xs:element ref="tei:del"/>
+      <xs:element ref="tei:hi"/>
+      <xs:element ref="tei:damage"/>
+      <xs:element ref="tei:ex"/>
+      <xs:element ref="tei:certainty"/>
+      <xs:element ref="tei:seg"/>
+      <xs:element ref="tei:w"/>
+      <xs:element ref="tei:subst"/>
+      <xs:element ref="tei:handShift"/>
+      <xs:element ref="tei:addSpan"/>
+      <xs:element ref="tei:delSpan"/>
+    </xs:choice>
+  </xs:group>
+
+  <xs:complexType name="mixedInline" mixed="true">
+    <xs:group ref="tei:inline" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:anyAttribute processContents="lax"/>
+  </xs:complexType>
+
+  <xs:element name="TEI">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="teiHeader" type="xs:anyType" minOccurs="0"/>
+        <xs:element ref="tei:facsimile" minOccurs="0"/>
+        <xs:element ref="tei:text"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="facsimile">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="surface" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="graphic" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:anyAttribute processContents="lax"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:anyAttribute processContents="lax"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="text">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tei:body"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="body">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tei:pb" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="tei:div" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="div">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tei:ab" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="ab" type="tei:mixedInline"/>
+
+  <xs:element name="lb">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="pb">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="milestone">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="space">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="gap">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="handShift">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="addSpan">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+  <xs:element name="delSpan">
+    <xs:complexType><xs:anyAttribute processContents="lax"/></xs:complexType>
+  </xs:element>
+
+  <xs:element name="unclear" type="tei:mixedInline"/>
+  <xs:element name="supplied" type="tei:mixedInline"/>
+  <xs:element name="add" type="tei:mixedInline"/>
+  <xs:element name="del" type="tei:mixedInline"/>
+  <xs:element name="hi" type="tei:mixedInline"/>
+  <xs:element name="damage" type="tei:mixedInline"/>
+  <xs:element name="ex" type="tei:mixedInline"/>
+  <xs:element name="certainty" type="tei:mixedInline"/>
+  <xs:element name="seg" type="tei:mixedInline"/>
+  <xs:element name="w" type="tei:mixedInline"/>
+  <xs:element name="subst" type="tei:mixedInline"/>
+  <xs:element name="note" type="tei:mixedInline"/>
+  <xs:element name="bibl" type="tei:mixedInline"/>
+  <xs:element name="ref" type="tei:mixedInline"/>
+
+  <xs:element name="choice">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="abbr" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="expan" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="orig" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="reg" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="sic" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="corr" type="tei:mixedInline" minOccurs="0"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="app">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="lem" type="tei:mixedInline" minOccurs="0"/>
+        <xs:element name="rdg" type="tei:mixedInline" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

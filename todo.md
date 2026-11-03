@@ -41,7 +41,7 @@ Plan: [project-plan.md §12](project-plan.md#12-ntvmr--csntm-manuscript-pairing-
 
 These are the active code/docs slices that do not require reviewer decisions, fresh image/label pairs, rights grants, or verified model weights. Parent capability sections below retain only their blocked work.
 
-- [~] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Optional operator-supplied XSD validation with schema SHA-256 reporting, a required-hash pin (`--expect-schema-sha256`) and DOCTYPE refusal is implemented and tested; `<space>`, `<damage>`, `<ex>` and `<certainty>` are bounded with round-trip tests. The official schema file is deliberately not bundled/downloaded, so choosing the pinned schema file remains an operator/reviewer decision.)*
+- [x] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Bundled `docs/contracts/tei-bounded-profile.xsd` pins/validates the bounded profile with a representative export test; SHA-256 pinning and DOCTYPE refusal are tested; `<space>`, `<damage>`, `<ex>` and `<certainty>` are bounded. Official EpiDoc interoperability remains an operator-supplied external schema pin.)*
 
 ## 3. Reference capability inventory and release scope
 
@@ -51,7 +51,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 
 ### Scholarly interchange
 
-- [~] Define a bounded TEI P5/EpiDoc profile for surfaces/image links, lines, original/regularized readings, abbreviations/expansions, unclear/gap/supplied text, additions/deletions and responsibility. Pin schema versions and specify supported import/export round trips before implementation. *(Layered profile implemented and round-trip tested, including facsimile, `@n`/`@xml:id`, L1/L2 links and loss reporting — [evidence](docs/evaluation/interchange-v2.md). Remaining: XSD/RelaxNG schema pinning/validation and the uncovered EpiDoc constructs.)*
+- [~] Define a bounded TEI P5/EpiDoc profile for surfaces/image links, lines, original/regularized readings, abbreviations/expansions, unclear/gap/supplied text, additions/deletions and responsibility. Pin schema versions and specify supported import/export round trips before implementation. *(Layered profile implemented and round-trip tested, including facsimile, `@n`/`@xml:id`, L1/L2 links and loss reporting — [evidence](docs/evaluation/interchange-v2.md). A bundled bounded-profile XSD now validates the emitted shape; official EpiDoc constructs outside the bounded vocabulary remain loss-reported.)*
 
 - [~] Support local high-resolution image sets first and a bounded IIIF import workflow in the Greek workspace, preserving source/canvas identifiers, attribution and available views. Keep cached projects usable offline. *(IIIF P3 import with per-view captures/attribution and checksummed on-demand image cache; offline after fetch. TIFF works through a bounded ImageSharp fallback; general tiled decode remains unsupported; high-res sets work when decodable.)*
 

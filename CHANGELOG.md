@@ -52,6 +52,8 @@ set: C0-0.4-draft.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
   positions with source context; the dual-pane reading view also previews them with `·`
   without changing witness text; the surface view also downloads the CSV.
+- **Bundled TEI profile XSD:** `docs/contracts/tei-bounded-profile.xsd` validates the emitted
+  bounded shape; a representative export test and the external-schema hash pin are covered.
 - **TEI schema pinning:** `validate tei --schema <xsd> --expect-schema-sha256 <hash>` fails
   when the supplied schema identity differs from the pin; mismatches fail without `--strict`.
 - **EpiDoc profile:** `<space>`, `<damage>`, `<ex>` and `<certainty>` now have bounded

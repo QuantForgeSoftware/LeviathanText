@@ -393,7 +393,7 @@ is `skipDuplicate: true`.
 `leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]` imports in memory only and
 prints line/L1/L2, annotation, page-break, graphic and attachment counts. `--schema` validates
 against an operator-supplied XSD (the schema is not bundled or downloaded; its SHA-256 is
-shown), `--expect-schema-sha256` enforces a pinned schema identity, and the bounded profile
+shown), `--expect-schema-sha256` enforces a pinned schema identity; the bundled bounded profile is `docs/contracts/tei-bounded-profile.xsd`, and the bounded profile
 lint still runs. `--strict` exits nonzero if any unsupported construct
 or schema error is reported as a loss.
 

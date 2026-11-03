@@ -574,6 +574,28 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Export_validates_against_the_bundled_bounded_profile_xsd()
+    {
+        var schema = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "../../../../../docs/contracts/tei-bounded-profile.xsd"));
+        var imported = TeiXml.Import(Document(
+            "<div type=\"edition\"><ab><lb/><unclear>α</unclear><supplied>β</supplied>" +
+            "<choice><abbr>γ</abbr><expan>γδ</expan></choice><app><lem>ε</lem><rdg>ζ</rdg></app>" +
+            "<add>η</add><del>θ</del><hi rend=\"overline\">ι</hi><gap extent=\"unknown\"/></ab></div>"));
+        var line = Assert.Single(imported.Document!.Lines);
+        var l1 = Revision(imported, TextLayer.L1Diplomatic);
+        var l2 = imported.Revisions.SingleOrDefault(r => r.Layer == TextLayer.L2Editorial);
+        var exported = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(line.LineId, l1, l2, imported.Annotations, line)],
+            "schema-test", new TeiXml.TeiExportContext(Graphics: [new TeiXml.TeiGraphic("synthetic.png")]));
+
+        var (issues, hash) = TeiXml.ValidateAgainstSchema(exported.Xml, schema);
+
+        Assert.Equal(64, hash.Length);
+        Assert.DoesNotContain(issues, issue => issue.Severity == PageXml.IssueSeverity.Loss);
+    }
+
+    [Fact]
     public void Space_damage_and_expansion_are_bounded_and_reported()
     {
         var imported = TeiXml.Import(Document(
