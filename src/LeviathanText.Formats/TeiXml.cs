@@ -991,6 +991,7 @@ public static class TeiXml
                         EstimatedScalarCount = quantity,
                         Description = (string?)element.Attribute("reason"),
                     });
+                    ReportNestedMarkup(element, unsupported);
                     break;
                 }
                 case "app":
@@ -1141,6 +1142,7 @@ public static class TeiXml
                         {
                             Description = (string?)element.Attribute("place"),
                         });
+                    ReportNestedMarkup(element, unsupported);
                     break;
                 }
                 case "del":
@@ -1154,6 +1156,7 @@ public static class TeiXml
                         {
                             Description = (string?)element.Attribute("reason"),
                         });
+                    ReportNestedMarkup(element, unsupported);
                     break;
                 }
                 case "addSpan":
