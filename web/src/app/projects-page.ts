@@ -4,6 +4,7 @@ import { ApiClient, ProjectPayload } from './api-client';
 import { SurfaceView } from './surface-view';
 import { ProjectMembersPanel } from './project-members-panel';
 import { SessionsAdminPanel } from './sessions-admin-panel';
+import { ModelRegistryPanel } from './model-registry-panel';
 
 interface ProjectRow {
   id: string;
@@ -80,6 +81,7 @@ interface ProjectRow {
           }
           <app-project-members-panel [projectId]="selectedId()!" />
           <app-sessions-admin-panel />
+          <app-model-registry-panel />
           <ul>
             @for (object of payload.objects; track object.id) {
               @for (surface of object.surfaces; track surface.id) {
@@ -134,7 +136,7 @@ interface ProjectRow {
     .hint { color: #667; font-size: 0.85rem; }
     li { margin: 0.2rem 0; }
   `],
-  imports: [SurfaceView, ProjectMembersPanel, SessionsAdminPanel],
+  imports: [SurfaceView, ProjectMembersPanel, SessionsAdminPanel, ModelRegistryPanel],
 })
 export class ProjectsPage {
   private readonly api: ApiClient;

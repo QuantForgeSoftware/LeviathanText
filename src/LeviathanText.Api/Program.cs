@@ -322,6 +322,7 @@ static bool IsAdminOnly(string path, string method) =>
     || path.StartsWith("/api/v1/audit", StringComparison.OrdinalIgnoreCase)
     || path.Contains("/members", StringComparison.OrdinalIgnoreCase)
     || path.Contains("/invites", StringComparison.OrdinalIgnoreCase)
+    || path.Contains("/models/registry", StringComparison.OrdinalIgnoreCase)
     || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
 
 static EntityId? ProjectIdForMembership(HttpContext context, LocalStore store)
@@ -867,6 +868,34 @@ string ModelsRoot(IConfiguration configuration) =>
     configuration["LeviathanText:Models:Directory"]
     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models");
 
+RegistryTrustPolicy RegistryPolicy(IConfiguration configuration)
+{
+    var hosts = (configuration["LeviathanText:Models:RegistryAllowHosts"] ?? "")
+        .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    return new RegistryTrustPolicy(hosts,
+        RequireHttps: configuration.GetValue("LeviathanText:Models:RegistryRequireHttps", true));
+}
+
+static Uri RegistryUri(string? value)
+{
+    if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = value ?? "",
+            Message = "Registry index URL must be absolute HTTP(S).",
+        });
+    return uri;
+}
+
+static LeviathanException RegistryRejected(Exception ex, string scope) => new(new LeviathanError
+{
+    Code = ErrorCode.StageContractViolation,
+    Scope = scope,
+    Message = ex.Message,
+});
+
 api.MapGet("models", (IConfiguration configuration) =>
 {
     var root = ModelsRoot(configuration);
@@ -884,6 +913,52 @@ api.MapGet("models", (IConfiguration configuration) =>
         hasManifest = File.Exists(Path.Combine(package.Directory, RecognitionModelLoader.ManifestFileName)),
     }).ToList();
     return Results.Ok(packages);
+});
+
+api.MapPost("models/registry", async (IConfiguration configuration, IHttpClientFactory clients,
+    [FromBody] RegistryIndexRequest request) =>
+{
+    var uri = RegistryUri(request.IndexUrl);
+    var policy = RegistryPolicy(configuration);
+    try { policy.ValidateIndex(uri); }
+    catch (Exception ex) { throw RegistryRejected(ex, uri.Host); }
+    var index = await ModelRegistry.FetchAsync(clients.CreateClient(), uri);
+    return Results.Ok(index.Models.Select(entry => new
+    {
+        entry.Id,
+        entry.Name,
+        entry.Task,
+        downloadUrl = entry.DownloadUrl.ToString(),
+        entry.Sha256,
+        entry.PackageFormatVersion,
+    }));
+});
+
+api.MapPost("models/registry/pull", async (IConfiguration configuration, IHttpClientFactory clients,
+    [FromBody] RegistryPullRequest request) =>
+{
+    var uri = RegistryUri(request.IndexUrl);
+    var policy = RegistryPolicy(configuration);
+    try { policy.ValidateIndex(uri); }
+    catch (Exception ex) { throw RegistryRejected(ex, uri.Host); }
+    var index = await ModelRegistry.FetchAsync(clients.CreateClient(), uri);
+    var entry = index.Models.FirstOrDefault(item => item.Id == request.ModelId)
+        ?? throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = request.ModelId,
+            Message = "No such registry model in the index.",
+        });
+    try
+    {
+        var downloaded = await ModelRegistryDownload.DownloadAsync(clients.CreateClient(), entry,
+            ModelsRoot(configuration), policy);
+        return Results.Ok(new { downloaded.Id, downloaded.Directory, downloaded.Sha256, downloaded.EncodedBytes });
+    }
+    catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException)
+    {
+        throw RegistryRejected(ex, entry.Id);
+    }
 });
 
 api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, ProjectService projects, IProjectStore store, ImageResolver imageResolver, string surfaceId, [FromBody] RecognizeRequest request) =>
@@ -1526,6 +1601,10 @@ public sealed record ImportTeiRequest(string DocumentPath, string ImagePath, str
     bool SkipDuplicate = false, string? Page = null);
 
 public sealed record RestoreGeometryRequest(string? AuthorId = null);
+
+public sealed record RegistryIndexRequest(string IndexUrl);
+
+public sealed record RegistryPullRequest(string IndexUrl, string ModelId);
 
 public sealed record CreateSessionRequest(string? SurfaceId = null, int? TtlMinutes = null);
 

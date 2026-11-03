@@ -17,7 +17,7 @@ are not specialist-adjudicated.
 | Region/reading-order learning | geometric helpers only | bounded column grouping + opt-in gutter split | learned region/reading-order model and training data pending |
 | C# recognition (CRNN+CTC) | implemented | pilot CER reports; L0 provenance + confidence; banded line decode for large JPEG/PNG | data-limited accuracy; CPU only; TIFF fallback full-frame |
 | Training workflow | from scratch, resume, package, model card | ML/pilot tests | no distributed/GPU; no wide hyper-search |
-| Recognition model distribution | not shipped | — | rights + capability review required |
+| Recognition model distribution | not shipped; local/remote registry plumbing exists | strict index parser, bounded fetch, checksum-required download, safe extraction, host allow-list, CLI + admin API/UI catalog/pull | no public model weights; rights/capability review required |
 | Inscription support | EpiDoc bootstrap + manual placement | ISic001151 smoke | no expert labels; no automated line detection benchmark |
 | Evaluation | harness, per-track reports, page CER, one-to-one matching | docs/evaluation/* | frozen acceptance sheet + fresh witnesses pending |
 | Experiment registry | recognition/layout/evaluation runs with digests, configs, metrics, curves, artifacts; per-line error CSV/JSON + Markdown report; `runs regress` and caller-supplied acceptance gates | CLI/API/UI + tests | no specialist-owned frozen threshold sheet |

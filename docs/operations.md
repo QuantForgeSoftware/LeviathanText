@@ -322,6 +322,14 @@ external review/adjudication sheet can be merged without bypassing history. Unkn
 empty rows are reported and skipped, never silently dropped. CSV remains lossy; the project
 document is authoritative.
 
+## Remote model registry (admin, opt-in)
+
+The server refuses registry access unless `LeviathanText:Models:RegistryAllowHosts` names the
+index/download host(s); HTTPS is required by default. The CLI (`models registry`/`models pull
+--allow-host`) and workspace **Model registry** panel use the same checksum-verified download and
+safe archive extraction. Pulls write under `LeviathanText:Models:Directory`; the browser never
+chooses a filesystem path.
+
 ## Migration inventory (read-only)
 
 ```bash

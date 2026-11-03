@@ -43,6 +43,23 @@ public sealed class ModelRegistryTests
     }
 
     [Fact]
+    public void Registry_index_requires_an_explicit_allowed_host_and_https()
+    {
+        var index = new Uri("https://models.example.test/index.json");
+        Assert.Throws<InvalidOperationException>(() => RegistryTrustPolicy.DenyAll.ValidateIndex(index));
+
+        var allow = RegistryTrustPolicy.Allow("example.test");
+        Assert.Throws<InvalidDataException>(() => allow.ValidateIndex(index));
+
+        var wildcard = RegistryTrustPolicy.Allow("*.example.test");
+        wildcard.ValidateIndex(index);
+
+        Assert.Throws<InvalidDataException>(() =>
+            RegistryTrustPolicy.Allow("models.example.test")
+                .ValidateIndex(new Uri("http://models.example.test/index.json")));
+    }
+
+    [Fact]
     public async Task Download_verifies_checksum_and_extracts_inside_target()
     {
         var bytes = Zip(("run-manifest.json", "{}"));

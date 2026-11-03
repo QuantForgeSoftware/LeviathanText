@@ -16,6 +16,20 @@ public sealed record RegistryTrustPolicy(
     public static RegistryTrustPolicy Allow(params string[] hosts) => new(
         hosts.ToHashSet(StringComparer.OrdinalIgnoreCase));
 
+    /// <summary>Validate the registry index URL itself before making any outbound request.</summary>
+    public void ValidateIndex(Uri indexUri)
+    {
+        ArgumentNullException.ThrowIfNull(indexUri);
+        if (AllowedHosts.Count == 0)
+            throw new InvalidOperationException("Remote registry access is not trusted; allow a host explicitly.");
+        if (!indexUri.IsAbsoluteUri || indexUri.Scheme is not ("http" or "https"))
+            throw new InvalidDataException("Registry index URL must be absolute HTTP(S).");
+        if (RequireHttps && indexUri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidDataException("Registry access requires HTTPS under the current trust policy.");
+        if (!AllowedHosts.Any(host => HostMatches(indexUri.Host, host)))
+            throw new InvalidDataException($"Registry host '{indexUri.Host}' is not in the allow-list.");
+    }
+
     public void Validate(RemoteModelEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);

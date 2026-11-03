@@ -113,6 +113,15 @@ export interface ConfidenceValue {
   scale: string;
 }
 
+export interface RegistryEntry {
+  id: string;
+  name: string;
+  task: string;
+  downloadUrl: string;
+  sha256?: string | null;
+  packageFormatVersion: number;
+}
+
 export interface SessionView {
   id: string;
   userId: string;
@@ -366,6 +375,15 @@ export class ApiClient {
   sessions(surfaceId?: string): Observable<SessionView[]> {
     const params = surfaceId ? { surfaceId } : undefined;
     return this.http.get<SessionView[]>('/api/v1/sessions', { params });
+  }
+
+  registry(indexUrl: string): Observable<RegistryEntry[]> {
+    return this.http.post<RegistryEntry[]>('/api/v1/models/registry', { indexUrl });
+  }
+
+  pullRegistry(indexUrl: string, modelId: string): Observable<{ id: string; directory: string; sha256: string }> {
+    return this.http.post<{ id: string; directory: string; sha256: string }>(
+      '/api/v1/models/registry/pull', { indexUrl, modelId });
   }
 
   presence(surfaceId: string): Observable<{ editors: string[] }> {

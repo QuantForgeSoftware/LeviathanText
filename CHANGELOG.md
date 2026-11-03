@@ -41,6 +41,9 @@ set: C0-0.4-draft.
   tests only, default unchanged.
 - **Line-geometry restore:** `POST /surfaces/{id}/geometry-history/{editId}/restore` replays a
   recorded before-state as a new append-only audit entry (line polygon/baseline only).
+- **Remote model registry UI/API:** admin-only catalog and pull endpoints plus a workspace
+  panel; host allow-list/HTTPS gate, checksum-required download and safe extraction reuse the
+  CLI trust policy.
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native
   object/surface/capture/line ids to external refs, image hashes and line source ids without
   renumbering anything; bundle exports include `crosswalk.csv`.
