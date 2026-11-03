@@ -237,8 +237,8 @@ made; use the local scripted/Ollama smoke paths for verification.
   machine-readable loss report (stderr plus an inline XML comment).
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
-- `export bundle` — zip with native JSON, training export, profile report, crosswalk, line/
-  annotation CSVs and all per-surface formats + manifest.
+- `export bundle` — zip with native JSON, training export, profile report, integrity audit,
+  surface/line/fragment crosswalks, annotation CSVs and all per-surface formats + manifest.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - `export crosswalk <projectId> [--lines] [--out <csv>]` — read-only surface map, or a per-line
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.

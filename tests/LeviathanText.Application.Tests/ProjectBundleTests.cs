@@ -30,6 +30,7 @@ public sealed class ProjectBundleTests
             Assert.Contains("crosswalk.csv", names);
             Assert.Contains("line-crosswalk.csv", names);
             Assert.Contains("fragment-crosswalk.csv", names);
+            Assert.Contains("integrity.json", names);
             Assert.Contains("review-summary.json", names);
             Assert.Contains("adjudication.csv", names);
             var surface = project.Objects[0].Surfaces[0];
