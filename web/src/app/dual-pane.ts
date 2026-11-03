@@ -18,22 +18,22 @@ import { scalarCount, scalarDiff } from './text-utils';
         <div class="pane">
           <h4>Diplomatic (L1)</h4>
           @if (hasEditorial() && !diff().equal) {
-            <p class="greek">{{ diff().prefix }}<span class="changed">{{ diff().aMiddle }}</span>{{ diff().suffix }}</p>
+            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().aMiddle }}</span>{{ diff().suffix }}</p>
           } @else {
-            <p class="greek">{{ diplomatic() }}</p>
+            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diplomatic() }}</p>
           }
           <p class="hint">{{ scalarCountOf(diplomatic()) }} scalars</p>
           @if (boundaries().length > 0) {
-            <p class="boundary greek">{{ withBoundaries(diplomatic()) }}</p>
+            <p class="boundary greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ withBoundaries(diplomatic()) }}</p>
             <p class="hint">· proposed word boundaries (derived; witness text is unchanged)</p>
           }
         </div>
         <div class="pane">
           <h4>Editorial (L2)</h4>
           @if (hasEditorial() && !diff().equal) {
-            <p class="greek">{{ diff().prefix }}<span class="changed">{{ diff().bMiddle }}</span>{{ diff().suffix }}</p>
+            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().bMiddle }}</span>{{ diff().suffix }}</p>
           } @else {
-            <p class="greek">{{ editorial() }}</p>
+            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ editorial() }}</p>
           }
           <p class="hint">
             {{ hasEditorial() ? scalarCountOf(editorial()) + ' scalars' : 'no editorial reading yet' }}
@@ -51,6 +51,7 @@ import { scalarCount, scalarDiff } from './text-utils';
     .hint { color: #667; font-size: 0.85rem; }
     .changed { background: rgba(255, 200, 0, 0.28); border-bottom: 1px solid #c90; }
     .boundary { color: #345; }
+    .greek[dir="rtl"] { text-align: right; }
   `],
 })
 export class DualPane {
@@ -61,6 +62,7 @@ export class DualPane {
   protected readonly editorial = signal('—');
   protected readonly hasEditorial = signal(false);
   protected readonly boundaries = signal<number[]>([]);
+  protected readonly direction = signal<string | null>(null);
   protected readonly diff = computed(() => scalarDiff(this.diplomatic(), this.editorial()));
 
   private readonly api: ApiClient;
@@ -72,6 +74,7 @@ export class DualPane {
   ngOnInit(): void {
     this.api.line(this.lineId()).subscribe(data => {
       this.diplomatic.set(data.diplomatic ?? '—');
+      this.direction.set(data.direction ?? null);
     });
     this.api.annotations(this.lineId()).subscribe(annotations => {
       this.boundaries.set(annotations
