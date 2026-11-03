@@ -254,7 +254,7 @@ made; use the local scripted/Ollama smoke paths for verification.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
 - `export bundle [--images]` — zip with native JSON, training export, profile report, integrity/overlap audit,
-  surface/line/fragment crosswalks, annotation CSVs, per-surface formats/searchable PDFs/edition HTML and
+  surface/line/fragment crosswalks, annotation CSVs, per-surface formats/searchable PDFs/edition HTML, a whole-project edition.html and
   manifest. `--images` / `?images=true` adds local source images up to 25 MiB each and a
   250 MiB total cap; unreadable/oversize images are listed in `images-omitted.txt`.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.

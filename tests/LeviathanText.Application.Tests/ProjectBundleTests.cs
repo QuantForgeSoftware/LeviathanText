@@ -75,6 +75,8 @@ public sealed class ProjectBundleTests
             Assert.Contains("fragment-crosswalk.csv", names);
             Assert.Contains("integrity.json", names);
             Assert.Contains("overlap.json", names);
+            Assert.Contains("edition.html", names);
+            Assert.Contains("edition-loss.txt", names);
             Assert.Contains("review-summary.json", names);
             Assert.Contains("adjudication.csv", names);
             var surface = project.Objects[0].Surfaces[0];

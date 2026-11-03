@@ -51,6 +51,8 @@ set: C0-0.4-draft.
   when capture/line geometry permits.
 - **Opt-in bundle images:** `export bundle --images` / `?images=true` copies local source
   images with per-file/total caps and an omission ledger.
+- **Bundle whole-project edition:** bundles include edition.html/edition-loss.txt for all
+  surfaces.
 - **Bundle edition HTML:** bundles include each surface's edition.html and loss report.
 - **API enum-case rendering:** mark classes and advisory-task detection now accept the
   camelCase enum names emitted by the JSON API; Angular spec covers it.

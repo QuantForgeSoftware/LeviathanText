@@ -84,6 +84,9 @@ public static class ProjectBundle
         Add("fragment-crosswalk.csv", ProvenanceCrosswalk.ToFragmentCsv(ProvenanceCrosswalk.BuildFragments(project)));
         Add("integrity.json", ProjectIntegrity.ToJson(ProjectIntegrity.Audit(project)));
         Add("overlap.json", CorpusOverlap.ToJson(CorpusOverlap.Audit(project)));
+        var projectEdition = EditionHtml.ExportProject(project, project.Name);
+        Add("edition.html", projectEdition.Html);
+        Add("edition-loss.txt", projectEdition.Report.ToString());
         var reviews = new ReviewService(ProjectStoreFree.Instance);
         Add("review-summary.json", ContractJson.ToJson(reviews.Summarize(project)));
         Add("adjudication.csv", reviews.ExportAdjudicationCsv(project));
