@@ -18,14 +18,14 @@ import { ApiClient, ProjectIntegrityIssue, ProjectOverlap } from './api-client';
         <p class="hint">{{ issues().length }} integrity issue(s), {{ overlaps().length }} overlap(s).</p>
         @if (issues().length > 0) {
           <ul>
-            @for (issue of issues().slice(0, 10); track issue.code + issue.scope) {
+            @for (issue of issues().slice(0, 10); track $index) {
               <li><b>{{ issue.code }}</b> {{ issue.scope }} — {{ issue.message }}</li>
             }
           </ul>
         }
         @if (overlaps().length > 0) {
           <ul>
-            @for (overlap of overlaps().slice(0, 10); track overlap.kind + overlap.value) {
+            @for (overlap of overlaps().slice(0, 10); track $index) {
               <li><b>{{ overlap.kind }}</b> {{ overlap.value }} — {{ overlap.note }}</li>
             }
           </ul>

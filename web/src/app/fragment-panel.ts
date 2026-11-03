@@ -22,7 +22,7 @@ import { ApiClient, NativeFragmentView } from './api-client';
           @for (fragment of fragments(); track fragment.id) {
             <li>
               <code>{{ fragment.id }}</code>
-              @for (ref of refs(fragment); track ref) { · {{ ref }} }
+              @for (ref of refs(fragment); track $index) { · {{ ref }} }
               · surfaces {{ fragment.surfaceIds.length }}
             </li>
           }

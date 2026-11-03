@@ -1,6 +1,6 @@
 # Layout post-filter: dev-selected, held-out report
 
-- Date: 2026-11-03T13:22:02.1225090+00:00; contract C0-0.4-draft
+- Date: 2026-11-03T19:42:12.3088210+00:00; contract C0-0.4-draft
 - Detector: projection profile (unchanged); filter applied to detected bands
 - Selection set: M02a dev pages only (8 pages)
 - Reporting set: held-out M02a pages + P01 pages (19 pages); P01 is out-of-domain
