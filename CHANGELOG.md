@@ -20,6 +20,9 @@ set: C0-0.4-draft.
   now prints its loss report to stderr and reports multi-page sources when only the first folio
   is exported. `--skip-duplicates` (API `skipDuplicate`) reports an
   existing object when the retained source hash matches.
+- **Optional TEI XSD validation:** `validate tei --schema <xsd>` validates an
+  operator-supplied schema, reports its SHA-256 and keeps DOCTYPE/entity refusal; the schema
+  is intentionally not bundled or downloaded.
 - **TEI profile lint:** duplicate `@xml:id`, `<pb>` without `@n`, `<gap>` without `@extent`,
   `<app>` without a reading and `<choice>` without a supported child are reported by import /
   `validate tei` rather than silently normalized.

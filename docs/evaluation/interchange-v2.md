@@ -34,6 +34,9 @@ unless a record says otherwise.
   the apparatus and overline.
 - `tests/LeviathanText.Formats.Tests/EpiDocImportTests.cs` — apparatus/choice pairs no longer
   concatenate; word spaces between inline elements are preserved.
+- `validate tei --schema <xsd>` optionally validates an operator-supplied XSD and reports its
+  SHA-256; the schema is not bundled or downloaded, so the operator pins the exact file. The
+  bounded profile lint and import remain the default.
 - Profile lint is part of the same import report: duplicate `@xml:id`, `<pb>` without `@n`,
   `<gap>` without `@extent`, `<app>` without a reading and `<choice>` without a supported child
   are reported instead of silently normalized (`validate tei` prints them).

@@ -368,9 +368,11 @@ checksummed attachment (`original-*-markup`) when it fits the 2 MiB cap.
 and reports the existing object/surface instead of creating a second import. The API equivalent
 is `skipDuplicate: true`.
 
-`leviathan validate tei <record.xml> [--strict]` imports in memory only and prints line/L1/L2,
-annotation, page-break, graphic and attachment counts. `--strict` exits nonzero if any
-unsupported construct is reported as a loss.
+`leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]` imports in memory only and
+prints line/L1/L2, annotation, page-break, graphic and attachment counts. `--schema` validates
+against an operator-supplied XSD (the schema is not bundled or downloaded; its SHA-256 is shown),
+while the bounded profile lint still runs. `--strict` exits nonzero if any unsupported construct
+or schema error is reported as a loss.
 
 `import tei` reads the bounded layered profile: `<lb>` splits lines (including `@n` and
 `break="no"`), visible text becomes L1, supplied text and abbreviation expansions become a

@@ -86,6 +86,34 @@ public sealed class TeiCommandTests : IDisposable
         Assert.Equal(1, Run("validate", "tei", xml, "--strict"));
     }
 
+    [Fact]
+    public void Validate_tei_can_use_an_operator_supplied_xsd()
+    {
+        var schema = PathOf("tei.xsd");
+        File.WriteAllText(schema, """
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                       targetNamespace="http://www.tei-c.org/ns/1.0"
+                       elementFormDefault="qualified">
+              <xs:element name="TEI">
+                <xs:complexType><xs:sequence>
+                  <xs:element name="text" minOccurs="1" maxOccurs="1"/>
+                </xs:sequence></xs:complexType>
+              </xs:element>
+            </xs:schema>
+            """);
+        var valid = PathOf("valid.xml");
+        File.WriteAllText(valid, """
+            <TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+              <div type="edition"><ab>α</ab></div>
+            </body></text></TEI>
+            """);
+        var invalid = PathOf("invalid.xml");
+        File.WriteAllText(invalid, """<TEI xmlns="http://www.tei-c.org/ns/1.0"/>""");
+
+        Assert.Equal(0, Run("validate", "tei", valid, "--schema", schema));
+        Assert.Equal(1, Run("validate", "tei", invalid, "--schema", schema, "--strict"));
+    }
+
     private string SurfaceId(string projectId)
     {
         using var store = new LocalStore(PathOf("store.db"));

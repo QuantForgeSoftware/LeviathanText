@@ -227,6 +227,39 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Optional_xsd_validation_accepts_the_pinned_schema_and_reports_errors()
+    {
+        var schema = Path.Combine(Path.GetTempPath(), $"lt-tei-{Guid.NewGuid():N}.xsd");
+        File.WriteAllText(schema, """
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                       targetNamespace="http://www.tei-c.org/ns/1.0"
+                       xmlns:t="http://www.tei-c.org/ns/1.0" elementFormDefault="qualified">
+              <xs:element name="TEI">
+                <xs:complexType><xs:sequence>
+                  <xs:element name="text" minOccurs="1" maxOccurs="1"/>
+                </xs:sequence></xs:complexType>
+              </xs:element>
+            </xs:schema>
+            """);
+        try
+        {
+            var valid = """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text/></TEI>""";
+            var invalid = """<TEI xmlns="http://www.tei-c.org/ns/1.0"/>""";
+
+            var (validIssues, hash) = TeiXml.ValidateAgainstSchema(valid, schema);
+            Assert.Equal(64, hash.Length);
+            Assert.DoesNotContain(validIssues, issue => issue.Severity == PageXml.IssueSeverity.Loss);
+
+            var (invalidIssues, _) = TeiXml.ValidateAgainstSchema(invalid, schema);
+            Assert.Contains(invalidIssues, issue => issue.Severity == PageXml.IssueSeverity.Loss);
+        }
+        finally
+        {
+            File.Delete(schema);
+        }
+    }
+
+    [Fact]
     public void Profile_lint_reports_duplicate_ids_and_malformed_structures()
     {
         var xml = Prefix + """

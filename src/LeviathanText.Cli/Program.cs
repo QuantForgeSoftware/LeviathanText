@@ -931,8 +931,17 @@ public static class Program
 
             case "validate" when rest.Length >= 3 && rest[1] == "tei":
             {
-                var result = LeviathanText.Formats.TeiXml.Import(File.ReadAllText(rest[2]));
-                foreach (var issue in result.Unsupported)
+                var xml = File.ReadAllText(rest[2]);
+                var result = LeviathanText.Formats.TeiXml.Import(xml);
+                var issues = new List<PageXml.ImportIssue>(result.Unsupported);
+                var schemaIndex = Array.IndexOf(rest, "--schema");
+                if (schemaIndex >= 0 && schemaIndex + 1 < rest.Length)
+                {
+                    var (schemaIssues, _) = LeviathanText.Formats.TeiXml.ValidateAgainstSchema(
+                        xml, rest[schemaIndex + 1]);
+                    issues.AddRange(schemaIssues);
+                }
+                foreach (var issue in issues)
                     Console.Error.WriteLine($"{issue.Severity}\t{issue.Element}\t{issue.Description}");
                 var l1 = result.Revisions.Count(r => r.Layer == TextLayer.L1Diplomatic);
                 var l2 = result.Revisions.Count(r => r.Layer == TextLayer.L2Editorial);
@@ -941,7 +950,7 @@ public static class Program
                                   $"pageBreaks={result.Document?.PageBreaks?.Count ?? 0}\t" +
                                   $"graphics={result.Document?.Graphics.Count ?? 0}\t" +
                                   $"attachment={(result.OriginalMarkup is null ? "omitted" : "retained")}");
-                var losses = result.Unsupported.Count(i => i.Severity == PageXml.IssueSeverity.Loss);
+                var losses = issues.Count(i => i.Severity == PageXml.IssueSeverity.Loss);
                 return losses > 0 && rest.Contains("--strict") ? 1 : 0;
             }
 
@@ -1889,7 +1898,7 @@ public static class Program
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
               leviathan migrate inventory <existing-tree> [--out <report.json>] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
-              leviathan validate tei <record.xml> [--strict]
+              leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>

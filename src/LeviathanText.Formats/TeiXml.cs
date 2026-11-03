@@ -1,4 +1,6 @@
+using System.Xml;
 using System.Xml.Linq;
+using System.Xml.Schema;
 using LeviathanText.Contracts;
 
 namespace LeviathanText.Formats;
@@ -511,6 +513,68 @@ public static class TeiXml
         if (!string.IsNullOrWhiteSpace(info.Script)) rend.Add($"script:{info.Script.Trim()}");
         if (rend.Count > 0) ab.Add(new XAttribute("rend", string.Join(';', rend)));
         if (info.Languages.Count > 0) ab.Add(new XAttribute(Xml + "lang", info.Languages[0]));
+    }
+
+    /// <summary>
+    /// Optional XML Schema validation for an operator-supplied TEI/EpiDoc XSD. The schema is
+    /// not bundled or downloaded: the caller pins the exact file, and its SHA-256 is returned
+    /// in the result notes so the validation basis is auditable. DOCTYPE/entity processing
+    /// remains prohibited. This supplements, and does not replace, the bounded profile import.
+    /// </summary>
+    public static (IReadOnlyList<PageXml.ImportIssue> Issues, string SchemaSha256)
+        ValidateAgainstSchema(string xml, string schemaPath)
+    {
+        if (!File.Exists(schemaPath))
+            throw new InvalidDataException($"Schema file is not readable: {schemaPath}");
+        var schemaBytes = File.ReadAllBytes(schemaPath);
+        var schemaHash = Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(schemaBytes));
+        var schemas = new XmlSchemaSet { XmlResolver = null };
+        try
+        {
+            using var schemaReader = XmlReader.Create(new MemoryStream(schemaBytes),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            schemas.Add(null, schemaReader);
+            schemas.Compile();
+        }
+        catch (Exception ex) when (ex is XmlException or XmlSchemaException)
+        {
+            throw new InvalidDataException($"Schema is not a readable XSD: {ex.Message}", ex);
+        }
+
+        var issues = new List<PageXml.ImportIssue>
+        {
+            new("schema", $"validated against {Path.GetFileName(schemaPath)} (sha256:{schemaHash})",
+                PageXml.IssueSeverity.Note),
+        };
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            ValidationType = ValidationType.Schema,
+            Schemas = schemas,
+            MaxCharactersInDocument = 50 * 1024 * 1024,
+        };
+        settings.ValidationFlags |= XmlSchemaValidationFlags.ReportValidationWarnings;
+        settings.ValidationEventHandler += (_, args) =>
+        {
+            if (issues.Count >= 101) return;
+            issues.Add(new PageXml.ImportIssue("schema",
+                args.Message,
+                args.Severity == XmlSeverityType.Error
+                    ? PageXml.IssueSeverity.Loss
+                    : PageXml.IssueSeverity.Note));
+        };
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(xml), settings);
+            while (reader.Read()) { }
+        }
+        catch (XmlException ex)
+        {
+            issues.Add(new PageXml.ImportIssue("schema", ex.Message, PageXml.IssueSeverity.Loss));
+        }
+        return (issues, schemaHash);
     }
 
     // ---- Import ----
