@@ -64,6 +64,45 @@ public class ThreeWayMergeTests
     }
 
     [Fact]
+    public void Disjoint_random_edits_always_merge_to_both_edits()
+    {
+        var random = new Random(42);
+        for (int iteration = 0; iteration < 100; iteration++)
+        {
+            var baseText = RandomUniqueText(random, random.Next(12, 40));
+            int aStart = random.Next(0, baseText.Length);
+            int aEnd = random.Next(aStart, baseText.Length + 1);
+            int bStart = random.Next(aEnd, baseText.Length + 1);
+            int bEnd = random.Next(bStart, baseText.Length + 1);
+            var aText = RandomReplacement(random, baseText, random.Next(0, 5));
+            var bText = RandomReplacement(random, baseText, random.Next(0, 5));
+
+            var local = baseText[..aStart] + aText + baseText[aEnd..];
+            var remote = baseText[..bStart] + bText + baseText[bEnd..];
+            var expected = baseText[..aStart] + aText + baseText[aEnd..bStart] + bText + baseText[bEnd..];
+
+            var merged = ThreeWayMerge.Merge(baseText, local, remote);
+
+            Assert.True(merged.Success, $"iteration {iteration}: {baseText} / {local} / {remote}");
+            Assert.Equal(expected, merged.Text);
+        }
+    }
+
+    private static string RandomUniqueText(Random random, int length)
+    {
+        const string alphabet = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ0123456789";
+        return new string(alphabet.OrderBy(_ => random.Next()).Take(length).ToArray());
+    }
+
+    private static string RandomReplacement(Random random, string baseText, int length)
+    {
+        const string alphabet = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ0123456789";
+        var available = alphabet.Where(c => !baseText.Contains(c)).ToArray();
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => available[random.Next(available.Length)]).ToArray());
+    }
+
+    [Fact]
     public void Adjacent_boundary_edits_do_not_count_as_overlap()
     {
         // Replacing [0,1) and inserting at 1 can both be applied.

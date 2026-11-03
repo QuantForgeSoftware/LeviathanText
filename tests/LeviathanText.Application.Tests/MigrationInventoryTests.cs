@@ -83,6 +83,17 @@ public sealed class MigrationInventoryTests : IDisposable
     }
 
     [Fact]
+    public void File_limit_bounds_the_scan_and_is_reported()
+    {
+        for (int i = 0; i < 5; i++) Write($"file{i}.txt", "x");
+
+        var report = MigrationInventory.Scan(_root, maxFiles: 2);
+
+        Assert.Equal(2, report.FileCount);
+        Assert.Contains(report.Notes, note => note.Contains("stopped after 2", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Missing_root_is_reported_rather_than_treated_as_empty()
     {
         Assert.Throws<DirectoryNotFoundException>(() =>

@@ -56,6 +56,19 @@ public sealed class SessionServiceTests : IDisposable
     }
 
     [Fact]
+    public void Active_sessions_are_capped_per_user()
+    {
+        using var store = new LocalStore(_path);
+        var service = new SessionService(store, "node-a");
+        var user = User("usr-cap", "cap");
+        for (int i = 0; i < SessionService.MaxSessionsPerUser; i++)
+            _ = service.Create(user, null, 15);
+
+        var ex = Assert.Throws<LeviathanException>(() => service.Create(user, null, 15));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+    }
+
+    [Fact]
     public void Expired_session_cannot_be_heartbeated()
     {
         using var store = new LocalStore(_path);
