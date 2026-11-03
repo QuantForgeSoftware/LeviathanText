@@ -56,8 +56,12 @@ public static class EditionHtml
 
         int unplaced = 0;
         int apparatusEntries = 0;
+        var regionOrder = surface.Regions
+            .GroupBy(r => r.Id)
+            .ToDictionary(g => g.Key, g => g.First().ReadingOrderIndex ?? int.MaxValue);
         foreach (var line in surface.Lines
-                     .OrderBy(l => l.LineNumber ?? int.MaxValue)
+                     .OrderBy(l => regionOrder.GetValueOrDefault(l.RegionId, int.MaxValue))
+                     .ThenBy(l => l.LineNumber ?? int.MaxValue)
                      .ThenBy(l => l.Id.ToString(), StringComparer.Ordinal))
         {
             var lineRevisions = revisions.Values.Where(r => r.ScopeId == line.Id).ToList();
