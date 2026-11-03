@@ -234,10 +234,10 @@ public static class TeiXml
             ab.Add(new XAttribute(Xml + "id", info?.XmlId ?? line.LineId.Suffix));
         var number = info?.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture)
             ?? TagValue(info, "n");
+        // Do not invent a witness line number from the native id; only source-declared
+        // numbers/tags round-trip.
         if (number is not null)
             ab.Add(new XAttribute("n", number));
-        else if (line.LineId.Suffix.Length <= 32)
-            ab.Add(new XAttribute("n", line.LineId.Suffix));
         if (TagValue(info, "part") is { } part) ab.Add(new XAttribute("part", part));
         AddOrientation(ab, info);
         ab.Add(new XElement(Tei + "lb"));
