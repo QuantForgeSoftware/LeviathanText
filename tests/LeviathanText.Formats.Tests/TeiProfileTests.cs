@@ -563,6 +563,17 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Certainty_wrapping_text_is_preserved_without_a_loss()
+    {
+        var imported = TeiXml.Import(Document(
+            "<div type=\"edition\"><ab><lb/>α<certainty cert=\"low\">β</certainty>γ</ab></div>"));
+        Assert.Equal("αβγ", Revision(imported, TextLayer.L1Diplomatic).Text);
+        Assert.Contains(imported.Unsupported, i => i.Element == "certainty" && i.Severity == PageXml.IssueSeverity.Note);
+        Assert.DoesNotContain(imported.Unsupported, i => i.Element == "certainty" && i.Severity == PageXml.IssueSeverity.Loss);
+        Assert.Equal("αβγ", Revision(TeiXml.Import(RoundtripExport(imported).Xml), TextLayer.L1Diplomatic).Text);
+    }
+
+    [Fact]
     public void Space_damage_and_expansion_are_bounded_and_reported()
     {
         var imported = TeiXml.Import(Document(

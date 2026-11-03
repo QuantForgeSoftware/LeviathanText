@@ -1189,6 +1189,11 @@ public static class TeiXml
                 case "subst":
                     WalkChildren(element, unsupported);
                     break;
+                case "certainty":
+                    WalkChildren(element, unsupported);
+                    Report("certainty", PageXml.IssueSeverity.Note,
+                        "certainty attributes are not represented; text is preserved", unsupported);
+                    break;
                 default:
                 {
                     var inner = element.Value;
