@@ -5,6 +5,7 @@ import { SurfaceView } from './surface-view';
 import { ProjectMembersPanel } from './project-members-panel';
 import { SessionsAdminPanel } from './sessions-admin-panel';
 import { ModelRegistryPanel } from './model-registry-panel';
+import { ProjectHealthPanel } from './project-health-panel';
 
 interface ProjectRow {
   id: string;
@@ -79,6 +80,7 @@ interface ProjectRow {
               </ul>
             }
           }
+          <app-project-health-panel [projectId]="selectedId()!" />
           <app-project-members-panel [projectId]="selectedId()!" />
           <app-sessions-admin-panel />
           <app-model-registry-panel />
@@ -136,7 +138,7 @@ interface ProjectRow {
     .hint { color: #667; font-size: 0.85rem; }
     li { margin: 0.2rem 0; }
   `],
-  imports: [SurfaceView, ProjectMembersPanel, SessionsAdminPanel, ModelRegistryPanel],
+  imports: [SurfaceView, ProjectMembersPanel, SessionsAdminPanel, ModelRegistryPanel, ProjectHealthPanel],
 })
 export class ProjectsPage {
   private readonly api: ApiClient;

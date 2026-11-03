@@ -124,6 +124,19 @@ export interface ProjectInviteView {
   usedBy?: string | null;
 }
 
+export interface ProjectIntegrityIssue {
+  code: string;
+  scope: string;
+  message: string;
+}
+
+export interface ProjectOverlap {
+  kind: string;
+  value: string;
+  entities: string;
+  note: string;
+}
+
 export interface RegistryEntry {
   id: string;
   name: string;
@@ -522,6 +535,23 @@ export class ApiClient {
       version: string;
       surfaces: { surfaceId: string; lines: number; flagged: number; issues: { lineId: string; scalarOffset: number; category: string; scalar: string }[] }[];
     }>(`/api/v1/projects/${projectId}/profile-report`);
+  }
+
+  projectIntegrity(projectId: string): Observable<ProjectIntegrityIssue[]> {
+    return this.http.get<ProjectIntegrityIssue[]>(`/api/v1/projects/${projectId}/integrity`);
+  }
+
+  projectOverlap(projectId: string): Observable<ProjectOverlap[]> {
+    return this.http.get<ProjectOverlap[]>(`/api/v1/projects/${projectId}/overlap`);
+  }
+
+  integrityCsv(projectId: string): Observable<string> {
+    return this.http.get(`/api/v1/projects/${projectId}/integrity?format=csv`,
+      { responseType: 'text' });
+  }
+
+  overlapCsv(projectId: string): Observable<string> {
+    return this.http.get(`/api/v1/projects/${projectId}/overlap`, { responseType: 'text' });
   }
 
   searchablePdf(projectId: string, surfaceId: string): Observable<Blob> {

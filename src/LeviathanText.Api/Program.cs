@@ -589,10 +589,13 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
     });
 });
 
-api.MapGet("projects/{id}/overlap", (ProjectService projects, string id) =>
+api.MapGet("projects/{id}/overlap", (ProjectService projects, string id, string? format) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    return Results.Ok(CorpusOverlap.Audit(project));
+    var overlaps = CorpusOverlap.Audit(project);
+    return format?.Equals("csv", StringComparison.OrdinalIgnoreCase) == true
+        ? Results.Text(CorpusOverlap.ToCsv(overlaps), "text/csv")
+        : Results.Ok(overlaps);
 });
 
 api.MapGet("projects/{id}/integrity", (ProjectService projects, string id, string? format) =>
