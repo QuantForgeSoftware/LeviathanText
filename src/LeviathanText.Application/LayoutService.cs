@@ -19,7 +19,7 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
     public sealed record Outcome(NativeProject Project, NativeSurface Surface, int LineCount, string Method);
 
     public Outcome Detect(NativeProject project, EntityId surfaceId, long maxPixels = 12_000_000,
-        PatchLayoutModel? model = null, bool detectColumns = false)
+        PatchLayoutModel? model = null, bool detectColumns = false, bool rtlColumns = false)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -71,7 +71,11 @@ public sealed class LayoutService(IProjectStore store, ImageResolver? imageResol
         // are not a general layout claim (see docs/evaluation/layout-patch-learning.md).
         var result = model is null
             ? ProjectionProfileLayout.Detect(decoded.Bitmap,
-                new ProjectionProfileLayout.Options { DetectColumns = detectColumns })
+                new ProjectionProfileLayout.Options
+                {
+                    DetectColumns = detectColumns,
+                    RightToLeftColumns = rtlColumns,
+                })
             : model.Detect(decoded.Bitmap);
         double scaleX = decoded.ScaleX, scaleY = decoded.ScaleY;
         int originalWidth = decoded.OriginalWidth, originalHeight = decoded.OriginalHeight;

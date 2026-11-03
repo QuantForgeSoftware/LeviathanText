@@ -228,10 +228,11 @@ made; use the local scripted/Ollama smoke paths for verification.
 ## Exports
 
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
-- `layout detect <projectId> <surfaceId> [--columns] [--max-pixels N] [--model <pkg>]` — the
-  default is single-column projection; `--columns` accepts an opt-in two-column gutter split
-  (synthetic-test-only claim, see `docs/evaluation/layout-columns.md`). The API uses
-  `POST /surfaces/{id}/detect-layout?columns=true`.
+- `layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]`
+  — the default is single-column projection; `--columns` accepts an opt-in two-column gutter
+  split and `--rtl-columns` orders the right column first (synthetic-test-only claim, see
+  `docs/evaluation/layout-columns.md`). The API uses
+  `POST /surfaces/{id}/detect-layout?columns=true&rtlColumns=true`.
 - `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported
   fields reported). TEI carries the facsimile/image link, line numbers, both layers and a
   machine-readable loss report (stderr plus an inline XML comment).

@@ -68,6 +68,9 @@ public static class ProjectionProfileLayout
         /// geometric helper, not a learned region model or a rotated-layout claim.
         /// </summary>
         public bool DetectColumns { get; init; }
+
+        /// <summary>When columns are detected, order the right column before the left (RTL).</summary>
+        public bool RightToLeftColumns { get; init; }
     }
 
     public static LayoutResult Detect(SKBitmap page, Options? options = null)
@@ -173,7 +176,7 @@ public static class ProjectionProfileLayout
             var left = ExtractBands(areaLeft, boundary);
             var right = ExtractBands(boundary, areaRight);
             lines = left.Count >= 2 && right.Count >= 2
-                ? [.. left, .. right]
+                ? options.RightToLeftColumns ? [.. right, .. left] : [.. left, .. right]
                 : ExtractBands(areaLeft, areaRight);
         }
         else
@@ -357,5 +360,5 @@ public static class ProjectionProfileLayout
     internal static string HashOf(Options options, float resolvedInkThreshold) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(
-                $"{options.InkThreshold:R}|{options.MinRowDensity:R}|{options.MinLineHeight}|{options.ValleyFraction:R}|filter:{options.FilterImplausibleLines}|columns:{options.DetectColumns}|otsu:{resolvedInkThreshold:R}"))).ToLowerInvariant();
+                $"{options.InkThreshold:R}|{options.MinRowDensity:R}|{options.MinLineHeight}|{options.ValleyFraction:R}|filter:{options.FilterImplausibleLines}|columns:{options.DetectColumns}|rtl:{options.RightToLeftColumns}|otsu:{resolvedInkThreshold:R}"))).ToLowerInvariant();
 }

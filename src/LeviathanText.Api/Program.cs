@@ -1130,7 +1130,7 @@ api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometrySe
     });
 });
 
-api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, LayoutModelRegistry models, string surfaceId, bool? columns) =>
+api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, LayoutModelRegistry models, string surfaceId, bool? columns, bool? rtlColumns) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
@@ -1138,7 +1138,7 @@ api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, Layo
 
     var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == surfaceEntityId);
     var outcome = layout.Detect(project, surfaceEntityId, model: models.Resolve(surface.Kind),
-        detectColumns: columns ?? false);
+        detectColumns: columns ?? false, rtlColumns: rtlColumns ?? false);
     return Results.Ok(new
     {
         surfaceId = outcome.Surface.Id.ToString(),

@@ -159,6 +159,20 @@ public class ProjectionColumnTests
     }
 
     [Fact]
+    public void Rtl_column_order_places_the_right_column_first()
+    {
+        using var page = TwoColumnPage();
+
+        var result = ProjectionProfileLayout.Detect(page,
+            new ProjectionProfileLayout.Options { DetectColumns = true, RightToLeftColumns = true });
+
+        Assert.Equal(8, result.Lines.Count);
+        Assert.All(result.Lines.Take(4), line => Assert.True(line.Left > 400));
+        Assert.All(result.Lines.Skip(4), line => Assert.True(line.Right < 400));
+        Assert.Equal(Enumerable.Range(0, 8), result.Lines.Select(line => line.OrderIndex));
+    }
+
+    [Fact]
     public void Column_detection_falls_back_when_there_is_no_gutter()
     {
         using var page = new SKBitmap(400, 240);

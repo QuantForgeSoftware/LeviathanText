@@ -1211,7 +1211,8 @@ public static class Program
                     ? PatchLayoutModel.Load(rest[modelIndex + 1])
                     : null;
                 var outcome = layout.Detect(project, surfaceId, maxPixels, patchModel,
-                    detectColumns: Array.IndexOf(rest, "--columns") >= 0);
+                    detectColumns: Array.IndexOf(rest, "--columns") >= 0,
+                    rtlColumns: Array.IndexOf(rest, "--rtl-columns") >= 0);
                 Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
                 return 0;
             }
@@ -1929,7 +1930,7 @@ public static class Program
               leviathan migrate inventory <existing-tree> [--out <report.json>] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
               leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]
-              leviathan [--store <path>] layout detect <projectId> <surfaceId>
+              leviathan [--store <path>] layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
               leviathan [--store <path>] review packet <projectId> <out-dir> [--limit N] [--surface <surfaceId>]

@@ -28,8 +28,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 ## Layout
 
 - The default detector is single-column; curved and rotated pages are unsupported. An opt-in
-  two-column projection split (`--columns`, `?columns=true`) handles a clear vertical gutter
-  and is tested only on synthetic pages — see [layout-columns.md](../evaluation/layout-columns.md).
+  two-column projection split (`--columns`, `?columns=true`; `--rtl-columns` reverses column
+  order) handles a clear vertical gutter and is tested only on synthetic pages — see
+  [layout-columns.md](../evaluation/layout-columns.md).
   Row bands that merge across a shallow/irregular gutter still cannot be separated.
   Projection remains the default (combined pilot P 0.403 / R 0.473 under one-to-one matching).
   A patch/row CNN is **opt-in per surface kind**; it is strong on the training book (M02a
