@@ -191,6 +191,10 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var bytes = await response.Content.ReadAsByteArrayAsync();
         Assert.True(bytes.Length > 4);
         Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
+
+        var withReport = await client.GetStringAsync(
+            $"/api/v1/projects/{projectId}/surfaces/{surfaceId}/searchable-pdf?report=true");
+        Assert.Contains("\"lossReport\"", withReport);
     }
 
     [Fact]

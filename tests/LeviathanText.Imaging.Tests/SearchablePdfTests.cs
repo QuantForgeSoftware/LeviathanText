@@ -23,10 +23,10 @@ public sealed class SearchablePdfTests : IDisposable
         }
 
         var bytes = SearchablePdf.Export(imagePath, 200, 100,
-            [new SearchablePdf.TextLine("αβγ", 10, 10, 100, 40)], "test");
+            [new SearchablePdf.TextLine("ἄνθρωπος", 10, 10, 100, 40)], "test");
 
         using var pdf = PdfDocument.Open(bytes);
-        Assert.Contains("αβγ", pdf.GetPage(1).Text);
+        Assert.Contains("ἄνθρωπος", pdf.GetPage(1).Text);
     }
 
     [Fact]
