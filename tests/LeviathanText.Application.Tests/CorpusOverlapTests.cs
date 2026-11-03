@@ -36,4 +36,33 @@ public sealed class CorpusOverlapTests
         Assert.Contains("kind,value,entities,note", CorpusOverlap.ToCsv(overlaps));
         Assert.Equal(2, withTwo.Objects.Count); // read-only
     }
+
+    [Fact]
+    public void Cross_surface_source_line_ids_are_reported()
+    {
+        var project = SampleProjectBuilder.Build();
+        var obj = project.Objects[0];
+        var surface = obj.Surfaces[0];
+        var line = surface.Lines[0];
+        IReadOnlyDictionary<string, IReadOnlyList<string>> tags =
+            new Dictionary<string, IReadOnlyList<string>> { ["source-id"] = ["same-line"] };
+        var first = line with { Tags = tags };
+        var second = line with { Id = new EntityId(EntityKind.Line, "ln-overlap"), Tags = tags };
+        var secondSurface = surface with
+        {
+            Id = new EntityId(EntityKind.Surface, "surf-overlap"),
+            Lines = [second],
+        };
+        var withTwo = project with
+        {
+            Objects =
+            [
+                obj with { Surfaces = [surface with { Lines = [first] }, secondSurface] },
+            ],
+        };
+
+        var overlaps = CorpusOverlap.Audit(withTwo);
+
+        Assert.Contains(overlaps, overlap => overlap.Kind == "line-source-id" && overlap.Value == "same-line");
+    }
 }
