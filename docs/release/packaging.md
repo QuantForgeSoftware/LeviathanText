@@ -61,6 +61,11 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Sustained collection throughput/peak-RAM profiling (single-page startup/import/layout/export/backup profile is recorded in `docs/evaluation/pilot-profile.md`; not a sustained-load benchmark).
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - TIFF is decoded through the ImageSharp fallback; very large TIFF pages still need full-frame decode and the dependency uses the Six Labors Split License. High-resolution tiled decode remains open.
+- Local install update/rollback is rehearsed by `scripts/update-rollback-smoke.sh`:
+  `install-local.sh` creates the prefix, `update-local.sh` moves it to a timestamped
+  pre-update backup and installs the candidate, and `rollback-local.sh --list`/
+  `rollback-local.sh` restore the latest backup while retaining the failed install.
+  Windows/Linux installers remain untested.
 - Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
   SHA-256 hashed keys, rotation/disable, auth audit, opt-in per-project membership, invitation
   UI, advisory presence and server-issued TTL sessions exist. SSO/refresh-token policy, edit
