@@ -744,7 +744,8 @@ the API exposes `merge: true` and the Angular editor requests it. Server-issued 
 derive identity from a session instead of a client-chosen string.
 
 **Migration:** a read-only `migrate inventory` command classifies an existing tree by public
-format, records sizes/SHA-256 and reports unclassified files without modifying it. Smoke on
+format, records sizes/SHA-256 and reports unclassified files without modifying it; the
+[migration record](docs/evaluation/migration-inventory.md) holds the measurements. Smoke on
 the local M01 artifact tree inventoried 241 files (120 PAGE XML, 120 images, 1 archive); a
 read-only run on the `~/Code/kraken` reference checkout inventoried 291 files/118.9 MB
 (12 PAGE, 10 ALTO, 21 images, 13 model weights, 134 scripts) without changing it. A

@@ -29,6 +29,8 @@
 - [layout-impact-page-cer.md](layout-impact-page-cer.md) — same recognition model, projection
   vs learned layout: page CER 0.971 → 0.942 and detection recall ~0.54 → ~0.996 on held-out
   M02a pages (one-to-one matching).
+- [migration-inventory.md](migration-inventory.md) — read-only tree inventory and bounded
+  migration-import smoke (M01 120/120 PAGE; reference checkout counts); no product comparison.
 - [layout-columns.md](layout-columns.md) — opt-in two-column projection split on a clear
   gutter; synthetic-only evidence, default behaviour unchanged.
 - [layout-postfilter.md](layout-postfilter.md) — dev-selected post-filter evaluated on
