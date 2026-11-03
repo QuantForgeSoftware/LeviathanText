@@ -49,6 +49,8 @@ set: C0-0.4-draft.
   CLI trust policy.
 - **Bundle searchable PDFs:** bundles include each surface's searchable PDF and its loss report
   when capture/line geometry permits.
+- **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
+  positions with source context; in-editor rendering remains pending.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.

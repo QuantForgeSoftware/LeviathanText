@@ -604,6 +604,12 @@ api.MapGet("projects/{id}/integrity", (ProjectService projects, string id, strin
         : Results.Ok(issues);
 });
 
+api.MapGet("projects/{id}/word-boundaries", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(WordBoundaryCsv.Export(project), "text/csv");
+});
+
 api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id, bool? lines, bool? fragments) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

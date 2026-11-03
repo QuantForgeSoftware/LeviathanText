@@ -480,6 +480,16 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 3 && rest[1] == "word-boundaries":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var csv = WordBoundaryCsv.Export(project);
+                var outIndex = Array.IndexOf(rest, "--out");
+                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], csv);
+                else Console.Write(csv);
+                return 0;
+            }
+
             case "export" when rest.Length >= 3 && rest[1] == "crosswalk":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1958,6 +1968,7 @@ public static class Program
               leviathan [--store <path>] project audit <projectId> [--json|--csv]
               leviathan [--store <path>] data audit-overlap <projectId> [--json|--csv]
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
+              leviathan [--store <path>] export word-boundaries <projectId> [--out <csv>]
               leviathan [--store <path>] export crosswalk <projectId> [--lines|--fragments] [--out <csv>]
               leviathan [--store <path>] export searchable-pdf <projectId> <surfaceId> <out.pdf>
               leviathan [--store <path>] export tei <projectId> <surfaceId>

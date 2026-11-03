@@ -240,6 +240,8 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported
   fields reported). TEI carries the facsimile/image link, line numbers, both layers and a
   machine-readable loss report (stderr plus an inline XML comment).
+- `export word-boundaries <projectId> [--out <csv>]` — proposed L2 boundary positions with
+  source context; also `GET /projects/{id}/word-boundaries`. It never edits witness text.
 - `export searchable-pdf <projectId> <surfaceId> <out.pdf>` — the capture image plus invisible
   L1 line text at its source rectangle. Unplaced lines, L2, alternatives and annotations are
   listed in the loss report; the native/TEI records remain authoritative. The API equivalent

@@ -52,6 +52,7 @@ public static class ProjectBundle
         Add("profile-report.json", ContractJson.ToJson(ProfileReport.Build(project)));
         Add("lines.csv", LineCsv.Export(project));
         Add("annotations.csv", AnnotationCsv.Export(project));
+        Add("word-boundaries.csv", WordBoundaryCsv.Export(project));
         Add("crosswalk.csv", ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project)));
         Add("line-crosswalk.csv", ProvenanceCrosswalk.ToLineCsv(ProvenanceCrosswalk.BuildLines(project)));
         Add("fragment-crosswalk.csv", ProvenanceCrosswalk.ToFragmentCsv(ProvenanceCrosswalk.BuildFragments(project)));

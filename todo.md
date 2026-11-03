@@ -47,7 +47,7 @@ These are the active code/docs slices that do not require reviewer decisions, fr
 
 ### Greek transcription contract — required before labeling data
 
-- [~] Preserve scriptio continua where present. Word boundaries, expanded abbreviations and added diacritics belong to derived readings, with reversible links to the source spans. Do not infer missing accents from the fact that the language is Greek. *(L1 spacing policy adopted; zero-width WordBoundary annotations and editor insertion implemented. L2 word-division rendering/export remains.)*
+- [~] Preserve scriptio continua where present. Word boundaries, expanded abbreviations and added diacritics belong to derived readings, with reversible links to the source spans. Do not infer missing accents from the fact that the language is Greek. *(L1 spacing policy adopted; zero-width WordBoundary annotations, editor insertion and a read-only `export word-boundaries` CSV are implemented. In-editor L2 boundary rendering remains.)*
 - [~] Support polytonic accents, smooth/rough breathings, diaeresis, iota subscript/adscript and combining sequences wherever present, including later manuscript hands and editorial readings. Preserve their presence and absence. *(mark ordering/NFC mapping and per-character Unclear editing implemented; specialist ratification and broader corpus validation remain.)*
 
 ### Scholarly interchange

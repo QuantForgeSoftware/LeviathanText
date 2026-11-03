@@ -27,6 +27,7 @@ public sealed class ProjectBundleTests
             Assert.Contains("profile-report.json", names);
             Assert.Contains("lines.csv", names);
             Assert.Contains("annotations.csv", names);
+            Assert.Contains("word-boundaries.csv", names);
             Assert.Contains("crosswalk.csv", names);
             Assert.Contains("line-crosswalk.csv", names);
             Assert.Contains("fragment-crosswalk.csv", names);
