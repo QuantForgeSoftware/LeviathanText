@@ -38,6 +38,26 @@ public class TeiFuzzTests
         }
     }
 
+    [Theory]
+    [InlineData("<hi rend=\"overline\"><unclear>α</unclear>β</hi>")]
+    [InlineData("<unclear><hi rend=\"overline\">α</hi>β</unclear>")]
+    [InlineData("<supplied><unclear>α</unclear></supplied>")]
+    [InlineData("<choice><abbr>α</abbr><expan><unclear>α</unclear>β</expan></choice>")]
+    [InlineData("<app><lem><unclear>α</unclear>β</lem><rdg>γ</rdg></app>")]
+    public void Nested_supported_and_reported_structures_keep_visible_text(string content)
+    {
+        var imported = TeiXml.Import(Prefix + content + Suffix);
+        var l1 = Assert.Single(imported.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+        var l2 = imported.Revisions.SingleOrDefault(r => r.Layer == TextLayer.L2Editorial);
+        var line = Assert.Single(imported.Document!.Lines);
+        var exported = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(line.LineId, l1, l2, imported.Annotations, line)],
+            "fuzz-nested", new TeiXml.TeiExportContext(Graphics: [new TeiXml.TeiGraphic("synthetic.png")]));
+        var reparsed = TeiXml.Import(exported.Xml);
+        var reparsedL1 = Assert.Single(reparsed.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+        Assert.Equal(l1.Text, reparsedL1.Text);
+    }
+
     [Fact]
     public void Combining_marks_and_boundary_whitespace_survive_export()
     {
