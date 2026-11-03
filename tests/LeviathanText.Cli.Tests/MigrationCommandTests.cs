@@ -55,6 +55,28 @@ public sealed class MigrationCommandTests : IDisposable
         Assert.Contains("page.xml", csv);
     }
 
+    [Fact]
+    public void Project_audit_accepts_a_clean_project()
+    {
+        var original = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+        string projectId;
+        try
+        {
+            Assert.Equal(0, LeviathanText.Cli.Program.Main(
+                ["--store", Path.Combine(_root, "audit.db"), "project", "new", "audit"]));
+            projectId = writer.ToString().Trim().Split('\n')[0];
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+
+        Assert.Equal(0, LeviathanText.Cli.Program.Main(
+            ["--store", Path.Combine(_root, "audit.db"), "project", "audit", projectId, "--json"]));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
