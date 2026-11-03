@@ -13,6 +13,10 @@ public enum AiTaskKind
     Expansion,
     Accentuation,
     Restoration,
+    /// <summary>Translate the selected reading; the result is not an L1/L2 replacement.</summary>
+    Translation,
+    /// <summary>Extract structured data from the selected reading; result is not a text replacement.</summary>
+    StructuredExtraction,
 }
 
 /// <summary>Acceptance lifecycle of a proposal (interchange-and-api.md §2.3).</summary>

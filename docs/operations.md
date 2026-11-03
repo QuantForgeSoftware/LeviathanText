@@ -218,6 +218,10 @@ archive paths/sizes are bounded.
 
 ## AI providers
 
+AI task kinds include candidate reading, word division, expansion, accentuation, restoration,
+translation and structured extraction. Translation/extraction results are advisory proposals and
+are refused by the text-acceptance path; they must not replace the Greek line reading.
+
 Providers are configured under `LeviathanText:AiProviders:<name>` with
 `ProviderId`, `Host` (`Local`/`Hosted`), `Protocol` (`OpenAiChatCompletions`/`OllamaChat`),
 `Endpoint`, `ModelId`, optional `CredentialEnvironmentVariable`, timeout/token/response caps

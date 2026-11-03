@@ -70,6 +70,28 @@ public class ProposalTests
     }
 
     [Fact]
+    public async Task Translation_and_extraction_proposals_are_advisory_only()
+    {
+        var chain = new RevisionChain();
+        var scope = new EntityId(EntityKind.Surface, "s1");
+        var human = new AgentRef { Id = "u1", IsModel = false };
+        var l1 = chain.Append(scope, TextLayer.L1Diplomatic, "Κϲ", human);
+        var provider = new ScriptedAiProvider("local-stub", "stub-1", _ => "Lord");
+        var translation = (await provider.ProposeAsync(Request(l1.Id) with
+        {
+            Task = AiTaskKind.Translation,
+        })).Proposal!;
+
+        var ex = Assert.Throws<LeviathanException>(() =>
+            new ProposalAcceptanceService(chain).Accept(translation, human));
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+        var preview = new BulkProposalAcceptanceService(chain).Preview([translation]);
+        Assert.False(preview.IsFullyApplicable);
+        Assert.Equal(BulkAcceptanceBlocker.UnsupportedTask, Assert.Single(preview.Items).Blocker);
+        Assert.Equal("Κϲ", chain.Current(scope, TextLayer.L1Diplomatic)!.Text);
+    }
+
+    [Fact]
     public async Task Acceptance_RejectsProposalTargetingASupersededRevision()
     {
         var chain = new RevisionChain();

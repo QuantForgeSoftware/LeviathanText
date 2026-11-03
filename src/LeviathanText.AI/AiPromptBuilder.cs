@@ -55,6 +55,8 @@ public static class AiPromptBuilder
         AiTaskKind.Expansion => "expansion",
         AiTaskKind.Accentuation => "accentuation",
         AiTaskKind.Restoration => "restoration",
+        AiTaskKind.Translation => "translation",
+        AiTaskKind.StructuredExtraction => "structured-extraction",
         _ => task.ToString(),
     };
 
@@ -70,6 +72,10 @@ public static class AiPromptBuilder
             "Add or correct accents only. Do not change the base letters or word division.",
         AiTaskKind.Restoration =>
             "Propose text for a lost or illegible span. The result is supplied editorial restoration, not a visible reading; do not present it as certain.",
+        AiTaskKind.Translation =>
+            "Translate the selected reading into English. Return only the translation; do not treat it as a replacement for the Greek witness text.",
+        AiTaskKind.StructuredExtraction =>
+            "Extract a JSON object from the selected reading using only fields supported by the source. Return JSON only; do not invent values.",
         _ => "Return the replacement text for the selected span.",
     };
 }

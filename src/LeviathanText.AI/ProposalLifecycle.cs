@@ -11,6 +11,7 @@ public enum BulkAcceptanceBlocker
     UnknownTargetRevision,
     TargetSuperseded,
     ConflictsWithEarlierInBatch,
+    UnsupportedTask,
 }
 
 /// <summary>Dry-run verdict for one proposal in a batch.</summary>
@@ -125,6 +126,9 @@ public sealed class BulkProposalAcceptanceService(RevisionChain chain)
     {
         if (proposal.Status != ProposalStatus.Proposed)
             return (BulkAcceptanceBlocker.NotProposed, $"Proposal is {proposal.Status}, not Proposed.");
+        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction)
+            return (BulkAcceptanceBlocker.UnsupportedTask,
+                "Translation/structured-extraction results are advisory and cannot replace line text.");
 
         var target = _chain.Get(proposal.Request.TargetRevisionId);
         if (target is null)

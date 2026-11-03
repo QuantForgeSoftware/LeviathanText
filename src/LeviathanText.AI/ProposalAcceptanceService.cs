@@ -20,6 +20,14 @@ public sealed class ProposalAcceptanceService(RevisionChain chain)
                 Scope = proposal.Id.ToString(),
                 Message = $"Proposal {proposal.Id} is {proposal.Status}; only Proposed proposals can be accepted.",
             });
+        if (proposal.Request.Task is AiTaskKind.Translation or AiTaskKind.StructuredExtraction)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = proposal.Id.ToString(),
+                Details = new Dictionary<string, string> { ["task"] = proposal.Request.Task.ToString() },
+                Message = "Translation/structured-extraction results are advisory; they cannot replace line text.",
+            });
 
         var target = chain.Get(proposal.Request.TargetRevisionId)
             ?? throw new LeviathanException(new LeviathanError
