@@ -1,3 +1,5 @@
+using SkiaSharp;
+
 namespace LeviathanText.Cli.Tests;
 
 public sealed class MigrationCommandTests : IDisposable
@@ -20,6 +22,37 @@ public sealed class MigrationCommandTests : IDisposable
         var json = File.ReadAllText(output);
         Assert.Contains("\"page-xml\"", json);
         Assert.Contains("page.xml", json);
+    }
+
+    [Fact]
+    public void Import_writes_a_ledger_and_creates_the_project()
+    {
+        File.WriteAllText(Path.Combine(_root, "page.xml"), """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="page.png" imageWidth="40" imageHeight="24">
+                <TextRegion id="r"><Coords points="0,0 39,0 39,23 0,23"/>
+                  <TextLine id="l"><Coords points="4,4 36,4 36,20 4,20"/>
+                    <TextEquiv><Unicode>α</Unicode></TextEquiv>
+                  </TextLine>
+                </TextRegion>
+              </Page>
+            </PcGts>
+            """);
+        using (var bitmap = new SKBitmap(40, 24))
+        {
+            using var data = SKImage.FromBitmap(bitmap).Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = File.Create(Path.Combine(_root, "page.png"));
+            data.SaveTo(stream);
+        }
+        var ledger = Path.Combine(_root, "ledger.csv");
+
+        var exit = LeviathanText.Cli.Program.Main(
+            ["--store", Path.Combine(_root, "store.db"), "migrate", "import", _root, "migrated", "--out", ledger]);
+
+        Assert.Equal(0, exit);
+        var csv = File.ReadAllText(ledger);
+        Assert.Contains("imported", csv);
+        Assert.Contains("page.xml", csv);
     }
 
     public void Dispose()

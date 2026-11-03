@@ -183,6 +183,26 @@ public static class Program
                 return 0;
             }
 
+            case "migrate" when rest.Length >= 4 && rest[1] == "import":
+            {
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length
+                    ? int.Parse(rest[limitIndex + 1])
+                    : 0;
+                var (projectId, rows) = MigrationImport.Import(projects, interchange, rest[2], rest[3], limit);
+                var csv = MigrationImport.ToCsv(rows);
+                var outIndex = Array.IndexOf(rest, "--out");
+                if (outIndex >= 0 && outIndex + 1 < rest.Length)
+                {
+                    File.WriteAllText(rest[outIndex + 1], csv);
+                    Console.Error.WriteLine($"ledger written: {rest[outIndex + 1]}");
+                }
+                foreach (var row in rows.Where(r => r.Status is "skipped" or "failed").Take(20))
+                    Console.Error.WriteLine($"{row.Status}: {row.Source}: {row.Note}");
+                Console.WriteLine($"project {projectId}; {MigrationImport.Summary(rows)}");
+                return rows.Any(r => r.Status == "failed") ? 1 : 0;
+            }
+
             case "project" when rest.Length >= 2 && rest[1] == "new":
             {
                 var name = rest.Length >= 3 ? rest[2] : throw new ArgumentException("Usage: project new <name>");
@@ -1866,6 +1886,7 @@ public static class Program
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
               leviathan migrate inventory <existing-tree> [--out <report.json>] [--limit N] [--no-hash]
+              leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
               leviathan validate tei <record.xml> [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>

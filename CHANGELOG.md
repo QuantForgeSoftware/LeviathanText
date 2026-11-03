@@ -44,6 +44,9 @@ set: C0-0.4-draft.
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native
   object/surface/capture/line ids to external refs, image hashes and line source ids without
   renumbering anything.
+- **Bounded migration import:** `migrate import` creates a new project and imports discovered
+  PAGE/TEI/ALTO/hOCR documents with sibling-image resolution, writing an
+  imported/skipped/failed ledger; missing images are reported, not guessed.
 - **Read-only migration inventory:** `migrate inventory` classifies an existing tree
   (PAGE/ALTO/TEI/hOCR/IIIF/images/PDF/models/scripts), records sizes and SHA-256, and reports
   unclassified files without modifying the source.

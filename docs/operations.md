@@ -334,6 +334,14 @@ archives, scripts, text, other), records size and SHA-256 (files up to 512 MiB) 
 unclassified files. It is an intake aid: importing, comparing products and any Kraken
 checkout inspection remain separate authorized steps.
 
+```bash
+leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out ledger.csv]
+```
+
+Creates a new project and imports discovered PAGE/TEI/ALTO/hOCR documents with sibling-image
+resolution. Rows record `imported`/`skipped`/`failed`, object/surface ids and a note; missing
+images or parse failures are reported, never guessed. The source tree is not modified.
+
 ## TEI/EpiDoc bootstrap (layered profile)
 
 ```bash
