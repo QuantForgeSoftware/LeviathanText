@@ -49,6 +49,14 @@ public sealed class ProjectIntegrityTests
             [
                 project.Objects[0] with
                 {
+                    Fragments =
+                    [
+                        new NativeFragment
+                        {
+                            Id = new EntityId(EntityKind.Fragment, "frag-bad"),
+                            SurfaceIds = [new EntityId(EntityKind.Surface, "surf-missing")],
+                        },
+                    ],
                     Surfaces =
                     [
                         surface with
@@ -82,6 +90,7 @@ public sealed class ProjectIntegrityTests
         Assert.Contains(issues, i => i.Code == "dangling-retraction");
         Assert.Contains(issues, i => i.Code == "duplicate-source-id");
         Assert.Contains(issues, i => i.Code == "revision-cycle");
+        Assert.Contains(issues, i => i.Code == "dangling-fragment-surface");
         Assert.Contains("duplicate-id", ProjectIntegrity.ToCsv(issues));
         Assert.Contains("\"code\"", ProjectIntegrity.ToJson(issues));
         Assert.NotEmpty(bad.Objects[0].Surfaces[0].Lines); // audit does not rewrite
