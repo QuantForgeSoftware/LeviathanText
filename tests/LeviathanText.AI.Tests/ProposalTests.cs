@@ -49,6 +49,22 @@ public class ProposalTests
         Assert.Null(outcome.Proposal);
     }
 
+    [Theory]
+    [InlineData("not json", "structured-extraction-invalid-json")]
+    [InlineData("[]", "structured-extraction-not-object")]
+    [InlineData("""{"lemma":"κύριος"}""", null)]
+    public async Task Structured_extraction_requires_a_json_object(string raw, string? reason)
+    {
+        var request = Request(new EntityId(EntityKind.TranscriptionRevision, "r1")) with
+        {
+            Task = AiTaskKind.StructuredExtraction,
+        };
+        var outcome = await new SchemaValidatingAiProvider(new RawStub(raw)).ProposeAsync(request);
+
+        if (reason is null) Assert.True(outcome.Succeeded);
+        else Assert.Equal(reason, outcome.Failure?.Reason);
+    }
+
     [Fact]
     public async Task Acceptance_CreatesEditorialLayer_AndLeavesDiplomaticTextIntact()
     {

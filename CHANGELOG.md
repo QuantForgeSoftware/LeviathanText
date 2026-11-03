@@ -52,8 +52,9 @@ set: C0-0.4-draft.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.
-- **Advisory AI translation/extraction:** new task kinds and prompts; acceptance is explicitly
-  refused so these results cannot replace L1/L2 witness text. Dedicated persistence/UI remains.
+- **Advisory AI translation/extraction:** new task kinds and prompts; structured extraction must
+  return a JSON object, and acceptance is explicitly refused so these results cannot replace
+  L1/L2 witness text. Dedicated persistence/UI remains.
 - **Invitation management:** admins can list and revoke unused project invitations from the
   API and workspace member panel; consumed invitations remain as history.
 - **Fragment grouping:** native fragments persist external refs/metadata and surface membership,

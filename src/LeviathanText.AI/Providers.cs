@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LeviathanText.Contracts;
 
 namespace LeviathanText.AI;
@@ -60,6 +61,8 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
         }
 
         var reason = Validate(raw, maxTextLength);
+        if (reason is null && request.Task == AiTaskKind.StructuredExtraction)
+            reason = ValidateStructuredJson(raw!);
         if (reason is not null)
             return ProposalOutcome.Failed(new AiProposalFailure
             {
@@ -79,6 +82,20 @@ public sealed class SchemaValidatingAiProvider(IRawAiProvider inner, int maxText
             Confidence = Confidence.Of(0.5, ConfidenceScale.RawModelProbability),
             CreatedAt = DateTimeOffset.UtcNow,
         });
+    }
+
+    private static string? ValidateStructuredJson(string raw)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                ? null : "structured-extraction-not-object";
+        }
+        catch (JsonException)
+        {
+            return "structured-extraction-invalid-json";
+        }
     }
 
     internal static string? Validate(string? raw, int maxTextLength)
