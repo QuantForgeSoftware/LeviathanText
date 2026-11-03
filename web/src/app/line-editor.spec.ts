@@ -144,7 +144,7 @@ describe('LineEditor (L0 copy)', () => {
         history: [{ id: 'rev-l1', layer: 'L1Diplomatic', text: 'abc', author: 'human', at: '' }],
         revisions: [
           { id: 'rev-l1', layer: 'L1Diplomatic', text: 'abc', author: 'human', at: '' },
-          { id: 'rev-l0', layer: 'L0RawRecognition', text: 'model read', author: 'model:tiny', at: '' },
+          { id: 'rev-l0', layer: 'l0RawRecognition', text: 'model read', author: 'model:tiny', at: '' },
         ],
       }),
       annotations: () => of([]),

@@ -526,7 +526,7 @@ export class LineEditor {
 
   protected readonly latestL0 = computed(() => {
     const revisions = this.payload()?.revisions ?? [];
-    return [...revisions].reverse().find(r => r.layer === 'L0RawRecognition') ?? null;
+    return [...revisions].reverse().find(r => (r.layer === 'L0RawRecognition' || r.layer === 'l0RawRecognition')) ?? null;
   });
 
   protected copyLatestL0(): void {
