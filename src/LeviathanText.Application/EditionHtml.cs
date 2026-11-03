@@ -82,9 +82,10 @@ public static class EditionHtml
             apparatusEntries += lineAnnotations.Count;
             html.AppendLine("<li class=\"line\">");
             html.AppendLine($"<span class=\"ln\">{(line.LineNumber is { } n ? n.ToString() : "·")}</span>");
-            html.AppendLine($"<span class=\"greek\">{Encode(l1.Text)}</span>");
+            var direction = line.Direction == TextDirection.Rtl ? " dir=\"rtl\"" : "";
+            html.AppendLine($"<span class=\"greek\"{direction}>{Encode(l1.Text)}</span>");
             if (l2 is not null)
-                html.AppendLine($"<span class=\"editorial\">{Encode(l2.Text)}</span>");
+                html.AppendLine($"<span class=\"editorial\"{direction}>{Encode(l2.Text)}</span>");
             if (lineAnnotations.Count > 0)
             {
                 html.AppendLine("<ul class=\"app\">");

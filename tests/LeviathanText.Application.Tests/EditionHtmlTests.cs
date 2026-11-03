@@ -40,6 +40,7 @@ public sealed class EditionHtmlTests
                     [
                         surface with
                         {
+                            Lines = [line with { Direction = TextDirection.Rtl }],
                             Revisions = [.. surface.Revisions, l2],
                             Annotations = [annotation],
                         },
@@ -55,6 +56,7 @@ public sealed class EditionHtmlTests
         Assert.Contains(l2.Text, result.Html);
         Assert.Contains("Unclear", result.Html);
         Assert.Contains("&lt;damage&gt;", result.Html);
+        Assert.Contains("dir=\"rtl\"", result.Html);
         Assert.Contains("edition-html", result.Report.Format);
         Assert.Contains(result.Report.Entries, entry => entry.Category == "presentation-only");
 
