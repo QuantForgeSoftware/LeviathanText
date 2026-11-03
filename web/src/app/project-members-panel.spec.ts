@@ -14,8 +14,15 @@ describe('ProjectMembersPanel', () => {
         { id: 'usr-b', name: 'ben', role: 'annotator', createdAt: '' },
       ]),
       projectMembers: () => of(members),
-      invites: () => of([]),
-      revokeInvite: () => of({ revoked: true }),
+      invites: () => of([{
+        id: 'inv-1', projectId: 'col-1', role: 'annotator', createdBy: 'admin',
+        createdAt: '2026-11-03T00:00:00Z', expiresAt: '2026-11-04T00:00:00Z',
+        usedAt: null, usedBy: null,
+      }]),
+      revokeInvite: (_project: string, inviteId: string) => {
+        calls.push(`revoke:${inviteId}`);
+        return of({ revoked: true });
+      },
       addProjectMember: (_project: string, userId: string) => {
         calls.push(`add:${userId}`);
         members.push(userId);
@@ -46,5 +53,12 @@ describe('ProjectMembersPanel', () => {
     fixture.detectChanges();
     expect(calls).toContain('add:usr-b');
     expect(fixture.nativeElement.textContent).toContain('2 member(s)');
+
+    expect(fixture.nativeElement.textContent).toContain('inv-1');
+    (Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.trim() === 'Revoke') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(calls).toContain('revoke:inv-1');
+    expect(fixture.nativeElement.textContent).toContain('invitation revoked');
   });
 });
