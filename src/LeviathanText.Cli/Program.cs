@@ -442,6 +442,20 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 3 && rest[1] == "crosswalk":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var csv = ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
+                var outIndex = Array.IndexOf(rest, "--out");
+                if (outIndex >= 0 && outIndex + 1 < rest.Length)
+                {
+                    File.WriteAllText(rest[outIndex + 1], csv);
+                    Console.WriteLine($"crosswalk written: {rest[outIndex + 1]}");
+                }
+                else Console.WriteLine(csv);
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "tei":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1861,6 +1875,7 @@ public static class Program
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--skip-duplicates]
+              leviathan [--store <path>] export crosswalk <projectId> [--out <csv>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]

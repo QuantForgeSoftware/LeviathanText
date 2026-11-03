@@ -21,7 +21,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir; priority ordering + optional per-owner quota (cooperative cancellation) |
 | Review/ops | reviewer packets (crops + decision CSV + apply), persisted review queue, double-review/adjudication ledger, **experiment/run registry + per-line evaluation drilldown (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
-| Export bundle | native + training + 4 formats + manifest |
+| Export bundle | native + training + 4 formats + manifest; read-only provenance crosswalk CSV |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
 | Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link, session list/revoke panel |
@@ -30,7 +30,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Verification
 
-- 953 tests (951 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
+- 954 tests (952 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
   (2026-11-02 cycle close).
 - 49 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
@@ -55,8 +55,9 @@ actionable checklist in [todo.md](../todo.md), completed work in
 - Default layout is single-column; an opt-in two-column gutter split is synthetic-tested only.
   Curved/rotated pages and merged/shallow gutters remain unsupported; learned layout
   underperforms projection on some material (recorded).
-- No entity-level geometry revision history (append-only audit snapshots, client undo and
-  backups only).
+- Geometry uses an append-only audit with line-geometry restore; line add/delete, order,
+  split/merge and orientation edits are not replayed, and there is no entity-level revision
+  chain (client undo and backups remain).
 - TIFF works through a bounded ImageSharp fallback; very large TIFF pages still decode the full
   frame and there is no general tiled decoder.
 - Shared deployment is pilot-grade: local accounts/roles/audit, TTL sessions and a three-way

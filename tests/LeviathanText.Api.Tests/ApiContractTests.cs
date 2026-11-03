@@ -200,6 +200,14 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var history = await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history");
         Assert.Contains("lineGeometry", history);
         Assert.Contains("\"author\":\"api\"", history);
+        using var historyJson = System.Text.Json.JsonDocument.Parse(history);
+        var editId = historyJson.RootElement[historyJson.RootElement.GetArrayLength() - 1]
+            .GetProperty("id").GetString()!;
+        var restored = await client.PostAsJsonAsync(
+            $"/api/v1/surfaces/{surfaceId}/geometry-history/{editId}/restore",
+            new { authorId = "restorer" });
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        Assert.Contains("restorer", await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/geometry-history"));
 
         // Invalid geometry is rejected with the closed vocabulary.
         var bad = await client.PutAsJsonAsync($"/api/v1/lines/{lineId}/geometry", new
@@ -645,6 +653,10 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             var attachment = await client.GetAsync($"/api/v1/projects/{project["id"]}/attachments/{attachmentId}");
             Assert.Equal(HttpStatusCode.OK, attachment.StatusCode);
             Assert.Contains("<TEI", await attachment.Content.ReadAsStringAsync());
+
+            var crosswalk = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/crosswalk");
+            Assert.Contains("tei:surfaceId=source-surface", crosswalk);
+            Assert.Contains(surfaceId, crosswalk);
 
             var tei = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei");
             Assert.Contains("<facsimile>", tei);

@@ -19,6 +19,30 @@ public sealed class GeometryServiceTests
         store.LoadProject(id) ?? throw new InvalidOperationException("project missing");
 
     [Fact]
+    public void A_line_geometry_edit_can_be_restored_from_the_append_only_audit()
+    {
+        var (lineId, surfaceId, service, store) = Setup();
+        var project = Load(store, SampleProjectBuilder.Build().Id);
+        IReadOnlyList<PointD> first = [new(5, 5), new(120, 5), new(120, 40), new(5, 40)];
+        IReadOnlyList<PointD> baseline = [new(6, 38), new(118, 36)];
+        var (afterFirst, _, _) = service.SetLineGeometry(project, lineId, first, baseline);
+
+        IReadOnlyList<PointD> second = [new(10, 10), new(130, 10), new(130, 50), new(10, 50)];
+        var (afterSecond, secondSurface, _) = service.SetLineGeometry(afterFirst, lineId, second, baseline);
+        var editId = secondSurface.GeometryEdits[^1].Id; // its before-state is the first polygon
+
+        var (restored, restoredSurface, restoreEdit) =
+            service.RestoreLineGeometry(afterSecond, surfaceId, editId, "restorer");
+
+        Assert.Equal(first, restoredSurface.Lines.Single(l => l.Id == lineId).Polygon);
+        Assert.Equal("restored " + editId, restoreEdit.Note);
+        Assert.Equal(GeometryEditKind.LineGeometry, restoreEdit.Kind);
+        Assert.Contains(restoredSurface.GeometryEdits, e => e.Id == editId);
+        Assert.Equal(first, Load(store, restored.Id).Objects[0].Surfaces[0]
+            .Lines.Single(l => l.Id == lineId).Polygon);
+    }
+
+    [Fact]
     public void SetLineGeometry_updates_and_persists()
     {
         var (lineId, _, service, store) = Setup();

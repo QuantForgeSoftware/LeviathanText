@@ -373,10 +373,14 @@ public sealed class InterchangeService(ProjectService projects)
             });
         }
 
+        var surfaceRefs = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(parsed.Document?.SurfaceId))
+            surfaceRefs["tei:surfaceId"] = parsed.Document!.SurfaceId!;
         var surface = new NativeSurface
         {
             Id = NewId(EntityKind.Surface, project, "surf"),
             Kind = surfaceKind,
+            ExternalRefs = surfaceRefs,
             Captures = [new NativeCapture
             {
                 Id = captureId,

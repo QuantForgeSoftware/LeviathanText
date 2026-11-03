@@ -30,6 +30,11 @@ set: C0-0.4-draft.
 - **Opt-in two-column projection split:** `layout detect --columns` / `?columns=true` accepts a
   clear vertical gutter, bands each column independently and orders left then right; synthetic
   tests only, default unchanged.
+- **Line-geometry restore:** `POST /surfaces/{id}/geometry-history/{editId}/restore` replays a
+  recorded before-state as a new append-only audit entry (line polygon/baseline only).
+- **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native
+  object/surface/capture/line ids to external refs, image hashes and line source ids without
+  renumbering anything.
 - **Read-only migration inventory:** `migrate inventory` classifies an existing tree
   (PAGE/ALTO/TEI/hOCR/IIIF/images/PDF/models/scripts), records sizes and SHA-256, and reports
   unclassified files without modifying the source.

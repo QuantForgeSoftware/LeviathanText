@@ -94,6 +94,15 @@ public sealed class TeiImportTests : IDisposable
         Assert.NotNull(duplicate);
         Assert.Equal(imported.Id, duplicate!.Id);
         Assert.Null(new InterchangeService(projects).FindTeiDuplicate(reloaded, content + "<!-- changed -->"));
+
+        var crosswalk = Assert.Single(ProvenanceCrosswalk.Build(reloaded));
+        Assert.Equal("tei:surfaceId=surf-source", crosswalk.SurfaceRefs);
+        Assert.Contains("tei:TM=12345", crosswalk.ObjectRefs);
+        Assert.Equal(2, crosswalk.Lines);
+        Assert.Equal("source-line", crosswalk.LineSourceIds);
+        var csv = ProvenanceCrosswalk.ToCsv([crosswalk]);
+        Assert.Contains("objectId,objectRefs,surfaceId,surfaceRefs", csv);
+        Assert.Contains("tei:surfaceId=surf-source", csv);
     }
 
     [Fact]

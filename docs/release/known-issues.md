@@ -39,7 +39,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - The learned row model underperforms projection (negative result recorded).
 - Detection never overwrites existing layout; manual line add/delete is available. Geometry
   and order edits are recorded in a surface-level append-only audit (before/after snapshots),
-  not as revisioned entities; editor undo and backups remain the recovery path.
+  not as revisioned entities. `POST /surfaces/{id}/geometry-history/{editId}/restore` restores
+  a line polygon/baseline from the recorded before-state; other edit kinds are not replayed.
+  Editor undo and backups remain the broader recovery path.
 
 ## Imaging
 

@@ -571,6 +571,75 @@ public sealed class GeometryService(IProjectStore store)
         return (foundProject, updated, merged);
     }
 
+    /// <summary>
+    /// Restore a line's recorded geometry from an append-only audit entry. This is a bounded
+    /// recovery path for <see cref="GeometryEditKind.LineGeometry"/> only; line add/delete,
+    /// order, split/merge and orientation edits are not replayed. The restore is itself a new
+    /// audit entry, so history remains append-only.
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, GeometryEdit Edit) RestoreLineGeometry(
+        NativeProject project, EntityId surfaceId, string editId, string author = "manual-editor")
+    {
+        var (foundProject, surface) = FindSurface(project, surfaceId);
+        var source = surface.GeometryEdits.FirstOrDefault(e => e.Id == editId)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = editId,
+                Message = "No such geometry edit on this surface.",
+            });
+        if (source.Kind != GeometryEditKind.LineGeometry || source.LineId is not { } lineId
+            || string.IsNullOrWhiteSpace(source.Before))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = editId,
+                Message = "Only a line-geometry edit with a recorded before-state can be restored.",
+            });
+
+        var snapshot = JsonSerializer.Deserialize<GeometrySnapshot>(source.Before,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = editId,
+                Message = "The recorded geometry snapshot is unreadable.",
+            });
+        var line = surface.Lines.FirstOrDefault(l => l.Id == lineId)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = lineId.ToString(),
+                Message = "The line no longer exists on this surface.",
+            });
+
+        var current = GeometryJson(line.Polygon, line.Baseline);
+        var restored = GeometryJson(snapshot.Polygon, snapshot.Baseline);
+        var edit = new GeometryEdit
+        {
+            Id = $"ge-{Guid.NewGuid().ToString("N")[..12]}",
+            Kind = GeometryEditKind.LineGeometry,
+            At = DateTimeOffset.UtcNow,
+            Author = author,
+            LineId = lineId,
+            Before = current,
+            After = restored,
+            Note = $"restored {editId}",
+        };
+        var updated = surface with
+        {
+            Lines = [.. surface.Lines.Select(l => l.Id == lineId
+                ? l with { Polygon = snapshot.Polygon, Baseline = snapshot.Baseline }
+                : l)],
+            GeometryEdits = [.. surface.GeometryEdits, edit],
+        };
+        foundProject = WithSurface(foundProject, updated);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
+        return (foundProject, updated, edit);
+    }
+
+    private sealed record GeometrySnapshot(PointD[] Polygon, PointD[] Baseline);
+
     private static string GeometryJson(IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline) =>
         JsonSerializer.Serialize(new { polygon, baseline });
 

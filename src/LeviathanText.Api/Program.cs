@@ -551,6 +551,12 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
     });
 });
 
+api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    return Results.Text(ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project)), "text/csv");
+});
+
 api.MapGet("projects/{id}/attachments/{attachmentId}", (ProjectService projects, string id, string attachmentId) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -800,6 +806,22 @@ api.MapGet("surfaces/{surfaceId}/geometry-history", (ProjectService projects, st
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
     var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == surfaceEntityId);
     return Results.Ok(surface.GeometryEdits);
+});
+
+api.MapPost("surfaces/{surfaceId}/geometry-history/{editId}/restore", (ProjectService projects,
+    GeometryService geometry, string surfaceId, string editId, [FromBody] RestoreGeometryRequest? request) =>
+{
+    var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surfaceEntityId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    var (_, surface, edit) = geometry.RestoreLineGeometry(project, surfaceEntityId, editId,
+        request?.AuthorId ?? "api");
+    return Results.Ok(new
+    {
+        editId = edit.Id,
+        surfaceId = surface.Id.ToString(),
+        lineId = edit.LineId?.ToString(),
+    });
 });
 
 api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] ReadingOrderRequest request) =>
@@ -1502,6 +1524,8 @@ public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, 
 
 public sealed record ImportTeiRequest(string DocumentPath, string ImagePath, string? Kind = null,
     bool SkipDuplicate = false);
+
+public sealed record RestoreGeometryRequest(string? AuthorId = null);
 
 public sealed record CreateSessionRequest(string? SurfaceId = null, int? TtlMinutes = null);
 

@@ -240,6 +240,8 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `export bundle` — zip with native JSON, training export, profile report and all per-surface
   formats + manifest.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
+- `export crosswalk <projectId> [--out <csv>]` — read-only object/surface/capture/line map with
+  external refs, image hash and line source ids; also `GET /projects/{id}/crosswalk`.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`. Add `?report=true` to the TEI
   endpoint for `{ xml, lossReport }` instead of raw XML. Retained original markup is available
@@ -505,6 +507,10 @@ expire without heartbeat and are capped at 20 per user. Passing `sessionId` to t
 heartbeat derives the displayed editor identity from the authenticated principal instead of a
 client-chosen string. Sessions are coordination records, not tokens: each request is still
 authenticated, and there is no push/broker.
+
+**Geometry recovery:** `GET /surfaces/{id}/geometry-history` lists append-only before/after
+snapshots; `POST /surfaces/{id}/geometry-history/{editId}/restore` restores a line polygon and
+baseline from the recorded before-state as a new audit entry. Other edit kinds are not replayed.
 
 **Concurrent text edits:** project saves use an optimistic version. A stale line revision still
 fails with `revision-conflict`, but `POST /api/v1/lines/{id}/revisions` with `merge: true`

@@ -69,6 +69,10 @@ public sealed record NativeSurface
     /// <summary>codex-page | papyrus-side | inscription-face | other:…</summary>
     public required string Kind { get; init; }
 
+    /// <summary>External source identifiers (e.g. "tei:surfaceId", "iiif:canvas").</summary>
+    public IReadOnlyDictionary<string, string> ExternalRefs { get; init; } =
+        new Dictionary<string, string>();
+
     public required IReadOnlyList<NativeCapture> Captures { get; init; }
     public required IReadOnlyList<NativeRegion> Regions { get; init; }
     public required IReadOnlyList<NativeLine> Lines { get; init; }
