@@ -75,6 +75,10 @@ dotnet run --project src/LeviathanText.Api
 # geometry: PUT /lines/{id}/geometry; POST /surfaces/{id}/lines; DELETE /lines/{id}
 # exports: GET /projects/{id}/surfaces/{sid}/diplomatic | tei[?report=true] | alto | hocr | searchable-pdf
 #          GET /projects/{id}/training-export | bundle (zip with manifest) | lines.csv | crosswalk
+# provenance/audit: GET /projects/{id}/crosswalk[?lines=true|fragments=true]
+#                   GET /projects/{id}/integrity[?format=csv] | overlap[?format=csv]
+#                   GET /projects/{id}/word-boundaries
+# fragments: GET/POST /surfaces/{sid}/fragments
 #          GET /projects/{id}/attachments/{id} (retained original markup)
 # sessions: POST /sessions, POST /sessions/{id}/heartbeat, DELETE /sessions/{id},
 #           GET /sessions[?surfaceId=], GET /surfaces/{id}/sessions
