@@ -81,6 +81,7 @@ set: C0-0.4-draft.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.
+- **Migration audit:** `migrate import --audit` writes integrity/overlap JSON beside the ledger.
 - **Worker import resource probe:** a repeatable 200-page import.dir run records API/worker RSS;
   short burst only, no leak claim.
 - **AI provider caps:** the provider picker shows configured spend/request caps without

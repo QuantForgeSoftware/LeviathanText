@@ -47,12 +47,14 @@ public sealed class MigrationCommandTests : IDisposable
         var ledger = Path.Combine(_root, "ledger.csv");
 
         var exit = LeviathanText.Cli.Program.Main(
-            ["--store", Path.Combine(_root, "store.db"), "migrate", "import", _root, "migrated", "--out", ledger]);
+            ["--store", Path.Combine(_root, "store.db"), "migrate", "import", _root, "migrated", "--out", ledger, "--audit"]);
 
         Assert.Equal(0, exit);
         var csv = File.ReadAllText(ledger);
         Assert.Contains("imported", csv);
         Assert.Contains("page.xml", csv);
+        Assert.True(File.Exists(Path.Combine(_root, "integrity.json")));
+        Assert.True(File.Exists(Path.Combine(_root, "overlap.json")));
     }
 
     [Fact]

@@ -200,6 +200,21 @@ public static class Program
                 }
                 foreach (var row in rows.Where(r => r.Status is "skipped" or "failed").Take(20))
                     Console.Error.WriteLine($"{row.Status}: {row.Source}: {row.Note}");
+                if (rest.Contains("--audit"))
+                {
+                    var project = projects.Load(projectId);
+                    var issues = ProjectIntegrity.Audit(project);
+                    var overlaps = CorpusOverlap.Audit(project);
+                    var auditDirectory = outIndex >= 0 && outIndex + 1 < rest.Length
+                        ? Path.GetDirectoryName(Path.GetFullPath(rest[outIndex + 1]))!
+                        : Directory.GetCurrentDirectory();
+                    Directory.CreateDirectory(auditDirectory);
+                    File.WriteAllText(Path.Combine(auditDirectory, "integrity.json"),
+                        ProjectIntegrity.ToJson(issues));
+                    File.WriteAllText(Path.Combine(auditDirectory, "overlap.json"),
+                        CorpusOverlap.ToJson(overlaps));
+                    Console.Error.WriteLine($"audit: {issues.Count} integrity issue(s), {overlaps.Count} overlap(s)");
+                }
                 Console.WriteLine($"project {projectId}; {MigrationImport.Summary(rows)}");
                 return rows.Any(r => r.Status == "failed") ? 1 : 0;
             }
@@ -1994,7 +2009,7 @@ public static class Program
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
               leviathan migrate inventory <existing-tree> [--out <report.json|csv>] [--csv] [--limit N] [--no-hash]
-              leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
+              leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>] [--audit]
               leviathan validate tei <record.xml> [--schema <tei.xsd>] [--expect-schema-sha256 <hash>] [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
