@@ -340,13 +340,15 @@ public static class TeiXml
                 annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased);
         }
 
-        // A repeated reading cannot identify its location in another revision. Report the
-        // ambiguity instead of attaching uncertainty to the first matching letters.
-        var located = FindUniqueScalarIndex(baseRevision.Text, sourceText);
+        // A repeated reading is located by its surrounding text when that context is unique;
+        // truly ambiguous locations are still reported instead of being attached to the first
+        // matching letters.
+        var located = FindContextualScalarIndex(baseRevision.Text, sourceText,
+            anchored.Text, annotation.Range.Start, annotation.Range.End);
         if (located is not { } start)
         {
             losses.Add(new LossEntry("annotation-mapping", 1,
-                $"annotation {annotation.Id} ({annotation.Kind}) has no unique exact span in the rendered layer"));
+                $"annotation {annotation.Id} ({annotation.Kind}) has no unambiguous exact span in the rendered layer"));
             return null;
         }
         return new RenderAnnotation(annotation,
@@ -1391,5 +1393,60 @@ public static class TeiXml
         int found = haystack.IndexOf(needle, StringComparison.Ordinal);
         if (found < 0 || haystack.IndexOf(needle, found + 1, StringComparison.Ordinal) >= 0) return null;
         return ScalarText.Count(haystack[..found]);
+    }
+
+    /// <summary>
+    /// Locate a source span in another layer. Repeated text is resolved by surrounding context;
+    /// when two occurrences have the same context score the mapping is ambiguous and refused.
+    /// </summary>
+    private static int? FindContextualScalarIndex(string target, string needle,
+        string source, int sourceStart, int sourceEnd)
+    {
+        if (needle.Length == 0) return null;
+        int targetScalars = ScalarText.Count(target);
+        int needleScalars = ScalarText.Count(needle);
+        var candidates = new List<int>();
+        for (int i = 0; i + needleScalars <= targetScalars; i++)
+            if (ScalarText.Slice(target, i, i + needleScalars) == needle) candidates.Add(i);
+        if (candidates.Count == 0) return null;
+        if (candidates.Count == 1) return candidates[0];
+
+        int bestScore = -1;
+        int? best = null;
+        bool tied = false;
+        foreach (var candidate in candidates)
+        {
+            int score = ContextScore(source, sourceStart, sourceEnd,
+                target, candidate, candidate + needleScalars);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+                tied = false;
+            }
+            else if (score == bestScore)
+            {
+                tied = true;
+            }
+        }
+        return tied ? null : best;
+    }
+
+    private static int ContextScore(string source, int sourceStart, int sourceEnd,
+        string target, int targetStart, int targetEnd)
+    {
+        int before = 0;
+        while (sourceStart - before > 0 && targetStart - before > 0
+               && ScalarText.Slice(source, sourceStart - before - 1, sourceStart - before)
+                   == ScalarText.Slice(target, targetStart - before - 1, targetStart - before))
+            before++;
+        int after = 0;
+        int sourceCount = ScalarText.Count(source);
+        int targetCount = ScalarText.Count(target);
+        while (sourceEnd + after < sourceCount && targetEnd + after < targetCount
+               && ScalarText.Slice(source, sourceEnd + after, sourceEnd + after + 1)
+                   == ScalarText.Slice(target, targetEnd + after, targetEnd + after + 1))
+            after++;
+        return before + after;
     }
 }

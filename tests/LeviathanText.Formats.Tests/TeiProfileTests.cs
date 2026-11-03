@@ -227,6 +227,47 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Repeated_spans_use_surrounding_context_and_refuse_true_ambiguity()
+    {
+        var lineId = new EntityId(EntityKind.Line, "ln-context");
+        var l1 = new TextRevision
+        {
+            Id = new EntityId(EntityKind.TranscriptionRevision, "rev-context-l1"),
+            ScopeId = lineId,
+            Layer = TextLayer.L1Diplomatic,
+            Author = new AgentRef { Id = "author", IsModel = false },
+            CreatedAt = DateTimeOffset.UtcNow,
+            Text = "αβα",
+        };
+        var l2 = l1 with
+        {
+            Id = new EntityId(EntityKind.TranscriptionRevision, "rev-context-l2"),
+            Layer = TextLayer.L2Editorial,
+            Text = "αβαδ",
+        };
+        var unclear = new Annotation
+        {
+            Id = new EntityId(EntityKind.Annotation, "ann-context"),
+            Kind = AnnotationKind.Unclear,
+            AnchoredRevisionId = l1.Id,
+            Range = new ScalarRange(2, 3),
+        };
+
+        var exported = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(lineId, l1, l2, [unclear])], "context");
+        var reparsed = TeiXml.Import(exported.Xml);
+        var mapped = Assert.Single(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear);
+        Assert.Equal(new ScalarRange(2, 3), mapped.Range);
+
+        var ambiguous = l1 with { Text = "αα" };
+        var ambiguousL2 = l2 with { Text = "αδα" };
+        var ambiguousAnnotation = unclear with { Range = new ScalarRange(0, 1) };
+        var ambiguousExport = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(lineId, ambiguous, ambiguousL2, [ambiguousAnnotation])], "ambiguous");
+        Assert.Contains(ambiguousExport.Report.Entries, e => e.Category == "annotation-mapping");
+    }
+
+    [Fact]
     public void Optional_xsd_validation_accepts_the_pinned_schema_and_reports_errors()
     {
         var schema = Path.Combine(Path.GetTempPath(), $"lt-tei-{Guid.NewGuid():N}.xsd");
@@ -521,14 +562,15 @@ public class TeiProfileTests
     }
 
     [Fact]
-    public void Overlapping_repeated_spans_are_ambiguous()
+    public void Repeated_spans_with_distinct_context_keep_their_location()
     {
-        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>α<unclear>αα</unclear><supplied>δ</supplied></ab></div>"));
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/><supplied>δ</supplied>α<unclear>αα</unclear><supplied>δ</supplied></ab></div>"));
         var exported = RoundtripExport(imported);
         var reparsed = TeiXml.Import(exported.Xml);
         Assert.Equal("ααα", Revision(reparsed, TextLayer.L1Diplomatic).Text);
-        Assert.DoesNotContain(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear);
-        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        Assert.Equal(new ScalarRange(1, 3),
+            reparsed.Annotations.Single(a => a.Kind == AnnotationKind.Unclear).Range);
+        Assert.DoesNotContain(exported.Report.Entries, e => e.Category == "annotation-mapping");
     }
 
 }

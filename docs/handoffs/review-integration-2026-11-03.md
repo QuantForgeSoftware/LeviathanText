@@ -36,7 +36,7 @@ done
 | 6 redirect bypass | API/CLI transports disable automatic redirects; every hop is trust-checked with a five-hop limit; forbidden hops receive no request. |
 | 7 inline spacing | Boundary whitespace on nonempty inline text nodes is preserved while runs collapse. |
 | 8 milestones | Zero-width milestones render at their scalar position, before contained atomic spans when required. |
-| 9 repeated L1→L2 spans | Ambiguous mappings are reported as `annotation-mapping` loss, never attached to the first repeated occurrence; equal layers keep exact scalar coordinates. |
+| 9 repeated L1→L2 spans | Repeated spans are resolved by surrounding context where unique; only tied candidates are reported as `annotation-mapping` loss, never attached to the first occurrence. Equal layers keep exact scalar coordinates. |
 | 10 foreign merge base | Base must belong to the target line, layer and actual ancestry; foreign/disconnected/cyclic bases are rejected. |
 | 11 format-2 registry | Catalogs accept formats 1 and 2 together; unknown formats remain rejected. |
 

@@ -34,6 +34,8 @@ unless a record says otherwise.
   the apparatus and overline.
 - `tests/LeviathanText.Formats.Tests/EpiDocImportTests.cs` — apparatus/choice pairs no longer
   concatenate; word spaces between inline elements are preserved.
+- Cross-layer annotation mapping uses exact text plus surrounding context when a reading
+  repeats; only genuinely tied candidates become `annotation-mapping` loss.
 - `validate tei --schema <xsd>` optionally validates an operator-supplied XSD and reports its
   SHA-256; the schema is not bundled or downloaded, so the operator pins the exact file. The
   bounded profile lint and import remain the default.
