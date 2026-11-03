@@ -74,6 +74,7 @@ These conventions apply to every contract record on the wire:
 | Revisions | Reads may address any revision; writes target a parent revision and fail `revision-conflict` on stale parents (domain-and-pipeline.md §6). With `merge: true`, a stale parent is resolved by a bounded three-way merge; overlapping edits still fail with `conflictStart`/`conflictEnd`/`localText`/`remoteText`. |
 | Project saves | A loaded project carries a store version; a stale save fails `revision-conflict` instead of overwriting a newer document. |
 | Sessions | Server-issued, store-backed coordination records (`POST /sessions`, heartbeat, revoke, list). They bind a user to a node/surface and expire unless heartbeat; they are not authentication tokens or locks. |
+| Provenance crosswalk | Read-only CSV row per surface: native object/surface/capture ids, external refs, image hash, line count and line source ids. It never renumbers or merges entities. |
 | Annotations | Created/updated against a named revision; scalar offsets in, scalar offsets out; server-side UTF-16 conversion endpoints are pure functions and versioned. |
 | Geometry | Always bound to a coordinate frame; cross-frame requests without registration fail `frame-unregistered`. |
 | Exports | Synchronous for bounded sizes; otherwise a job. Response includes export version, profile version, and (when lossy) the loss report inline or by reference. |

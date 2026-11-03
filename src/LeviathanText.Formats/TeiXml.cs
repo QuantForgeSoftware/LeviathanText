@@ -481,9 +481,22 @@ public static class TeiXml
         var unsupported = new List<PageXml.ImportIssue>();
         var lineInfo = new List<TeiLineInfo>();
         var unsupportedCounts = new Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)>(StringComparer.Ordinal);
+        if (provenance.PageBreaks.Any(pb => string.IsNullOrWhiteSpace(pb.Number)))
+            ReportUnsupported(unsupportedCounts, "page-break-without-number", PageXml.IssueSeverity.Note,
+                "a <pb> has no @n; the folio/page label cannot be recorded");
         var usedIds = new HashSet<string>(StringComparer.Ordinal);
         var importToken = Guid.NewGuid().ToString("N")[..8];
         int lineIndex = 0;
+
+        var duplicateIds = body.DescendantsAndSelf()
+            .SelectMany(e => e.Attributes(Xml + "id"))
+            .GroupBy(a => a.Value, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateIds.Count > 0)
+            ReportUnsupported(unsupportedCounts, "duplicate-xml-id", PageXml.IssueSeverity.Loss,
+                $"duplicate @xml:id value(s) were uniquified: {string.Join(", ", duplicateIds.Take(5))}");
 
         foreach (var ab in edition.DescendantsAndSelf(Tei + "ab"))
         {
@@ -770,6 +783,9 @@ public static class TeiXml
                 }
                 case "gap":
                 {
+                    if (element.Attribute("extent") is null)
+                        Report("gap-without-extent", PageXml.IssueSeverity.Note,
+                            "gap has no @extent; imported as unknown extent", unsupported);
                     var extent = ((string?)element.Attribute("extent")) switch
                     {
                         "known" => GapExtent.Known,
@@ -789,6 +805,9 @@ public static class TeiXml
                 {
                     var lem = element.Element(Tei + "lem");
                     var readings = element.Elements(Tei + "rdg").ToList();
+                    if (lem is null && readings.Count == 0)
+                        Report("app-without-reading", PageXml.IssueSeverity.Loss,
+                            "app has neither a lem nor an rdg reading", unsupported);
                     var orig = readings.FirstOrDefault(r => (string?)r.Attribute("type") == "orig");
                     var corr = readings.FirstOrDefault(r => (string?)r.Attribute("type") == "corr");
                     if (orig is not null && corr is not null)
@@ -913,6 +932,8 @@ public static class TeiXml
                         }
                         else
                         {
+                            Report("choice-without-reading", PageXml.IssueSeverity.Loss,
+                                "choice has no supported abbr/expan/orig/reg/sic/corr child", unsupported);
                             WalkChildren(element, unsupported);
                         }
                     }

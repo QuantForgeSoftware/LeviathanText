@@ -19,6 +19,9 @@ set: C0-0.4-draft.
 - **`import tei` CLI and `POST /projects/{id}/import-tei`** for the layered profile; `export tei`
   now prints its loss report to stderr. `--skip-duplicates` (API `skipDuplicate`) reports an
   existing object when the retained source hash matches.
+- **TEI profile lint:** duplicate `@xml:id`, `<pb>` without `@n`, `<gap>` without `@extent`,
+  `<app>` without a reading and `<choice>` without a supported child are reported by import /
+  `validate tei` rather than silently normalized.
 - **NTVMR-style TEI:** word spaces between `<w>`, verse `@n`/`@part`, `<pb>`, orig/corr
   apparatus, standalone `<abbr>` and `<hi rend="overline">` are preserved; the public P46
   page 1440 record smoke-imported 30 lines with verse/overline/correction round-trip.

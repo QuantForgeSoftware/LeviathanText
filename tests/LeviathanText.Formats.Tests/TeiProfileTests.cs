@@ -207,6 +207,28 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Profile_lint_reports_duplicate_ids_and_malformed_structures()
+    {
+        var xml = Prefix + """
+            <text><body>
+              <pb/><div type="edition">
+                <ab xml:id="dup"><lb/>α<gap/></ab>
+                <ab xml:id="dup"><lb/>β<app/><choice><seg>γ</seg></choice></ab>
+              </div>
+            </body></text>
+            """ + Suffix;
+
+        var result = TeiXml.Import(xml);
+        Assert.Contains(result.Unsupported, i => i.Element == "duplicate-xml-id"
+            && i.Severity == PageXml.IssueSeverity.Loss);
+        Assert.Contains(result.Unsupported, i => i.Element == "page-break-without-number"
+            && i.Severity == PageXml.IssueSeverity.Note);
+        Assert.Contains(result.Unsupported, i => i.Element == "gap-without-extent");
+        Assert.Contains(result.Unsupported, i => i.Element == "app-without-reading");
+        Assert.Contains(result.Unsupported, i => i.Element == "choice-without-reading");
+    }
+
+    [Fact]
     public void Facsimile_graphics_tolerate_pixel_units_seen_in_real_epidoc()
     {
         var xml = Prefix

@@ -34,6 +34,9 @@ unless a record says otherwise.
   the apparatus and overline.
 - `tests/LeviathanText.Formats.Tests/EpiDocImportTests.cs` — apparatus/choice pairs no longer
   concatenate; word spaces between inline elements are preserved.
+- Profile lint is part of the same import report: duplicate `@xml:id`, `<pb>` without `@n`,
+  `<gap>` without `@extent`, `<app>` without a reading and `<choice>` without a supported child
+  are reported instead of silently normalized (`validate tei` prints them).
 - `tests/LeviathanText.Application.Tests/TeiImportTests.cs` — product `ImportTei` creates
   lines with numbers, L1/L2 revisions, annotations, image link, rights metadata, external
   refs and the original attachment; `ExportTeiWithReport` restores the facsimile and is
@@ -50,8 +53,9 @@ The public NTVMR P46 page 1440 TEI
 not committed. `import tei` with a local stand-in image produced **30 lines / 11 L2 readings**
 and retained the source as an attachment. Import notes were seven standalone-abbreviation
 notes and nested `<w>`/`<hi>` flattening notes; there was no unsupported-element *loss*. The
-export restored verse labels such as `n="B09K1V10"`, `<hi rend="overline">` spans and
-`<rdg type="corr" hand="corrector">` readings. This is a structural smoke, not a review of
+export restored the folio (`<pb n="081v" type="folio"/>`), verse labels such as
+`n="B09K1V10"`, `<hi rend="overline">` spans and `<rdg type="corr" hand="corrector">`
+readings. This is a structural smoke, not a review of
 readings, word division, accents or image alignment, and it does not make the record
 training/acceptance data.
 
