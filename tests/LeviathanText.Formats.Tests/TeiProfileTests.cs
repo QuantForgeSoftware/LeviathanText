@@ -207,6 +207,26 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Lines_are_associated_with_the_preceding_page_break()
+    {
+        var xml = Prefix + """
+            <text><body>
+              <div type="edition">
+                <pb n="001r"/><ab><lb/>α</ab>
+                <pb n="001v"/><ab><lb/>β</ab>
+              </div>
+            </body></text>
+            """ + Suffix;
+
+        var lines = TeiXml.Import(xml).Document!.Lines;
+
+        Assert.Equal("001r", lines[0].PageNumber);
+        Assert.Equal(1, lines[0].PageIndex);
+        Assert.Equal("001v", lines[1].PageNumber);
+        Assert.Equal(2, lines[1].PageIndex);
+    }
+
+    [Fact]
     public void Profile_lint_reports_duplicate_ids_and_malformed_structures()
     {
         var xml = Prefix + """

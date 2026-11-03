@@ -22,6 +22,9 @@ set: C0-0.4-draft.
 - **TEI profile lint:** duplicate `@xml:id`, `<pb>` without `@n`, `<gap>` without `@extent`,
   `<app>` without a reading and `<choice>` without a supported child are reported by import /
   `validate tei` rather than silently normalized.
+- **Page-filtered TEI import:** `import tei --page <folio>` (API `page`) attaches only the
+  requested `<pb>` page's lines/revisions to the supplied image; duplicate detection includes
+  the folio, and line metadata records the page index/number.
 - **NTVMR-style TEI:** word spaces between `<w>`, verse `@n`/`@part`, `<pb>`, orig/corr
   apparatus, standalone `<abbr>` and `<hi rend="overline">` are preserved; the public P46
   page 1440 record smoke-imported 30 lines with verse/overline/correction round-trip.

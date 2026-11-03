@@ -40,7 +40,9 @@ public static class TeiXml
         TextDirection? Direction,
         string? Script,
         IReadOnlyList<string> Languages,
-        IReadOnlyList<string> Tags);
+        IReadOnlyList<string> Tags,
+        int PageIndex = 0,
+        string? PageNumber = null);
 
     public sealed record TeiDocumentInfo(
         string? Title,
@@ -488,6 +490,14 @@ public static class TeiXml
         var importToken = Guid.NewGuid().ToString("N")[..8];
         int lineIndex = 0;
 
+        var bodyOrder = body.DescendantsAndSelf().ToList();
+        var positions = bodyOrder.Select((element, index) => (element, index))
+            .ToDictionary(pair => pair.element, pair => pair.index);
+        var pageBreakPositions = bodyOrder
+            .Where(element => element.Name == Tei + "pb")
+            .Select(element => (Position: positions[element], Number: (string?)element.Attribute("n")))
+            .ToList();
+
         var duplicateIds = body.DescendantsAndSelf()
             .SelectMany(e => e.Attributes(Xml + "id"))
             .GroupBy(a => a.Value, StringComparer.Ordinal)
@@ -503,6 +513,10 @@ public static class TeiXml
             var direction = ParseDirection(ab);
             var script = ParseScript(ab);
             var languages = ParseLanguages(ab);
+            int abPosition = positions[ab];
+            var precedingBreaks = pageBreakPositions.Where(pb => pb.Position < abPosition).ToList();
+            int pageIndex = precedingBreaks.Count;
+            string? pageNumber = precedingBreaks.LastOrDefault().Number;
             foreach (var segment in SplitSegments(ab))
             {
                 lineIndex++;
@@ -515,7 +529,9 @@ public static class TeiXml
                     direction,
                     script,
                     languages,
-                    ParseTags(ab));
+                    ParseTags(ab),
+                    pageIndex,
+                    pageNumber);
                 lineInfo.Add(info);
 
                 var built = new SegmentBuilder()

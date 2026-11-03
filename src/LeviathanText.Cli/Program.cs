@@ -315,10 +315,12 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var kind = rest.Length >= 7 && rest[5] == "--kind" ? rest[6] : "page";
+                var pageIndex = Array.IndexOf(rest, "--page");
+                var page = pageIndex >= 0 && pageIndex + 1 < rest.Length ? rest[pageIndex + 1] : null;
                 if (Array.IndexOf(rest, "--skip-duplicates") >= 0)
                 {
                     var source = File.ReadAllText(rest[3]);
-                    var duplicate = interchange.FindTeiDuplicate(project, source);
+                    var duplicate = interchange.FindTeiDuplicate(project, source, page);
                     if (duplicate is not null)
                     {
                         Console.WriteLine($"skipped duplicate source: object {duplicate.Id}, " +
@@ -326,7 +328,7 @@ public static class Program
                         return 0;
                     }
                 }
-                var (imported, notes, imageUrl) = interchange.ImportTei(project, rest[3], rest[4], kind);
+                var (imported, notes, imageUrl) = interchange.ImportTei(project, rest[3], rest[4], kind, page);
                 foreach (var note in notes)
                     Console.Error.WriteLine($"{note.Severity}: {note.Element}: {note.Description}");
                 Console.WriteLine($"imported {imported.Surfaces[0].Lines.Count} TEI line(s) with " +
@@ -1874,7 +1876,7 @@ public static class Program
               leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
-              leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--skip-duplicates]
+              leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
               leviathan [--store <path>] export crosswalk <projectId> [--out <csv>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>

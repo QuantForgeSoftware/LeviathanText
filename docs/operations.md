@@ -337,8 +337,13 @@ checkout inspection remain separate authorized steps.
 ## TEI/EpiDoc bootstrap (layered profile)
 
 ```bash
-leviathan --store pilot.db import tei <projectId> <record.xml> <photo.jpg> [--kind page] [--skip-duplicates]
+leviathan --store pilot.db import tei <projectId> <record.xml> <photo.jpg> [--kind page] [--page <folio>] [--skip-duplicates]
 ```
+
+A multi-page TEI can be imported one folio at a time with `--page <pb n=...>` (API `page`);
+only the matching lines/revisions/annotations are attached to the supplied image, while the
+full source is retained. Duplicate detection includes the folio, so sibling pages are not
+mistaken for a repeat import.
 
 PAGE, ALTO/hOCR/ABBYY and TEI imports also retain the bounded original markup as a
 checksummed attachment (`original-*-markup`) when it fits the 2 MiB cap.

@@ -106,6 +106,36 @@ public sealed class TeiImportTests : IDisposable
     }
 
     [Fact]
+    public void Page_filter_imports_only_the_requested_folio_and_is_page_aware_for_duplicates()
+    {
+        var (_, image, _) = Fixture();
+        var content = """
+            <TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+              <div type="edition">
+                <pb n="001r"/><ab><lb/>αλφα</ab>
+                <pb n="001v"/><ab><lb/>βητα</ab>
+              </div>
+            </body></text></TEI>
+            """;
+        var xml = Path.Combine(_dir, "two-pages.xml");
+        File.WriteAllText(xml, content);
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("tei-pages");
+        var interchange = new InterchangeService(projects);
+
+        var (imported, _, _) = interchange.ImportTei(project, xml, image, "page", "001v");
+
+        var line = Assert.Single(imported.Surfaces[0].Lines);
+        Assert.Equal("βητα", Assert.Single(imported.Surfaces[0].Revisions,
+            r => r.Layer == TextLayer.L1Diplomatic).Text);
+        Assert.Equal("001v", imported.Metadata["tei:importPage"]);
+        Assert.Equal("001v", imported.Metadata["tei:folio"]);
+        Assert.Null(interchange.FindTeiDuplicate(store.LoadProject(project.Id)!, content, "001r"));
+        Assert.NotNull(interchange.FindTeiDuplicate(store.LoadProject(project.Id)!, content, "001v"));
+    }
+
+    [Fact]
     public void Export_restores_facsimile_line_numbers_and_loss_report()
     {
         var (xml, image, _) = Fixture();

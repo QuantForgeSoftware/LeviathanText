@@ -71,8 +71,10 @@ training/acceptance data.
   when the attachment is omitted, so repeat-import detection still works.
 - Product `import tei` still requires a local image; remote TEI image URLs are recorded but
   not fetched.
-- A TEI containing multiple `<pb>` pages is imported as one surface; page breaks are recorded
-  in metadata/counts but are not split into multiple surfaces yet.
+- A multi-page TEI is imported one folio at a time with `--page <pb n=...>`; page breaks are
+  associated with lines and the full source is still retained. Importing the whole document
+  without a page filter produces one surface containing all lines, which may not match the
+  supplied image.
 - Export maps annotations by exact text when layers differ. A span that cannot be located is
   reported (`annotation-mapping`) rather than guessed.
 - No specialist has adjudicated a real record's readings, and no acceptance threshold is

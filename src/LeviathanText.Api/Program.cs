@@ -523,7 +523,7 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
     var interchange = new InterchangeService(projects);
-    if (request.SkipDuplicate && interchange.FindTeiDuplicate(project, File.ReadAllText(request.DocumentPath)) is { } duplicate)
+    if (request.SkipDuplicate && interchange.FindTeiDuplicate(project, File.ReadAllText(request.DocumentPath), request.Page) is { } duplicate)
     {
         return Results.Ok(new
         {
@@ -538,7 +538,7 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
         });
     }
     var (imported, notes, imageUrl) = interchange
-        .ImportTei(project, request.DocumentPath, request.ImagePath, request.Kind ?? "page");
+        .ImportTei(project, request.DocumentPath, request.ImagePath, request.Kind ?? "page", request.Page);
     return Results.Ok(new
     {
         objectId = imported.Id.ToString(),
@@ -1523,7 +1523,7 @@ public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = 
 public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
 
 public sealed record ImportTeiRequest(string DocumentPath, string ImagePath, string? Kind = null,
-    bool SkipDuplicate = false);
+    bool SkipDuplicate = false, string? Page = null);
 
 public sealed record RestoreGeometryRequest(string? AuthorId = null);
 

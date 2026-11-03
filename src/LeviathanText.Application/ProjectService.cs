@@ -335,18 +335,20 @@ public sealed class InterchangeService(ProjectService projects)
     /// Find an existing object whose retained TEI attachment has exactly this source hash.
     /// Used for an explicit repeat-import/dedup report; detection does not mutate the project.
     /// </summary>
-    public NativeObject? FindTeiDuplicate(NativeProject project, string xml)
+    public NativeObject? FindTeiDuplicate(NativeProject project, string xml, string? pageNumber = null)
     {
         var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(xml)));
         return project.Objects.FirstOrDefault(o =>
-            o.Attachments.Any(a => string.Equals(a.Sha256, hash, StringComparison.OrdinalIgnoreCase))
-            || (o.Metadata.TryGetValue("tei:sourceSha256", out var stored)
-                && string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase)));
+            string.Equals(o.Metadata.GetValueOrDefault("tei:importPage"), pageNumber, StringComparison.Ordinal)
+            && (o.Attachments.Any(a => string.Equals(a.Sha256, hash, StringComparison.OrdinalIgnoreCase))
+                || (o.Metadata.TryGetValue("tei:sourceSha256", out var stored)
+                    && string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase))));
     }
 
     public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Notes, string? ImageUrl)
-        ImportTei(NativeProject project, string teiPath, string imagePath, string surfaceKind = "page")
+        ImportTei(NativeProject project, string teiPath, string imagePath, string surfaceKind = "page",
+            string? pageNumber = null)
     {
         if (!File.Exists(teiPath))
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = teiPath, Message = "TEI file is not readable." });
@@ -361,8 +363,26 @@ public sealed class InterchangeService(ProjectService projects)
         var captureId = NewCaptureId(project);
         var regionId = NewId(EntityKind.Region, project, "reg");
         var lines = new List<NativeLine>();
-        var info = parsed.Document?.Lines ?? [];
-        var revisionGroups = parsed.Revisions.GroupBy(r => r.ScopeId).ToDictionary(g => g.Key, g => g.ToList());
+        var info = (parsed.Document?.Lines ?? []).ToList();
+        if (!string.IsNullOrWhiteSpace(pageNumber))
+        {
+            var selected = info.Where(line => string.Equals(line.PageNumber, pageNumber, StringComparison.Ordinal)).ToList();
+            if (selected.Count == 0)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.InputMissing,
+                    Scope = pageNumber,
+                    Message = "No lines belong to the requested TEI page/folio.",
+                });
+            info = selected;
+        }
+        var selectedLineIds = info.Select(line => line.LineId).ToHashSet();
+        var selectedRevisions = parsed.Revisions
+            .Where(revision => selectedLineIds.Contains(revision.ScopeId)).ToList();
+        var selectedRevisionIds = selectedRevisions.Select(revision => revision.Id).ToHashSet();
+        var selectedAnnotations = parsed.Annotations
+            .Where(annotation => selectedRevisionIds.Contains(annotation.AnchoredRevisionId)).ToList();
+        var revisionGroups = selectedRevisions.GroupBy(r => r.ScopeId).ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var lineInfo in info)
         {
@@ -422,8 +442,8 @@ public sealed class InterchangeService(ProjectService projects)
                 ReadingOrderIndex = 0,
             }],
             Lines = lines,
-            Revisions = parsed.Revisions,
-            Annotations = parsed.Annotations,
+            Revisions = selectedRevisions,
+            Annotations = selectedAnnotations,
         };
 
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -433,10 +453,13 @@ public sealed class InterchangeService(ProjectService projects)
         if (parsed.Document?.PageBreaks is { Count: > 0 } breaks)
         {
             metadata["tei:pageBreaks"] = breaks.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!string.IsNullOrWhiteSpace(breaks[0].Number)) metadata["tei:folio"] = breaks[0].Number!;
+            if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:folio"] = pageNumber!;
+            else if (!string.IsNullOrWhiteSpace(breaks[0].Number)) metadata["tei:folio"] = breaks[0].Number!;
         }
+        else if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:folio"] = pageNumber!;
         if (parsed.Unsupported.Count > 0) metadata["tei:unsupported"] = parsed.Unsupported.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         metadata["tei:sourceSha256"] = sourceHash;
+        if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:importPage"] = pageNumber!;
 
         var externalRefs = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var idno in parsed.Document?.Idnos ?? [])
