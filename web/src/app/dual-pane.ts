@@ -18,22 +18,22 @@ import { scalarCount, scalarDiff } from './text-utils';
         <div class="pane">
           <h4>Diplomatic (L1)</h4>
           @if (hasEditorial() && !diff().equal) {
-            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().aMiddle }}</span>{{ diff().suffix }}</p>
+            <p class="greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().aMiddle }}</span>{{ diff().suffix }}</p>
           } @else {
-            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diplomatic() }}</p>
+            <p class="greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ diplomatic() }}</p>
           }
           <p class="hint">{{ scalarCountOf(diplomatic()) }} scalars</p>
           @if (boundaries().length > 0) {
-            <p class="boundary greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ withBoundaries(diplomatic()) }}</p>
+            <p class="boundary greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ withBoundaries(diplomatic()) }}</p>
             <p class="hint">· proposed word boundaries (derived; witness text is unchanged)</p>
           }
         </div>
         <div class="pane">
           <h4>Editorial (L2)</h4>
           @if (hasEditorial() && !diff().equal) {
-            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().bMiddle }}</span>{{ diff().suffix }}</p>
+            <p class="greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ diff().prefix }}<span class="changed">{{ diff().bMiddle }}</span>{{ diff().suffix }}</p>
           } @else {
-            <p class="greek" [attr.dir]="direction() === 'Rtl' ? 'rtl' : null">{{ editorial() }}</p>
+            <p class="greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ editorial() }}</p>
           }
           <p class="hint">
             {{ hasEditorial() ? scalarCountOf(editorial()) + ' scalars' : 'no editorial reading yet' }}

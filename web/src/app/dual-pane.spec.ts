@@ -6,7 +6,7 @@ import { DualPane } from './dual-pane';
 describe('DualPane (diff)', () => {
   it('highlights the changed middle between L1 and L2', () => {
     const stub = {
-      line: () => of({ line: 'ln1', diplomatic: 'abc', history: [] }),
+      line: () => of({ line: 'ln1', diplomatic: 'abc', direction: 'rtl', history: [] }),
       lineLayerHistory: () => of([{ id: 'rev-l2', layer: 'L2Editorial', text: 'axc', author: 'editor', at: '' }]),
       annotations: () => of([{
         id: 'ann-b', kind: 'wordBoundary', anchoredRevisionId: 'rev-l1',
@@ -28,5 +28,6 @@ describe('DualPane (diff)', () => {
     expect(fixture.nativeElement.textContent).toContain('prefix/suffix diff');
     expect(fixture.nativeElement.textContent).toContain('a·bc');
     expect(fixture.nativeElement.textContent).toContain('proposed word boundaries');
+    expect((fixture.nativeElement.querySelector('.greek') as HTMLElement).getAttribute('dir')).toBe('rtl');
   });
 });
