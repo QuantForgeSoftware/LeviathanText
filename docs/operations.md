@@ -252,9 +252,10 @@ made; use the local scripted/Ollama smoke paths for verification.
   is `.../searchable-pdf`; add `?report=true` for `{ pdf: base64, lossReport }`.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
-- `export bundle` — zip with native JSON, training export, profile report, integrity/overlap audit,
+- `export bundle [--images]` — zip with native JSON, training export, profile report, integrity/overlap audit,
   surface/line/fragment crosswalks, annotation CSVs, per-surface formats/searchable PDFs/edition HTML and
-  manifest.
+  manifest. `--images` / `?images=true` adds local source images up to 25 MiB each and a
+  250 MiB total cap; unreadable/oversize images are listed in `images-omitted.txt`.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - `export crosswalk <projectId> [--lines] [--out <csv>]` — read-only surface map, or a per-line
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.

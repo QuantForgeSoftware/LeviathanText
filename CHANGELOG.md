@@ -49,6 +49,8 @@ set: C0-0.4-draft.
   CLI trust policy.
 - **Bundle searchable PDFs:** bundles include each surface's searchable PDF and its loss report
   when capture/line geometry permits.
+- **Opt-in bundle images:** `export bundle --images` / `?images=true` copies local source
+  images with per-file/total caps and an omission ledger.
 - **Bundle edition HTML:** bundles include each surface's edition.html and loss report.
 - **Edition HTML:** `export edition-html` / API endpoint renders L1, optional L2 and a
   line-by-line apparatus as printable HTML with escaping and a loss report; CLI/API/UI tested.

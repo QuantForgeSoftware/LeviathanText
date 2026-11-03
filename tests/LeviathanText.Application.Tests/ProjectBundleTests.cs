@@ -8,6 +8,48 @@ namespace LeviathanText.Application.Tests;
 public sealed class ProjectBundleTests
 {
     [Fact]
+    public void Opt_in_bundle_images_are_copied_and_omissions_are_reported()
+    {
+        var image = Path.Combine(Path.GetTempPath(), $"lt-image-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(image, [1, 2, 3, 4, 5]);
+        var project = SampleProjectBuilder.Build();
+        var surface = project.Objects[0].Surfaces[0];
+        var capture = surface.Captures[0] with { ImageLocation = image };
+        var modified = project with
+        {
+            Objects =
+            [
+                project.Objects[0] with
+                {
+                    Surfaces =
+                    [
+                        surface with { Captures = [capture] },
+                    ],
+                },
+            ],
+        };
+        var path = Path.Combine(Path.GetTempPath(), $"lt-bundle-{Guid.NewGuid():N}.zip");
+        try
+        {
+            ProjectBundle.Export(modified, path, includeImages: true);
+
+            using var archive = ZipFile.OpenRead(path);
+            var names = archive.Entries.Select(e => e.FullName).ToList();
+            Assert.Contains($"images/{capture.Id}.png", names);
+            Assert.DoesNotContain("images-omitted.txt", names);
+            using var stream = archive.GetEntry($"images/{capture.Id}.png")!.Open();
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            Assert.Equal([1, 2, 3, 4, 5], memory.ToArray());
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(image)) File.Delete(image);
+        }
+    }
+
+    [Fact]
     public void Bundle_contains_manifest_project_and_per_surface_exports()
     {
         var project = SampleProjectBuilder.Build();

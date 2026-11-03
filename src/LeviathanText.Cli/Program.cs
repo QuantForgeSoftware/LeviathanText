@@ -454,7 +454,7 @@ public static class Program
             {
                 if (rest.Length < 4) { Console.Error.WriteLine("usage: export bundle <projectId> <out.zip>"); return 1; }
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
-                var result = ProjectBundle.Export(project, rest[3]);
+                var result = ProjectBundle.Export(project, rest[3], rest.Contains("--images"));
                 Console.WriteLine($"bundle: {result.Path} ({result.FileCount} files, {result.SizeBytes} bytes)");
                 return 0;
             }

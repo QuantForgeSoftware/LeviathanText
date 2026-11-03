@@ -959,11 +959,11 @@ api.MapGet("projects/{id}/lines.csv", (ProjectService projects, string id) =>
     return Results.Text(LineCsv.Export(project), "text/csv");
 });
 
-api.MapGet("projects/{id}/bundle", (ProjectService projects, string id) =>
+api.MapGet("projects/{id}/bundle", (ProjectService projects, string id, bool? images) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
     var path = Path.Combine(Path.GetTempPath(), $"leviathantext-{project.Id}.zip");
-    ProjectBundle.Export(project, path);
+    ProjectBundle.Export(project, path, images == true);
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/zip", $"{project.Id}.zip");

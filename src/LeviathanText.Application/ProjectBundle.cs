@@ -17,7 +17,7 @@ public static class ProjectBundle
 {
     public sealed record Result(string Path, int FileCount, long SizeBytes);
 
-    public static Result Export(NativeProject project, string targetZipPath)
+    public static Result Export(NativeProject project, string targetZipPath, bool includeImages = false)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetZipPath);
@@ -45,6 +45,32 @@ public static class ProjectBundle
             using var stream = entry.Open();
             stream.Write(content);
             files.Add(name);
+        }
+
+        if (includeImages)
+        {
+            var omitted = new List<string>();
+            long totalImageBytes = 0;
+            foreach (var capture in project.Objects.SelectMany(o => o.Surfaces)
+                         .SelectMany(s => s.Captures).GroupBy(c => c.Id).Select(g => g.First()))
+            {
+                var imagePath = capture.ImageLocation;
+                if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+                {
+                    omitted.Add($"{capture.Id}: source not local/readable");
+                    continue;
+                }
+                var info = new FileInfo(imagePath);
+                if (info.Length > 25 * 1024 * 1024 || totalImageBytes + info.Length > 250L * 1024 * 1024)
+                {
+                    omitted.Add($"{capture.Id}: size limit");
+                    continue;
+                }
+                totalImageBytes += info.Length;
+                AddBytes($"images/{capture.Id}{info.Extension}", File.ReadAllBytes(imagePath));
+            }
+            if (omitted.Count > 0)
+                Add("images-omitted.txt", string.Join('\n', omitted) + "\n");
         }
 
         Add("project.json", NativeJson.Save(project));
