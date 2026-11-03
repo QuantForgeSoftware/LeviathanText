@@ -43,7 +43,7 @@ set: C0-0.4-draft.
   recorded before-state as a new append-only audit entry (line polygon/baseline only).
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native
   object/surface/capture/line ids to external refs, image hashes and line source ids without
-  renumbering anything.
+  renumbering anything; bundle exports include `crosswalk.csv`.
 - **Bounded migration import:** `migrate import` creates a new project and imports discovered
   PAGE/TEI/ALTO/hOCR documents with sibling-image resolution, writing an
   imported/skipped/failed ledger; missing images are reported, not guessed.

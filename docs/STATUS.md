@@ -21,7 +21,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir; priority ordering + optional per-owner quota (cooperative cancellation) |
 | Review/ops | reviewer packets (crops + decision CSV + apply), persisted review queue, double-review/adjudication ledger, **experiment/run registry + per-line evaluation drilldown (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
-| Export bundle | native + training + 4 formats + manifest; read-only provenance crosswalk CSV |
+| Export bundle | native + training + crosswalk + 4 formats + manifest |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
 | Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link, session list/revoke panel |
