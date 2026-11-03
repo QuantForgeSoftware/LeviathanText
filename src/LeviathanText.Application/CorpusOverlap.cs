@@ -54,4 +54,20 @@ public static class CorpusOverlap
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
             WriteIndented = true,
         });
+
+    public static string ToCsv(IReadOnlyList<Overlap> rows)
+    {
+        var builder = new System.Text.StringBuilder("kind,value,entities,note\n");
+        foreach (var row in rows)
+            builder.AppendLine(string.Join(',', new[]
+            {
+                Quote(row.Kind), Quote(row.Value), Quote(row.Entities), Quote(row.Note),
+            }));
+        return builder.ToString();
+    }
+
+    private static string Quote(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
 }

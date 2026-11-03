@@ -33,6 +33,7 @@ public sealed class CorpusOverlapTests
         Assert.Contains(overlaps, overlap => overlap.Kind == "external-ref");
         Assert.Contains(overlaps, overlap => overlap.Kind == "image-checksum");
         Assert.Contains("image-checksum", CorpusOverlap.ToJson(overlaps));
+        Assert.Contains("kind,value,entities,note", CorpusOverlap.ToCsv(overlaps));
         Assert.Equal(2, withTwo.Objects.Count); // read-only
     }
 }
