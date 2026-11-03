@@ -246,7 +246,7 @@ made; use the local scripted/Ollama smoke paths for verification.
   is `.../searchable-pdf`; add `?report=true` for `{ pdf: base64, lossReport }`.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
-- `export bundle` — zip with native JSON, training export, profile report, integrity audit,
+- `export bundle` — zip with native JSON, training export, profile report, integrity/overlap audit,
   surface/line/fragment crosswalks, annotation CSVs, per-surface formats/searchable PDFs and
   manifest.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
