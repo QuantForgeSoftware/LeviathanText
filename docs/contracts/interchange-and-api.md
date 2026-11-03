@@ -75,7 +75,7 @@ These conventions apply to every contract record on the wire:
 | Project saves | A loaded project carries a store version; a stale save fails `revision-conflict` instead of overwriting a newer document. |
 | Sessions | Server-issued, store-backed coordination records (`POST /sessions`, heartbeat, revoke, list). They bind a user to a node/surface and expire unless heartbeat; they are not authentication tokens or locks. |
 | Provenance crosswalk | Read-only CSV rows per surface, line and fragment: native ids, external refs, image hash, revision/source ids. It never renumbers or merges entities. |
-| Fragment grouping | Optional native fragment records group surfaces of one object with external refs/metadata. Boundaries are explicit; importers do not infer them from source availability. |
+| Fragment grouping | Optional native fragment records group surfaces of one object with external refs/metadata. Project/object and surface-level GET/POST endpoints exist; boundaries are explicit and importers do not infer them from source availability. |
 | Annotations | Created/updated against a named revision; scalar offsets in, scalar offsets out; server-side UTF-16 conversion endpoints are pure functions and versioned. |
 | Geometry | Always bound to a coordinate frame; cross-frame requests without registration fail `frame-unregistered`. |
 | Exports | Synchronous for bounded sizes; otherwise a job. Response includes export version, profile version, and (when lossy) the loss report inline or by reference. |
