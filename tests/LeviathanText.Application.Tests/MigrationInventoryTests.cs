@@ -57,6 +57,9 @@ public sealed class MigrationInventoryTests : IDisposable
         var json = MigrationInventory.ToJson(report);
         Assert.Contains("\"page-xml\"", json);
         Assert.Contains("images/page.jpg", json);
+        var csv = MigrationInventory.ToCsv(report);
+        Assert.Contains("relativePath,kind,bytes,sha256,note", csv);
+        Assert.Contains("page.xml,page-xml", csv);
     }
 
     [Fact]

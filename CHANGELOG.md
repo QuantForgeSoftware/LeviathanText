@@ -67,7 +67,7 @@ set: C0-0.4-draft.
 - **Bounded migration import:** `migrate import` creates a new project and imports discovered
   PAGE/TEI/ALTO/hOCR documents with sibling-image resolution, writing an
   imported/skipped/failed ledger; missing images are reported, not guessed.
-- **Read-only migration inventory:** `migrate inventory` classifies an existing tree
+- **Read-only migration inventory:** `migrate inventory` (JSON or `--csv`) classifies an existing tree
   (PAGE/ALTO/TEI/hOCR/IIIF/images/PDF/models/scripts), records sizes and SHA-256, and reports
   unclassified files without modifying the source.
 - **Optimistic project versions:** stale project saves now fail `revision-conflict` instead of

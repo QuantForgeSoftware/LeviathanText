@@ -174,9 +174,10 @@ public static class Program
                     : MigrationInventory.DefaultMaxFiles;
                 var report = MigrationInventory.Scan(rest[2], limit,
                     computeHashes: Array.IndexOf(rest, "--no-hash") < 0);
-                var json = MigrationInventory.ToJson(report);
-                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], json);
-                else Console.WriteLine(json);
+                var output = rest.Contains("--csv")
+                    ? MigrationInventory.ToCsv(report) : MigrationInventory.ToJson(report);
+                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], output);
+                else Console.Write(output);
                 Console.Error.WriteLine($"inventoried {report.FileCount} file(s), {report.TotalBytes} byte(s): " +
                     string.Join(", ", report.Counts.Select(c => $"{c.Key}={c.Value}")));
                 foreach (var note in report.Notes.Take(10)) Console.Error.WriteLine($"note: {note}");
@@ -1927,7 +1928,7 @@ public static class Program
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
-              leviathan migrate inventory <existing-tree> [--out <report.json>] [--limit N] [--no-hash]
+              leviathan migrate inventory <existing-tree> [--out <report.json|csv>] [--csv] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>]
               leviathan validate tei <record.xml> [--schema <tei.xsd>] [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]

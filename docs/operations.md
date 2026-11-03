@@ -348,7 +348,7 @@ chooses a filesystem path.
 ## Migration inventory (read-only)
 
 ```bash
-leviathan migrate inventory <existing-tree> --out inventory.json [--limit N] [--no-hash]
+leviathan migrate inventory <existing-tree> --out inventory.json [--csv] [--limit N] [--no-hash]
 ```
 
 Scans an existing collection tree without modifying it, classifies files by content

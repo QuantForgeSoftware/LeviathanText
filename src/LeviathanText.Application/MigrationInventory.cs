@@ -112,6 +112,26 @@ public static class MigrationInventory
 
     public static string ToJson(Report report) => JsonSerializer.Serialize(report, JsonOptions);
 
+    public static string ToCsv(Report report)
+    {
+        var builder = new StringBuilder("relativePath,kind,bytes,sha256,note\n");
+        foreach (var file in report.Files)
+        {
+            builder.AppendLine(string.Join(',', new[]
+            {
+                Quote(file.RelativePath), Quote(file.Kind),
+                file.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Quote(file.Sha256 ?? ""), Quote(file.Note ?? ""),
+            }));
+        }
+        return builder.ToString();
+    }
+
+    private static string Quote(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
