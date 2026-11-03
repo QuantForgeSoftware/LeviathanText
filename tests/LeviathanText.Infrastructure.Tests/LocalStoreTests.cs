@@ -65,6 +65,81 @@ public class LocalStoreTests : IDisposable
         Assert.Equal("first", second.LoadProject(saved.Id)!.Name);
     }
 
+    [Theory]
+    [InlineData(7)]
+    [InlineData(9)]
+    public void Previously_persisted_zero_version_projects_reject_stale_first_saves(int schema)
+    {
+        var saved = MinimalProject();
+        if (schema == 9)
+        {
+            using var current = new LocalStore(_path);
+            current.SaveProject(saved);
+        }
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path}"))
+        {
+            connection.Open();
+            var command = connection.CreateCommand();
+            if (schema == 7)
+            {
+                // A genuine old table has no version column. Retaining the new column
+                // while only downgrading user_version would miss the migration defect.
+                command.CommandText = """
+                    CREATE TABLE projects (
+                        id TEXT PRIMARY KEY, name TEXT NOT NULL,
+                        contract_version TEXT NOT NULL, json TEXT NOT NULL);
+                    PRAGMA user_version=7;
+                    INSERT INTO projects VALUES ($id, $name, $contract, $json);
+                    """;
+                var document = System.Text.Json.Nodes.JsonNode.Parse(NativeJson.Save(saved))!;
+                document["project"]!.AsObject().Remove("version");
+                command.Parameters.AddWithValue("$id", saved.Id.ToString());
+                command.Parameters.AddWithValue("$name", saved.Name);
+                command.Parameters.AddWithValue("$contract", ContractVersion.Current);
+                command.Parameters.AddWithValue("$json", document.ToJsonString());
+            }
+            else
+            {
+                command.CommandText = "UPDATE projects SET version=0";
+            }
+            command.ExecuteNonQuery();
+        }
+
+        using var first = new LocalStore(_path);
+        using var second = new LocalStore(_path);
+        var firstSnapshot = first.LoadProject(saved.Id)!;
+        var staleSnapshot = second.LoadProject(saved.Id)!;
+        first.SaveProject(firstSnapshot with { Name = "first writer" });
+
+        var exception = Assert.Throws<LeviathanException>(() =>
+            second.SaveProject(staleSnapshot with { Name = "stale writer" }));
+        Assert.Equal(ErrorCode.RevisionConflict, exception.Error.Code);
+        Assert.True(firstSnapshot.Version > 0);
+        Assert.Equal(firstSnapshot.Version, staleSnapshot.Version);
+        Assert.Equal("first writer", first.LoadProject(saved.Id)!.Name);
+        Assert.Equal(saved.Objects.Count, firstSnapshot.Objects.Count);
+        var afterSave = first.LoadProject(saved.Id)!;
+        using var reopened = new LocalStore(_path);
+        Assert.Equal(afterSave.Version, reopened.LoadProject(saved.Id)!.Version);
+    }
+
+    [Fact]
+    public void Legacy_unversioned_upserts_remain_supported_and_loads_acquire_a_version()
+    {
+        using var store = new LocalStore(_path);
+        var unversioned = MinimalProject();
+        Assert.Equal(1, store.SaveProject(unversioned));
+        Assert.Equal(2, store.SaveProject(unversioned with { Name = "legacy update" }));
+
+        var loaded = store.LoadProject(unversioned.Id)!;
+        Assert.Equal(2, loaded.Version);
+        Assert.Equal("legacy update", loaded.Name);
+        Assert.Equal(3, store.SaveProject(loaded with { Name = "versioned update" }));
+        Assert.Throws<LeviathanException>(() => store.SaveProject(loaded));
+        Assert.Equal("versioned update", store.LoadProject(unversioned.Id)!.Name);
+    }
+
     [Fact]
     public void Backup_includes_attachments_and_sessions()
     {

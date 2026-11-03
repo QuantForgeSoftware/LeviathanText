@@ -368,4 +368,134 @@ public class TeiProfileTests
         Assert.Contains(multiPage.Report.Entries, e => e.Category == "page-breaks" && e.Count == 2);
         Assert.Contains("loss-report:", exported.Xml);
     }
+    private static TeiXml.TeiExportResult RoundtripExport(TeiXml.TeiImportResult imported) =>
+        TeiXml.ExportDocument(imported.Document!.Lines.Select(info => new TeiXml.TeiExportLine(
+            info.LineId,
+            imported.Revisions.SingleOrDefault(r => r.ScopeId == info.LineId && r.Layer == TextLayer.L1Diplomatic),
+            imported.Revisions.SingleOrDefault(r => r.ScopeId == info.LineId && r.Layer == TextLayer.L2Editorial),
+            imported.Annotations, info)).ToList(), "regression",
+            new TeiXml.TeiExportContext(Graphics: [new TeiXml.TeiGraphic("synthetic.png")]));
+
+    [Theory]
+    [InlineData("α <unclear>β</unclear> γ", "α β γ", 2, 3)]
+    [InlineData("α<unclear> β  γ </unclear>δ", "α β γ δ", 1, 6)]
+    public void Inline_text_boundary_spaces_and_annotation_offsets_survive(string content, string expected, int start, int end)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+        Assert.Equal(expected, Revision(imported, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(new ScalarRange(start, end), imported.Annotations.Single().Range);
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal(expected, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(imported.Annotations.Single().Range, reparsed.Annotations.Single().Range);
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Theory]
+    [InlineData("<hi rend=\"overline\">α<unclear>β</unclear>γ</hi>", "αβγ")]
+    [InlineData("<hi rend=\"overline\"><unclear>αβ</unclear></hi>", "αβ")]
+    [InlineData("<unclear>α</unclear><unclear>β</unclear>", "αβ")]
+    public void Nested_equal_and_adjacent_annotations_preserve_text_and_ranges(string content, string expected)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal(expected, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(imported.Annotations.OrderBy(a => a.Kind).Select(a => (a.Kind, a.Range)),
+            reparsed.Annotations.OrderBy(a => a.Kind).Select(a => (a.Kind, a.Range)));
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Theory]
+    [InlineData("αβ<handShift new=\"B\"/>γδ", 2)]
+    [InlineData("αβ<addSpan spanTo=\"end\"/>γδ", 2)]
+    [InlineData("αβ<delSpan spanTo=\"end\"/>γδ", 2)]
+    [InlineData("αβ<handShift new=\"B\"/>", 2)]
+    [InlineData("<hi rend=\"overline\">α<handShift new=\"B\"/>β</hi>", 1)]
+    [InlineData("α<del>β</del><handShift new=\"B\"/>γ", 2)]
+    [InlineData("α<supplied>β</supplied><handShift new=\"B\"/>γ", 2)]
+    public void Milestones_keep_their_scalar_position(string content, int position)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal(Revision(imported, TextLayer.L1Diplomatic).Text, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(new ScalarRange(position, position), reparsed.Annotations.Single(a => a.Range.IsEmpty).Range);
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Fact]
+    public void Ambiguous_cross_layer_spans_are_reported_instead_of_attached_to_the_first_match()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>αβ<unclear>α</unclear><supplied>δ</supplied></ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("αβα", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal("αβαδ", Revision(reparsed, TextLayer.L2Editorial).Text);
+        var uncertainty = reparsed.Annotations.SingleOrDefault(a => a.Kind == AnnotationKind.Unclear);
+        if (uncertainty is null)
+            Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        else
+            Assert.Equal(new ScalarRange(2, 3), uncertainty.Range);
+    }
+
+    [Fact]
+    public void Identical_layers_keep_repeated_span_coordinates()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>αβ<unclear>α</unclear><choice><orig>δ</orig><reg>δ</reg></choice></ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("αβαδ", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(new ScalarRange(2, 3), reparsed.Annotations.Single(a => a.Kind == AnnotationKind.Unclear).Range);
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Fact]
+    public void Repeated_editorial_readings_report_ambiguous_mapping()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>σ<choice><orig>ϲ</orig><reg>σ</reg></choice></ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("σσ", reparsed.Revisions.Last().Text);
+        Assert.DoesNotContain(reparsed.Annotations, a => a.Kind == AnnotationKind.AlternativeReading);
+        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+    }
+
+    [Theory]
+    [InlineData("<choice><abbr>αβ</abbr><expan>α</expan></choice><supplied>β</supplied>")]
+    [InlineData("<choice><orig>αβ</orig><reg>α</reg></choice><supplied>β</supplied>")]
+    public void Equal_layer_text_does_not_override_explicit_editorial_span(string content)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("αβ", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal("αβ", Revision(reparsed, TextLayer.L2Editorial).Text);
+        Assert.Contains(reparsed.Annotations, a => a.Kind == AnnotationKind.SuppliedEditorial);
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Fact]
+    public void Cross_layer_mapping_counts_supplementary_characters_as_one_scalar()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/><supplied>δ</supplied>𐅀<unclear>β</unclear>γ</ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("𐅀βγ", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal("δ𐅀βγ", Revision(reparsed, TextLayer.L2Editorial).Text);
+        Assert.Equal(new ScalarRange(1, 2), reparsed.Annotations.Single(a => a.Kind == AnnotationKind.Unclear).Range);
+        Assert.True(exported.Report.IsLossless, exported.Report.ToString());
+    }
+
+    [Fact]
+    public void Overlapping_repeated_spans_are_ambiguous()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>α<unclear>αα</unclear><supplied>δ</supplied></ab></div>"));
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+        Assert.Equal("ααα", Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.DoesNotContain(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear);
+        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+    }
+
 }

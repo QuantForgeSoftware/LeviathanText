@@ -58,6 +58,9 @@ builder.Services.AddSingleton<JobEventBus>();
 builder.Services.AddSingleton<JobEnqueuer>();
 builder.Services.AddSingleton<RevisionChain>();
 builder.Services.AddHttpClient();
+// Registry redirects are followed explicitly, after checking every destination.
+builder.Services.AddHttpClient("model-registry")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton(sp =>
 {
     var settings = builder.Configuration.GetSection("LeviathanText:AiProviders").GetChildren()
@@ -916,48 +919,53 @@ api.MapGet("models", (IConfiguration configuration) =>
 });
 
 api.MapPost("models/registry", async (IConfiguration configuration, IHttpClientFactory clients,
-    [FromBody] RegistryIndexRequest request) =>
+    [FromBody] RegistryIndexRequest request, CancellationToken cancellationToken) =>
 {
     var uri = RegistryUri(request.IndexUrl);
     var policy = RegistryPolicy(configuration);
-    try { policy.ValidateIndex(uri); }
-    catch (Exception ex) { throw RegistryRejected(ex, uri.Host); }
-    var index = await ModelRegistry.FetchAsync(clients.CreateClient(), uri);
-    return Results.Ok(index.Models.Select(entry => new
+    using var client = clients.CreateClient("model-registry");
+    try
     {
-        entry.Id,
-        entry.Name,
-        entry.Task,
-        downloadUrl = entry.DownloadUrl.ToString(),
-        entry.Sha256,
-        entry.PackageFormatVersion,
-    }));
+        var index = await ModelRegistry.FetchAsync(client, uri, cancellationToken, policy);
+        return Results.Ok(index.Models.Select(entry => new
+        {
+            entry.Id,
+            entry.Name,
+            entry.Task,
+            downloadUrl = entry.DownloadUrl.ToString(),
+            entry.Sha256,
+            entry.PackageFormatVersion,
+        }));
+    }
+    catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException or System.Text.Json.JsonException)
+    {
+        throw RegistryRejected(ex, uri.Host);
+    }
 });
 
 api.MapPost("models/registry/pull", async (IConfiguration configuration, IHttpClientFactory clients,
-    [FromBody] RegistryPullRequest request) =>
+    [FromBody] RegistryPullRequest request, CancellationToken cancellationToken) =>
 {
     var uri = RegistryUri(request.IndexUrl);
     var policy = RegistryPolicy(configuration);
-    try { policy.ValidateIndex(uri); }
-    catch (Exception ex) { throw RegistryRejected(ex, uri.Host); }
-    var index = await ModelRegistry.FetchAsync(clients.CreateClient(), uri);
-    var entry = index.Models.FirstOrDefault(item => item.Id == request.ModelId)
-        ?? throw new LeviathanException(new LeviathanError
-        {
-            Code = ErrorCode.InputMissing,
-            Scope = request.ModelId,
-            Message = "No such registry model in the index.",
-        });
+    using var client = clients.CreateClient("model-registry");
     try
     {
-        var downloaded = await ModelRegistryDownload.DownloadAsync(clients.CreateClient(), entry,
-            ModelsRoot(configuration), policy);
+        var index = await ModelRegistry.FetchAsync(client, uri, cancellationToken, policy);
+        var entry = index.Models.FirstOrDefault(item => item.Id == request.ModelId)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = request.ModelId,
+                Message = "No such registry model in the index.",
+            });
+        var downloaded = await ModelRegistryDownload.DownloadAsync(client, entry,
+            ModelsRoot(configuration), policy, cancellationToken);
         return Results.Ok(new { downloaded.Id, downloaded.Directory, downloaded.Sha256, downloaded.EncodedBytes });
     }
-    catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException)
+    catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or IOException or System.Text.Json.JsonException)
     {
-        throw RegistryRejected(ex, entry.Id);
+        throw RegistryRejected(ex, request.ModelId);
     }
 });
 

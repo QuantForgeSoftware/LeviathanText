@@ -61,7 +61,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
                     name TEXT NOT NULL,
                     contract_version TEXT NOT NULL,
                     json TEXT NOT NULL,
-                    version INTEGER NOT NULL DEFAULT 0
+                    version INTEGER NOT NULL DEFAULT 1
                 );
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
@@ -143,7 +143,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             {
                 var alter = _connection.CreateCommand();
                 alter.Transaction = tx;
-                alter.CommandText = "ALTER TABLE projects ADD COLUMN version INTEGER NOT NULL DEFAULT 0";
+                alter.CommandText = "ALTER TABLE projects ADD COLUMN version INTEGER NOT NULL DEFAULT 1";
                 alter.ExecuteNonQuery();
             }
             var setVersion = _connection.CreateCommand();
@@ -151,6 +151,13 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             setVersion.CommandText = $"PRAGMA user_version={SchemaVersion}";
             setVersion.ExecuteNonQuery();
         }
+        // Earlier migrations left persisted rows at zero, which is reserved for
+        // unversioned callers. Repair those rows even when the schema is already current
+        // so every loaded document participates in the optimistic concurrency check.
+        var repairVersions = _connection.CreateCommand();
+        repairVersions.Transaction = tx;
+        repairVersions.CommandText = "UPDATE projects SET version = 1 WHERE version = 0";
+        repairVersions.ExecuteNonQuery();
         tx.Commit();
     }
 

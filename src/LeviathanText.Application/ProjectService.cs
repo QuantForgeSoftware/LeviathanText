@@ -411,6 +411,21 @@ public sealed class InterchangeService(ProjectService projects)
             });
         }
 
+        // TEI xml:id values are local to a source document, just like PAGE line IDs.
+        // Keep them in source-id tags, but namespace every native link for this import.
+        var scopeToken = Guid.NewGuid().ToString("N");
+        var (_, scopedLines, scopedRevisions) = ScopeImportedIds([], lines, selectedRevisions, scopeToken);
+        var revisionMap = selectedRevisions.Zip(scopedRevisions)
+            .ToDictionary(pair => pair.First.Id, pair => pair.Second.Id);
+        var scopedAnnotations = selectedAnnotations.Select(annotation => annotation with
+        {
+            Id = ScopeImportedId(annotation.Id, scopeToken),
+            AnchoredRevisionId = revisionMap[annotation.AnchoredRevisionId],
+            ExpansionRevisionId = annotation.ExpansionRevisionId is { } expansion
+                ? revisionMap.GetValueOrDefault(expansion, expansion)
+                : null,
+        }).ToList();
+
         var surfaceRefs = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!string.IsNullOrWhiteSpace(parsed.Document?.SurfaceId))
             surfaceRefs["tei:surfaceId"] = parsed.Document!.SurfaceId!;
@@ -441,9 +456,9 @@ public sealed class InterchangeService(ProjectService projects)
                 LayoutSource = LayoutSource.Manual,
                 ReadingOrderIndex = 0,
             }],
-            Lines = lines,
-            Revisions = selectedRevisions,
-            Annotations = selectedAnnotations,
+            Lines = scopedLines,
+            Revisions = scopedRevisions,
+            Annotations = scopedAnnotations,
         };
 
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -808,18 +823,9 @@ public sealed class InterchangeService(ProjectService projects)
         IReadOnlyList<NativeRegion> regions, IReadOnlyList<NativeLine> lines,
         IReadOnlyList<TextRevision> revisions, string token)
     {
-        static EntityId Scoped(EntityId id, string token)
-        {
-            var suffix = ExternalIds.Sanitize(id.Suffix);
-            int maxBase = 63 - token.Length - 1;
-            if (suffix.Length > maxBase) suffix = suffix[..Math.Max(1, maxBase)];
-            if (suffix.Length == 0) suffix = "id";
-            return new EntityId(id.Kind, suffix + "-" + token);
-        }
-
-        var regionMap = regions.ToDictionary(r => r.Id, r => Scoped(r.Id, token));
-        var lineMap = lines.ToDictionary(l => l.Id, l => Scoped(l.Id, token));
-        var revisionMap = revisions.ToDictionary(r => r.Id, r => Scoped(r.Id, token));
+        var regionMap = regions.ToDictionary(r => r.Id, r => ScopeImportedId(r.Id, token));
+        var lineMap = lines.ToDictionary(l => l.Id, l => ScopeImportedId(l.Id, token));
+        var revisionMap = revisions.ToDictionary(r => r.Id, r => ScopeImportedId(r.Id, token));
 
         var scopedRegions = regions.Select(r => r with { Id = regionMap[r.Id] }).ToList();
         var scopedLines = lines.Select(l => l with
@@ -834,8 +840,25 @@ public sealed class InterchangeService(ProjectService projects)
         {
             Id = revisionMap[r.Id],
             ScopeId = lineMap.GetValueOrDefault(r.ScopeId, r.ScopeId),
+            ParentRevisionId = r.ParentRevisionId is { } parent
+                ? revisionMap.GetValueOrDefault(parent, parent)
+                : null,
         }).ToList();
         return (scopedRegions, scopedLines, scopedRevisions);
+    }
+
+    private static EntityId ScopeImportedId(EntityId id, string token)
+    {
+        var suffix = ExternalIds.Sanitize(id.Suffix);
+        int maxBase = 63 - token.Length - 1;
+        if (suffix.Length > maxBase)
+        {
+            // Truncation alone can erase the only distinguishing part (e.g. -l1/-l2).
+            var digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(id.Suffix)))[..12];
+            suffix = suffix[..(maxBase - digest.Length - 1)] + "-" + digest;
+        }
+        return new EntityId(id.Kind, suffix + "-" + token);
     }
 
     private static LegacyFormat ResolveLegacyFormat(string format, string content) =>

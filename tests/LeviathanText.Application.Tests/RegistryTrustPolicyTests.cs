@@ -26,6 +26,15 @@ public class RegistryTrustPolicyTests
             policy.Validate(Entry("https://other.test/model.zip")));
     }
 
+    [Theory]
+    [InlineData("ftp://example.test/model.zip")]
+    [InlineData("file://example.test/model.zip")]
+    public void Disabling_https_does_not_allow_non_http_transports(string url)
+    {
+        var policy = RegistryTrustPolicy.Allow("example.test") with { RequireHttps = false };
+        Assert.Throws<InvalidDataException>(() => policy.Validate(Entry(url)));
+    }
+
     [Fact]
     public void Wildcard_host_and_checksum_rules_are_enforced()
     {

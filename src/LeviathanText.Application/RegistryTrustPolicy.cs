@@ -35,8 +35,9 @@ public sealed record RegistryTrustPolicy(
         ArgumentNullException.ThrowIfNull(entry);
         if (AllowedHosts.Count == 0)
             throw new InvalidOperationException("Remote registry access is not trusted; allow a host explicitly.");
-        if (entry.DownloadUrl is null || !entry.DownloadUrl.IsAbsoluteUri)
-            throw new InvalidDataException("Registry entry has no absolute download URL.");
+        if (entry.DownloadUrl is null || !entry.DownloadUrl.IsAbsoluteUri
+            || entry.DownloadUrl.Scheme is not ("http" or "https"))
+            throw new InvalidDataException("Registry entry download URL must be absolute HTTP(S).");
         if (RequireHttps && entry.DownloadUrl.Scheme != Uri.UriSchemeHttps)
             throw new InvalidDataException("Registry downloads require HTTPS under the current trust policy.");
         if (!AllowedHosts.Any(host => HostMatches(entry.DownloadUrl.Host, host)))

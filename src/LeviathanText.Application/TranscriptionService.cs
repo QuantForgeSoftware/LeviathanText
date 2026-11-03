@@ -60,7 +60,8 @@ public sealed class TranscriptionService(IProjectStore store)
     /// Append a revision with automatic three-way merge. The caller names the revision it
     /// edited (<paramref name="parentRevisionId"/>); if another writer has since appended a
     /// newer revision, non-overlapping edits are merged and overlapping edits fail with a
-    /// real conflict. The store's optimistic version check is retried on a concurrent save.
+    /// real conflict. A null parent expects no existing revision of this line and layer.
+    /// The store's optimistic version check is retried on a concurrent save.
     /// </summary>
     public (NativeProject Project, NativeSurface Surface, TextRevision Revision, bool Merged)
         AppendLineRevisionMerged(NativeProject project, EntityId lineId, TextLayer layer, string text,
@@ -76,12 +77,21 @@ public sealed class TranscriptionService(IProjectStore store)
             var effectiveParent = current?.Id;
             bool merged = false;
 
-            if (parentRevisionId is { } requested && requested != current?.Id)
+            TextRevision? baseRevision = null;
+            if (parentRevisionId is { } requested)
             {
-                var baseRevision = surface.Revisions.FirstOrDefault(r => r.Id == requested);
-                if (baseRevision is null || current is null)
+                baseRevision = FindMergeBase(surface, current, lineId, layer, requested);
+                if (baseRevision is null)
                     throw Conflict(lineId, requested, current?.Id, "The base revision is not in this line's history.");
+            }
+            else if (current is not null)
+            {
+                throw Conflict(lineId, null, current.Id,
+                    "Another writer created the first revision; reload and choose a reading before saving.");
+            }
 
+            if (baseRevision is not null && current is not null && baseRevision.Id != current.Id)
+            {
                 var result = ThreeWayMerge.Merge(baseRevision.Text, text, current.Text);
                 if (!result.Success)
                 {
@@ -92,7 +102,7 @@ public sealed class TranscriptionService(IProjectStore store)
                         Scope = lineId.ToString(),
                         Details = new Dictionary<string, string>
                         {
-                            ["requestedParent"] = requested.ToString(),
+                            ["requestedParent"] = baseRevision.Id.ToString(),
                             ["currentRevision"] = current.Id.ToString(),
                             ["conflictStart"] = first.Start.ToString(System.Globalization.CultureInfo.InvariantCulture),
                             ["conflictEnd"] = first.End.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -150,14 +160,33 @@ public sealed class TranscriptionService(IProjectStore store)
 
     private static string Clip(string text) => text.Length <= 200 ? text : text[..200];
 
-    private static LeviathanException Conflict(EntityId lineId, EntityId requested, EntityId? current, string message) =>
+    private static TextRevision? FindMergeBase(NativeSurface surface, TextRevision? current,
+        EntityId lineId, TextLayer layer, EntityId requested)
+    {
+        if (current is null || current.ScopeId != lineId || current.Layer != layer)
+            return null;
+        if (current.Id == requested) return current;
+
+        var revisions = surface.Revisions.ToDictionary(r => r.Id);
+        var visited = new HashSet<EntityId> { current.Id };
+        while (current.ParentRevisionId is { } parent && visited.Add(parent)
+            && revisions.TryGetValue(parent, out var ancestor)
+            && ancestor.ScopeId == lineId && ancestor.Layer == layer)
+        {
+            if (ancestor.Id == requested) return ancestor;
+            current = ancestor;
+        }
+        return null;
+    }
+
+    private static LeviathanException Conflict(EntityId lineId, EntityId? requested, EntityId? current, string message) =>
         new(new LeviathanError
         {
             Code = ErrorCode.RevisionConflict,
             Scope = lineId.ToString(),
             Details = new Dictionary<string, string>
             {
-                ["requestedParent"] = requested.ToString(),
+                ["requestedParent"] = requested?.ToString() ?? "none",
                 ["currentRevision"] = current?.ToString() ?? "none",
             },
             RemedyHint = RemedyHint.RebaseRevision,

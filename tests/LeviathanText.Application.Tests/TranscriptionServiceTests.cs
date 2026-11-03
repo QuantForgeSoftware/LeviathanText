@@ -143,6 +143,148 @@ public sealed class TranscriptionServiceTests
         Assert.Equal(RemedyHint.RebaseRevision, ex.Error.RemedyHint);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Automatic_merge_refuses_a_concurrent_first_revision(bool raceDuringSave)
+    {
+        var empty = SampleProjectBuilder.Build();
+        var originalSurface = empty.Objects[0].Surfaces[0];
+        var line = originalSurface.Lines[0] with { DiplomaticRevisionId = null };
+        empty = empty with
+        {
+            Objects = [empty.Objects[0] with
+            {
+                Surfaces = [originalSurface with { Lines = [line], Revisions = [] }],
+            }],
+        };
+        var store = new InMemoryStore();
+        store.SaveProject(empty);
+        var initialSnapshot = store.LoadProject(empty.Id)!;
+        var firstService = new TranscriptionService(store);
+        TextRevision? firstRevision = null;
+        void FirstWriter() => firstRevision = firstService.AppendLineRevisionMerged(
+            initialSnapshot, line.Id, TextLayer.L1Diplomatic, "α", Editor, null).Revision;
+        IProjectStore secondStore = store;
+        if (raceDuringSave)
+            secondStore = new InterleavingProjectStore(store, FirstWriter);
+        else
+            FirstWriter();
+
+        var exception = Assert.Throws<LeviathanException>(() =>
+            new TranscriptionService(secondStore).AppendLineRevisionMerged(
+                initialSnapshot, line.Id, TextLayer.L1Diplomatic, "β", Editor, null));
+
+        Assert.Equal(ErrorCode.RevisionConflict, exception.Error.Code);
+        Assert.Equal("none", exception.Error.Details!["requestedParent"]);
+        var persisted = store.LoadProject(empty.Id)!.Objects[0].Surfaces[0];
+        Assert.Equal("α", Assert.Single(persisted.Revisions).Text);
+        Assert.Equal(firstRevision!.Id, persisted.Lines[0].DiplomaticRevisionId);
+    }
+
+    [Theory]
+    [InlineData("foreign-line")]
+    [InlineData("foreign-layer")]
+    [InlineData("disconnected")]
+    [InlineData("cycle")]
+    public void Automatic_merge_requires_a_base_in_the_target_revision_chain(string scenario)
+    {
+        var (lineId, service, store) = Setup();
+        var project = store.LoadProject(SampleProjectBuilder.Build().Id)!;
+        var surface = project.Objects[0].Surfaces[0];
+        var current = surface.Revisions[0] with { Text = "αβγ" };
+        var other = current with
+        {
+            Id = new EntityId(EntityKind.TranscriptionRevision, "other-base"),
+            ScopeId = scenario == "foreign-line" ? new EntityId(EntityKind.Line, "other-line") : lineId,
+            Layer = scenario == "foreign-layer" ? TextLayer.L2Editorial : TextLayer.L1Diplomatic,
+        };
+        current = current with
+        {
+            ParentRevisionId = scenario switch
+            {
+                "foreign-line" or "foreign-layer" => other.Id,
+                "cycle" => current.Id,
+                _ => null,
+            },
+        };
+        store.SaveProject(project with
+        {
+            Objects = [project.Objects[0] with
+            {
+                Surfaces = [surface with { Revisions = [current, other] }],
+            }],
+        });
+        var before = store.LoadProject(project.Id)!;
+
+        var exception = Assert.Throws<LeviathanException>(() => service.AppendLineRevisionMerged(
+            before, lineId, TextLayer.L1Diplomatic, "Αβγ", Editor, other.Id));
+
+        Assert.Equal(ErrorCode.RevisionConflict, exception.Error.Code);
+        Assert.Equal(before.Version, store.LoadProject(project.Id)!.Version);
+        Assert.Equal(2, store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Revisions.Count);
+    }
+
+    [Fact]
+    public void Automatic_merge_accepts_current_and_multi_generation_ancestor_bases()
+    {
+        var (lineId, service, store) = Setup();
+        var project = store.LoadProject(SampleProjectBuilder.Build().Id)!;
+        var original = project.Objects[0].Surfaces[0].Revisions[0];
+        var currentEdit = service.AppendLineRevisionMerged(project, lineId, TextLayer.L1Diplomatic,
+            "αβγδε", Editor, original.Id);
+        Assert.False(currentEdit.Merged);
+        var second = service.AppendLineRevisionMerged(currentEdit.Project, lineId, TextLayer.L1Diplomatic,
+            "αβγδΕ", Editor, currentEdit.Revision.Id);
+        var third = service.AppendLineRevisionMerged(second.Project, lineId, TextLayer.L1Diplomatic,
+            "αβγΔΕ", Editor, second.Revision.Id);
+
+        var merged = service.AppendLineRevisionMerged(currentEdit.Project, lineId, TextLayer.L1Diplomatic,
+            "Αβγδε", Editor, currentEdit.Revision.Id);
+
+        Assert.Equal("ΑβγΔΕ", merged.Revision.Text);
+        Assert.True(merged.Merged);
+        Assert.Equal(third.Revision.Id, merged.Revision.ParentRevisionId);
+    }
+
+    private sealed class InterleavingProjectStore(IProjectStore inner, Action firstWrite) : IProjectStore
+    {
+        private Action? _beforeSave = firstWrite;
+
+        public long SaveProject(NativeProject project)
+        {
+            var callback = _beforeSave;
+            _beforeSave = null;
+            callback?.Invoke();
+            return inner.SaveProject(project);
+        }
+
+        public NativeProject? LoadProject(EntityId id) => inner.LoadProject(id);
+        public IReadOnlyList<(EntityId Id, string Name)> ListProjects() => inner.ListProjects();
+    }
+
+    [Fact]
+    public void Automatic_merge_retries_an_initial_editorial_revision_after_an_unrelated_project_save()
+    {
+        var (lineId, _, store) = Setup();
+        var project = store.LoadProject(SampleProjectBuilder.Build().Id)!;
+        var l1RevisionId = project.Objects[0].Surfaces[0].Lines[0].DiplomaticRevisionId;
+        var racingStore = new InterleavingProjectStore(store, () =>
+            store.SaveProject(store.LoadProject(project.Id)! with { Name = "updated metadata" }));
+
+        var saved = new TranscriptionService(racingStore).AppendLineRevisionMerged(
+            project, lineId, TextLayer.L2Editorial, "ἄλφα", Editor, null);
+
+        Assert.False(saved.Merged);
+        Assert.Null(saved.Revision.ParentRevisionId);
+        Assert.Equal("updated metadata", saved.Project.Name);
+        Assert.Equal(project.Version + 2, saved.Project.Version);
+        Assert.Equal(l1RevisionId, saved.Surface.Lines[0].DiplomaticRevisionId);
+        var persisted = store.LoadProject(project.Id)!;
+        Assert.Equal("ἄλφα", Assert.Single(persisted.Objects[0].Surfaces[0].Revisions,
+            r => r.Layer == TextLayer.L2Editorial).Text);
+    }
+
     [Fact]
     public void L2_edit_does_not_move_the_L1_pointer()
     {

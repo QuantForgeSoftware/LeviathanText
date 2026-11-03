@@ -166,7 +166,8 @@ public static class TeiXml
         var document = new XDocument(new XDeclaration("1.0", "UTF-8", null), tei);
         if (!report.IsLossless)
             document.AddFirst(new XComment($"loss-report: {report}"));
-        return new TeiExportResult(document.ToString(), report);
+        // Pretty-printing adjacent inline elements inserts whitespace into witness text.
+        return new TeiExportResult(document.ToString(SaveOptions.DisableFormatting), report);
     }
 
     private static XElement BuildHeader(string title, TeiExportContext context)
@@ -295,23 +296,6 @@ public static class TeiXml
             return new RenderAnnotation(annotation, expansion, visible, false);
         }
 
-        // Zero-width milestones follow their preceding context rather than a searchable span.
-        if (annotation.Range.IsEmpty)
-        {
-            var prefix = ScalarText.Slice(anchored.Text, 0, annotation.Range.Start);
-            var position = prefix.Length == 0 ? 0 : FindScalarIndex(baseRevision.Text, prefix);
-            if (position is null)
-            {
-                losses.Add(new LossEntry("annotation-mapping", 1,
-                    $"zero-width annotation {annotation.Id} ({annotation.Kind}) has no matching context"));
-                return null;
-            }
-            return new RenderAnnotation(annotation,
-                new ScalarRange(position.Value + ScalarText.Count(prefix), position.Value + ScalarText.Count(prefix)),
-                null,
-                annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased);
-        }
-
         var sourceText = ScalarText.Slice(anchored.Text, annotation.Range.Start, annotation.Range.End);
 
         // An orig/reg (or sic/corr) pair maps to the editorial half in L2 while the
@@ -320,19 +304,47 @@ public static class TeiXml
             && annotation.Description is "choice/orig-reg" or "choice/sic-corr" or "app/orig-corr"
             && baseRevision == line.L2 && annotation.AlternativeText is { Length: > 0 } editorial)
         {
-            var editorialPosition = FindScalarIndex(baseRevision.Text, editorial);
+            var editorialPosition = anchored.Text == baseRevision.Text && sourceText == editorial
+                ? annotation.Range.Start : FindUniqueScalarIndex(baseRevision.Text, editorial);
             if (editorialPosition is { } editorialStart)
                 return new RenderAnnotation(annotation,
                     new ScalarRange(editorialStart, editorialStart + ScalarText.Count(editorial)),
                     sourceText, false);
+            losses.Add(new LossEntry("annotation-mapping", 1,
+                $"annotation {annotation.Id} ({annotation.Kind}) has no unique editorial span in the rendered layer"));
+            return null;
         }
 
-        // Otherwise map the source span by exact text, and report when that is impossible.
-        var located = FindScalarIndex(baseRevision.Text, sourceText);
+        // Equal layers share scalar coordinates even when the marked text repeats.
+        if (anchored.Text == baseRevision.Text)
+            return new RenderAnnotation(annotation, annotation.Range, null,
+                annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased
+                    && annotation.Range.IsEmpty);
+
+        // Zero-width milestones follow their preceding context rather than a searchable span.
+        if (annotation.Range.IsEmpty)
+        {
+            var prefix = ScalarText.Slice(anchored.Text, 0, annotation.Range.Start);
+            var position = prefix.Length == 0 ? 0 : FindUniqueScalarIndex(baseRevision.Text, prefix);
+            if (position is null)
+            {
+                losses.Add(new LossEntry("annotation-mapping", 1,
+                    $"zero-width annotation {annotation.Id} ({annotation.Kind}) has no unique matching context"));
+                return null;
+            }
+            return new RenderAnnotation(annotation,
+                new ScalarRange(position.Value + ScalarText.Count(prefix), position.Value + ScalarText.Count(prefix)),
+                null,
+                annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased);
+        }
+
+        // A repeated reading cannot identify its location in another revision. Report the
+        // ambiguity instead of attaching uncertainty to the first matching letters.
+        var located = FindUniqueScalarIndex(baseRevision.Text, sourceText);
         if (located is not { } start)
         {
             losses.Add(new LossEntry("annotation-mapping", 1,
-                $"annotation {annotation.Id} ({annotation.Kind}) has no exact span in the rendered layer"));
+                $"annotation {annotation.Id} ({annotation.Kind}) has no unique exact span in the rendered layer"));
             return null;
         }
         return new RenderAnnotation(annotation,
@@ -350,6 +362,12 @@ public static class TeiXml
                 or AnnotationKind.Abbreviation or AnnotationKind.Added or AnnotationKind.Erased
                 or AnnotationKind.DifferentHand or AnnotationKind.Sign)
             .OrderBy(a => a.Range.Start)
+            // A marker at a span's start precedes that span; it must not disappear inside
+            // an atomic reading such as <del> when the document is imported again.
+            .ThenBy(a => a.Range.IsEmpty ? 0 : 1)
+            .ThenByDescending(a => a.Range.End)
+            // The importer supports nested inline markup inside a sign/overline.
+            .ThenBy(a => a.Source.Kind == AnnotationKind.Sign ? 0 : 1)
             .ToList();
         foreach (var dropped in annotations.Where(a => !supported.Contains(a)))
             losses.Add(new LossEntry("annotation-kind", 1,
@@ -358,6 +376,12 @@ public static class TeiXml
         var accepted = new List<RenderAnnotation>();
         foreach (var a in supported)
         {
+            if (a.Range.End > scalars)
+            {
+                losses.Add(new LossEntry("annotation-mapping", 1,
+                    $"annotation {a.Source.Id} is outside the rendered text"));
+                continue;
+            }
             var clash = accepted.FirstOrDefault(b =>
                 a.Range.Start < b.Range.End && b.Range.Start < a.Range.End
                 && !(b.Range.Start <= a.Range.Start && a.Range.End <= b.Range.End)
@@ -367,24 +391,51 @@ public static class TeiXml
                 $"annotation {a.Source.Id} overlaps {clash.Source.Id}"));
         }
 
-        var pieces = new List<object>();
-        int cursor = 0;
-        foreach (var a in accepted.OrderBy(a => a.Range.Start).ThenBy(a => a.Milestone))
+        int index = 0;
+        return RenderRange(0, scalars, includeEndMarkers: true);
+
+        List<object> RenderRange(int start, int end, bool includeEndMarkers)
         {
-            if (a.Milestone)
+            var pieces = new List<object>();
+            int cursor = start;
+            while (index < accepted.Count)
             {
-                pieces.Add(Milestone(a.Source));
-                continue;
+                var a = accepted[index];
+                if (a.Range.Start > end || a.Range.End > end
+                    || (a.Range.Start == end && !includeEndMarkers)) break;
+                index++;
+                if (a.Range.Start > cursor)
+                    pieces.Add(ScalarText.Slice(text, cursor, a.Range.Start));
+                cursor = a.Range.Start;
+                if (a.Milestone)
+                {
+                    pieces.Add(Milestone(a.Source));
+                    continue;
+                }
+
+                var childIndex = index;
+                object inner = a.Range.IsEmpty ? "" : RenderRange(a.Range.Start, a.Range.End, includeEndMarkers: false);
+                if (a.Inner is not null)
+                {
+                    // Replacement readings use a different coordinate space. Their nested
+                    // spans cannot safely be applied to the visible/original reading.
+                    if (index > childIndex)
+                        losses.Add(new LossEntry("nested-annotation", index - childIndex,
+                            $"annotations inside replacement reading {a.Source.Id} could not be mapped"));
+                    inner = a.Inner;
+                }
+                else if (index > childIndex && a.Source.Kind != AnnotationKind.Sign)
+                {
+                    losses.Add(new LossEntry("nested-annotation", index - childIndex,
+                        $"annotations inside {a.Source.Kind} cannot be represented by the bounded nested profile"));
+                    inner = ScalarText.Slice(text, a.Range.Start, a.Range.End);
+                }
+                pieces.Add(Markup(a.Source, inner));
+                cursor = a.Range.End;
             }
-            if (a.Range.Start > cursor)
-                pieces.Add(ScalarText.Slice(text, cursor, a.Range.Start));
-            var inner = a.Inner ?? (a.Range.IsEmpty ? "" : ScalarText.Slice(text, a.Range.Start, a.Range.End));
-            pieces.Add(Markup(a.Source, inner));
-            cursor = Math.Max(cursor, a.Range.End);
+            if (cursor < end) pieces.Add(ScalarText.Slice(text, cursor, end));
+            return pieces;
         }
-        if (cursor < scalars) pieces.Add(ScalarText.Slice(text, cursor, scalars));
-        if (pieces.Count == 0) pieces.Add(text);
-        return pieces;
     }
 
     private static XElement Milestone(Annotation a) => a.Kind switch
@@ -396,7 +447,7 @@ public static class TeiXml
         _ => throw new InvalidOperationException(a.Kind.ToString()),
     };
 
-    private static XElement Markup(Annotation a, string inner) => a.Kind switch
+    private static XElement Markup(Annotation a, object inner) => a.Kind switch
     {
         AnnotationKind.Unclear => new XElement(Tei + "unclear",
             new XAttribute("reason", a.Description ?? "unclear"), inner),
@@ -426,7 +477,7 @@ public static class TeiXml
         _ => throw new InvalidOperationException(a.Kind.ToString()),
     };
 
-    private static XElement ExportChoice(Annotation a, string inner) => a.Description switch
+    private static XElement ExportChoice(Annotation a, object inner) => a.Description switch
     {
         "choice/orig-reg" => new XElement(Tei + "choice",
             new XElement(Tei + "orig", inner),
@@ -763,7 +814,9 @@ public static class TeiXml
         {
             if (value.Length == 0) return "";
             if (value.All(char.IsWhiteSpace)) return " ";
-            return string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            var words = string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            return (char.IsWhiteSpace(value[0]) ? " " : "") + words
+                + (char.IsWhiteSpace(value[^1]) ? " " : "");
         }
 
         private void Walk(XElement element,
@@ -787,7 +840,7 @@ public static class TeiXml
                         Append(inner, l1: false, l2: true);
                         _hasL2 = true;
                         Add(AnnotationKind.SuppliedEditorial, TextLayer.L2Editorial, l2Start,
-                            l2Start + ScalarText.Count(inner), a => a with { Description = reason });
+                            ScalarText.Count(_l2.ToString()), a => a with { Description = reason });
                     }
                     else
                     {
@@ -795,7 +848,7 @@ public static class TeiXml
                         var kind = reason?.Contains("illegible", StringComparison.OrdinalIgnoreCase) == true
                             ? AnnotationKind.Illegible
                             : AnnotationKind.Unclear;
-                        Add(kind, TextLayer.L1Diplomatic, l1Start, l1Start + ScalarText.Count(inner),
+                        Add(kind, TextLayer.L1Diplomatic, l1Start, ScalarText.Count(_l1.ToString()),
                             a => a with { Description = reason });
                     }
                     ReportNestedMarkup(element, unsupported);
@@ -840,7 +893,7 @@ public static class TeiXml
                         Append(correctedText, l1: false, l2: true);
                         _hasL2 = true;
                         Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
-                            l1Start + ScalarText.Count(originalText), a => a with
+                            ScalarText.Count(_l1.ToString()), a => a with
                             {
                                 AlternativeText = correctedText,
                                 Description = "app/orig-corr",
@@ -850,7 +903,7 @@ public static class TeiXml
                                      && !ReferenceEquals(r, corr)))
                         {
                             Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
-                                l1Start + ScalarText.Count(originalText), a => a with
+                                ScalarText.Count(_l1.ToString()), a => a with
                                 {
                                     AlternativeText = VisibleText(extra),
                                     Description = ReadingDescription(extra),
@@ -868,7 +921,7 @@ public static class TeiXml
                             if (ReferenceEquals(reading, baseReading)) continue;
                             var alternative = VisibleText(reading);
                             Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
-                                l1Start + ScalarText.Count(baseText), a => a with
+                                ScalarText.Count(_l1.ToString()), a => a with
                                 {
                                     AlternativeText = alternative,
                                     Description = ReadingDescription(reading),
@@ -919,12 +972,13 @@ public static class TeiXml
                         Append(expan is null ? visible : VisibleText(expan), l1: false, l2: true);
                         _hasL2 = true;
                         Add(AnnotationKind.Abbreviation, TextLayer.L1Diplomatic, l1Start,
-                            l1Start + ScalarText.Count(visible), a => a with
+                            ScalarText.Count(_l1.ToString()), a => a with
                             {
-                                ExpansionText = expan is null ? null : VisibleText(expan),
+                                ExpansionText = expan is null ? null
+                                    : ScalarText.Slice(_l2.ToString(), l2Start, ScalarText.Count(_l2.ToString())),
                                 ExpansionRange = expan is null
                                     ? null
-                                    : new ScalarRange(l2Start, l2Start + ScalarText.Count(VisibleText(expan))),
+                                    : new ScalarRange(l2Start, ScalarText.Count(_l2.ToString())),
                                 Description = "tei:choice/abbr",
                             });
                     }
@@ -944,7 +998,7 @@ public static class TeiXml
                             Append(editorialText, l1: false, l2: true);
                             _hasL2 = true;
                             Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
-                                l1Start + ScalarText.Count(visibleText), a => a with
+                                ScalarText.Count(_l1.ToString()), a => a with
                                 {
                                     AlternativeText = editorialText,
                                     Description = reg is not null ? "choice/orig-reg" : "choice/sic-corr",
@@ -964,7 +1018,7 @@ public static class TeiXml
                     var inner = VisibleText(element);
                     Append(inner);
                     Add(AnnotationKind.Added, TextLayer.L1Diplomatic, l1Start,
-                        l1Start + ScalarText.Count(inner), a => a with
+                        ScalarText.Count(_l1.ToString()), a => a with
                         {
                             Description = (string?)element.Attribute("place"),
                         });
@@ -977,26 +1031,28 @@ public static class TeiXml
                     Append(inner, l1: false, l2: true);
                     _hasL2 = true;
                     Add(AnnotationKind.Erased, TextLayer.L2Editorial, l2Start,
-                        l2Start + ScalarText.Count(inner), a => a with
+                        ScalarText.Count(_l2.ToString()), a => a with
                         {
                             Description = (string?)element.Attribute("reason"),
                         });
                     break;
                 }
                 case "addSpan":
-                    Add(AnnotationKind.Added, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    Add(AnnotationKind.Added, TextLayer.L2Editorial, l2Start, l2Start, a => a with
                     {
                         Description = (string?)element.Attribute("spanTo"),
                     });
                     break;
                 case "delSpan":
-                    Add(AnnotationKind.Erased, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    Add(AnnotationKind.Erased, TextLayer.L2Editorial, l2Start, l2Start, a => a with
                     {
                         Description = (string?)element.Attribute("spanTo"),
                     });
                     break;
                 case "handShift":
-                    Add(AnnotationKind.DifferentHand, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    // A milestone has an exact position in the complete reading, including
+                    // prior supplied/erased text. Build binds this to L1 when no L2 exists.
+                    Add(AnnotationKind.DifferentHand, TextLayer.L2Editorial, l2Start, l2Start, a => a with
                     {
                         HandLabel = (string?)element.Attribute("new") ?? (string?)element.Attribute("hand") ?? "unattributed",
                     });
@@ -1265,13 +1321,11 @@ public static class TeiXml
         return unique;
     }
 
-    private static int? FindScalarIndex(string haystack, string needle)
+    private static int? FindUniqueScalarIndex(string haystack, string needle)
     {
         if (needle.Length == 0) return null;
-        int haystackScalars = ScalarText.Count(haystack);
-        int needleScalars = ScalarText.Count(needle);
-        for (int i = 0; i + needleScalars <= haystackScalars; i++)
-            if (ScalarText.Slice(haystack, i, i + needleScalars) == needle) return i;
-        return null;
+        int found = haystack.IndexOf(needle, StringComparison.Ordinal);
+        if (found < 0 || haystack.IndexOf(needle, found + 1, StringComparison.Ordinal) >= 0) return null;
+        return ScalarText.Count(haystack[..found]);
     }
 }

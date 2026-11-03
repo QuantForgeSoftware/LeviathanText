@@ -54,3 +54,20 @@ CPU scheduling/thread variance produced an intermittent >2% CER failure in a syn
 training test that otherwise passed on repeated runs. Assert loss improvement plus a loose
 learnability ceiling (or a multi-seed/repeated protocol), not a precision threshold that
 turns normal training variance into a red build. Added 2026-11-02.
+
+## 11. Reproduce migrations and trust boundaries through their actual entry points
+
+Migration tests must construct the old table shape, not just lower a current database's
+schema marker. Concurrency tests must include the initially empty revision state and bases
+from other lines/layers. Registry security tests must exercise the API/CLI transport: an
+initial host check does not cover redirects, and an archive-member check does not constrain
+an unsafe package-directory name. Preserve whole-response timeouts when switching to
+header-only HTTP completion. Added 2026-11-03 after the review corrections.
+
+## 12. TEI text equality does not establish annotation-coordinate equality
+
+Test nested/equal ranges, inline boundary spaces, zero-width markers, repeated substrings,
+and explicit abbreviation/editorial spans even when complete L1/L2 strings are equal.
+Retain source IDs as metadata while minting unique native IDs per import; remap every
+revision/annotation reference together. Report ambiguous mappings instead of assigning
+them to the first matching letters. Added 2026-11-03.

@@ -164,6 +164,51 @@ public sealed class TeiImportTests : IDisposable
         Assert.Equal(2, reparsed.Revisions.Count(r => r.Layer == TextLayer.L1Diplomatic));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void Repeated_source_ids_are_scoped_per_import_with_all_revision_links(bool anotherProject, bool longId)
+    {
+        var (_, image, _) = Fixture();
+        var sourceId = longId ? new string('a', 55) : "line1";
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var firstProject = projects.Create("first");
+        var interchange = new InterchangeService(projects);
+        string Write(string name, string text)
+        {
+            var path = Path.Combine(_dir, name + ".xml");
+            File.WriteAllText(path, $"<TEI xmlns=\"http://www.tei-c.org/ns/1.0\"><text><body><div type=\"edition\"><ab xml:id=\"{sourceId}\"><lb/>{text}<choice><abbr>κϲ</abbr><expan>κυρίου</expan></choice></ab></div></body></text></TEI>");
+            return path;
+        }
+        var first = interchange.ImportTei(firstProject, Write("first", "α"), image).Imported.Surfaces.Single();
+        var secondProject = anotherProject ? projects.Create("second") : projects.Load(firstProject.Id);
+        var second = interchange.ImportTei(secondProject, Write("second", "β"), image).Imported.Surfaces.Single();
+        Assert.NotEqual(first.Lines.Single().Id, second.Lines.Single().Id);
+        Assert.Empty(first.Revisions.Select(r => r.Id).Intersect(second.Revisions.Select(r => r.Id)));
+        Assert.Empty(first.Annotations.Select(a => a.Id).Intersect(second.Annotations.Select(a => a.Id)));
+        Assert.Equal(secondProject.Id, projects.LoadProjectForLine(second.Lines.Single().Id)!.Id);
+        foreach (var surface in new[] { first, second })
+        {
+            var line = surface.Lines.Single();
+            Assert.Equal(sourceId, line.Tags["source-id"].Single());
+            Assert.Equal(2, surface.Revisions.Select(r => r.Id).Distinct().Count());
+            Assert.All(surface.Revisions, r => Assert.Equal(line.Id, r.ScopeId));
+            Assert.Contains(surface.Revisions, r => r.Id == line.DiplomaticRevisionId);
+            var abbreviation = surface.Annotations.Single();
+            Assert.Equal(line.DiplomaticRevisionId, abbreviation.AnchoredRevisionId);
+            Assert.Contains(surface.Revisions, r => r.Id == abbreviation.ExpansionRevisionId && r.Layer == TextLayer.L2Editorial);
+        }
+        new TranscriptionService(store).AppendLineRevision(projects.Load(secondProject.Id), second.Lines.Single().Id,
+            TextLayer.L1Diplomatic, "γ", new AgentRef { Id = "synthetic-reviewer", IsModel = false });
+        var firstAfter = projects.Load(firstProject.Id).Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == first.Id);
+        Assert.Equal("ακϲ", firstAfter.Revisions.Single(r => r.Id == firstAfter.Lines.Single().DiplomaticRevisionId).Text);
+        var exported = interchange.ExportTeiWithReport(projects.Load(secondProject.Id), second.Id, "scoped");
+        Assert.Contains($"xml:id=\"{sourceId}\"", exported.Xml);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dir)) Directory.Delete(_dir, recursive: true);

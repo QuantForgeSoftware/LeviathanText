@@ -761,3 +761,10 @@ coverage in Formats, Application, API, Core and Infrastructure; refreshed
 merged geometry/annotation/review writes, and object/surface/fragment provenance. No
 specialist adjudication, acceptance threshold, model promotion, deployment or release follows
 from this cycle.
+
+
+## Review correction session — 2026-11-03
+
+The owner authorized correction of all eleven findings from the preceding12-hour review, with data-loss and registry-security defects first. Base revision is `9262c57`. Root owns registry/API integration, shared plans and final verification. The interchange instance owns `TeiXml.cs`, TEI import in `ProjectService.cs` and focused Formats/Application tests. The concurrency instance owns `LocalStore.cs`, `TranscriptionService.cs` and focused Infrastructure/Application tests. Tests sharing existing files must be coordinated before edits. The independent reviewer checks integration after the initial patches. No instance stages another's files.
+
+Each scope first adds regressions reproducing its reviewed failures on the named baseline and retains results in `.artifacts/review-fixes-2026-11-03/`. Fixes must preserve source metadata, Unicode spans, revision ownership, supported legacy packages and normal API/CLI operation. Registry requests need explicit destination and redirect validation before filesystem/network effects. Baseline reproduction data are synthetic and disposable. Combined verification runs the affected suites, Angular tests where interfaces change and a serial solution build with zero warnings/errors. Record review dispositions and test counts before archiving REV-01 throughREV-04. Existing P46 scholarly and resource investigations retain their separate dependencies.
