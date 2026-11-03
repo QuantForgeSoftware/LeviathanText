@@ -31,7 +31,7 @@ public static class SearchablePdf
         int pageHeight = Math.Max(1, (int)Math.Ceiling(height * scale));
 
         using var stream = new MemoryStream();
-        using (var document = SKDocument.CreatePdf(stream))
+        using (var document = SKDocument.CreatePdf(stream, new SKDocumentPdfMetadata { Title = title }))
         {
             using (var canvas = document.BeginPage(pageWidth, pageHeight))
             {
