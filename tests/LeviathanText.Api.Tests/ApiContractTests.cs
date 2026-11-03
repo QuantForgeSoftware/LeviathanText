@@ -704,6 +704,12 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             Assert.Contains("[", integrity);
             var overlap = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/overlap");
             Assert.Contains("[", overlap);
+            var overlapCsv = await client.GetStringAsync(
+                $"/api/v1/projects/{project["id"]}/overlap?format=csv");
+            Assert.Contains("kind,value,entities,note", overlapCsv);
+            var integrityCsv = await client.GetStringAsync(
+                $"/api/v1/projects/{project["id"]}/integrity?format=csv");
+            Assert.Contains("code,scope,message", integrityCsv);
 
             var tei = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei");
             Assert.Contains("<facsimile>", tei);
