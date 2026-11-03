@@ -378,6 +378,29 @@ api.MapDelete("projects/{id}", (ProjectService projects, string id) =>
     return Results.NoContent();
 });
 
+api.MapGet("projects/{id}/objects/{objectId}/fragments", (ProjectService projects, string id, string objectId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var obj = project.Objects.FirstOrDefault(o => o.Id == EntityId.Parse(objectId, EntityKind.PhysicalObject))
+        ?? throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing, Scope = objectId, Message = "No such object in the project.",
+        });
+    return Results.Ok(obj.Fragments);
+});
+
+api.MapPost("projects/{id}/objects/{objectId}/fragments", (ProjectService projects, string id,
+    string objectId, [FromBody] AddFragmentRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var (updated, fragment) = projects.AddFragment(project,
+        EntityId.Parse(objectId, EntityKind.PhysicalObject),
+        request.ExternalRefs, request.Metadata,
+        request.SurfaceIds?.Select(value => EntityId.Parse(value, EntityKind.Surface)).ToList());
+    return Results.Created($"/api/v1/projects/{id}/objects/{objectId}/fragments/{fragment.Id}",
+        new { id = fragment.Id.ToString(), surfaceIds = fragment.SurfaceIds.Select(s => s.ToString()), updated.Version });
+});
+
 api.MapGet("projects/{id}", (ProjectService projects, string id) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -564,12 +587,14 @@ api.MapGet("projects/{id}/integrity", (ProjectService projects, string id, strin
         : Results.Ok(issues);
 });
 
-api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id, bool? lines) =>
+api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id, bool? lines, bool? fragments) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
     var csv = lines == true
         ? ProvenanceCrosswalk.ToLineCsv(ProvenanceCrosswalk.BuildLines(project))
-        : ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
+        : fragments == true
+            ? ProvenanceCrosswalk.ToFragmentCsv(ProvenanceCrosswalk.BuildFragments(project))
+            : ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
     return Results.Text(csv, "text/csv");
 });
 
@@ -1621,6 +1646,11 @@ public sealed record ImportTeiRequest(string DocumentPath, string ImagePath, str
     bool SkipDuplicate = false, string? Page = null);
 
 public sealed record RestoreGeometryRequest(string? AuthorId = null);
+
+public sealed record AddFragmentRequest(
+    Dictionary<string, string>? ExternalRefs = null,
+    Dictionary<string, string>? Metadata = null,
+    string[]? SurfaceIds = null);
 
 public sealed record RegistryIndexRequest(string IndexUrl);
 

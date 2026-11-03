@@ -28,6 +28,18 @@ public static class ProjectIntegrity
         foreach (var obj in project.Objects)
         {
             Register(obj.Id, "object");
+            var objectSurfaceIds = obj.Surfaces.Select(s => s.Id).ToHashSet();
+            foreach (var fragment in obj.Fragments)
+            {
+                Register(fragment.Id, $"object {obj.Id}");
+                if (fragment.SurfaceIds.Count == 0)
+                    issues.Add(new Issue("empty-fragment", fragment.Id.ToString(),
+                        "Fragment references no surfaces."));
+                foreach (var surfaceId in fragment.SurfaceIds)
+                    if (!objectSurfaceIds.Contains(surfaceId))
+                        issues.Add(new Issue("dangling-fragment-surface", fragment.Id.ToString(),
+                            $"Fragment surface {surfaceId} does not belong to object {obj.Id}."));
+            }
             foreach (var surface in obj.Surfaces)
             {
                 Register(surface.Id, "surface");

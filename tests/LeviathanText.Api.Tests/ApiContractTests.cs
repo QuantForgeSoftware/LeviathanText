@@ -840,6 +840,33 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Fragment_grouping_api_persists_and_crosswalks()
+    {
+        var client = NewClient();
+        var (projectId, _, surfaceId) = await ImportFixtureAsync(client, "fragment-e2e");
+        using var project = System.Text.Json.JsonDocument.Parse(
+            await client.GetStringAsync($"/api/v1/projects/{projectId}"));
+        var objectId = project.RootElement.GetProperty("objects")[0].GetProperty("id").GetString()!;
+
+        var created = await client.PostAsJsonAsync(
+            $"/api/v1/projects/{projectId}/objects/{objectId}/fragments",
+            new { externalRefs = new Dictionary<string, string> { ["TM"] = "12345" },
+                surfaceIds = new[] { surfaceId } });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var fragmentId = createdJson.RootElement.GetProperty("id").GetString()!;
+
+        var list = await client.GetStringAsync(
+            $"/api/v1/projects/{projectId}/objects/{objectId}/fragments");
+        Assert.Contains(fragmentId, list);
+        Assert.Contains("TM", list);
+        var crosswalk = await client.GetStringAsync(
+            $"/api/v1/projects/{projectId}/crosswalk?fragments=true");
+        Assert.Contains("fragmentId", crosswalk);
+        Assert.Contains(fragmentId, crosswalk);
+    }
+
+    [Fact]
     public async Task Imported_ids_are_scoped_per_project_so_global_line_endpoints_are_unambiguous()
     {
         var client = NewClient();

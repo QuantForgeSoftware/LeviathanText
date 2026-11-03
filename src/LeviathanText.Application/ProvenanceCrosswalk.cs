@@ -32,6 +32,13 @@ public static class ProvenanceCrosswalk
         string ImageSha256,
         string Tags);
 
+    public sealed record FragmentRow(
+        string ObjectId,
+        string FragmentId,
+        string FragmentRefs,
+        string Metadata,
+        string SurfaceIds);
+
     public static IReadOnlyList<Row> Build(NativeProject project)
     {
         var rows = new List<Row>();
@@ -85,6 +92,35 @@ public static class ProvenanceCrosswalk
             }
         }
         return rows;
+    }
+
+    public static IReadOnlyList<FragmentRow> BuildFragments(NativeProject project)
+    {
+        var rows = new List<FragmentRow>();
+        foreach (var obj in project.Objects)
+            foreach (var fragment in obj.Fragments)
+                rows.Add(new FragmentRow(
+                    obj.Id.ToString(),
+                    fragment.Id.ToString(),
+                    FormatRefs(fragment.ExternalRefs),
+                    FormatRefs(fragment.Metadata),
+                    string.Join('|', fragment.SurfaceIds.Select(s => s.ToString()))));
+        return rows;
+    }
+
+    public static string ToFragmentCsv(IReadOnlyList<FragmentRow> rows)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("objectId,fragmentId,fragmentRefs,metadata,surfaceIds");
+        foreach (var row in rows)
+        {
+            builder.AppendLine(string.Join(',', new[]
+            {
+                Quote(row.ObjectId), Quote(row.FragmentId), Quote(row.FragmentRefs),
+                Quote(row.Metadata), Quote(row.SurfaceIds),
+            }));
+        }
+        return builder.ToString();
     }
 
     public static string ToLineCsv(IReadOnlyList<LineRow> rows)

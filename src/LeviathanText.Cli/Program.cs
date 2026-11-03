@@ -484,7 +484,9 @@ public static class Program
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var csv = rest.Contains("--lines")
                     ? ProvenanceCrosswalk.ToLineCsv(ProvenanceCrosswalk.BuildLines(project))
-                    : ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
+                    : rest.Contains("--fragments")
+                        ? ProvenanceCrosswalk.ToFragmentCsv(ProvenanceCrosswalk.BuildFragments(project))
+                        : ProvenanceCrosswalk.ToCsv(ProvenanceCrosswalk.Build(project));
                 var outIndex = Array.IndexOf(rest, "--out");
                 if (outIndex >= 0 && outIndex + 1 < rest.Length)
                 {
@@ -1927,7 +1929,7 @@ public static class Program
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
               leviathan [--store <path>] project audit <projectId> [--json|--csv]
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
-              leviathan [--store <path>] export crosswalk <projectId> [--lines] [--out <csv>]
+              leviathan [--store <path>] export crosswalk <projectId> [--lines|--fragments] [--out <csv>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]

@@ -43,7 +43,25 @@ public sealed record NativeObject
     /// </summary>
     public IReadOnlyList<NativeAttachment> Attachments { get; init; } = [];
 
+    /// <summary>
+    /// Physical fragment/side groupings. A fragment references surfaces on this object and
+    /// carries source identifiers separately from object/surface ids. Optional until source
+    /// evidence establishes fragment boundaries.
+    /// </summary>
+    public IReadOnlyList<NativeFragment> Fragments { get; init; } = [];
+
     public required IReadOnlyList<NativeSurface> Surfaces { get; init; }
+}
+
+/// <summary>A physical fragment grouping one or more surfaces of the same object.</summary>
+public sealed record NativeFragment
+{
+    public required EntityId Id { get; init; }
+    public IReadOnlyDictionary<string, string> ExternalRefs { get; init; } =
+        new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> Metadata { get; init; } =
+        new Dictionary<string, string>();
+    public required IReadOnlyList<EntityId> SurfaceIds { get; init; }
 }
 
 /// <summary>A bounded, checksummed original document retained beside the native model.</summary>

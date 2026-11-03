@@ -47,6 +47,8 @@ set: C0-0.4-draft.
 - **Remote model registry UI/API:** admin-only catalog and pull endpoints plus a workspace
   panel; host allow-list/HTTPS gate, checksum-required download and safe extraction reuse the
   CLI trust policy.
+- **Fragment grouping:** native fragments persist external refs/metadata and surface membership,
+  with API create/list and a `fragment-crosswalk.csv`; source importers do not infer boundaries.
 - **Project integrity audit:** `project audit` / `GET /projects/{id}/integrity` reports
   duplicate IDs, dangling references and out-of-range annotations without rewriting data.
 - **Provenance crosswalk:** `export crosswalk` / `GET /projects/{id}/crosswalk` joins native

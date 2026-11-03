@@ -244,6 +244,9 @@ made; use the local scripted/Ollama smoke paths for verification.
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.
 - `project audit <projectId> [--json|--csv]` — read-only duplicate-ID, dangling-reference and
   annotation-range audit; also `GET /projects/{id}/integrity[?format=csv]`.
+- `POST /projects/{id}/objects/{objectId}/fragments` groups existing surfaces with external
+  refs/metadata; `GET` lists them and `crosswalk?fragments=true` exports the fragment map.
+  Fragment boundaries are never inferred from source availability.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`. Add `?report=true` to the TEI
   endpoint for `{ xml, lossReport }` instead of raw XML. Retained original markup is available

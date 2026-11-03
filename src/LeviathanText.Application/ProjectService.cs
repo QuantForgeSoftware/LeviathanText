@@ -65,6 +65,56 @@ public sealed class ProjectService(IProjectStore store)
             p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Regions.Any(r => r.Id == regionId)));
 
     public long Save(NativeProject project) => store.SaveProject(project);
+
+    /// <summary>
+    /// Add a physical-fragment grouping to an object. Surfaces must belong to that object;
+    /// fragment ids are native identity, while source identifiers stay in <paramref name="externalRefs"/>.
+    /// </summary>
+    public (NativeProject Project, NativeFragment Fragment) AddFragment(
+        NativeProject project, EntityId objectId, IReadOnlyDictionary<string, string>? externalRefs = null,
+        IReadOnlyDictionary<string, string>? metadata = null, IReadOnlyList<EntityId>? surfaceIds = null)
+    {
+        var obj = project.Objects.FirstOrDefault(o => o.Id == objectId)
+            ?? throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.InputMissing,
+                Scope = objectId.ToString(),
+                Message = "No such object in the project.",
+            });
+        var ids = (surfaceIds ?? []).Distinct().ToList();
+        if (ids.Count == 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = objectId.ToString(),
+                Message = "A fragment must reference at least one surface.",
+            });
+        var objectSurfaces = obj.Surfaces.Select(s => s.Id).ToHashSet();
+        var unknown = ids.FirstOrDefault(id => !objectSurfaces.Contains(id));
+        if (unknown != default)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = unknown.ToString(),
+                Message = "Fragment surface does not belong to the target object.",
+            });
+
+        var fragment = new NativeFragment
+        {
+            Id = new EntityId(EntityKind.Fragment, $"frag-{Guid.NewGuid().ToString("N")[..12]}"),
+            ExternalRefs = externalRefs ?? new Dictionary<string, string>(),
+            Metadata = metadata ?? new Dictionary<string, string>(),
+            SurfaceIds = ids,
+        };
+        var updated = project with
+        {
+            Objects = [.. project.Objects.Select(o => o.Id == objectId
+                ? o with { Fragments = [.. o.Fragments, fragment] }
+                : o)],
+        };
+        updated = updated with { Version = store.SaveProject(updated) };
+        return (updated, fragment);
+    }
 }
 
 /// <summary>
