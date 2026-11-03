@@ -132,14 +132,22 @@ public static class ProjectIntegrity
                         issues.Add(new Issue("dangling-expansion", annotation.Id.ToString(),
                             "Expansion revision is missing."));
                 }
+                var retractionIds = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var retraction in surface.AnnotationRetractions)
                 {
+                    if (!retractionIds.Add(retraction.Id))
+                        issues.Add(new Issue("duplicate-retraction-id", retraction.Id,
+                            "Two retractions share the same audit id."));
                     if (!surface.Annotations.Any(a => a.Id == retraction.AnnotationId))
                         issues.Add(new Issue("dangling-retraction", retraction.Id,
                             "Retracted annotation is missing."));
                 }
+                var reviewIds = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var review in surface.ReviewDecisions)
                 {
+                    if (!reviewIds.Add(review.Id))
+                        issues.Add(new Issue("duplicate-review-id", review.Id,
+                            "Two review decisions share the same audit id."));
                     if (!linesById.ContainsKey(review.LineId))
                         issues.Add(new Issue("dangling-review-line", review.Id, "Reviewed line is missing."));
                     if (!revisions.TryGetValue(review.RevisionId, out var reviewedRevision))

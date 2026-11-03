@@ -98,6 +98,15 @@ public sealed class ProjectIntegrityTests
                                     Outcome = ReviewOutcome.Accept,
                                     At = DateTimeOffset.UtcNow,
                                 },
+                                new ReviewDecision
+                                {
+                                    Id = "review-bad",
+                                    LineId = line.Id,
+                                    RevisionId = revision.Id,
+                                    Reviewer = "tester",
+                                    Outcome = ReviewOutcome.Accept,
+                                    At = DateTimeOffset.UtcNow,
+                                },
                             ],
                             AnnotationRetractions =
                             [
@@ -106,6 +115,13 @@ public sealed class ProjectIntegrityTests
                                 {
                                     Id = "ar-missing",
                                     AnnotationId = new EntityId(EntityKind.Annotation, "ann-missing"),
+                                    Reviewer = "tester",
+                                    At = DateTimeOffset.UtcNow,
+                                },
+                                new AnnotationRetraction
+                                {
+                                    Id = "ar-missing",
+                                    AnnotationId = new EntityId(EntityKind.Annotation, "ann-missing-2"),
                                     Reviewer = "tester",
                                     At = DateTimeOffset.UtcNow,
                                 },
@@ -123,6 +139,8 @@ public sealed class ProjectIntegrityTests
         Assert.Contains(issues, i => i.Code == "annotation-out-of-range");
         Assert.Contains(issues, i => i.Code == "dangling-retraction");
         Assert.Contains(issues, i => i.Code == "review-scope-mismatch");
+        Assert.Contains(issues, i => i.Code == "duplicate-review-id");
+        Assert.Contains(issues, i => i.Code == "duplicate-retraction-id");
         Assert.Contains(issues, i => i.Code == "duplicate-source-id");
         Assert.Contains(issues, i => i.Code == "revision-cycle");
         Assert.Contains(issues, i => i.Code == "dangling-fragment-surface");
