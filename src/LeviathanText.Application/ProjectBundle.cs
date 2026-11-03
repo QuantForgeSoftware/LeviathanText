@@ -71,9 +71,10 @@ public static class ProjectBundle
                 AddBytes($"{prefix}/searchable.pdf", pdf);
                 Add($"{prefix}/searchable-pdf-loss.txt", pdfReport.ToString());
             }
-            catch (LeviathanException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // No capture dimensions/geometry: the native/TEI records remain authoritative.
+                // A missing/corrupt capture or missing geometry must not make the text bundle
+                // fail; the native/TEI records remain authoritative.
             }
             if (surface.Captures.Count > 0)
             {
