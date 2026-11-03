@@ -1,6 +1,6 @@
 # Review corrections — 2026-11-03
 
-All eleven defects from [the 12-hour review](review-2026-11-03.md) have source fixes and regression coverage. The owner authorized implementation, starting with data loss and registry security. Baseline: `9262c57`. The candidate is the uncommitted working tree; the [verification receipt](../../.artifacts/review-fixes-2026-11-03/verification/receipt.json) identifies all 16 changed C# source/test files by SHA-256 and records the environment and result hashes.
+All eleven defects from [the 12-hour review](review-2026-11-03.md) have source fixes and regression coverage. The owner authorized implementation, starting with data loss and registry security. Baseline: `9262c57`. The candidate is committed as `9ff4a94`; the [verification receipt](../../.artifacts/review-fixes-2026-11-03/verification/receipt.json) identifies all 16 changed C# source/test files by SHA-256 and records the environment and result hashes. Root's independent rerun is in [the integration verification](review-integration-2026-11-03.md).
 
 ## Dispositions
 

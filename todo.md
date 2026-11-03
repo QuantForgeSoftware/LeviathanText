@@ -6,12 +6,10 @@ Markers: `[ ]` open, `[~]` in progress; completed items are archived at cycle en
 
 ## Review corrections — 2026-11-03
 
+*(All checklist items in this section are completed and archived in [completed.md](completed.md).)*
+
 The owner authorized all fixes from [the 12-hour review](docs/handoffs/review-2026-11-03.md), starting with data loss and registry security. Root integrates the disjoint scopes and verifies their regression evidence.
 
-- [~] **REV-01 (interchange instance):** namespace imported TEI identities and remap references, preserve nested annotation text, inline whitespace and milestone positions, and correct L1-to-L2 span mapping. Reproduce all five defects in regression tests and verify ordinary import/export paths.
-- [~] **REV-02 (concurrency instance):** protect migrated persisted projects with version checks, detect concurrent first transcriptions and validate merge bases against line/layer/history. Retain failing baseline and passing candidate regression evidence.
-- [~] **REV-03 (root):** confine registry destinations, validate every redirect before a request, support format-2 catalog entries and add regression tests through the registry/API paths.
-- [ ] **REV-04 (root + independent reviewer):** review the combined fixes, run affected suites and the zero-warning solution build, document exact results and remaining limits, then archive completed review tasks.
 
 ## NTVMR / CSNTM pilot
 

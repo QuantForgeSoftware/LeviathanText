@@ -5,8 +5,8 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-11-02 (archive run from `fc96d5b`).
-Entries are verbatim, including commit references and links. 79 items.
+Archive build: 2026-11-03 (archive run from `9ff4a94`).
+Entries are verbatim, including commit references and links. 83 items.
 
 
 ## 1. Request and boundaries
@@ -151,3 +151,9 @@ Authorized18:07:20–20:07:20 CST window complete; actual closure 2026-11-02 20:
 - [x] **Chained `segment → ocr` CLI convenience:** `image segment-ocr` forwards to the existing segment/OCR path; process test added.
 - [x] **Publication docs:** image commands, model cards, AI provider configuration, PDF limits and known failures added to `docs/operations.md`; verified fresh-offline-with-installed-models remains blocked until weights exist.
 - [x] **Session/presence UI:** the surface view creates/heartbeats/revokes its session and presence uses the authenticated principal; a session panel lists active sessions and revokes one, with a spec.
+
+## Review corrections — 2026-11-03
+- [x] **REV-01 (interchange instance):** namespace imported TEI identities and remap references, preserve nested annotation text, inline whitespace and milestone positions, and correct L1-to-L2 span mapping. Reproduce all five defects in regression tests and verify ordinary import/export paths. *(Completed in `9ff4a94`; regression evidence in [review fixes](docs/handoffs/review-fixes-2026-11-03.md#dispositions).)*
+- [x] **REV-02 (concurrency instance):** protect migrated persisted projects with version checks, detect concurrent first transcriptions and validate merge bases against line/layer/history. Retain failing baseline and passing candidate regression evidence. *(Completed in `9ff4a94`; migration/merge regression evidence in the same handoff.)*
+- [x] **REV-03 (root):** confine registry destinations, validate every redirect before a request, support format-2 catalog entries and add regression tests through the registry/API paths. *(Completed in `9ff4a94`; API/CLI/application registry tests pass.)*
+- [x] **REV-04 (root + independent reviewer):** review the combined fixes, run affected suites and the zero-warning solution build, document exact results and remaining limits, then archive completed review tasks. *(Root rerun: Release build 0/0; Application 201, Formats 87, Infrastructure 29, API 64, CLI 33, Worker 20 = 434/434; Angular 51/51. [Integration verification](docs/handoffs/review-integration-2026-11-03.md).)*
