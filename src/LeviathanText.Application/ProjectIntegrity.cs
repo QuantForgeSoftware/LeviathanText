@@ -46,6 +46,13 @@ public static class ProjectIntegrity
                         issues.Add(new Issue("dangling-frame", region.Id.ToString(),
                             "Region frame is not a capture on this surface."));
                 }
+                foreach (var duplicateSource in surface.Lines
+                             .Where(line => line.Tags.TryGetValue("source-id", out var value) && value.Count > 0)
+                             .GroupBy(line => line.Tags["source-id"][0], StringComparer.Ordinal)
+                             .Where(group => group.Count() > 1))
+                    issues.Add(new Issue("duplicate-source-id", surface.Id.ToString(),
+                        $"Source line id '{duplicateSource.Key}' occurs {duplicateSource.Count()} times on this surface."));
+
                 foreach (var line in surface.Lines)
                 {
                     Register(line.Id, $"surface {surface.Id}");

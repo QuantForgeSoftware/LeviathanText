@@ -182,6 +182,7 @@ public class TeiProfileTests
             new TeiXml.TeiExportContext(Folio: "081v"));
         Assert.Contains("<pb n=\"081v\" type=\"folio\" />", exported.Xml);
         Assert.Contains("n=\"B09K1V10\"", exported.Xml);
+        Assert.Contains("part=\"F\"", exported.Xml);
         Assert.Contains("<hi rend=\"overline\">", exported.Xml);
         Assert.Contains("type=\"orig\"", exported.Xml);
         Assert.Contains("type=\"corr\"", exported.Xml);

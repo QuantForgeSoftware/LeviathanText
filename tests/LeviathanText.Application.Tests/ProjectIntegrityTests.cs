@@ -33,6 +33,14 @@ public sealed class ProjectIntegrityTests
             AnchoredRevisionId = revision.Id,
             Range = new ScalarRange(0, 9999),
         };
+        NativeLine SourceTagged(string id) => line with
+        {
+            Id = new EntityId(EntityKind.Line, id),
+            Tags = new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["source-id"] = ["same-source"],
+            },
+        };
         var bad = project with
         {
             Objects =
@@ -43,7 +51,8 @@ public sealed class ProjectIntegrityTests
                     [
                         surface with
                         {
-                            Lines = [.. surface.Lines, duplicateLine, danglingLine],
+                            Lines = [.. surface.Lines, duplicateLine, danglingLine,
+                                SourceTagged("ln-source-a"), SourceTagged("ln-source-b")],
                             Annotations = [.. surface.Annotations, annotation],
                             AnnotationRetractions =
                             [
@@ -68,6 +77,7 @@ public sealed class ProjectIntegrityTests
         Assert.Contains(issues, i => i.Code == "dangling-region");
         Assert.Contains(issues, i => i.Code == "annotation-out-of-range");
         Assert.Contains(issues, i => i.Code == "dangling-retraction");
+        Assert.Contains(issues, i => i.Code == "duplicate-source-id");
         Assert.Contains("duplicate-id", ProjectIntegrity.ToCsv(issues));
         Assert.Contains("\"code\"", ProjectIntegrity.ToJson(issues));
         Assert.NotEmpty(bad.Objects[0].Surfaces[0].Lines); // audit does not rewrite
