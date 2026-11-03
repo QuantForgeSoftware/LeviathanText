@@ -8,7 +8,7 @@ are not specialist-adjudicated.
 | --- | --- | --- | --- |
 | PAGE XML import/export | implemented (bounded) | format tests; round-trips; loss reports | unsupported elements reported, not mapped |
 | TEI/EpiDoc import/export | implemented (bounded, layered) | [profile tests + evidence](../evaluation/interchange-v2.md): `<lb>` splitting, L1/L2 supplied+expansion links, orig/reg, add/del/handShift, facsimile, provenance, attachment, loss report; ISicily records parse | no XSD validation; not all EpiDoc constructs; attachments capped at 2 MiB |
-| ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import | no word segmentation synthesis; ALTO does not carry direction |
+| ALTO v4 / hOCR | implemented (bounded) | adapter tests + legacy import; ALTO `BASEDIRECTION`/`LANG` and hOCR direction | no word segmentation synthesis; recognition remains LTR |
 | IIIF Presentation 3 import | implemented (bounded) | real manifest test; remote image cache | no IIIF hosting |
 | PDF / ABBYY XML | implemented (bounded) | PDF page rasterization + optional coordinate-bearing L2 text with gap-based lines and two-column gutter ordering; ABBYY FineReader 10 import/export with loss reporting; tests + CLI/API | no PDF figures/rotation/full reading-order model; ABBYY schema validation and richer metadata missing |
 | Plain text + loss report | implemented | export tests | lossy by design |

@@ -85,7 +85,7 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 ## Interchange
 
-- PAGE and hOCR carry per-region/line direction and script metadata (PAGE `readingDirection`/`primaryScript`, hOCR `dir`/`ocr_vertical`); native JSON preserves it and TEI uses a bounded `@rend` mapping. ALTO does not yet map direction, and recognition remains LTR.
+- PAGE, ALTO and hOCR carry per-region/line direction and script metadata (PAGE `readingDirection`/`primaryScript`, ALTO `BASEDIRECTION`/`LANG`, hOCR `dir`/`ocr_vertical`); native JSON preserves it and TEI uses a bounded `@rend` mapping. Recognition remains LTR.
 - ALTO/hOCR are bounded subsets (line boxes + line text; no word segmentation synthesis).
 - TEI/EpiDoc is a bounded, layered profile: `<lb>` line splitting, L1/L2 supplied and
   expansion links, orig/reg, add/del/handShift, facsimile and provenance are mapped; unsupported
