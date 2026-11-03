@@ -9,7 +9,12 @@ import { ApiClient } from './api-client';
 
 interface ProviderRow {
   configRef: string;
-  settings: { modelId: string };
+  settings: {
+    modelId: string;
+    maxSpendUsd?: number | null;
+    maxRequests?: number;
+    maxOutputTokens?: number;
+  };
 }
 
 @Component({
@@ -25,7 +30,7 @@ interface ProviderRow {
         <label>Provider
           <select [value]="providerRef()" (change)="onProvider($event)">
             @for (provider of providers(); track provider.configRef) {
-              <option [value]="provider.configRef">{{ provider.configRef }} ({{ provider.settings.modelId }})</option>
+              <option [value]="provider.configRef">{{ provider.configRef }} ({{ provider.settings.modelId }}{{ providerBudget(provider) }})</option>
             }
           </select>
         </label>
@@ -89,6 +94,13 @@ export class ProposalPanel {
       },
       error: () => this.providers.set([]),
     });
+  }
+
+  protected providerBudget(provider: ProviderRow): string {
+    const parts: string[] = [];
+    if (provider.settings.maxSpendUsd != null) parts.push(`$${provider.settings.maxSpendUsd}`);
+    if ((provider.settings.maxRequests ?? 0) > 0) parts.push(`${provider.settings.maxRequests} req`);
+    return parts.length > 0 ? ` · cap ${parts.join('/')}` : '';
   }
 
   protected onProvider(event: Event): void {
