@@ -39,9 +39,10 @@ Plan: [project-plan.md §12](project-plan.md#12-ntvmr--csntm-manuscript-pairing-
 
 ## Now — doable without external inputs
 
+*(All checklist items in this section are completed and archived in [completed.md](completed.md).)*
+
 These are the active code/docs slices that do not require reviewer decisions, fresh image/label pairs, rights grants, or verified model weights. Parent capability sections below retain only their blocked work.
 
-- [x] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Bundled `docs/contracts/tei-bounded-profile.xsd` pins/validates the bounded profile with a representative export test; SHA-256 pinning and DOCTYPE refusal are tested; `<space>`, `<damage>`, `<ex>` and `<certainty>` are bounded. Official EpiDoc interoperability remains an operator-supplied external schema pin.)*
 
 ## 3. Reference capability inventory and release scope
 

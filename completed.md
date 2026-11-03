@@ -5,8 +5,8 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-11-03 (archive run from `a528303`).
-Entries are verbatim, including commit references and links. 87 items.
+Archive build: 2026-11-03 (archive run from `5b1ccec`).
+Entries are verbatim, including commit references and links. 88 items.
 
 
 ## 1. Request and boundaries
@@ -156,6 +156,7 @@ Authorized18:07:20–20:07:20 CST window complete; actual closure 2026-11-02 20:
 - [x] **Session/presence UI:** the surface view creates/heartbeats/revokes its session and presence uses the authenticated principal; a session panel lists active sessions and revokes one, with a spec.
 - [x] **Merged writes beyond text:** annotation writes now carry the revision they were drawn against (stale anchors fail), review decisions accept an optional `revisionId` (stale decisions fail 409), and geometry/order/retraction writes use the optimistic project version so a stale writer fails rather than silently overwriting; concurrent-writer tests cover geometry and retraction. No field-level merge is claimed for these routes.
 - [x] **Object/surface/fragment provenance crosswalk:** export and re-import stable native ids and external references for objects, surfaces and fragments (line ids and `idno` already round-trip). *(Surface/per-line/fragment crosswalk CSVs include native ids, source ids, refs, revision and image hash; object/surface refs round-trip through TEI; native fragments persist external refs/metadata and surface membership with API create/list. A read-only `project audit` reports duplicate/dangling/out-of-range state. Source importers do not infer fragment boundaries.)*
+- [x] **TEI schema pinning/validation:** pin and validate against the chosen TEI P5/EpiDoc schema (XSD or RelaxNG) without weakening the bounded profile; keep DOCTYPE/entity refusal. Extend the profile to the remaining EpiDoc constructs only where a round-trip test exists. *(Bundled `docs/contracts/tei-bounded-profile.xsd` pins/validates the bounded profile with a representative export test; SHA-256 pinning and DOCTYPE refusal are tested; `<space>`, `<damage>`, `<ex>` and `<certainty>` are bounded. Official EpiDoc interoperability remains an operator-supplied external schema pin.)*
 
 ## Review corrections — 2026-11-03
 - [x] **REV-01 (interchange instance):** namespace imported TEI identities and remap references, preserve nested annotation text, inline whitespace and milestone positions, and correct L1-to-L2 span mapping. Reproduce all five defects in regression tests and verify ordinary import/export paths. *(Completed in `9ff4a94`; regression evidence in [review fixes](docs/handoffs/review-fixes-2026-11-03.md#dispositions).)*
