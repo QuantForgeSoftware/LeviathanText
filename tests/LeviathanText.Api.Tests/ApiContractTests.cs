@@ -198,6 +198,26 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Word_boundary_export_lists_the_proposed_division()
+    {
+        var client = NewClient();
+        var (projectId, lineId, _) = await ImportFixtureAsync(client, "word-boundary-e2e");
+        var created = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/annotations", new
+        {
+            kind = "WordBoundary",
+            range = new { start = 2, end = 2 },
+            description = "proposed break",
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        var csv = await client.GetStringAsync($"/api/v1/projects/{projectId}/word-boundaries");
+
+        Assert.Contains("lineId,revisionId,layer,scalarPosition,before,after,description", csv);
+        Assert.Contains(lineId, csv);
+        Assert.Contains("proposed break", csv);
+    }
+
+    [Fact]
     public async Task Line_geometry_round_trips_through_the_api()
     {
         var client = NewClient();
