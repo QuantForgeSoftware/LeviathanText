@@ -563,6 +563,21 @@ public class TeiProfileTests
     }
 
     [Fact]
+    public void Cross_layer_mapping_never_lands_on_another_annotation_span()
+    {
+        var imported = TeiXml.Import(Document(
+            "<div type=\"edition\"><ab><lb/><del>ιͅ</del><unclear>ιͅ</unclear><del>ιͅ</del>ἄ<supplied>β ́</supplied></ab></div>"));
+        var l1 = Revision(imported, TextLayer.L1Diplomatic);
+        Assert.Equal("ιͅἄ", l1.Text);
+
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+
+        Assert.Equal(l1.Text, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+    }
+
+    [Fact]
     public void Repeated_spans_with_distinct_context_keep_their_location()
     {
         var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/><supplied>δ</supplied>α<unclear>αα</unclear><supplied>δ</supplied></ab></div>"));

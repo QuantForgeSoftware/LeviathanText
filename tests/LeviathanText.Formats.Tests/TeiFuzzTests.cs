@@ -38,6 +38,49 @@ public class TeiFuzzTests
         }
     }
 
+    [Fact]
+    public void Combining_marks_and_boundary_whitespace_survive_export()
+    {
+        var random = new Random(20261104);
+        for (int iteration = 0; iteration < 120; iteration++)
+        {
+            var content = string.Concat(Enumerable.Range(0, random.Next(3, 8))
+                .Select(_ => CombinedToken(random)));
+            var imported = TeiXml.Import(Prefix + content + Suffix);
+            var l1 = Assert.Single(imported.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+            var l2 = imported.Revisions.SingleOrDefault(r => r.Layer == TextLayer.L2Editorial);
+            var line = Assert.Single(imported.Document!.Lines);
+            var exported = TeiXml.ExportDocument(
+                [new TeiXml.TeiExportLine(line.LineId, l1, l2, imported.Annotations, line)],
+                "fuzz-combining", new TeiXml.TeiExportContext(Graphics: [new TeiXml.TeiGraphic("synthetic.png")]));
+            var reparsed = TeiXml.Import(exported.Xml);
+            var reparsedL1 = Assert.Single(reparsed.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+
+            Assert.True(l1.Text == reparsedL1.Text,
+                $"iteration {iteration}: L1 changed\ninput: {content}\nL1: {l1.Text}\nreparsed: {reparsedL1.Text}\nxml: {exported.Xml}");
+        }
+    }
+
+    private static string CombinedToken(Random random)
+    {
+        var text = random.Next(0, 5) switch
+        {
+            0 => "α\u0301",
+            1 => "ι\u0345",
+            2 => "ἄ",
+            3 => "α β",
+            _ => Greek(random) + " \u0301",
+        };
+        return random.Next(0, 5) switch
+        {
+            0 => text,
+            1 => $"<unclear>{text}</unclear>",
+            2 => $"<supplied>{text}</supplied>",
+            3 => $"<hi rend=\"overline\">{text}</hi>",
+            _ => $"<del>{text}</del>",
+        };
+    }
+
     private static string Token(Random random) => random.Next(0, 8) switch
     {
         0 => Greek(random),

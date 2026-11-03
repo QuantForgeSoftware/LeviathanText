@@ -253,11 +253,20 @@ public static class TeiXml
         var lineAnnotations = line.Annotations
             .Where(a => a.AnchoredRevisionId == line.L1?.Id || a.AnchoredRevisionId == line.L2?.Id)
             .ToList();
+        // Ranges already carried by the rendered layer are authoritative. A cross-layer
+        // mapping must not land on top of one of them: repeated witness text (for example a
+        // deleted letter followed by an unclear letter) can otherwise be attached to the
+        // wrong occurrence and duplicate text on re-import.
+        var occupiedTargetRanges = lineAnnotations
+            .Where(a => a.Kind != AnnotationKind.NotYetTranscribed
+                        && a.AnchoredRevisionId == baseRevision.Id)
+            .Select(a => a.Range)
+            .ToList();
         var renderable = new List<RenderAnnotation>();
         foreach (var annotation in lineAnnotations)
         {
             if (annotation.Kind == AnnotationKind.NotYetTranscribed) continue;
-            var mapped = MapAnnotation(annotation, line, baseRevision, losses);
+            var mapped = MapAnnotation(annotation, line, baseRevision, losses, occupiedTargetRanges);
             if (mapped is not null) renderable.Add(mapped);
         }
 
@@ -273,7 +282,8 @@ public static class TeiXml
     private sealed record RenderAnnotation(Annotation Source, ScalarRange Range, string? Inner, bool Milestone);
 
     private static RenderAnnotation? MapAnnotation(
-        Annotation annotation, TeiExportLine line, TextRevision baseRevision, List<LossEntry> losses)
+        Annotation annotation, TeiExportLine line, TextRevision baseRevision, List<LossEntry> losses,
+        IReadOnlyList<ScalarRange> occupiedTargetRanges)
     {
         // Annotations already anchored to the rendered revision are authoritative.
         if (annotation.AnchoredRevisionId == baseRevision.Id)
@@ -352,8 +362,14 @@ public static class TeiXml
                 $"annotation {annotation.Id} ({annotation.Kind}) has no unambiguous exact span in the rendered layer"));
             return null;
         }
-        return new RenderAnnotation(annotation,
-            new ScalarRange(start, start + ScalarText.Count(sourceText)), null,
+        var mappedRange = new ScalarRange(start, start + ScalarText.Count(sourceText));
+        if (occupiedTargetRanges.Any(range => Overlaps(mappedRange, range)))
+        {
+            losses.Add(new LossEntry("annotation-mapping", 1,
+                $"annotation {annotation.Id} ({annotation.Kind}) maps onto a span already claimed by the rendered layer"));
+            return null;
+        }
+        return new RenderAnnotation(annotation, mappedRange, null,
             annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased
                 && annotation.Range.IsEmpty);
     }
@@ -1387,6 +1403,11 @@ public static class TeiXml
         while (!used.Add(unique)) unique = $"{suffix}-{++counter}";
         return unique;
     }
+
+    private static bool Overlaps(ScalarRange mapped, ScalarRange occupied) =>
+        mapped.IsEmpty
+            ? occupied.Start <= mapped.Start && mapped.Start < occupied.End
+            : occupied.Start < mapped.End && mapped.Start < occupied.End;
 
     private static int? FindUniqueScalarIndex(string haystack, string needle)
     {

@@ -71,3 +71,12 @@ and explicit abbreviation/editorial spans even when complete L1/L2 strings are e
 Retain source IDs as metadata while minting unique native IDs per import; remap every
 revision/annotation reference together. Report ambiguous mappings instead of assigning
 them to the first matching letters. Added 2026-11-03.
+
+## 13. A cross-layer text map must respect the target layer's claimed spans
+
+Matching repeated text by context is not sufficient when the target contains another
+annotation on the same occurrence: an L1-only unclear span in
+`<del>ιͅ</del><unclear>ιͅ</unclear><del>ιͅ</del>` could be mapped onto the second deleted
+span, displacing it and duplicating text on re-import. Treat target-layer annotation ranges
+as occupied and report `annotation-mapping` instead. Fuzz combining marks and zero-width
+spans, not only plain Greek strings. Added 2026-11-03.

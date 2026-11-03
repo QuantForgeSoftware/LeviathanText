@@ -52,6 +52,9 @@ set: C0-0.4-draft.
 - **Word-boundary export:** `export word-boundaries` / API CSV lists proposed L2 boundary
   positions with source context; the dual-pane reading view also previews them with `·`
   without changing witness text.
+- **Cross-layer mapping safety:** repeated witness text now cannot attach a cross-layer
+  annotation to a span already claimed by the rendered layer, which previously duplicated
+  text after export/re-import in a combining-mark/del case.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.
