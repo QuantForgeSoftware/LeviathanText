@@ -61,6 +61,13 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 - Job leases/heartbeats, persisted priority and an optional per-owner active quota exist; there is no distributed scheduler or per-tenant rate limiter.
 - SQLite single-writer store; the worker runs one job at a time per process.
 
+## Export and PDF
+
+- Searchable PDF is a convenience export: the capture image plus invisible L1 line text at
+  axis-aligned source rectangles. It is not PDF/A, does not embed L2/alternatives/annotations,
+  and omits lines without geometry (reported as loss). Page rotation/curved baselines are not
+  modelled. See [searchable-pdf.md](../evaluation/searchable-pdf.md).
+
 ## Security
 
 - Shared deployment has **local accounts with roles** (reader/annotator/reviewer/admin), hashed
