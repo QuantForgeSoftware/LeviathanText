@@ -242,6 +242,8 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - `export crosswalk <projectId> [--lines] [--out <csv>]` — read-only surface map, or a per-line
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.
+- `project audit <projectId> [--json|--csv]` — read-only duplicate-ID, dangling-reference and
+  annotation-range audit; also `GET /projects/{id}/integrity[?format=csv]`.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`. Add `?report=true` to the TEI
   endpoint for `{ xml, lossReport }` instead of raw XML. Retained original markup is available

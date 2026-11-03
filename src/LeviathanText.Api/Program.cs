@@ -555,6 +555,15 @@ api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [Fr
     });
 });
 
+api.MapGet("projects/{id}/integrity", (ProjectService projects, string id, string? format) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var issues = ProjectIntegrity.Audit(project);
+    return format?.Equals("csv", StringComparison.OrdinalIgnoreCase) == true
+        ? Results.Text(ProjectIntegrity.ToCsv(issues), "text/csv")
+        : Results.Ok(issues);
+});
+
 api.MapGet("projects/{id}/crosswalk", (ProjectService projects, string id, bool? lines) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

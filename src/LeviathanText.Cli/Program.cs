@@ -203,6 +203,21 @@ public static class Program
                 return rows.Any(r => r.Status == "failed") ? 1 : 0;
             }
 
+            case "project" when rest.Length >= 3 && rest[1] == "audit":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var issues = ProjectIntegrity.Audit(project);
+                if (rest.Contains("--csv")) Console.Write(ProjectIntegrity.ToCsv(issues));
+                else if (rest.Contains("--json")) Console.WriteLine(ProjectIntegrity.ToJson(issues));
+                else
+                {
+                    foreach (var issue in issues)
+                        Console.WriteLine($"{issue.Code}\t{issue.Scope}\t{issue.Message}");
+                    Console.WriteLine($"{issues.Count} integrity issue(s)");
+                }
+                return issues.Count == 0 ? 0 : 1;
+            }
+
             case "project" when rest.Length >= 2 && rest[1] == "new":
             {
                 var name = rest.Length >= 3 ? rest[2] : throw new ArgumentException("Usage: project new <name>");
@@ -1910,6 +1925,7 @@ public static class Program
               leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
+              leviathan [--store <path>] project audit <projectId> [--json|--csv]
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
               leviathan [--store <path>] export crosswalk <projectId> [--lines] [--out <csv>]
               leviathan [--store <path>] export tei <projectId> <surfaceId>

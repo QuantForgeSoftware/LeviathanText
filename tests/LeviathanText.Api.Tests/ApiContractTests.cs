@@ -660,6 +660,8 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             var lineCrosswalk = await client.GetStringAsync(
                 $"/api/v1/projects/{project["id"]}/crosswalk?lines=true");
             Assert.Contains("lineId,lineSourceId,lineNumber", lineCrosswalk);
+            var integrity = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/integrity");
+            Assert.Contains("[", integrity);
 
             var tei = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei");
             Assert.Contains("<facsimile>", tei);
