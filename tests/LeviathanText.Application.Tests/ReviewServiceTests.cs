@@ -19,6 +19,25 @@ public sealed class ReviewServiceTests
         store.LoadProject(project.Id)!;
 
     [Fact]
+    public void Recording_a_decision_against_a_superseded_revision_is_refused()
+    {
+        var (project, lineId, surface, service, store) = Setup();
+        var reviewed = surface.Lines[0].DiplomaticRevisionId!.Value;
+        var transcription = new TranscriptionService(store);
+        var (afterEdit, _, _) = transcription.AppendLineRevision(
+            Reload(store, project), lineId, TextLayer.L1Diplomatic, "νεα γραφη",
+            new AgentRef { Id = "editor", IsModel = false }, reviewed);
+
+        var ex = Assert.Throws<LeviathanException>(() => service.Record(
+            Reload(store, afterEdit), lineId, "reviewer-a", ReviewOutcome.Accept,
+            reviewedRevisionId: reviewed));
+
+        Assert.Equal(ErrorCode.RevisionConflict, ex.Error.Code);
+        Assert.Equal(reviewed.ToString(), ex.Error.Details!["requestedRevision"]);
+        Assert.Equal(RemedyHint.RebaseRevision, ex.Error.RemedyHint);
+    }
+
+    [Fact]
     public void Accept_is_anchored_to_the_reviewed_revision()
     {
         var (project, lineId, surface, service, store) = Setup();

@@ -38,7 +38,8 @@ interface UndoStack {
         }
         @if (conflict()) {
           <p class="conflict">
-            A newer revision exists. Reload the latest parent, keep your text, then Save again.
+            Your changes overlap a newer revision. Non-overlapping edits merge automatically;
+            reload the latest revision to reapply this one.
             <button type="button" (click)="reloadAfterConflict()">Reload latest</button>
           </p>
         }
@@ -449,7 +450,7 @@ export class LineEditor {
     }
     this.api.addAnnotation(this.lineId(), {
       kind,
-      anchoredRevisionId: null,
+      anchoredRevisionId: this.currentRevisionId(),
       range: { start: this.formStart(), end: this.formEnd() },
       description: this.formDescription() || null,
       alternativeText: kind === 'AlternativeReading' ? this.formAlternative() || null : null,
@@ -482,7 +483,7 @@ export class LineEditor {
         next: ({ revisionId }) => {
           this.api.addAnnotation(this.lineId(), {
             kind: 'Abbreviation',
-            anchoredRevisionId: null,
+            anchoredRevisionId: this.currentRevisionId(),
             range: { start, end },
             expansionText: expansion,
             expansionRevisionId: revisionId,
@@ -508,6 +509,7 @@ export class LineEditor {
       reviewer: this.authorId(),
       outcome,
       correctionText: outcome === 'correct' ? this.text() : null,
+      revisionId: this.currentRevision()?.id ?? null,
     }).subscribe({
       next: () => this.refresh(),
       error: () => { /* surfaced by the API; state kept */ },
@@ -581,7 +583,7 @@ export class LineEditor {
     if (start >= end) return;
     this.api.addAnnotation(this.lineId(), {
       kind: 'Unclear',
-      anchoredRevisionId: null, // binds server-side to the current revision
+      anchoredRevisionId: this.currentRevisionId(), // binds server-side to the current revision
       range: { start, end },
     }).subscribe({
       next: () => this.refresh(),
@@ -593,7 +595,7 @@ export class LineEditor {
     const position = this.caret();
     this.api.addAnnotation(this.lineId(), {
       kind: 'WordBoundary',
-      anchoredRevisionId: null,
+      anchoredRevisionId: this.currentRevisionId(),
       range: { start: position, end: position },
       description: 'L2 word-division proposal',
     }).subscribe({
@@ -605,7 +607,7 @@ export class LineEditor {
   protected markLost(): void {
     this.api.addAnnotation(this.lineId(), {
       kind: 'Lost',
-      anchoredRevisionId: null,
+      anchoredRevisionId: this.currentRevisionId(),
       range: { start: this.caret(), end: this.caret() },
       gapExtent: 'Unknown',
     }).subscribe({ next: () => this.refresh() });
@@ -621,7 +623,7 @@ export class LineEditor {
 
   protected save(): void {
     const parent = this.currentRevisionId();
-    this.api.appendRevision(this.lineId(), 'L1Diplomatic', this.text(), this.authorId(), parent ?? undefined)
+    this.api.appendRevision(this.lineId(), 'L1Diplomatic', this.text(), this.authorId(), parent ?? undefined, true)
       .subscribe({
         next: () => {
           this.conflict.set(false);

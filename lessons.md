@@ -38,3 +38,13 @@ so selection overfitting is visible.
 ## 8. Treat analyzer warnings as defects
 `dotnet build` warnings (e.g. xUnit2031) count against the release gate; fix at the source
 rather than suppressing, and confirm `0 Warning(s)` before closing a cycle.
+
+## 9. Validate a resource counter before treating it as a lifetime oracle
+
+TorchSharp0.107 `Tensor.TotalCount` can retain a counter increment when a raw tensor's
+handle moves into `nn.Parameter`, even after both handles are empty. Model-construction
+loops therefore need validated disposal-scope lifetime statistics and explicit handle/
+ownership checks, not a zero-`TotalCount` requirement or a tolerated leak allowance.
+Preserve the failed exploratory measurements and independently reproduce the counter
+control. Fixed-model relative deltas and actual OS RSS are distinct evidence; neither
+proves universal native-memory behavior. Added2026-11-02 after the failed-model-load audit.

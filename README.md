@@ -15,7 +15,7 @@ John Baima leads the official project under [GOVERNANCE.md](GOVERNANCE.md). Code
 | --- | --- |
 | `src/LeviathanText.Contracts` | Shared contract vocabulary: identifiers, scalar ranges, text layers/revisions, scholarly annotations, closed error codes, stage envelopes, confidence semantics (implements contract set `C0-0.4-draft`) |
 | `src/LeviathanText.Core` | Domain behavior: Unicode scalar/grapheme machinery, NFC normalization with annotation offset mapping, revision chains with conflict semantics, coordinate-frame registration, stage validity, idempotent job protocol |
-| `src/LeviathanText.Formats` | Native JSON persistence, diplomatic text export with mandatory loss reports, bounded PAGE XML (2013 + 2019), bounded TEI/EpiDoc round trips, bounded IIIF Presentation 3 import |
+| `src/LeviathanText.Formats` | Native JSON persistence, diplomatic text export with mandatory loss reports, bounded PAGE XML (2013 + 2019), layered bounded TEI/EpiDoc round trips with source attachments and loss reports, bounded IIIF Presentation 3 import |
 | `src/LeviathanText.Imaging` | SkiaSharp decode/crop/deskew with recorded transforms and coordinate mapping |
 | `src/LeviathanText.Recognition` | CRNN + CTC line recognition (label set, greedy decoder, per-grapheme confidence) |
 | `src/LeviathanText.Training` | Variable-width CTC trainer: train / best-checkpoint / resume / reload, synthetic dataset, PAGE-image corpus loader |
@@ -43,10 +43,13 @@ The dataset-backed pilot tests are skipped automatically when the artifact store
 ```bash
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db project new "Pilot corpus"
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import page <projectId> page.xml
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db import tei <projectId> record.xml page.jpg
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db import iiif <projectId> manifest.json
+dotnet run --project src/LeviathanText.Cli -- migrate inventory <existing-tree> --out inventory.json
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db layout detect <projectId> <surfaceId>   # auto layout (never overwrites)
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export diplomatic <projectId> <surfaceId>   # loss report on stderr
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export tei <projectId> <surfaceId>
+dotnet run --project src/LeviathanText.Cli -- validate tei record.xml --strict
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db export training <projectId>   # L1-only labels + annotation status
 dotnet run --project src/LeviathanText.Cli -- --store pilot.db recognize surface <projectId> <surfaceId> --package <model-package-dir>
 ```
@@ -64,7 +67,7 @@ scripts/pilot-demo.sh /tmp/lt-demo   # import → train → recognize → export
 ```bash
 dotnet run --project src/LeviathanText.Api
 # projects: GET/POST /api/v1/projects, GET /projects/{id}
-# ingestion: POST /projects/{id}/import-page | import-iiif | import-image | import-pdf | import-legacy (ALTO/hOCR + image)
+# ingestion: POST /projects/{id}/import-page | import-tei | import-iiif | import-image | import-pdf | import-legacy (ALTO/hOCR + image)
 # search/QA: GET /projects/{id}/search?q=&mode=literal|base; GET /projects/{id}/profile-report
 # review: GET /projects/{id}/review-queue[?surfaceId=] (persisted L0 confidence order)
 # layout: POST /surfaces/{id}/detect-layout; PUT /surfaces/{id}/reading-order; PUT /regions/{id}/line-order
@@ -89,7 +92,7 @@ cd web && npx ng serve --proxy-config proxy.conf.json   # http://localhost:4200
 cd web && npx ng test --watch=false --browsers=ChromeHeadless
 ```
 
-The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations with retraction, draft recovery), a dual-pane L1/L2 diff, a geometry/reading-order overlay with manual placement for text-first imports, double-review/adjudication, search, jobs, exports, an API-key panel, and an opt-in AI assistance panel.
+The workspace includes the line editor (polytonic input, revisions, uncertainty/gap annotations with retraction, draft recovery), a dual-pane L1/L2 diff, a geometry/reading-order overlay with manual placement for text-first imports, double-review/adjudication, search, jobs, exports, an API-key panel, server-issued session presence with a list/revoke panel, and an opt-in AI assistance panel.
 
 ## Status and operations
 

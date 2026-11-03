@@ -1,4 +1,5 @@
 using LeviathanText.Contracts;
+using LeviathanText.Core.Text;
 using LeviathanText.Formats;
 
 namespace LeviathanText.Application;
@@ -51,9 +52,117 @@ public sealed class TranscriptionService(IProjectStore store)
                 : l)],
         };
         foundProject = WithSurface(foundProject, surface);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, surface, revision);
     }
+
+    /// <summary>
+    /// Append a revision with automatic three-way merge. The caller names the revision it
+    /// edited (<paramref name="parentRevisionId"/>); if another writer has since appended a
+    /// newer revision, non-overlapping edits are merged and overlapping edits fail with a
+    /// real conflict. The store's optimistic version check is retried on a concurrent save.
+    /// </summary>
+    public (NativeProject Project, NativeSurface Surface, TextRevision Revision, bool Merged)
+        AppendLineRevisionMerged(NativeProject project, EntityId lineId, TextLayer layer, string text,
+            AgentRef author, EntityId? parentRevisionId)
+    {
+        const int maxAttempts = 3;
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var stored = store.LoadProject(project.Id) ?? project;
+            var (foundProject, surface, line) = FindLine(stored, lineId);
+            var current = CurrentRevision(surface, lineId, layer, line);
+            var effectiveText = text;
+            var effectiveParent = current?.Id;
+            bool merged = false;
+
+            if (parentRevisionId is { } requested && requested != current?.Id)
+            {
+                var baseRevision = surface.Revisions.FirstOrDefault(r => r.Id == requested);
+                if (baseRevision is null || current is null)
+                    throw Conflict(lineId, requested, current?.Id, "The base revision is not in this line's history.");
+
+                var result = ThreeWayMerge.Merge(baseRevision.Text, text, current.Text);
+                if (!result.Success)
+                {
+                    var first = result.Conflicts[0];
+                    throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.RevisionConflict,
+                        Scope = lineId.ToString(),
+                        Details = new Dictionary<string, string>
+                        {
+                            ["requestedParent"] = requested.ToString(),
+                            ["currentRevision"] = current.Id.ToString(),
+                            ["conflictStart"] = first.Start.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["conflictEnd"] = first.End.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["localText"] = Clip(first.Local),
+                            ["remoteText"] = Clip(first.Remote),
+                        },
+                        RemedyHint = RemedyHint.RebaseRevision,
+                        Message = "Concurrent edits overlap; choose a reading before saving.",
+                    });
+                }
+
+                effectiveText = result.Text;
+                effectiveParent = current.Id;
+                merged = result.Text != text;
+            }
+
+            var revision = new TextRevision
+            {
+                Id = new EntityId(EntityKind.TranscriptionRevision, Guid.NewGuid().ToString("N")[..12]),
+                ScopeId = lineId,
+                Layer = layer,
+                ParentRevisionId = effectiveParent,
+                Author = author,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Text = effectiveText,
+            };
+
+            surface = surface with
+            {
+                Revisions = [.. surface.Revisions.Append(revision)],
+                Lines = [.. surface.Lines.Select(l => l.Id == lineId && layer == TextLayer.L1Diplomatic
+                    ? l with { DiplomaticRevisionId = revision.Id }
+                    : l)],
+            };
+            foundProject = WithSurface(foundProject, surface);
+            try
+            {
+                foundProject = foundProject with { Version = store.SaveProject(foundProject) };
+                return (foundProject, surface, revision, merged);
+            }
+            catch (LeviathanException ex) when (ex.Error.Code == ErrorCode.RevisionConflict && attempt < maxAttempts - 1)
+            {
+                // Another writer saved between load and save: reload and redo the merge.
+            }
+        }
+
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.RevisionConflict,
+            Scope = lineId.ToString(),
+            RemedyHint = RemedyHint.RebaseRevision,
+            Message = "Could not save after concurrent updates; reload and retry.",
+        });
+    }
+
+    private static string Clip(string text) => text.Length <= 200 ? text : text[..200];
+
+    private static LeviathanException Conflict(EntityId lineId, EntityId requested, EntityId? current, string message) =>
+        new(new LeviathanError
+        {
+            Code = ErrorCode.RevisionConflict,
+            Scope = lineId.ToString(),
+            Details = new Dictionary<string, string>
+            {
+                ["requestedParent"] = requested.ToString(),
+                ["currentRevision"] = current?.ToString() ?? "none",
+            },
+            RemedyHint = RemedyHint.RebaseRevision,
+            Message = message,
+        });
 
     public IReadOnlyList<TextRevision> RevisionHistory(NativeProject project, EntityId lineId, TextLayer layer) =>
         project.Objects.SelectMany(o => o.Surfaces)
@@ -114,7 +223,7 @@ public sealed class TranscriptionService(IProjectStore store)
                 };
                 var updated = surface with { AnnotationRetractions = [.. surface.AnnotationRetractions, retraction] };
                 var updatedProject = WithSurface(project, updated);
-                store.SaveProject(updatedProject);
+                updatedProject = updatedProject with { Version = store.SaveProject(updatedProject) };
                 return (updatedProject, updated, retraction);
             }
 
@@ -281,7 +390,7 @@ public sealed class TranscriptionService(IProjectStore store)
 
         surface = surface with { Annotations = [.. surface.Annotations.Append(annotation)] };
         foundProject = WithSurface(foundProject, surface);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, surface, annotation);
     }
 

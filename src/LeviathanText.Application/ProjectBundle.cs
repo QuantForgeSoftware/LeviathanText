@@ -102,7 +102,7 @@ public static class ProjectBundle
     private sealed class ProjectStoreFree : IProjectStore
     {
         public static readonly ProjectStoreFree Instance = new();
-        public void SaveProject(NativeProject project) { }
+        public long SaveProject(NativeProject project) => project.Version + 1;
         public NativeProject? LoadProject(EntityId id) => null;
         public IReadOnlyList<(EntityId Id, string Name)> ListProjects() => [];
     }

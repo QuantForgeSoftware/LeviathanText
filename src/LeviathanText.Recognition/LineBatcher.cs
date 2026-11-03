@@ -3,9 +3,9 @@ using static TorchSharp.torch;
 namespace LeviathanText.Recognition;
 
 /// <summary>
-/// Pads a set of variable-width line images into one batch tensor, zero-filling the
-/// right margin. Recorded input lengths let the CTC loss ignore padding, which is what
-/// makes variable-width batching correct rather than merely convenient.
+/// Pads a set of variable-width line images into one batch tensor, filling each right
+/// margin with that image's declared background. Recorded input lengths let the CTC
+/// loss ignore padding, which makes variable-width batching correct.
 /// </summary>
 public static class LineBatcher
 {
@@ -31,7 +31,13 @@ public static class LineBatcher
             var line = lines[i];
             int batchOffset = i * height * maxWidth;
             for (int row = 0; row < height; row++)
+            {
                 Array.Copy(line.Pixels, row * line.Width, data, batchOffset + row * maxWidth, line.Width);
+                // Preserve the legacy zero-background path without extra writes. Only
+                // padding is filled; valid source pixels and CTC lengths are unchanged.
+                if (line.BackgroundValue != 0 && line.Width < maxWidth)
+                    Array.Fill(data, line.BackgroundValue, batchOffset + row * maxWidth + line.Width, maxWidth - line.Width);
+            }
             lengths[i] = CrnnModel.TimeStepsFor(line.Width, widthDownsampleFactor);
         }
 

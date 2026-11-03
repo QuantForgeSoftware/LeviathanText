@@ -31,8 +31,16 @@ public static class P01LineDataset
     /// Load a PAGE/image corpus directory (works for any track; image extension differs —
     /// P01 uses .jpg, manuscript scans use .png). The directory/file remains the split unit.
     /// </summary>
-    public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6, int targetHeight = CrnnModel.InputHeight)
+    // Retain the original compiled call signature; the overload below adds source-compatible profile selection.
+    public static Snapshot Load(string datasetDirectory, string imageExtension, int testEveryNth, int devEveryNth, int targetHeight) =>
+        Load(datasetDirectory, imageExtension, testEveryNth, devEveryNth, targetHeight, preprocessingProfile: null);
+
+    public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6,
+        int? targetHeight = null, LinePreprocessingProfile? preprocessingProfile = null)
     {
+        var profile = preprocessingProfile ?? LinePreprocessingProfile.P01Otsu(targetHeight ?? CrnnModel.InputHeight);
+        profile.Validate(targetHeight);
+        profile.RequireStandardGeometry();
         if (!Directory.Exists(datasetDirectory))
             throw new LeviathanException(new LeviathanError
             {
@@ -80,10 +88,30 @@ public static class P01LineDataset
                 if (points.Count < 2) continue;
 
                 var extracted = LineCropper.Extract(decoded.Bitmap, points);
-                var lineImage = ToLineImage(extracted.AppliedCrop, decoded.Bitmap, targetHeight);
-                extracted.Bitmap.Dispose();
+                LineImage lineImage;
+                try
+                {
+                    if (preprocessingProfile is null)
+                    {
+                        // Old training used a subset of the original page rather than
+                        // the drawn derivative. Keep that exact raster path for old calls.
+                        var crop = extracted.AppliedCrop;
+                        using var subset = new SKBitmap();
+                        if (!decoded.Bitmap.ExtractSubset(subset, new SKRectI(crop.Left, crop.Top, crop.Left + crop.Width, crop.Top + crop.Height)))
+                            throw new InvalidDataException("Cannot extract the legacy PAGE line crop.");
+                        lineImage = LinePreprocessor.Apply(subset, profile);
+                    }
+                    else
+                    {
+                        lineImage = LinePreprocessor.Apply(extracted.Bitmap, profile);
+                    }
+                }
+                finally { extracted.Bitmap.Dispose(); }
 
-                var labeled = new LabeledLine(revision.Text, lineImage);
+                var labeled = new LabeledLine(revision.Text, lineImage)
+                {
+                    SourceId = Path.GetFileName(xmlPath) + "#" + line.Id.Suffix,
+                };
                 switch (split)
                 {
                     case "test": test.Add(labeled); break;
@@ -117,63 +145,6 @@ public static class P01LineDataset
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    /// <summary>Crop the page by the recorded crop bounds and produce a normalized LineImage.</summary>
-    private static LineImage ToLineImage(ImageTransform.Crop crop, SKBitmap page, int targetHeight)
-    {
-        var region = new SKRectI(crop.Left, crop.Top, crop.Left + crop.Width, crop.Top + crop.Height);
-        using var subset = new SKBitmap();
-        page.ExtractSubset(subset, region);
-
-        int targetWidth = Math.Max(8, (int)Math.Round((float)subset.Width * targetHeight / subset.Height));
-        using var resized = subset.Resize(new SKImageInfo(targetWidth, targetHeight), new SKSamplingOptions(SKFilterMode.Linear));
-
-        // Per-crop luminance, then Otsu binarization: papyrus fiber background is dark
-        // enough to swamp unnormalized input; a global threshold per crop removes the
-        // paper tone and keeps the ink (project-plan §4 "optional binarization" — recorded as
-        // part of the preprocessing recipe).
-        var info = resized.Info;
-        var bytes = resized.Bytes;
-        int pixelCount = targetHeight * targetWidth;
-        var luminance = new float[pixelCount];
-        var histogram = new int[256];
-        for (int p = 0, b = 0; p < pixelCount; p++, b += info.BytesPerPixel)
-        {
-            byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-            float l = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-            luminance[p] = l;
-            histogram[(int)(l * 255f)]++;
-        }
-
-        int threshold = Otsu(histogram, pixelCount);
-        float thresholdNormalized = threshold / 255f;
-
-        var pixels = new float[pixelCount];
-        for (int p = 0; p < pixelCount; p++)
-            pixels[p] = luminance[p] < thresholdNormalized ? 1f : 0f; // darker than threshold = ink = 1
-        return new LineImage(targetHeight, targetWidth, pixels);
-    }
-
-    /// <summary>Otsu's threshold from a 256-bin histogram (between-class variance maximization).</summary>
-    internal static int Otsu(int[] histogram, int total)
-    {
-        double sum = 0;
-        for (int i = 0; i < 256; i++) sum += (double)i * histogram[i];
-
-        double sumB = 0, wB = 0, maxVariance = -1;
-        int best = 127;
-        // Interior thresholds only: t=0/t=255 degenerate on perfectly bimodal crops.
-        for (int t = 1; t < 255; t++)
-        {
-            wB += histogram[t];
-            if (wB == 0) continue;
-            double wF = total - wB;
-            if (wF == 0) break;
-            sumB += (double)t * histogram[t];
-            double meanB = sumB / wB;
-            double meanF = (sum - sumB) / wF;
-            double variance = wB * wF * (meanB - meanF) * (meanB - meanF);
-            if (variance > maxVariance) { maxVariance = variance; best = t; }
-        }
-        return best;
-    }
+    /// <summary>Legacy helper retained for callers; the pixel implementation uses this same shared algorithm.</summary>
+    internal static int Otsu(int[] histogram, int total) => Binarization.Otsu(histogram, total);
 }

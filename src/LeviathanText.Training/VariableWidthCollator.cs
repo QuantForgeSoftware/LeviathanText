@@ -4,7 +4,12 @@ using static TorchSharp.torch;
 namespace LeviathanText.Training;
 
 /// <summary>A line image with its ground-truth text (an L1 diplomatic string).</summary>
-public sealed record LabeledLine(string Text, LineImage Image);
+public sealed record LabeledLine(string Text, LineImage Image)
+{
+    /// <summary>Optional dataset-local source identity for diagnostics; never part of the target text.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceId { get; init; }
+}
 
 /// <summary>
 /// One collated variable-width batch: padded images, per-sample input lengths, the

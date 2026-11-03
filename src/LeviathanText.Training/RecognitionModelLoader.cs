@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LeviathanText.Contracts;
 using LeviathanText.Recognition;
+using SkiaSharp;
 
 namespace LeviathanText.Training;
 
@@ -11,6 +12,16 @@ public sealed record LoadedRecognitionModel(
     CheckpointMetadata Metadata,
     TrainingRunManifest? Manifest)
 {
+    /// <summary>Missing typed metadata preserves legacy inference; free-text descriptions are never executed.</summary>
+    public LinePreprocessingProfile PreprocessingProfile => PreprocessingContract.Resolve(Manifest, Metadata)
+        ?? LinePreprocessingProfile.LegacyInkPositive(Model.InputHeightPixels);
+
+    /// <summary>Null preserves the legacy PAGE training/evaluation crop and Otsu behavior.</summary>
+    public LinePreprocessingProfile? DatasetPreprocessingProfile => PreprocessingContract.Resolve(Manifest, Metadata);
+
+    /// <summary>Prepare an already extracted line crop; upstream rectification is the caller's responsibility.</summary>
+    public LineImage PrepareLine(SKBitmap crop) => LinePreprocessor.Apply(crop, PreprocessingProfile);
+
     public TorchLineRecognizer CreateRecognizer(CtcDecodeMode mode = CtcDecodeMode.Greedy, int beamWidth = 8) =>
         new(Model, Labels, mode, beamWidth);
 }
@@ -100,6 +111,14 @@ public static class RecognitionModelLoader
         }
         if (metadata.Labels.Count == 0)
             throw Incompatible(modelName, "checkpoint metadata does not contain its label set");
+        try
+        {
+            PreprocessingContract.Resolve(manifest, metadata);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw Incompatible(modelName, ex.Message);
+        }
 
         var labels = new LabelSet(metadata.Labels);
         var labelHash = CheckpointStore.LabelSetHash(labels);
@@ -122,16 +141,29 @@ public static class RecognitionModelLoader
             && !string.Equals(TrainingRunManifestWriter.FileDigest(modelPath), manifest.CheckpointDigest, StringComparison.Ordinal))
             throw Incompatible(modelName, "model weights do not match the manifest digest");
 
+        using var constructionScope = TorchSharp.torch.NewDisposeScope();
         var model = new CrnnModel(
             labels.NumClasses,
             metadata.HiddenSize,
             metadata.WidthDownsampleFactor,
             metadata.InputHeightPixels,
             metadata.Dropout);
-        model.load(modelPath);
-        model.eval();
-
-        return [new LoadedRecognitionModel(labels, model, metadata, manifest)];
+        try
+        {
+            model.load(modelPath);
+            model.eval();
+            IReadOnlyList<LoadedRecognitionModel> loaded = [new(labels, model, metadata, manifest)];
+            // Preserve prior ownership: an existing caller scope receives these
+            // temporaries; without one, they retain their ordinary GC lifetime.
+            constructionScope.MoveToOuter(constructionScope.DisposablesView.ToArray());
+            return loaded;
+        }
+        catch
+        {
+            // Ownership transfers to the caller only after successful loading.
+            model.Dispose();
+            throw;
+        }
     }
 
     private static string FindModelName(string directory)

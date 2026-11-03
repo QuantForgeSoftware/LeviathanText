@@ -11,6 +11,8 @@ namespace LeviathanText.Training;
 /// travels with the model; loading must not depend on external state).</summary>
 public sealed record CheckpointMetadata
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinePreprocessingProfile? PreprocessingProfile { get; init; }
     public required int Epoch { get; init; }
     public required long GlobalStep { get; init; }
     public required double BestValidationCer { get; init; }

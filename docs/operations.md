@@ -69,7 +69,7 @@ curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/jso
 dotnet run --project src/LeviathanText.Worker -- --store pilot.db --once
 
 # Recognition of a whole project needs a verified model package
-dotnet run --project src/LeviathanText.Cli -- --store pilot.db train lines /abs/page-xml-dir --out ./packages/model-a --epochs 120
+dotnet run --project src/LeviathanText.Cli -- --store pilot.db train lines /abs/page-xml-dir --out ./packages/model-a --epochs 120 --diagnostics-every 10 --diagnostics-samples 3
 curl -X POST http://127.0.0.1:5000/api/v1/jobs -H 'Content-Type: application/json' -d \
   '{"type":"recognize.project","ownerId":"ops","projectId":"<col-id>","modelPackagePath":"/abs/packages/model-a","idempotencyKey":"rec-1"}'
 ```
@@ -95,6 +95,16 @@ not verify rights — it verifies the ledger says what it must. Warnings flag `u
 license values.
 
 ## Experiment runs
+
+Recognition training diagnostics are opt-in: `--diagnostics-every N` records every N completed epochs and the final epoch (including early stopping); `0` disables them. `--diagnostics-samples N` retains the first N input-order references/predictions in each partition, bounded to 0–100. The package's `run-manifest.json` history includes evaluation loss/CER, canonical Unicode scalar insertions/deletions/substitutions, reference/output lengths, valid-frame blank posterior/argmax statistics and global optimizer step. Training diagnostics evaluate unaugmented input in evaluation mode and add work only on sampled epochs; blank rates exclude padding. Fixed strings may contain source text, so choose zero samples when only aggregate metrics should be saved.
+
+The C# equivalents are `TrainingConfig.DiagnosticsEveryNEpochs`, `DiagnosticsSampleCount` and `CtcTrainer.EvaluateDetailed`. Evaluation and recognition restore the caller's model mode; training explicitly enables training mode within each epoch. `LineImage.BackgroundValue` declares fill outside the image: legacy ink-positive inputs default to 0; `LineInputTransform` luminance inputs declare 1. Batch padding and shift borders retain that declaration without inverting pixels. The specialized P46 experiment still needs its explicit leaf split and crop transform; these CLI telemetry options do not change generic PAGE loading.
+
+New `train lines` packages record a typed `PreprocessingProfile` and use model package format 2. Training and package-based inference apply the same versioned recipe and model height. Old format-1 packages remain supported with their historical defaults; vague preprocessing prose is not interpreted as executable settings. C# callers can choose a `LinePreprocessingProfile` in `TrainingConfig`, use it with `P01LineDataset.Load`, and prepare inference crops through `LoadedRecognitionModel.PrepareLine`. Generic page routes reject profiles requiring externally prepared geometry. See [the preprocessing contract and compatibility rules](evaluation/preprocessing-contract.md).
+
+C# experiment callers may opt into `LinePreprocessingProfile.LocalBackground(height)`, training-only `TrainingConfig.GammaMin`/`GammaMax`, or `TargetValidationCer`. Gamma defaults to identity and the target defaults to absent; none is an automatic new training default. Inference applies only the declared deterministic pixel recipe. The [P46 study](evaluation/p46-two-hour-study.md) records the negative matched accuracy result and its unchanged promotion gate.
+
+Long diagnostic histories may be stored in a package-local `training-run-details.json`, referenced by byte count and SHA-256 from `run-manifest.json`. Keep the sidecar when archiving or transferring a training package. Ordinary model loading reads only the bounded 1 MiB header; explicit C# `TrainingRunManifestWriter.ReadRunDetails(manifestPath)` verifies and expands the full history, up to 64 MiB. Missing or altered details fail explicit expansion/repackaging; they do not trigger an unbounded read during inference. Small packages retain their existing manifest representation.
 
 Training commands record a comparable run in the store:
 
@@ -218,14 +228,22 @@ made; use the local scripted/Ollama smoke paths for verification.
 ## Exports
 
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
-- `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported fields reported).
+- `layout detect <projectId> <surfaceId> [--columns] [--max-pixels N] [--model <pkg>]` — the
+  default is single-column projection; `--columns` accepts an opt-in two-column gutter split
+  (synthetic-test-only claim, see `docs/evaluation/layout-columns.md`). The API uses
+  `POST /surfaces/{id}/detect-layout?columns=true`.
+- `export tei` / `export alto` / `export hocr` / `export abbyy` — bounded profiles (unsupported
+  fields reported). TEI carries the facsimile/image link, line numbers, both layers and a
+  machine-readable loss report (stderr plus an inline XML comment).
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
 - `export bundle` — zip with native JSON, training export, profile report and all per-surface
   formats + manifest.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
-  `/projects/{id}/training-export`, `/projects/{id}/bundle`.
+  `/projects/{id}/training-export`, `/projects/{id}/bundle`. Add `?report=true` to the TEI
+  endpoint for `{ xml, lossReport }` instead of raw XML. Retained original markup is available
+  at `GET /projects/{id}/attachments/{attachmentId}`.
 
 ## Source excerpts
 
@@ -301,6 +319,40 @@ applied through the normal revision service (parent chain, provenance, conflict 
 external review/adjudication sheet can be merged without bypassing history. Unknown ids and
 empty rows are reported and skipped, never silently dropped. CSV remains lossy; the project
 document is authoritative.
+
+## Migration inventory (read-only)
+
+```bash
+leviathan migrate inventory <existing-tree> --out inventory.json [--limit N] [--no-hash]
+```
+
+Scans an existing collection tree without modifying it, classifies files by content
+(PAGE XML, ALTO, TEI/EpiDoc, hOCR, IIIF manifests, images, PDF, model metadata/weights,
+archives, scripts, text, other), records size and SHA-256 (files up to 512 MiB) and reports
+unclassified files. It is an intake aid: importing, comparing products and any Kraken
+checkout inspection remain separate authorized steps.
+
+## TEI/EpiDoc bootstrap (layered profile)
+
+```bash
+leviathan --store pilot.db import tei <projectId> <record.xml> <photo.jpg> [--kind page] [--skip-duplicates]
+```
+
+`--skip-duplicates` compares the exact source hash with retained attachments/source metadata
+and reports the existing object/surface instead of creating a second import. The API equivalent
+is `skipDuplicate: true`.
+
+`leviathan validate tei <record.xml> [--strict]` imports in memory only and prints line/L1/L2,
+annotation, page-break, graphic and attachment counts. `--strict` exits nonzero if any
+unsupported construct is reported as a loss.
+
+`import tei` reads the bounded layered profile: `<lb>` splits lines (including `@n` and
+`break="no"`), visible text becomes L1, supplied text and abbreviation expansions become a
+linked L2 revision, `<unclear>`, gaps, `<app>` alternatives, additions/deletions, hand shifts,
+facsimile/image links, `idno`/`licence`/responsibility metadata and orientation are mapped.
+Unsupported markup is aggregated in the import report and the exact source XML is retained as a
+checksummed attachment when it is at most 2 MiB. Lines start without geometry; place them
+manually. Use `import epidoc` instead when only the published L2 edition is available.
 
 ## Inscription bootstrap (EpiDoc)
 
@@ -439,19 +491,35 @@ admins can issue them. Admin invitations are refused. The workspace provides **P
 Create invitation** plus a public **Have an invitation?** acceptance panel. Successful and
 rejected acceptances are written to the auth audit (`invite.accepted` / `invite.rejected`).
 
-**Presence (advisory, shared store):** the surface view heartbeats
+**Presence and sessions (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from
 `GET /surfaces/{id}/presence`; `DELETE /surfaces/{id}/presence/{editorId}` clears it. Entries live
-in the shared SQLite store (schema v6) and expire after 60 seconds, so processes sharing the store
-see the same state. Presence is still advisory: it is not a lock, not a distributed session
-registry, and never authorizes an edit. Entity→project resolution scans projects, which is acceptable
+in the shared SQLite store (schema v9) and expire after 60 seconds, so processes sharing the store
+see the same state. Presence is still advisory and never authorizes an edit.
+
+Server-issued editing sessions are a separate, longer-lived coordination record:
+`POST /api/v1/sessions {surfaceId?, ttlMinutes?}` returns a session bound to this server node;
+`POST /api/v1/sessions/{id}/heartbeat` extends it; `DELETE /api/v1/sessions/{id}` revokes it;
+`GET /api/v1/sessions?surfaceId=` and `GET /api/v1/surfaces/{id}/sessions` list them. Sessions
+expire without heartbeat and are capped at 20 per user. Passing `sessionId` to the presence
+heartbeat derives the displayed editor identity from the authenticated principal instead of a
+client-chosen string. Sessions are coordination records, not tokens: each request is still
+authenticated, and there is no push/broker.
+
+**Concurrent text edits:** project saves use an optimistic version. A stale line revision still
+fails with `revision-conflict`, but `POST /api/v1/lines/{id}/revisions` with `merge: true`
+performs a three-way merge against the current revision: non-overlapping edits are combined,
+overlapping edits return `conflictStart`/`conflictEnd`/`localText`/`remoteText`. The Angular
+editor requests this merge on save and keeps the draft when the server refuses. Geometry,
+annotation and review writes are not merged.
+
+Entity→project resolution scans projects, which is acceptable
 at pilot scale but not a high-throughput design. Authentication/authorization events are recorded:
 `leviathan --store pilot.db audit list` or `GET /api/v1/audit?limit=` (admin only; mutations and
 denials, never key material). The Angular workspace has an **API key panel**: paste
 a key there and every request sends `X-Api-Key` (SSE appends `?api_key=`). Reload data after
-changing keys. Opt-in per-project membership, invitation panels and advisory presence exist;
-distributed session state, invitation email delivery and concurrent-edit merge are not
-implemented.
+changing keys. Opt-in per-project membership, invitation panels, presence and the session API
+exist; invitation email delivery, a session UI and edit locks are not implemented.
 
 ## Known limits to communicate
 

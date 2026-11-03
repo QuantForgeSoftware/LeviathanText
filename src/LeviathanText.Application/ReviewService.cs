@@ -35,7 +35,7 @@ public sealed class ReviewService(IProjectStore store)
 
     public (NativeProject Project, NativeSurface Surface, ReviewDecision Decision, TextRevision? Correction)
         Record(NativeProject project, EntityId lineId, string reviewer, ReviewOutcome outcome,
-            string? note = null, string? correctionText = null)
+            string? note = null, string? correctionText = null, EntityId? reviewedRevisionId = null)
     {
         if (string.IsNullOrWhiteSpace(reviewer))
             throw new LeviathanException(new LeviathanError
@@ -59,6 +59,19 @@ public sealed class ReviewService(IProjectStore store)
                 Code = ErrorCode.InputMissing,
                 Scope = revisionId.ToString(),
                 Message = "The line's current revision is missing from the surface.",
+            });
+        if (reviewedRevisionId is { } requested && requested != revisionId)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RevisionConflict,
+                Scope = lineId.ToString(),
+                Details = new Dictionary<string, string>
+                {
+                    ["requestedRevision"] = requested.ToString(),
+                    ["currentRevision"] = revisionId.ToString(),
+                },
+                RemedyHint = RemedyHint.RebaseRevision,
+                Message = "Another writer changed this line after it was opened for review; reload before recording a decision.",
             });
 
         if (outcome == ReviewOutcome.Correct && string.IsNullOrWhiteSpace(correctionText))
@@ -112,7 +125,7 @@ public sealed class ReviewService(IProjectStore store)
             ReviewDecisions = [.. surface.ReviewDecisions, decision],
         };
         foundProject = WithSurface(foundProject, updatedSurface);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updatedSurface, decision, correction);
     }
 

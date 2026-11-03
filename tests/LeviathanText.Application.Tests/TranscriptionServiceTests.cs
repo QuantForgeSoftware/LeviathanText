@@ -101,6 +101,49 @@ public sealed class TranscriptionServiceTests
     }
 
     [Fact]
+    public void Automatic_merge_combines_non_overlapping_edits_on_a_stale_parent()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (_, _, baseRevision) = service.AppendLineRevision(
+            project, lineId, TextLayer.L1Diplomatic, "αβγ", Editor);
+
+        var beforeRemote = LoadCurrent(store, project.Id);
+        var (_, _, remoteRevision) = service.AppendLineRevision(
+            beforeRemote, lineId, TextLayer.L1Diplomatic, "αβΓ", Editor, parentRevisionId: baseRevision.Id);
+
+        var (mergedProject, _, mergedRevision, merged) = service.AppendLineRevisionMerged(
+            beforeRemote, lineId, TextLayer.L1Diplomatic, "Αβγ", Editor, parentRevisionId: baseRevision.Id);
+
+        Assert.True(merged);
+        Assert.Equal("ΑβΓ", mergedRevision.Text);
+        Assert.Equal(remoteRevision.Id, mergedRevision.ParentRevisionId);
+        var reloaded = LoadCurrent(store, mergedProject.Id);
+        Assert.Equal(mergedRevision.Id,
+            reloaded.Objects[0].Surfaces[0].Lines.Single(l => l.Id == lineId).DiplomaticRevisionId);
+    }
+
+    [Fact]
+    public void Automatic_merge_refuses_overlapping_edits_and_names_both_sides()
+    {
+        var (lineId, service, store) = Setup();
+        var project = LoadCurrent(store, SampleProjectBuilder.Build().Id);
+        var (_, _, baseRevision) = service.AppendLineRevision(
+            project, lineId, TextLayer.L1Diplomatic, "αβγ", Editor);
+        var beforeRemote = LoadCurrent(store, project.Id);
+        service.AppendLineRevision(beforeRemote, lineId, TextLayer.L1Diplomatic, "αΒγ", Editor,
+            parentRevisionId: baseRevision.Id);
+
+        var ex = Assert.Throws<LeviathanException>(() => service.AppendLineRevisionMerged(
+            beforeRemote, lineId, TextLayer.L1Diplomatic, "αbγ", Editor, parentRevisionId: baseRevision.Id));
+
+        Assert.Equal(ErrorCode.RevisionConflict, ex.Error.Code);
+        Assert.Equal("Β", ex.Error.Details!["remoteText"]);
+        Assert.Equal("b", ex.Error.Details!["localText"]);
+        Assert.Equal(RemedyHint.RebaseRevision, ex.Error.RemedyHint);
+    }
+
+    [Fact]
     public void L2_edit_does_not_move_the_L1_pointer()
     {
         var (lineId, service, store) = Setup();

@@ -253,6 +253,37 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Server_issued_sessions_scope_presence_and_can_be_revoked()
+    {
+        var client = NewClient();
+        var (_, _, surfaceId) = await ImportFixtureAsync(client, "sessions-e2e");
+
+        var created = await client.PostAsJsonAsync("/api/v1/sessions",
+            new { surfaceId, ttlMinutes = 10 });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        using var createdJson = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var sessionId = createdJson.RootElement.GetProperty("id").GetString()!;
+        var nodeId = createdJson.RootElement.GetProperty("nodeId").GetString()!;
+        Assert.False(string.IsNullOrWhiteSpace(nodeId));
+
+        Assert.Contains(sessionId, await client.GetStringAsync($"/api/v1/sessions?surfaceId={surfaceId}"));
+        Assert.Contains(sessionId, await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/sessions"));
+
+        // Presence uses the session's principal name, not the client-supplied string.
+        var touch = await client.PostAsJsonAsync($"/api/v1/surfaces/{surfaceId}/presence",
+            new { editorId = "spoofed", sessionId });
+        Assert.Equal(HttpStatusCode.OK, touch.StatusCode);
+        var presence = await touch.Content.ReadAsStringAsync();
+        Assert.Contains("local", presence);
+        Assert.DoesNotContain("spoofed", presence);
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.PostAsJsonAsync($"/api/v1/sessions/{sessionId}/heartbeat", new { ttlMinutes = 10 })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.DeleteAsync($"/api/v1/sessions/{sessionId}")).StatusCode);
+        Assert.DoesNotContain(sessionId, await client.GetStringAsync($"/api/v1/sessions?surfaceId={surfaceId}"));
+    }
+
+    [Fact]
     public async Task Line_order_endpoint_validates_and_returns_the_new_order()
     {
         var client = NewClient();
@@ -572,6 +603,66 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Tei_import_creates_layered_lines_and_exports_the_image_link()
+    {
+        var client = NewClient();
+        var project = await (await client.PostAsJsonAsync("/api/v1/projects", new { name = "tei-e2e" }))
+            .Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+        var dir = Path.Combine(Path.GetTempPath(), $"lt-tei-api-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var xml = Path.Combine(dir, "record.xml");
+        await File.WriteAllTextAsync(xml, """
+            <TEI xmlns="http://www.tei-c.org/ns/1.0">
+              <teiHeader><fileDesc><titleStmt><title>API TEI</title></titleStmt>
+                <publicationStmt><p>x</p></publicationStmt></fileDesc></teiHeader>
+              <facsimile><surface xml:id="source-surface"><graphic n="screen" url="source.jpg" width="640" height="480"/></surface></facsimile>
+              <text><body><div type="edition"><ab><lb n="1"/>αβ<supplied reason="editorial">γ</supplied></ab></div></body></text>
+            </TEI>
+            """);
+        var image = Path.Combine(dir, "page.png");
+        using (var bitmap = new SkiaSharp.SKBitmap(240, 160))
+        {
+            using var canvas = new SkiaSharp.SKCanvas(bitmap);
+            canvas.Clear(SkiaSharp.SKColors.LightGray);
+            using var data = SkiaSharp.SKImage.FromBitmap(bitmap).Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            using var stream = File.OpenWrite(image);
+            data.SaveTo(stream);
+        }
+
+        try
+        {
+            var imported = await client.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-tei",
+                new { documentPath = xml, imagePath = image, kind = "inscription-face" });
+            Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
+            using var importedJson = System.Text.Json.JsonDocument.Parse(await imported.Content.ReadAsStringAsync());
+            var surfaceId = importedJson.RootElement.GetProperty("surfaceId").GetString()!;
+            Assert.Equal(1, importedJson.RootElement.GetProperty("lineCount").GetInt32());
+            Assert.Equal(1, importedJson.RootElement.GetProperty("l2Count").GetInt32());
+            Assert.Equal(1, importedJson.RootElement.GetProperty("attachments").GetArrayLength());
+            var attachmentId = importedJson.RootElement.GetProperty("attachments")[0]
+                .GetProperty("id").GetString()!;
+            var attachment = await client.GetAsync($"/api/v1/projects/{project["id"]}/attachments/{attachmentId}");
+            Assert.Equal(HttpStatusCode.OK, attachment.StatusCode);
+            Assert.Contains("<TEI", await attachment.Content.ReadAsStringAsync());
+
+            var tei = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei");
+            Assert.Contains("<facsimile>", tei);
+            Assert.Contains("source.jpg", tei);
+            Assert.Contains("n=\"1\"", tei);
+            Assert.Contains("<supplied", tei);
+
+            var reportJson = await client.GetStringAsync($"/api/v1/projects/{project["id"]}/surfaces/{surfaceId}/tei?report=true");
+            Assert.Contains("\"lossReport\"", reportJson);
+            Assert.Contains("\"format\":\"tei-p5-epidoc-bounded\"", reportJson);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Annotation_retraction_hides_it_from_active_views_and_is_audited_in_csv()
     {
         var client = NewClient();
@@ -631,6 +722,14 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var afterCorrection = await client.GetStringAsync($"/api/v1/lines/{lineId}");
         Assert.Contains("νεα γραφη", afterCorrection);
         Assert.Contains("correct", afterCorrection);
+
+        // A decision opened against the pre-correction revision is stale, not silently applied.
+        using var afterJson = System.Text.Json.JsonDocument.Parse(afterCorrection);
+        var staleRevision = afterJson.RootElement.GetProperty("history")[0].GetProperty("id").GetString();
+        var stale = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
+            new { reviewer = "reviewer-a", outcome = "accept", revisionId = staleRevision });
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains("revisionConflict", await stale.Content.ReadAsStringAsync());
 
         // Wrong payloads are rejected.
         var invalid = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/review",
@@ -743,6 +842,37 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var reportB = await client.GetStringAsync($"/api/v1/projects/{projectB}/profile-report");
         Assert.Contains("\"flagged\":0", reportA);
         Assert.Contains("\"flagged\":1", reportB);
+    }
+
+    [Fact]
+    public async Task Revision_merge_endpoint_combines_disjoint_edits_and_refuses_overlap()
+    {
+        var client = NewClient();
+        var (_, lineId, _) = await ImportFixtureAsync(client, "merge-e2e");
+
+        var first = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/revisions",
+            new { layer = "L1Diplomatic", text = "αβγ", authorId = "writer-a" });
+        using var firstJson = System.Text.Json.JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        var baseRevision = firstJson.RootElement.GetProperty("revisionId").GetString()!;
+
+        var remote = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/revisions",
+            new { layer = "L1Diplomatic", text = "αβΓ", authorId = "writer-b", parentRevisionId = baseRevision });
+        Assert.Equal(HttpStatusCode.OK, remote.StatusCode);
+
+        var merged = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/revisions",
+            new { layer = "L1Diplomatic", text = "Αβγ", authorId = "writer-a", parentRevisionId = baseRevision, merge = true });
+        Assert.Equal(HttpStatusCode.OK, merged.StatusCode);
+        using var mergedJson = System.Text.Json.JsonDocument.Parse(await merged.Content.ReadAsStringAsync());
+        Assert.True(mergedJson.RootElement.GetProperty("merged").GetBoolean());
+        var mergedRevision = mergedJson.RootElement.GetProperty("revisionId").GetString()!;
+        Assert.Contains("ΑβΓ", await client.GetStringAsync($"/api/v1/lines/{lineId}"));
+
+        // A later overlapping edit against the same base must fail, not pick a winner.
+        var conflict = await client.PostAsJsonAsync($"/api/v1/lines/{lineId}/revisions",
+            new { layer = "L1Diplomatic", text = "αBδ", authorId = "writer-a", parentRevisionId = baseRevision, merge = true });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        Assert.Contains("revisionConflict", await conflict.Content.ReadAsStringAsync());
+        Assert.NotEqual(mergedRevision, baseRevision);
     }
 
     [Fact]

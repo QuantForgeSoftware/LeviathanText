@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ApiClient } from './api-client';
 import { LineEditor } from './line-editor';
 
@@ -176,7 +176,7 @@ describe('LineEditor (L0 copy)', () => {
 
 describe('LineEditor (review ledger)', () => {
   it('records an accept decision with the reviewer identity and refreshes', () => {
-    const calls: { reviewer: string; outcome: string; correctionText?: string | null }[] = [];
+    const calls: { reviewer: string; outcome: string; correctionText?: string | null; revisionId?: string | null }[] = [];
     let lineLoads = 0;
     const stub = {
       line: () => {
@@ -192,7 +192,7 @@ describe('LineEditor (review ledger)', () => {
       appendRevision: () => of({}),
       addAnnotation: () => of({}),
       providers: () => of({ providers: [] }),
-      recordReview: (_line: string, body: { reviewer: string; outcome: string; correctionText?: string | null }) => {
+      recordReview: (_line: string, body: { reviewer: string; outcome: string; correctionText?: string | null; revisionId?: string | null }) => {
         calls.push(body);
         return of({ reviewId: 'rv-2', outcome: body.outcome });
       },
@@ -211,7 +211,7 @@ describe('LineEditor (review ledger)', () => {
     expect(button).toBeTruthy();
     button.click();
 
-    expect(calls).toEqual([{ reviewer: 'reviewer-b', outcome: 'accept', correctionText: null }]);
+    expect(calls).toEqual([{ reviewer: 'reviewer-b', outcome: 'accept', correctionText: null, revisionId: 'rev-1' }]);
     expect(lineLoads).toBeGreaterThan(1); // refresh after recording
   });
 });
@@ -352,5 +352,63 @@ describe('LineEditor (correction sequence)', () => {
     next.click();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Selected intervention spans scalars 1–2');
+  });
+});
+
+describe('LineEditor (concurrent merge)', () => {
+  function setup(append: (merge?: boolean) => unknown) {
+    const calls: { parent?: string; merge?: boolean; text: string }[] = [];
+    const stub = {
+      line: () => of({
+        line: 'ln-merge', diplomatic: 'αβγ',
+        history: [{ id: 'rev-1', layer: 'L1Diplomatic', text: 'αβγ', author: 'x', at: '' }],
+      }),
+      annotations: () => of([]),
+      appendRevision: (_line: string, _layer: string, text: string, _author: string, parent?: string, merge?: boolean) => {
+        calls.push({ text, parent, merge });
+        return append(merge);
+      },
+      addAnnotation: () => of({}),
+      providers: () => of({ providers: [] }),
+    };
+    TestBed.configureTestingModule({
+      imports: [LineEditor],
+      providers: [{ provide: ApiClient, useValue: stub }],
+    });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-merge');
+    fixture.componentRef.setInput('authorId', 'tester');
+    fixture.detectChanges();
+    return { fixture, calls };
+  }
+
+  it('asks the server for a three-way merge when saving a stale parent', () => {
+    const { fixture, calls } = setup(() => of({ revisionId: 'rev-2', merged: true }));
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.value = 'Αβγ';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const save = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.includes('Save revision')) as HTMLButtonElement;
+    save.click();
+
+    expect(calls).toEqual([{ text: 'Αβγ', parent: 'rev-1', merge: true }]);
+  });
+
+  it('surfaces an overlapping-edit conflict without discarding the draft', () => {
+    const { fixture } = setup(() => throwError(() => ({ status: 409 })));
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.value = 'Αβγ';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const save = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((b: unknown) => (b as HTMLButtonElement).textContent?.includes('Save revision')) as HTMLButtonElement;
+    save.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('overlap a newer revision');
+    expect((fixture.nativeElement.querySelector('input') as HTMLInputElement).value).toBe('Αβγ');
   });
 });

@@ -23,20 +23,20 @@ Pinned versions are an implementation-time decision; the contract requires pinni
 
 | Scholarly distinction | Native representation | EpiDoc/TEI mapping | Round-trip rule |
 | --- | --- | --- | --- |
-| Surface / image link | Surface entity + capture reference | facsimile → graphic/pb | Must round-trip; loss of image link is an error |
-| Line | Line entity | `lb n=` inside edition div | Must round-trip incl. line numbers |
-| Diplomatic text | L1 revision | `lem`/editoric text within `app` or plain edition text | Must round-trip as visible text |
-| Regularized reading | L2 revision, linked | `reg`/`orig` pair (or `choice`) | Expansion links must round-trip or be reported lost |
-| Abbreviation + expansion | L1 span + L2 link | `expan`/`abbr` (or `choice`) | Both halves must round-trip |
-| Unclear | `unclear` annotation | `<unclear reason=…>` | Round-trips as annotation; literal underdots never enter L1 |
-| Gap (lost text) | `lost` + extent class | `gap` with `extent`/`reason`/`unit` | Known/estimated/unknown extent mapping is explicit |
-| Supplied text | L2 `supplied` | `supplied` (and `supplied reason`) | Never imported into L1 |
-| Addition / deletion (witness) | L3 correction annotations | `add`/`del` (+ `addSpan`/`delSpan`) | Sequence preserved only where source orders it |
-| Different hand | `different-hand` annotation | `handShift`/`@hand` | Unattributed hands round-trip as unattributed |
+| Surface / image link | Surface entity + capture reference | `facsimile` → `surface xml:id`/`graphic url,n,width,height` | Round-trips; missing link appears in the export loss report |
+| Line | Line entity | `lb n=` inside edition div, incl. `break="no"` and nested `textpart` | Round-trips incl. `@n` and `@xml:id` |
+| Diplomatic text | L1 revision | Visible `lem`/edition text; supplied and expansion text excluded | Round-trips as visible text |
+| Regularized reading | L2 revision + `alternative-reading` | `reg`/`orig` (or `sic`/`corr`) inside `choice` | Both readings round-trip |
+| Abbreviation + expansion | L1 span + L2 link (`ExpansionRevisionId`/`ExpansionRange`) | `expan`/`abbr` (or `choice`) | Both halves round-trip |
+| Unclear / illegible | `unclear` / `illegible` annotation | `<unclear reason=…>` | Round-trips as annotation; literal underdots never enter L1 |
+| Gap (lost text) | `lost` + extent class | `gap` with `extent`/`reason` | Known/estimated/unknown extent is explicit; `unit` is not representable and is reported |
+| Supplied text | L2 `supplied` | `supplied` (and `supplied reason`) | Never imported into L1; annotation anchored to L2 |
+| Addition / deletion (witness) | L3 correction annotations | `add`/`del` (+ `addSpan`/`delSpan`) | Mapped; sequence preserved only where source orders it |
+| Different hand | `different-hand` annotation | `handShift`/`@new`/`@hand` | Unattributed hands round-trip as unattributed |
 | Alternative readings | `alternative-reading` set | `app`/`rdg` | All readings preserved; no silent lemma choice |
-| Responsibility / provenance | Revision metadata | `respStmt`/change log | Round-trips into revision provenance where mappable |
+| Responsibility / provenance | Document metadata + revision metadata | `respStmt`/`change`/`idno`/`licence` | Document metadata round-trips; automatic revision-author mapping remains partial |
 
-Unsupported/unknown elements: preserved in an **original-markup attachment**, reported by name/count in the import report, never silently flattened (project-plan §3). Import reports list every mapping decision that discarded information.
+Unsupported/unknown elements: preserved in an **original-markup attachment**, reported by name/count in the import report, never silently flattened (project-plan §3). Import reports list every mapping decision that discarded information. Attachments are bounded (currently 2 MiB) and checksummed; larger sources are parsed but not retained, and the caller must keep the original file. Implementation evidence: [interchange-v2](../evaluation/interchange-v2.md).
 
 ### 1.3 Loss reporting (mandatory, all exports)
 
@@ -71,7 +71,9 @@ These conventions apply to every contract record on the wire:
 
 | Area | Contract |
 | --- | --- |
-| Revisions | Reads may address any revision; writes target a parent revision and fail `revision-conflict` on stale parents (domain-and-pipeline.md §6). |
+| Revisions | Reads may address any revision; writes target a parent revision and fail `revision-conflict` on stale parents (domain-and-pipeline.md §6). With `merge: true`, a stale parent is resolved by a bounded three-way merge; overlapping edits still fail with `conflictStart`/`conflictEnd`/`localText`/`remoteText`. |
+| Project saves | A loaded project carries a store version; a stale save fails `revision-conflict` instead of overwriting a newer document. |
+| Sessions | Server-issued, store-backed coordination records (`POST /sessions`, heartbeat, revoke, list). They bind a user to a node/surface and expire unless heartbeat; they are not authentication tokens or locks. |
 | Annotations | Created/updated against a named revision; scalar offsets in, scalar offsets out; server-side UTF-16 conversion endpoints are pure functions and versioned. |
 | Geometry | Always bound to a coordinate frame; cross-frame requests without registration fail `frame-unregistered`. |
 | Exports | Synchronous for bounded sizes; otherwise a job. Response includes export version, profile version, and (when lossy) the loss report inline or by reference. |

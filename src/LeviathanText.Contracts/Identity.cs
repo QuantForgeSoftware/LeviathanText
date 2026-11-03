@@ -134,6 +134,24 @@ public sealed record UserAccount
 
 
 /// <summary>Admin-issued, one-time project invitation. Token material is never part of this record.</summary>
+/// <summary>
+/// A server-issued editing session. Sessions are advisory coordination records: they bind a
+/// user to a node and (optionally) a surface, expire unless heartbeat, and can be revoked.
+/// They are not an authorization source; every request is still authenticated on its own.
+/// </summary>
+public sealed record EditSession
+{
+    public required string Id { get; init; }
+    public required string UserId { get; init; }
+    public required string UserName { get; init; }
+    public required string NodeId { get; init; }
+    public EntityId? SurfaceId { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public required DateTimeOffset LastSeenAt { get; init; }
+    public required DateTimeOffset ExpiresAt { get; init; }
+    public DateTimeOffset? RevokedAt { get; init; }
+}
+
 public sealed record ProjectInvite
 {
     public required string Id { get; init; }

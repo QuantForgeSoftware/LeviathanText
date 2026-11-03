@@ -101,7 +101,7 @@ public sealed class GeometryServiceTests
                 },
             ],
         };
-        store.SaveProject(withTwo);
+        withTwo = withTwo with { Version = store.SaveProject(withTwo) };
 
         var (updated, surface) = service.SetReadingOrder(withTwo, surfaceId,
             [new EntityId(EntityKind.Region, "reg2"), new EntityId(EntityKind.Region, "reg1")]);
@@ -166,7 +166,7 @@ public sealed class GeometryServiceTests
                 }],
             }],
         };
-        store.SaveProject(expanded);
+        expanded = expanded with { Version = store.SaveProject(expanded) };
 
         var (updated, updatedSurface) = service.SetLineOrder(expanded, surface.Regions[0].Id,
             [new EntityId(EntityKind.Line, "ln-second"), lineId]);

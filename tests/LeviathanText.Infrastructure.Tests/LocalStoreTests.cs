@@ -25,6 +25,89 @@ public class LocalStoreTests : IDisposable
     }
 
     [Fact]
+    public void Stale_project_saves_are_rejected_and_versions_increment()
+    {
+        using var store = new LocalStore(_path);
+        var saved = MinimalProject();
+        var firstVersion = store.SaveProject(saved);
+        Assert.Equal(1, firstVersion);
+
+        var first = store.LoadProject(saved.Id)!;
+        var second = store.LoadProject(saved.Id)!;
+        Assert.Equal(1, first.Version);
+
+        var afterFirst = first with { Name = "first writer" };
+        Assert.Equal(2, store.SaveProject(afterFirst));
+
+        var stale = second with { Name = "stale writer" };
+        var ex = Assert.Throws<LeviathanException>(() => store.SaveProject(stale));
+        Assert.Equal(ErrorCode.RevisionConflict, ex.Error.Code);
+        Assert.Equal(RemedyHint.RebaseRevision, ex.Error.RemedyHint);
+        Assert.Equal("1", ex.Error.Details!["expectedVersion"]);
+        Assert.Equal("2", ex.Error.Details!["currentVersion"]);
+        Assert.Equal("first writer", store.LoadProject(saved.Id)!.Name);
+    }
+
+    [Fact]
+    public void Two_connections_see_the_same_version_and_only_one_stale_write_wins()
+    {
+        using var first = new LocalStore(_path);
+        using var second = new LocalStore(_path);
+        var saved = MinimalProject();
+        first.SaveProject(saved);
+
+        var fromFirst = first.LoadProject(saved.Id)!;
+        var fromSecond = second.LoadProject(saved.Id)!;
+        Assert.Equal(fromFirst.Version, fromSecond.Version);
+
+        first.SaveProject(fromFirst with { Name = "first" });
+        Assert.Throws<LeviathanException>(() => second.SaveProject(fromSecond with { Name = "second" }));
+        Assert.Equal("first", second.LoadProject(saved.Id)!.Name);
+    }
+
+    [Fact]
+    public void Backup_includes_attachments_and_sessions()
+    {
+        var backupPath = _path + ".backup";
+        using (var store = new LocalStore(_path))
+        {
+            var project = MinimalProject() with
+            {
+                Objects =
+                [
+                    new NativeObject
+                    {
+                        Id = new EntityId(EntityKind.PhysicalObject, "obj-attachment"),
+                        Attachments =
+                        [
+                            new NativeAttachment
+                            {
+                                Id = "att-1",
+                                Name = "source.xml",
+                                MediaType = "application/tei+xml",
+                                Sha256 = "abc",
+                                Content = "<TEI/>",
+                                Role = "original-tei-markup",
+                            },
+                        ],
+                        Surfaces = [],
+                    },
+                ],
+            };
+            store.SaveProject(project);
+            store.CreateSession("usr-1", "one", "node", null, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5));
+            store.BackupTo(backupPath);
+        }
+
+        using var restored = new LocalStore(backupPath);
+        var entry = Assert.Single(restored.ListProjects());
+        var loaded = restored.LoadProject(entry.Id)!;
+        Assert.Equal("<TEI/>", Assert.Single(loaded.Objects[0].Attachments).Content);
+        Assert.Single(restored.ListSessions(DateTimeOffset.UtcNow));
+        File.Delete(backupPath);
+    }
+
+    [Fact]
     public void ListProjects_returns_saved()
     {
         using var store = new LocalStore(_path);
@@ -113,7 +196,9 @@ public class LocalStoreTests : IDisposable
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
-    public void Store_migrates_forward_to_v7_from_older_schemas(int fromVersion)
+    [InlineData(7)]
+    [InlineData(8)]
+    public void Store_migrates_forward_to_v9_from_older_schemas(int fromVersion)
     {
         var path = Path.Combine(Path.GetTempPath(), $"leviathan-migrate-{fromVersion}-{Guid.NewGuid():N}.db");
         NativeProject saved;
@@ -131,9 +216,12 @@ public class LocalStoreTests : IDisposable
                      + "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
                 3 => "DROP TABLE IF EXISTS project_members; DROP TABLE IF EXISTS runs; "
                      + "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
-                4 => "DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
-                5 => "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites;",
-                _ => "DROP TABLE IF EXISTS invites;",
+                4 => "DROP TABLE IF EXISTS runs; DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites; "
+                     + "DROP TABLE IF EXISTS edit_sessions;",
+                5 => "DROP TABLE IF EXISTS presence; DROP TABLE IF EXISTS invites; DROP TABLE IF EXISTS edit_sessions;",
+                6 => "DROP TABLE IF EXISTS invites; DROP TABLE IF EXISTS edit_sessions;",
+                7 => "DROP TABLE IF EXISTS invites; DROP TABLE IF EXISTS edit_sessions;",
+                _ => "DROP TABLE IF EXISTS edit_sessions;",
             };
             cmd.CommandText = drops + $" PRAGMA user_version={fromVersion};";
             cmd.ExecuteNonQuery();
@@ -157,6 +245,10 @@ public class LocalStoreTests : IDisposable
                 DateTimeOffset.UtcNow.AddHours(1));
             Assert.Equal(invite.Id, migrated.FindInviteByTokenHash("hash-invite")!.Id);
             Assert.True(migrated.MarkInviteUsed(invite.Id, "usr-migrated", DateTimeOffset.UtcNow));
+            var session = migrated.CreateSession("usr-migrated", "migrated", "node", null,
+                DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5));
+            Assert.Equal(session.Id, migrated.FindSession(session.Id)!.Id);
+            Assert.Single(migrated.ListSessions(DateTimeOffset.UtcNow));
         }
     }
 

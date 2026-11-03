@@ -7,6 +7,22 @@ namespace LeviathanText.ML.Tests;
 
 public class LineInputTransformTests
 {
+    [Theory]
+    [InlineData(16)]
+    [InlineData(32)]
+    public void Ordinary_luminance_options_match_the_shared_versioned_transform(int height)
+    {
+        using var source = new SKBitmap(13, 9);
+        source.Erase(new SKColor(20, 80, 160));
+        source.SetPixel(5, 5, SKColors.Black);
+        var oldApi = LineInputTransform.Apply(source, new() { Height = height }).ToLineImage();
+        var declared = LinePreprocessor.Apply(source, LinePreprocessingProfile.Luminance(height));
+        Assert.Equal(declared.Width, oldApi.Width);
+        Assert.Equal(declared.Height, oldApi.Height);
+        Assert.Equal(declared.BackgroundValue, oldApi.BackgroundValue);
+        Assert.Equal(declared.Pixels, oldApi.Pixels);
+    }
+
     [Fact]
     public void Aspect_preserving_transform_has_expected_shape()
     {

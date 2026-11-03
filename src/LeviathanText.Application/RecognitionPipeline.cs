@@ -24,6 +24,9 @@ public sealed class RecognitionPipeline
         public required Func<CrnnModel> ModelFactory { get; init; }
         public required Func<LabelSet> LabelSetFactory { get; init; }
 
+        /// <summary>Package-declared preparation; null retains legacy ink-positive grayscale.</summary>
+        public LinePreprocessingProfile? PreprocessingProfile { get; init; }
+
         /// <summary>
         /// Stable id for this recognition run. Re-running with the same id does not append a
         /// second copy of the same L0 revisions (job retries stay idempotent); null generates
@@ -83,6 +86,9 @@ public sealed class RecognitionPipeline
 
         var labels = options.LabelSetFactory();
         using var model = options.ModelFactory();
+        var preprocessing = options.PreprocessingProfile ?? LinePreprocessingProfile.LegacyInkPositive(model.InputHeightPixels);
+        preprocessing.Validate(model.InputHeightPixels);
+        preprocessing.RequireStandardGeometry();
         var recognizer = new TorchLineRecognizer(model, labels);
 
         // Large JPEG pages use bounded horizontal band decoding per line; PNG/TIFF
@@ -137,7 +143,7 @@ public sealed class RecognitionPipeline
                     : LineCropper.Extract(decoded!.Bitmap, points);
                 try
                 {
-                    lineImages.Add((line.Id, ToLineImage(extracted.Bitmap), extracted.DerivativeChecksum));
+                    lineImages.Add((line.Id, ToLineImage(extracted.Bitmap, preprocessing), extracted.DerivativeChecksum));
                 }
                 finally
                 {
@@ -154,7 +160,7 @@ public sealed class RecognitionPipeline
         for (int i = 0; i < lineImages.Count; i++)
         {
             var (lineId, _, cropChecksum) = lineImages[i];
-            results.Add(new LineRecognition(lineId, recognition[i].Text, recognition[i].Graphemes, cropChecksum, "crop>resize>otsu"));
+            results.Add(new LineRecognition(lineId, recognition[i].Text, recognition[i].Graphemes, cropChecksum, $"crop>{preprocessing.Describe()}"));
         }
 
         if (persistL0)
@@ -209,7 +215,7 @@ public sealed class RecognitionPipeline
                         ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surfaceId ? updatedSurface : s)] }
                         : o)],
                 };
-                _store.SaveProject(updatedProject);
+                updatedProject = updatedProject with { Version = _store.SaveProject(updatedProject) };
             }
         }
 
@@ -238,20 +244,9 @@ public sealed class RecognitionPipeline
 
     /// <summary>Resize/pad a page or line crop to the recognizer's fixed-height input.</summary>
     public static LineImage ToLineImage(SKBitmap crop)
-    {
-        int targetHeight = CrnnModel.InputHeight;
-        int targetWidth = Math.Max(8, (int)Math.Round((float)crop.Width * targetHeight / crop.Height));
-        using var resized = crop.Resize(new SKImageInfo(targetWidth, targetHeight), new SKSamplingOptions(SKFilterMode.Linear));
+        => ToLineImage(crop, LinePreprocessingProfile.LegacyInkPositive(CrnnModel.InputHeight));
 
-        var pixels = new float[targetHeight * targetWidth];
-        var info = resized.Info;
-        var bytes = resized.Bytes;
-        for (int p = 0, b = 0; p < pixels.Length; p++, b += info.BytesPerPixel)
-        {
-            byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-            float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-            pixels[p] = 1f - luminance;
-        }
-        return new LineImage(targetHeight, targetWidth, pixels);
-    }
+    /// <summary>Apply the shared versioned line transform selected by a model package.</summary>
+    public static LineImage ToLineImage(SKBitmap crop, LinePreprocessingProfile preprocessing)
+        => LinePreprocessor.Apply(crop, preprocessing);
 }

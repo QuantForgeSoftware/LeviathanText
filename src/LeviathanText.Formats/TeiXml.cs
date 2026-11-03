@@ -4,327 +4,1233 @@ using LeviathanText.Contracts;
 namespace LeviathanText.Formats;
 
 /// <summary>
-/// Bounded TEI P5 / EpiDoc profile (project-plan §3 "scholarly interchange"): lines, unclear
-/// spans, gaps with extent, alternative readings and supplied text — nothing more.
-/// Unsupported constructs are reported, never silently flattened. Bracket/underdot
-/// conventions are imported as annotations, never as literal characters in L1 text.
-/// Schema version pinned: TEI P5 text via the EpiDoc conventions listed in
-/// interchange-and-api.md §1.2; external entities refused.
+/// Bounded TEI P5 / EpiDoc profile (project-plan §3 "scholarly interchange").
+///
+/// The profile is deliberately narrow but end-to-end: edition lines split at
+/// &lt;lb/&gt;, facsimile/image links, stable line ids and numbers, L1 visible text with an
+/// optional linked L2 editorial reading, abbreviations, unclear/illegible spans, gaps,
+/// alternative readings, supplied text, additions/deletions, hand shifts and bounded
+/// responsibility metadata. Unsupported constructs are reported by name and count, and the
+/// complete source XML is returned so the caller can preserve it as an attachment.
+///
+/// Supplied text and expansion text never enter L1: they are carried by an L2 revision and
+/// the corresponding annotation is anchored there. This keeps the diplomatic layer a
+/// representation of what is visible.
 /// </summary>
 public static class TeiXml
 {
     private static readonly XNamespace Tei = "http://www.tei-c.org/ns/1.0";
+    private static readonly XNamespace Xml = XNamespace.Xml;
+
+    /// <summary>Upper bound on the size of an original-markup attachment retained by callers.</summary>
+    public const int MaxAttachmentBytes = 2 * 1024 * 1024;
+
+    public sealed record TeiGraphic(string Url, string? N = null, int? Width = null, int? Height = null);
+
+    public sealed record TeiIdno(string? Type, string Value);
+
+    public sealed record TeiResponsibility(string? Role, string? Name, string? When);
+
+    public sealed record TeiPageBreak(string? Number, string? Type);
+
+    public sealed record TeiLineInfo(
+        EntityId LineId,
+        int? Number,
+        string? XmlId,
+        TextDirection? Direction,
+        string? Script,
+        IReadOnlyList<string> Languages,
+        IReadOnlyList<string> Tags);
+
+    public sealed record TeiDocumentInfo(
+        string? Title,
+        string? SurfaceId,
+        IReadOnlyList<TeiGraphic> Graphics,
+        IReadOnlyList<TeiIdno> Idnos,
+        string? Licence,
+        IReadOnlyList<TeiResponsibility> Responsibilities,
+        IReadOnlyList<string> Languages,
+        IReadOnlyList<TeiLineInfo> Lines,
+        IReadOnlyList<TeiPageBreak>? PageBreaks = null);
 
     public sealed record TeiImportResult(
         IReadOnlyList<TextRevision> Revisions,
         IReadOnlyList<Annotation> Annotations,
         IReadOnlyList<PageXml.ImportIssue> Unsupported,
-        IReadOnlyList<TeiLineOrientation>? Orientations = null);
+        IReadOnlyList<TeiLineOrientation>? Orientations = null,
+        TeiDocumentInfo? Document = null,
+        string? OriginalMarkup = null);
 
     public sealed record TeiLineOrientation(EntityId LineId, TextDirection? Direction, string? Script);
 
+    /// <summary>Context that lets the exporter carry the non-text parts of a surface.</summary>
+    public sealed record TeiExportContext(
+        string? SurfaceId = null,
+        IReadOnlyList<TeiGraphic>? Graphics = null,
+        IReadOnlyList<TeiIdno>? Idnos = null,
+        string? Licence = null,
+        IReadOnlyList<TeiResponsibility>? Responsibilities = null,
+        string? SourceHash = null,
+        int GeometryCount = 0,
+        IReadOnlyDictionary<EntityId, TeiLineOrientation>? Orientations = null,
+        string? Folio = null);
+
+    public sealed record TeiExportLine(
+        EntityId LineId,
+        TextRevision? L1,
+        TextRevision? L2,
+        IReadOnlyList<Annotation> Annotations,
+        TeiLineInfo? Info = null);
+
+    public sealed record TeiExportResult(string Xml, LossReport Report);
+
     // ---- Export ----
 
-    public static string Export(IEnumerable<(EntityId LineId, TextRevision? Revision, IReadOnlyList<Annotation> Annotations)> lines,
-        string title, IReadOnlyDictionary<EntityId, TeiLineOrientation>? orientations = null)
-    {
-        var edition = new XElement(Tei + "div",
-            new XAttribute("type", "edition"),
-            lines.Select(l => ExportLine(l.LineId, l.Revision, l.Annotations,
-                orientations?.GetValueOrDefault(l.LineId))));
-        var body = new XElement(Tei + "body", edition);
-        var text = new XElement(Tei + "text", body);
-        var header = new XElement(Tei + "teiHeader",
-            new XElement(Tei + "fileDesc",
-                new XElement(Tei + "titleStmt", new XElement(Tei + "title", title)),
-                new XElement(Tei + "publicationStmt",
-                    new XElement(Tei + "p", "LeviathanText native export; bounded EpiDoc profile"))));
-        var tei = new XElement(Tei + "TEI", header, text);
-        return new XDocument(new XDeclaration("1.0", "UTF-8", null), tei).ToString();
-    }
+    /// <summary>
+    /// Back-compatible single-layer export. New callers should use
+    /// <see cref="ExportDocument"/> so both layers, line numbers and the surface image link
+    /// are carried and a loss report is returned.
+    /// </summary>
+    public static string Export(
+        IEnumerable<(EntityId LineId, TextRevision? Revision, IReadOnlyList<Annotation> Annotations)> lines,
+        string title,
+        IReadOnlyDictionary<EntityId, TeiLineOrientation>? orientations = null) =>
+        ExportDocument(
+            lines.Select(l => new TeiExportLine(
+                l.LineId,
+                l.Revision,
+                null,
+                l.Annotations,
+                new TeiLineInfo(l.LineId, null, l.LineId.Suffix,
+                    orientations?.GetValueOrDefault(l.LineId)?.Direction,
+                    orientations?.GetValueOrDefault(l.LineId)?.Script,
+                    [], []))).ToList(),
+            title,
+            new TeiExportContext(Orientations: orientations)).Xml;
 
-    private static XElement ExportLine(EntityId lineId, TextRevision? revision,
-        IReadOnlyList<Annotation> annotations, TeiLineOrientation? orientation)
+    public static TeiExportResult ExportDocument(
+        IReadOnlyList<TeiExportLine> lines,
+        string title,
+        TeiExportContext? context = null)
     {
-        var lb = new XElement(Tei + "lb");
-        if (revision is null)
+        context ??= new TeiExportContext();
+        var losses = new List<LossEntry>();
+
+        var header = BuildHeader(title, context);
+        var facsimile = BuildFacsimile(context);
+        var editionLines = new List<XElement>();
+        foreach (var line in lines)
         {
-            var empty = new XElement(Tei + "ab", lb, new XComment("not-yet-transcribed"));
-            AddOrientation(empty, orientation);
-            return empty;
+            var annotationLosses = new List<LossEntry>();
+            editionLines.Add(ExportLine(line, context, annotationLosses));
+            losses.AddRange(annotationLosses);
         }
 
-        var content = MarkupWithAnnotations(revision.Text, annotations.Where(a => a.AnchoredRevisionId == revision.Id).ToList(), out var dropped);
-        var ab = new XElement(Tei + "ab", lb, content);
-        AddOrientation(ab, orientation);
-        foreach (var drop in dropped)
-            ab.Add(new XComment($"lost-in-export: {drop.Category} x{drop.Count} ({drop.Description})"));
+        var edition = new XElement(Tei + "div",
+            new XAttribute("type", "edition"),
+            editionLines);
+        var body = new XElement(Tei + "body");
+        if (!string.IsNullOrWhiteSpace(context.Folio))
+            body.Add(new XElement(Tei + "pb", new XAttribute("n", context.Folio!),
+                new XAttribute("type", "folio")));
+        body.Add(edition);
+        var text = new XElement(Tei + "text", body);
+        var tei = new XElement(Tei + "TEI", header);
+        if (facsimile is not null) tei.Add(facsimile);
+        tei.Add(text);
+
+        if (context.GeometryCount > 0)
+            losses.Add(new LossEntry("geometry", context.GeometryCount,
+                "polygons and baselines are not representable in the bounded TEI profile"));
+        if (context.Graphics is not { Count: > 0 })
+            losses.Add(new LossEntry("image-link", 1,
+                "no image link was supplied; a TEI export cannot carry the capture reference"));
+
+        var grouped = losses
+            .GroupBy(l => l.Category)
+            .Select(g => new LossEntry(g.Key, g.Sum(x => x.Count), string.Join("; ", g.Select(x => x.Description).Distinct())))
+            .ToList();
+        var report = new LossReport
+        {
+            Format = "tei-p5-epidoc-bounded",
+            ContractVersion = ContractVersion.Current,
+            Entries = grouped,
+        };
+
+        var document = new XDocument(new XDeclaration("1.0", "UTF-8", null), tei);
+        if (!report.IsLossless)
+            document.AddFirst(new XComment($"loss-report: {report}"));
+        return new TeiExportResult(document.ToString(), report);
+    }
+
+    private static XElement BuildHeader(string title, TeiExportContext context)
+    {
+        var titleStmt = new XElement(Tei + "titleStmt", new XElement(Tei + "title", title));
+        if (context.Responsibilities is { Count: > 0 })
+            titleStmt.Add(new XElement(Tei + "respStmt",
+                context.Responsibilities.Select(r => new XElement(Tei + "resp",
+                    new XAttribute("when", r.When ?? ""),
+                    new XText($"{r.Role ?? "responsibility"}: {r.Name ?? "unattributed"}")))));
+
+        var publicationStmt = new XElement(Tei + "publicationStmt",
+            new XElement(Tei + "p", "LeviathanText native export; bounded TEI/EpiDoc profile"));
+        if (!string.IsNullOrWhiteSpace(context.Licence))
+            publicationStmt.Add(new XElement(Tei + "availability",
+                new XElement(Tei + "licence", context.Licence)));
+
+        var fileDesc = new XElement(Tei + "fileDesc", titleStmt, publicationStmt);
+        var sourceDesc = new XElement(Tei + "sourceDesc",
+            new XElement(Tei + "p", context.SourceHash is { Length: > 0 }
+                ? $"Source project export; content hash sha256:{context.SourceHash}"
+                : "Source project export"));
+        if (context.Idnos is { Count: > 0 })
+            sourceDesc.Add(context.Idnos.Select(i => new XElement(Tei + "idno",
+                string.IsNullOrWhiteSpace(i.Type) ? null : new XAttribute("type", i.Type!),
+                i.Value)));
+        fileDesc.Add(sourceDesc);
+
+        var header = new XElement(Tei + "teiHeader", fileDesc);
+        if (context.Responsibilities is { Count: > 0 })
+            header.Add(new XElement(Tei + "revisionDesc",
+                new XElement(Tei + "listChange",
+                    context.Responsibilities.Select(r => new XElement(Tei + "change",
+                        new XAttribute("when", r.When ?? ""),
+                        r.When is null ? null : new XAttribute("who", r.Name ?? ""),
+                        $"{r.Role ?? "responsibility"}: {r.Name ?? "unattributed"}")))));
+        return header;
+    }
+
+    private static XElement? BuildFacsimile(TeiExportContext context)
+    {
+        if (context.Graphics is not { Count: > 0 }) return null;
+        var surface = new XElement(Tei + "surface");
+        if (!string.IsNullOrWhiteSpace(context.SurfaceId))
+            surface.Add(new XAttribute(Xml + "id", context.SurfaceId!));
+        foreach (var graphic in context.Graphics)
+        {
+            var element = new XElement(Tei + "graphic", new XAttribute("url", graphic.Url));
+            if (!string.IsNullOrWhiteSpace(graphic.N)) element.Add(new XAttribute("n", graphic.N!));
+            if (graphic.Width is { } width) element.Add(new XAttribute("width", width));
+            if (graphic.Height is { } height) element.Add(new XAttribute("height", height));
+            surface.Add(element);
+        }
+        return new XElement(Tei + "facsimile", surface);
+    }
+
+    private static XElement ExportLine(TeiExportLine line, TeiExportContext context, List<LossEntry> losses)
+    {
+        var info = line.Info;
+        var ab = new XElement(Tei + "ab");
+        if (!string.IsNullOrWhiteSpace(info?.XmlId ?? line.LineId.Suffix))
+            ab.Add(new XAttribute(Xml + "id", info?.XmlId ?? line.LineId.Suffix));
+        var number = info?.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            ?? TagValue(info, "n");
+        if (number is not null)
+            ab.Add(new XAttribute("n", number));
+        else if (line.LineId.Suffix.Length <= 32)
+            ab.Add(new XAttribute("n", line.LineId.Suffix));
+        AddOrientation(ab, info);
+        ab.Add(new XElement(Tei + "lb"));
+
+        var baseRevision = line.L2 ?? line.L1;
+        if (baseRevision is null)
+        {
+            ab.Add(new XComment("not-yet-transcribed"));
+            return ab;
+        }
+
+        // A surface exports all annotations; each line only renders annotations on its own revisions.
+        var lineAnnotations = line.Annotations
+            .Where(a => a.AnchoredRevisionId == line.L1?.Id || a.AnchoredRevisionId == line.L2?.Id)
+            .ToList();
+        var renderable = new List<RenderAnnotation>();
+        foreach (var annotation in lineAnnotations)
+        {
+            if (annotation.Kind == AnnotationKind.NotYetTranscribed) continue;
+            var mapped = MapAnnotation(annotation, line, baseRevision, losses);
+            if (mapped is not null) renderable.Add(mapped);
+        }
+
+        ab.Add(Render(baseRevision.Text, renderable, losses));
+
+        // An L1-only export that has an L2 revision is lossy: say so explicitly.
+        if (line.L2 is null && lineAnnotations.Any(a => a.Kind == AnnotationKind.SuppliedEditorial))
+            losses.Add(new LossEntry("editorial-layer", 1,
+                "supplied text has no L2 revision in this export; it is emitted as an empty marker"));
         return ab;
     }
 
-    private static void AddOrientation(XElement ab, TeiLineOrientation? orientation)
+    private sealed record RenderAnnotation(Annotation Source, ScalarRange Range, string? Inner, bool Milestone);
+
+    private static RenderAnnotation? MapAnnotation(
+        Annotation annotation, TeiExportLine line, TextRevision baseRevision, List<LossEntry> losses)
     {
-        if (orientation is null) return;
+        // Annotations already anchored to the rendered revision are authoritative.
+        if (annotation.AnchoredRevisionId == baseRevision.Id)
+            return new RenderAnnotation(annotation, annotation.Range, null,
+                annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased
+                    && annotation.Range.IsEmpty);
+
+        var anchored = annotation.AnchoredRevisionId == line.L1?.Id ? line.L1
+            : annotation.AnchoredRevisionId == line.L2?.Id ? line.L2 : null;
+        if (anchored is null)
+        {
+            losses.Add(new LossEntry("annotation-anchor", 1,
+                $"annotation {annotation.Id} is anchored to a revision outside this line"));
+            return null;
+        }
+
+        // An abbreviation is native-L1 state but its expansion is exactly the L2 span.
+        if (annotation.Kind == AnnotationKind.Abbreviation && baseRevision == line.L2
+            && annotation.ExpansionRange is { } expansion && annotation.ExpansionText is { } expansionText)
+        {
+            // The L2 span is the expansion, but the visible abbreviation must stay in <abbr>.
+            var visible = ScalarText.Slice(anchored.Text, annotation.Range.Start, annotation.Range.End);
+            return new RenderAnnotation(annotation, expansion, visible, false);
+        }
+
+        // Zero-width milestones follow their preceding context rather than a searchable span.
+        if (annotation.Range.IsEmpty)
+        {
+            var prefix = ScalarText.Slice(anchored.Text, 0, annotation.Range.Start);
+            var position = prefix.Length == 0 ? 0 : FindScalarIndex(baseRevision.Text, prefix);
+            if (position is null)
+            {
+                losses.Add(new LossEntry("annotation-mapping", 1,
+                    $"zero-width annotation {annotation.Id} ({annotation.Kind}) has no matching context"));
+                return null;
+            }
+            return new RenderAnnotation(annotation,
+                new ScalarRange(position.Value + ScalarText.Count(prefix), position.Value + ScalarText.Count(prefix)),
+                null,
+                annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased);
+        }
+
+        var sourceText = ScalarText.Slice(anchored.Text, annotation.Range.Start, annotation.Range.End);
+
+        // An orig/reg (or sic/corr) pair maps to the editorial half in L2 while the
+        // visible half is preserved as the element's inner text.
+        if (annotation.Kind == AnnotationKind.AlternativeReading
+            && annotation.Description is "choice/orig-reg" or "choice/sic-corr" or "app/orig-corr"
+            && baseRevision == line.L2 && annotation.AlternativeText is { Length: > 0 } editorial)
+        {
+            var editorialPosition = FindScalarIndex(baseRevision.Text, editorial);
+            if (editorialPosition is { } editorialStart)
+                return new RenderAnnotation(annotation,
+                    new ScalarRange(editorialStart, editorialStart + ScalarText.Count(editorial)),
+                    sourceText, false);
+        }
+
+        // Otherwise map the source span by exact text, and report when that is impossible.
+        var located = FindScalarIndex(baseRevision.Text, sourceText);
+        if (located is not { } start)
+        {
+            losses.Add(new LossEntry("annotation-mapping", 1,
+                $"annotation {annotation.Id} ({annotation.Kind}) has no exact span in the rendered layer"));
+            return null;
+        }
+        return new RenderAnnotation(annotation,
+            new ScalarRange(start, start + ScalarText.Count(sourceText)), null,
+            annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased
+                && annotation.Range.IsEmpty);
+    }
+
+    private static List<object> Render(string text, List<RenderAnnotation> annotations, List<LossEntry> losses)
+    {
+        var scalars = ScalarText.Count(text);
+        var supported = annotations
+            .Where(a => a.Source.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible
+                or AnnotationKind.Lost or AnnotationKind.AlternativeReading or AnnotationKind.SuppliedEditorial
+                or AnnotationKind.Abbreviation or AnnotationKind.Added or AnnotationKind.Erased
+                or AnnotationKind.DifferentHand or AnnotationKind.Sign)
+            .OrderBy(a => a.Range.Start)
+            .ToList();
+        foreach (var dropped in annotations.Where(a => !supported.Contains(a)))
+            losses.Add(new LossEntry("annotation-kind", 1,
+                $"annotation kind {dropped.Source.Kind} has no bounded TEI mapping"));
+
+        var accepted = new List<RenderAnnotation>();
+        foreach (var a in supported)
+        {
+            var clash = accepted.FirstOrDefault(b =>
+                a.Range.Start < b.Range.End && b.Range.Start < a.Range.End
+                && !(b.Range.Start <= a.Range.Start && a.Range.End <= b.Range.End)
+                && !(a.Range.Start <= b.Range.Start && b.Range.End <= a.Range.End));
+            if (clash is null) accepted.Add(a);
+            else losses.Add(new LossEntry("overlapping-uncertainty", 1,
+                $"annotation {a.Source.Id} overlaps {clash.Source.Id}"));
+        }
+
+        var pieces = new List<object>();
+        int cursor = 0;
+        foreach (var a in accepted.OrderBy(a => a.Range.Start).ThenBy(a => a.Milestone))
+        {
+            if (a.Milestone)
+            {
+                pieces.Add(Milestone(a.Source));
+                continue;
+            }
+            if (a.Range.Start > cursor)
+                pieces.Add(ScalarText.Slice(text, cursor, a.Range.Start));
+            var inner = a.Inner ?? (a.Range.IsEmpty ? "" : ScalarText.Slice(text, a.Range.Start, a.Range.End));
+            pieces.Add(Markup(a.Source, inner));
+            cursor = Math.Max(cursor, a.Range.End);
+        }
+        if (cursor < scalars) pieces.Add(ScalarText.Slice(text, cursor, scalars));
+        if (pieces.Count == 0) pieces.Add(text);
+        return pieces;
+    }
+
+    private static XElement Milestone(Annotation a) => a.Kind switch
+    {
+        AnnotationKind.DifferentHand => new XElement(Tei + "handShift",
+            new XAttribute("new", string.IsNullOrWhiteSpace(a.HandLabel) ? "unattributed" : a.HandLabel!)),
+        AnnotationKind.Added => new XElement(Tei + "addSpan", new XAttribute("spanTo", a.Description ?? "")),
+        AnnotationKind.Erased => new XElement(Tei + "delSpan", new XAttribute("spanTo", a.Description ?? "")),
+        _ => throw new InvalidOperationException(a.Kind.ToString()),
+    };
+
+    private static XElement Markup(Annotation a, string inner) => a.Kind switch
+    {
+        AnnotationKind.Unclear => new XElement(Tei + "unclear",
+            new XAttribute("reason", a.Description ?? "unclear"), inner),
+        AnnotationKind.Illegible => new XElement(Tei + "unclear",
+            new XAttribute("reason", a.Description ?? "illegible"), inner),
+        AnnotationKind.SuppliedEditorial => new XElement(Tei + "supplied",
+            new XAttribute("reason", a.Description ?? "editorial"), inner),
+        AnnotationKind.Lost => a.GapExtent switch
+        {
+            GapExtent.Estimated => new XElement(Tei + "gap",
+                new XAttribute("reason", a.Description ?? "lost"),
+                new XAttribute("extent", "estimated"),
+                new XAttribute("quantity", a.EstimatedScalarCount ?? 0)),
+            GapExtent.Known => new XElement(Tei + "gap",
+                new XAttribute("reason", a.Description ?? "lost"), new XAttribute("extent", "known")),
+            _ => new XElement(Tei + "gap",
+                new XAttribute("reason", a.Description ?? "lost"), new XAttribute("extent", "unknown")),
+        },
+        AnnotationKind.AlternativeReading => ExportChoice(a, inner),
+        AnnotationKind.Abbreviation => new XElement(Tei + "choice",
+            new XElement(Tei + "abbr", inner),
+            new XElement(Tei + "expan", a.ExpansionText ?? "")),
+        AnnotationKind.Added => new XElement(Tei + "add", inner),
+        AnnotationKind.Erased => new XElement(Tei + "del", inner),
+        AnnotationKind.Sign => new XElement(Tei + "hi",
+            new XAttribute("rend", a.Description ?? "sign"), inner),
+        _ => throw new InvalidOperationException(a.Kind.ToString()),
+    };
+
+    private static XElement ExportChoice(Annotation a, string inner) => a.Description switch
+    {
+        "choice/orig-reg" => new XElement(Tei + "choice",
+            new XElement(Tei + "orig", inner),
+            new XElement(Tei + "reg", a.AlternativeText ?? "")),
+        "choice/sic-corr" => new XElement(Tei + "choice",
+            new XElement(Tei + "sic", inner),
+            new XElement(Tei + "corr", a.AlternativeText ?? "")),
+        "app/orig-corr" => new XElement(Tei + "app",
+            new XElement(Tei + "rdg", new XAttribute("type", "orig"),
+                new XAttribute("hand", a.HandLabel ?? "firsthand"), inner),
+            new XElement(Tei + "rdg", new XAttribute("type", "corr"),
+                new XAttribute("hand", "corrector"), a.AlternativeText ?? "")),
+        _ => new XElement(Tei + "app",
+            new XElement(Tei + "lem", inner),
+            new XElement(Tei + "rdg", new XAttribute("type", "alternative"), a.AlternativeText ?? "")),
+    };
+
+    private static void AddOrientation(XElement ab, TeiLineInfo? info)
+    {
+        if (info is null) return;
         var rend = new List<string>();
-        if (orientation.Direction is { } direction)
+        if (info.Direction is { } direction)
             rend.Add($"direction:{direction switch
             {
                 TextDirection.Ltr => "left-to-right",
                 TextDirection.Rtl => "right-to-left",
                 TextDirection.VerticalTopToBottom => "top-to-bottom",
                 TextDirection.VerticalBottomToTop => "bottom-to-top",
-                _ => throw new ArgumentOutOfRangeException(nameof(orientation)),
+                _ => throw new ArgumentOutOfRangeException(nameof(info)),
             }}");
-        if (!string.IsNullOrWhiteSpace(orientation.Script)) rend.Add($"script:{orientation.Script.Trim()}");
+        if (!string.IsNullOrWhiteSpace(info.Script)) rend.Add($"script:{info.Script.Trim()}");
         if (rend.Count > 0) ab.Add(new XAttribute("rend", string.Join(';', rend)));
+        if (info.Languages.Count > 0) ab.Add(new XAttribute(Xml + "lang", info.Languages[0]));
     }
-
-    private static List<object> MarkupWithAnnotations(string text, List<Annotation> annotations, out List<LossEntry> dropped)
-    {
-        dropped = [];
-        var scalars = ScalarText.Count(text);
-        var applicable = annotations
-            .Where(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Lost or AnnotationKind.AlternativeReading
-                or AnnotationKind.SuppliedEditorial or AnnotationKind.Abbreviation)
-            .OrderBy(a => a.Range.Start)
-            .ToList();
-
-        // Overlapping partial ranges are not representable; they are dropped with a loss entry.
-        var accepted = new List<Annotation>();
-        foreach (var a in applicable)
-        {
-            var clash = accepted.FirstOrDefault(b => a.Range.Start < b.Range.End && b.Range.Start < a.Range.End
-                                                    && !(b.Range.Start <= a.Range.Start && a.Range.End <= b.Range.End)
-                                                    && !(a.Range.Start <= b.Range.Start && b.Range.End <= a.Range.End));
-            if (clash is null) accepted.Add(a);
-            else dropped.Add(new LossEntry("overlapping-uncertainty", 1, $"annotation {a.Id} overlaps {clash.Id}"));
-        }
-
-        var pieces = new List<object>();
-        int cursor = 0;
-        foreach (var a in accepted.OrderBy(a => a.Range.Start))
-        {
-            if (a.Range.Start > cursor)
-                pieces.Add(ScalarText.Slice(text, cursor, a.Range.Start));
-            var inner = a.Range.IsEmpty ? "" : ScalarText.Slice(text, a.Range.Start, a.Range.End);
-            pieces.Add(Markup(a, inner));
-            cursor = Math.Max(cursor, a.Range.End);
-        }
-        if (cursor < scalars) pieces.Add(ScalarText.Slice(text, cursor, scalars));
-        if (pieces.Count == 0) pieces.Add(text); // no annotations: emit the whole text once
-        return pieces;
-    }
-
-    private static XElement Markup(Annotation a, string inner) => a.Kind switch
-    {
-        AnnotationKind.Unclear => new XElement(Tei + "unclear", new XAttribute("reason", "unclear"), inner),
-        AnnotationKind.SuppliedEditorial => new XElement(Tei + "supplied", new XAttribute("reason", "editorial"), inner),
-        AnnotationKind.Lost => a.GapExtent switch
-        {
-            GapExtent.Estimated => new XElement(Tei + "gap",
-                new XAttribute("reason", "lost"),
-                new XAttribute("extent", "estimated"),
-                new XAttribute("quantity", a.EstimatedScalarCount ?? 0)),
-            GapExtent.Known => new XElement(Tei + "gap", new XAttribute("reason", "lost"), new XAttribute("extent", "known")),
-            _ => new XElement(Tei + "gap", new XAttribute("reason", "lost"), new XAttribute("extent", "unknown")),
-        },
-        AnnotationKind.AlternativeReading => new XElement(Tei + "app",
-            new XElement(Tei + "lem", inner),
-            new XElement(Tei + "rdg", new XAttribute("type", "alternative"), a.AlternativeText ?? "")),
-        AnnotationKind.Abbreviation => new XElement(Tei + "choice",
-            new XElement(Tei + "abbr", inner),
-            new XElement(Tei + "expan", a.ExpansionText ?? "")),
-        _ => throw new InvalidOperationException(a.Kind.ToString()),
-    };
 
     // ---- Import ----
 
     public static TeiImportResult Import(string xml)
     {
-        var doc = XDocument.Parse(xml, LoadOptions.None);
+        // Preserve whitespace: word spaces between <w>/<hi> children are content.
+        var doc = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
         if (doc.DocumentType is not null)
             throw new InvalidDataException("DOCTYPE/external entities are not accepted in TEI imports.");
 
+        var body = doc.Descendants(Tei + "body").FirstOrDefault()
+            ?? throw new InvalidDataException("Missing TEI body.");
+        var edition = body.DescendantsAndSelf(Tei + "div")
+                .FirstOrDefault(d => (string?)d.Attribute("type") == "edition"
+                    && (string?)d.Attribute("subtype") == "primary")
+            ?? body.DescendantsAndSelf(Tei + "div")
+                .FirstOrDefault(d => (string?)d.Attribute("type") == "edition")
+            ?? body.DescendantsAndSelf(Tei + "div").FirstOrDefault()
+            ?? throw new InvalidDataException("No edition div found.");
+
+        var provenance = ReadProvenance(doc, body, edition);
         var revisions = new List<TextRevision>();
         var annotations = new List<Annotation>();
         var unsupported = new List<PageXml.ImportIssue>();
-        var orientations = new List<TeiLineOrientation>();
-
-        var body = doc.Descendants(Tei + "body").FirstOrDefault()
-            ?? throw new InvalidDataException("Missing TEI body.");
-        var edition = body.Elements(Tei + "div").FirstOrDefault(d => (string?)d.Attribute("type") == "edition")
-            ?? body.Elements(Tei + "div").FirstOrDefault();
-
+        var lineInfo = new List<TeiLineInfo>();
+        var unsupportedCounts = new Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)>(StringComparer.Ordinal);
+        var usedIds = new HashSet<string>(StringComparer.Ordinal);
+        var importToken = Guid.NewGuid().ToString("N")[..8];
         int lineIndex = 0;
-        if (edition is not null)
-            foreach (var ab in edition.Elements(Tei + "ab"))
+
+        foreach (var ab in edition.DescendantsAndSelf(Tei + "ab"))
+        {
+            var direction = ParseDirection(ab);
+            var script = ParseScript(ab);
+            var languages = ParseLanguages(ab);
+            foreach (var segment in SplitSegments(ab))
             {
                 lineIndex++;
-                var lineId = new EntityId(EntityKind.Line, $"tei{lineIndex}");
-                orientations.Add(ParseOrientation(lineId, ab));
-                int annotationCountBefore = annotations.Count;
-                var text = BuildLine(ab, lineId, revisions, annotations, unsupported);
-                var revision = new TextRevision
+                var suffix = StableSuffix(segment.XmlId, importToken, lineIndex, usedIds);
+                var lineId = new EntityId(EntityKind.Line, suffix);
+                var info = new TeiLineInfo(
+                    lineId,
+                    segment.Number ?? ParseLineNumber(ab),
+                    segment.XmlId,
+                    direction,
+                    script,
+                    languages,
+                    ParseTags(ab));
+                lineInfo.Add(info);
+
+                var built = new SegmentBuilder()
+                    .Build(segment.Nodes, lineId, unsupportedCounts);
+                var l1 = new TextRevision
                 {
-                    Id = new EntityId(EntityKind.TranscriptionRevision, $"tei{lineIndex}"),
+                    Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l1"),
                     ScopeId = lineId,
                     Layer = TextLayer.L1Diplomatic,
                     Author = new AgentRef { Id = "tei-import", IsModel = false },
                     CreatedAt = DateTimeOffset.UtcNow,
-                    Text = text,
+                    Text = built.L1,
                 };
-                revisions.Add(revision);
-                // Bind the annotations produced for this line to the revision that now exists.
-                for (int i = annotationCountBefore; i < annotations.Count; i++)
-                    annotations[i] = annotations[i] with { AnchoredRevisionId = revision.Id };
-            }
+                revisions.Add(l1);
 
-        foreach (var element in body.Descendants())
-        {
-            if (element.AncestorsAndSelf().Any(a => a.Name.LocalName is "unclear" or "gap" or "supplied" or "app" or "lem" or "rdg" or "abbr" or "expan" or "choice" or "ab" or "lb"))
-                continue;
-            unsupported.Add(new PageXml.ImportIssue(element.Name.LocalName, "outside the bounded EpiDoc profile"));
+                TextRevision? l2 = null;
+                if (built.HasL2)
+                {
+                    l2 = new TextRevision
+                    {
+                        Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l2"),
+                        ScopeId = lineId,
+                        Layer = TextLayer.L2Editorial,
+                        Author = new AgentRef { Id = "tei-import", IsModel = false },
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Text = built.L2,
+                    };
+                    revisions.Add(l2);
+                }
+
+                // Bind each annotation to the revision whose offsets it addresses.
+                foreach (var pending in built.Annotations)
+                {
+                    var anchored = pending.Layer == TextLayer.L2Editorial && l2 is not null ? l2 : l1;
+                    annotations.Add(pending.Annotation with
+                    {
+                        AnchoredRevisionId = anchored.Id,
+                        ExpansionRevisionId = pending.Annotation.ExpansionRange is not null && l2 is not null
+                            ? l2.Id
+                            : pending.Annotation.ExpansionRevisionId,
+                    });
+                }
+            }
         }
 
-        return new TeiImportResult(revisions, annotations, unsupported, orientations);
+        // Block-level constructs outside an <ab> are not part of the line profile. Structural
+        // containers and page breaks are expected; a column break is reported as a note and
+        // anything else as a loss, so nothing outside the lines disappears silently.
+        foreach (var element in body.Descendants())
+        {
+            if (element.AncestorsAndSelf(Tei + "ab").Any()) continue;
+            switch (element.Name.LocalName)
+            {
+                case "div":
+                case "pb":
+                case "lb":
+                case "p":
+                    continue;
+                case "cb":
+                    ReportUnsupported(unsupportedCounts, "cb", PageXml.IssueSeverity.Note,
+                        "column break recorded as unsupported; column structure is not modeled");
+                    continue;
+                default:
+                    ReportUnsupported(unsupportedCounts, element.Name.LocalName, PageXml.IssueSeverity.Loss,
+                        "block-level element outside the edition line profile");
+                    continue;
+            }
+        }
+
+        foreach (var (element, (count, severity, detail)) in unsupportedCounts)
+            unsupported.Add(new PageXml.ImportIssue(element, $"{detail} ({count} occurrence{(count == 1 ? "" : "s")})", severity));
+
+        var document = new TeiDocumentInfo(
+            provenance.Title,
+            provenance.SurfaceId,
+            provenance.Graphics,
+            provenance.Idnos,
+            provenance.Licence,
+            provenance.Responsibilities,
+            provenance.Languages,
+            lineInfo,
+            provenance.PageBreaks);
+
+        return new TeiImportResult(
+            revisions,
+            annotations,
+            unsupported,
+            [.. lineInfo.Select(i => new TeiLineOrientation(i.LineId, i.Direction, i.Script))],
+            document,
+            System.Text.Encoding.UTF8.GetByteCount(xml) <= MaxAttachmentBytes ? xml : null);
     }
 
-    private static TeiLineOrientation ParseOrientation(EntityId lineId, XElement ab)
+    private sealed record Segment(
+        int? Number,
+        string? XmlId,
+        List<XNode> Nodes,
+        XElement Ab,
+        bool BreakNo,
+        Dictionary<string, string> Tags);
+
+    private static IEnumerable<Segment> SplitSegments(XElement ab)
     {
-        TextDirection? direction = null;
-        string? script = null;
+        var current = new List<XNode>();
+        int? number = ParseLineNumber(ab);
+        string? xmlId = (string?)ab.Attribute(Xml + "id");
+        bool started = false;
+        var tags = ParseTags(ab).ToDictionary(t => t, t => t, StringComparer.Ordinal);
+
+        IEnumerable<Segment> Flush()
+        {
+            if (!started && !current.Any(HasVisibleContent)) yield break;
+            if (!current.Any(HasVisibleContent) && number is null) yield break;
+            yield return new Segment(number, xmlId, [.. current], ab, false, tags);
+        }
+
+        foreach (var node in ab.Nodes())
+        {
+            if (node is XElement element && element.Name == Tei + "lb")
+            {
+                var lbBreak = (string?)element.Attribute("break");
+                var lbNumber = ParseLineNumber(element);
+                var lbId = (string?)element.Attribute(Xml + "id");
+                if (lbBreak == "no")
+                {
+                    // Hyphenation-style continuation: the text is one visual line.
+                    if (lbNumber is { } continuationNumber) number ??= continuationNumber;
+                    started = true;
+                    continue;
+                }
+
+                if (!started)
+                {
+                    // A leading <lb/> belongs to the line that follows; it is not an empty line.
+                    number = lbNumber ?? number;
+                    xmlId = lbId ?? xmlId;
+                    started = true;
+                    continue;
+                }
+
+                foreach (var segment in Flush()) yield return segment;
+                current = [];
+                number = lbNumber;
+                xmlId = lbId;
+                started = true;
+                continue;
+            }
+            current.Add(node);
+            if (HasVisibleContent(node)) started = true;
+        }
+        foreach (var segment in Flush()) yield return segment;
+    }
+
+    private static bool HasVisibleContent(XNode node) => node switch
+    {
+        XText text => !string.IsNullOrWhiteSpace(text.Value),
+        XElement element => element.Name != Tei + "lb" && (!string.IsNullOrWhiteSpace(element.Value)
+            || element.Name.LocalName is "gap" or "addSpan" or "delSpan" or "handShift" or "supplied"),
+        _ => false,
+    };
+
+    private sealed record BuiltSegment(
+        string L1,
+        string L2,
+        bool HasL2,
+        List<PendingAnnotation> Annotations);
+
+    private sealed record PendingAnnotation(Annotation Annotation, TextLayer Layer);
+
+    private sealed class SegmentBuilder
+    {
+        private readonly System.Text.StringBuilder _l1 = new();
+        private readonly System.Text.StringBuilder _l2 = new();
+        private readonly List<PendingAnnotation> _annotations = [];
+        private bool _hasL2;
+        private EntityId _lineId = default;
+
+        public BuiltSegment Build(IEnumerable<XNode> nodes, EntityId lineId,
+            Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+        {
+            _lineId = lineId;
+            foreach (var node in nodes)
+            {
+                if (node is XText text) Append(text.Value);
+                else if (node is XElement element) Walk(element, unsupported);
+            }
+
+            var l1Text = Normalize(_l1.ToString());
+            var l2Text = Normalize(_l2.ToString());
+            int l1Length = ScalarText.Count(l1Text);
+            int l2Length = ScalarText.Count(l2Text);
+            // Only trailing formatting whitespace is trimmed; clamp end-anchored spans to it.
+            for (int i = 0; i < _annotations.Count; i++)
+            {
+                var pending = _annotations[i];
+                int max = pending.Layer == TextLayer.L2Editorial ? l2Length : l1Length;
+                if (pending.Annotation.Range.End <= max) continue;
+                _annotations[i] = pending with
+                {
+                    Annotation = pending.Annotation with
+                    {
+                        Range = new ScalarRange(Math.Min(pending.Annotation.Range.Start, max), max),
+                    },
+                };
+            }
+            return new BuiltSegment(l1Text, l2Text, _hasL2, _annotations);
+        }
+
+        private void Append(string value, bool l1 = true, bool l2 = true)
+        {
+            var collapsed = Collapse(value);
+            if (l1) AppendCollapsed(_l1, collapsed);
+            if (l2) AppendCollapsed(_l2, collapsed);
+        }
+
+        private static void AppendCollapsed(System.Text.StringBuilder builder, string value)
+        {
+            if (value.Length == 0) return;
+            var text = builder.Length == 0 ? value.TrimStart() : value;
+            if (text.Length == 0) return;
+            if (builder.Length > 0 && builder[^1] == ' ' && text[0] == ' ') text = text[1..];
+            builder.Append(text);
+        }
+
+        private static string Collapse(string value)
+        {
+            if (value.Length == 0) return "";
+            if (value.All(char.IsWhiteSpace)) return " ";
+            return string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        private void Walk(XElement element,
+            Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+        {
+            int l1Start = ScalarText.Count(_l1.ToString());
+            int l2Start = ScalarText.Count(_l2.ToString());
+            switch (element.Name.LocalName)
+            {
+                case "lb":
+                case "milestone":
+                    break;
+                case "unclear":
+                case "supplied":
+                {
+                    var isSupplied = element.Name.LocalName == "supplied";
+                    var reason = (string?)element.Attribute("reason");
+                    var inner = VisibleText(element);
+                    if (isSupplied)
+                    {
+                        Append(inner, l1: false, l2: true);
+                        _hasL2 = true;
+                        Add(AnnotationKind.SuppliedEditorial, TextLayer.L2Editorial, l2Start,
+                            l2Start + ScalarText.Count(inner), a => a with { Description = reason });
+                    }
+                    else
+                    {
+                        Append(inner);
+                        var kind = reason?.Contains("illegible", StringComparison.OrdinalIgnoreCase) == true
+                            ? AnnotationKind.Illegible
+                            : AnnotationKind.Unclear;
+                        Add(kind, TextLayer.L1Diplomatic, l1Start, l1Start + ScalarText.Count(inner),
+                            a => a with { Description = reason });
+                    }
+                    ReportNestedMarkup(element, unsupported);
+                    break;
+                }
+                case "gap":
+                {
+                    var extent = ((string?)element.Attribute("extent")) switch
+                    {
+                        "known" => GapExtent.Known,
+                        "estimated" => GapExtent.Estimated,
+                        _ => GapExtent.Unknown,
+                    };
+                    int? quantity = (int?)element.Attribute("quantity");
+                    Add(AnnotationKind.Lost, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    {
+                        GapExtent = extent,
+                        EstimatedScalarCount = quantity,
+                        Description = (string?)element.Attribute("reason"),
+                    });
+                    break;
+                }
+                case "app":
+                {
+                    var lem = element.Element(Tei + "lem");
+                    var readings = element.Elements(Tei + "rdg").ToList();
+                    var orig = readings.FirstOrDefault(r => (string?)r.Attribute("type") == "orig");
+                    var corr = readings.FirstOrDefault(r => (string?)r.Attribute("type") == "corr");
+                    if (orig is not null && corr is not null)
+                    {
+                        // NTVMR/correction apparatus: the witness's original reading is L1;
+                        // the corrector's reading is the derived L2 reading.
+                        var originalText = VisibleText(orig);
+                        var correctedText = VisibleText(corr);
+                        Append(originalText, l1: true, l2: false);
+                        Append(correctedText, l1: false, l2: true);
+                        _hasL2 = true;
+                        Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
+                            l1Start + ScalarText.Count(originalText), a => a with
+                            {
+                                AlternativeText = correctedText,
+                                Description = "app/orig-corr",
+                                HandLabel = (string?)corr.Attribute("hand"),
+                            });
+                        foreach (var extra in readings.Where(r => !ReferenceEquals(r, orig)
+                                     && !ReferenceEquals(r, corr)))
+                        {
+                            Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
+                                l1Start + ScalarText.Count(originalText), a => a with
+                                {
+                                    AlternativeText = VisibleText(extra),
+                                    Description = ReadingDescription(extra),
+                                    HandLabel = (string?)extra.Attribute("hand"),
+                                });
+                        }
+                    }
+                    else
+                    {
+                        var baseReading = lem ?? readings.FirstOrDefault();
+                        var baseText = baseReading is null ? "" : VisibleText(baseReading);
+                        Append(baseText);
+                        foreach (var reading in readings)
+                        {
+                            if (ReferenceEquals(reading, baseReading)) continue;
+                            var alternative = VisibleText(reading);
+                            Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
+                                l1Start + ScalarText.Count(baseText), a => a with
+                                {
+                                    AlternativeText = alternative,
+                                    Description = ReadingDescription(reading),
+                                });
+                        }
+                        if (lem is null && readings.Count > 0)
+                            Report("app-without-lem", PageXml.IssueSeverity.Note,
+                                "app had no lem; the first rdg was used as the base reading and the rest were kept as alternatives",
+                                unsupported);
+                    }
+                    ReportNestedMarkup(element, unsupported);
+                    break;
+                }
+                case "abbr":
+                {
+                    // Standalone abbreviation (NTVMR): visible text only; an expansion is
+                    // not fabricated. A nested <choice><abbr><expan> is handled above.
+                    Report("abbr-without-expan", PageXml.IssueSeverity.Note,
+                        "standalone abbr kept as visible text; no expansion was supplied", unsupported);
+                    WalkChildren(element, unsupported);
+                    break;
+                }
+                case "hi":
+                {
+                    var rend = (string?)element.Attribute("rend") ?? "";
+                    if (rend.Contains("overline", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int start = ScalarText.Count(_l1.ToString());
+                        WalkChildren(element, unsupported);
+                        int end = ScalarText.Count(_l1.ToString());
+                        Add(AnnotationKind.Sign, TextLayer.L1Diplomatic, start, end,
+                            a => a with { Description = "overline" });
+                    }
+                    else
+                    {
+                        WalkChildren(element, unsupported);
+                    }
+                    break;
+                }
+                case "choice":
+                {
+                    var abbr = element.Element(Tei + "abbr");
+                    var expan = element.Element(Tei + "expan");
+                    if (abbr is not null || expan is not null)
+                    {
+                        var visible = abbr is not null ? VisibleText(abbr) : expan is null ? "" : VisibleText(expan);
+                        Append(visible, l1: true, l2: false);
+                        Append(expan is null ? visible : VisibleText(expan), l1: false, l2: true);
+                        _hasL2 = true;
+                        Add(AnnotationKind.Abbreviation, TextLayer.L1Diplomatic, l1Start,
+                            l1Start + ScalarText.Count(visible), a => a with
+                            {
+                                ExpansionText = expan is null ? null : VisibleText(expan),
+                                ExpansionRange = expan is null
+                                    ? null
+                                    : new ScalarRange(l2Start, l2Start + ScalarText.Count(VisibleText(expan))),
+                                Description = "tei:choice/abbr",
+                            });
+                    }
+                    else
+                    {
+                        var orig = element.Element(Tei + "orig");
+                        var reg = element.Element(Tei + "reg");
+                        var sic = element.Element(Tei + "sic");
+                        var corr = element.Element(Tei + "corr");
+                        var visible = orig ?? sic;
+                        var editorial = reg ?? corr;
+                        if (visible is not null || editorial is not null)
+                        {
+                            var visibleText = visible is null ? VisibleText(editorial!) : VisibleText(visible);
+                            var editorialText = editorial is null ? visibleText : VisibleText(editorial);
+                            Append(visibleText, l1: true, l2: false);
+                            Append(editorialText, l1: false, l2: true);
+                            _hasL2 = true;
+                            Add(AnnotationKind.AlternativeReading, TextLayer.L1Diplomatic, l1Start,
+                                l1Start + ScalarText.Count(visibleText), a => a with
+                                {
+                                    AlternativeText = editorialText,
+                                    Description = reg is not null ? "choice/orig-reg" : "choice/sic-corr",
+                                });
+                        }
+                        else
+                        {
+                            WalkChildren(element, unsupported);
+                        }
+                    }
+                    break;
+                }
+                case "add":
+                {
+                    var inner = VisibleText(element);
+                    Append(inner);
+                    Add(AnnotationKind.Added, TextLayer.L1Diplomatic, l1Start,
+                        l1Start + ScalarText.Count(inner), a => a with
+                        {
+                            Description = (string?)element.Attribute("place"),
+                        });
+                    break;
+                }
+                case "del":
+                {
+                    var inner = VisibleText(element);
+                    // Erased text is not visible in L1; it remains as an annotated L2 span.
+                    Append(inner, l1: false, l2: true);
+                    _hasL2 = true;
+                    Add(AnnotationKind.Erased, TextLayer.L2Editorial, l2Start,
+                        l2Start + ScalarText.Count(inner), a => a with
+                        {
+                            Description = (string?)element.Attribute("reason"),
+                        });
+                    break;
+                }
+                case "addSpan":
+                    Add(AnnotationKind.Added, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    {
+                        Description = (string?)element.Attribute("spanTo"),
+                    });
+                    break;
+                case "delSpan":
+                    Add(AnnotationKind.Erased, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    {
+                        Description = (string?)element.Attribute("spanTo"),
+                    });
+                    break;
+                case "handShift":
+                    Add(AnnotationKind.DifferentHand, TextLayer.L1Diplomatic, l1Start, l1Start, a => a with
+                    {
+                        HandLabel = (string?)element.Attribute("new") ?? (string?)element.Attribute("hand") ?? "unattributed",
+                    });
+                    break;
+                case "note":
+                case "bibl":
+                case "ref":
+                    Report(element.Name.LocalName, PageXml.IssueSeverity.Note,
+                        "editorial note/reference skipped (not visible text)", unsupported);
+                    break;
+                case "w":
+                case "seg":
+                case "p":
+                case "div":
+                case "subst":
+                    WalkChildren(element, unsupported);
+                    break;
+                default:
+                {
+                    var inner = element.Value;
+                    Append(inner);
+                    Report(element.Name.LocalName, PageXml.IssueSeverity.Loss,
+                        "inline element outside the bounded profile; text preserved, markup preserved only in the source attachment",
+                        unsupported);
+                    break;
+                }
+            }
+        }
+
+        private void WalkChildren(XElement element,
+            Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+        {
+            foreach (var node in element.Nodes())
+            {
+                if (node is XText text) Append(text.Value);
+                else if (node is XElement child) Walk(child, unsupported);
+            }
+        }
+
+        private void ReportNestedMarkup(XElement element,
+            Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+        {
+            foreach (var nested in element.Descendants())
+            {
+                if (nested.Name.LocalName is "lem" or "rdg" or "abbr" or "expan" or "orig" or "reg"
+                    or "sic" or "corr" or "lb") continue;
+                Report(nested.Name.LocalName, PageXml.IssueSeverity.Note,
+                    "nested markup flattened inside a supported construct", unsupported);
+            }
+        }
+
+        private void Add(AnnotationKind kind, TextLayer layer, int start, int end, Func<Annotation, Annotation>? configure = null)
+        {
+            var annotation = new Annotation
+            {
+                // Deterministic per line: re-importing the same record produces the same ids.
+                Id = new EntityId(EntityKind.Annotation, AnnotationSuffix(_lineId, _annotations.Count)),
+                Kind = kind,
+                AnchoredRevisionId = default,
+                Range = new ScalarRange(start, end),
+            };
+            if (configure is not null) annotation = configure(annotation);
+            _annotations.Add(new PendingAnnotation(annotation, layer));
+        }
+
+        private static string AnnotationSuffix(EntityId lineId, int index)
+        {
+            var suffix = $"tei-{lineId.Suffix}-{index}";
+            return suffix.Length <= 63 ? suffix : suffix[..63];
+        }
+
+        private static void Report(string element, PageXml.IssueSeverity severity, string detail,
+            Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+        {
+            if (unsupported.TryGetValue(element, out var existing))
+                unsupported[element] = (existing.Count + 1, existing.Severity, existing.Detail);
+            else
+                unsupported[element] = (1, severity, detail);
+        }
+
+        private static string ReadingDescription(XElement reading)
+        {
+            var type = (string?)reading.Attribute("type");
+            var wit = (string?)reading.Attribute("wit");
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(type)) parts.Add($"type={type}");
+            if (!string.IsNullOrWhiteSpace(wit)) parts.Add($"wit={wit}");
+            return parts.Count == 0 ? "rdg" : string.Join(';', parts);
+        }
+
+        private static string VisibleText(XElement element)
+        {
+            var builder = new System.Text.StringBuilder();
+            foreach (var node in element.Nodes())
+            {
+                if (node is XText text) builder.Append(text.Value);
+                else if (node is XElement child)
+                {
+                    if (child.Name.LocalName is "note" or "bibl" or "ref") continue;
+                    builder.Append(VisibleText(child));
+                }
+            }
+            return builder.ToString();
+        }
+
+        private static string Normalize(string value) =>
+            Collapse(value).TrimEnd();
+    }
+
+    private sealed record Provenance(
+        string? Title,
+        string? SurfaceId,
+        IReadOnlyList<TeiGraphic> Graphics,
+        IReadOnlyList<TeiIdno> Idnos,
+        string? Licence,
+        IReadOnlyList<TeiResponsibility> Responsibilities,
+        IReadOnlyList<string> Languages,
+        IReadOnlyList<TeiPageBreak> PageBreaks);
+
+    private static Provenance ReadProvenance(XDocument doc, XElement body, XElement edition)
+    {
+        var title = doc.Descendants(Tei + "titleStmt").Elements(Tei + "title")
+            .Select(t => t.Value.Trim()).FirstOrDefault(v => v.Length > 0);
+        var idnos = doc.Descendants(Tei + "idno")
+            .Select(i => new TeiIdno((string?)i.Attribute("type"), i.Value.Trim()))
+            .Where(i => i.Value.Length > 0)
+            .ToList();
+        var licence = CleanProvenance(doc.Descendants(Tei + "licence").Select(l => l.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)))
+            ?? CleanProvenance(doc.Descendants(Tei + "availability").Elements(Tei + "p")
+                .Select(p => p.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)));
+        var responsibilities = new List<TeiResponsibility>();
+        foreach (var respStmt in doc.Descendants(Tei + "respStmt"))
+        {
+            var name = respStmt.Elements(Tei + "name").Select(n => n.Value.Trim()).FirstOrDefault();
+            foreach (var resp in respStmt.Elements(Tei + "resp"))
+                responsibilities.Add(new TeiResponsibility(resp.Value.Trim(), name, (string?)resp.Attribute("when")));
+        }
+        foreach (var change in doc.Descendants(Tei + "change"))
+            responsibilities.Add(new TeiResponsibility(
+                change.Value.Trim(),
+                (string?)change.Attribute("who"),
+                (string?)change.Attribute("when")));
+
+        // Real EpiDoc may declare the image under <facsimile>, <sourceDesc> or a body
+        // <surface>; accept any graphic and de-duplicate by URL without inventing dimensions.
+        var graphics = doc.Descendants(Tei + "graphic")
+            .OrderByDescending(g => g.Ancestors(Tei + "facsimile").Any() || (string?)g.Attribute("n") == "screen")
+            .DistinctBy(g => (string?)g.Attribute("url"))
+            .Select(g => new TeiGraphic(
+                (string?)g.Attribute("url") ?? "",
+                (string?)g.Attribute("n"),
+                ParsePixels(g.Attribute("width")),
+                ParsePixels(g.Attribute("height"))))
+            .Where(g => g.Url.Length > 0)
+            .ToList();
+        var surfaceId = doc.Descendants(Tei + "surface").Select(s => (string?)s.Attribute(Xml + "id"))
+            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+        var languages = new List<string>();
+        foreach (var attribute in new[] { body.Attribute(Xml + "lang"), edition.Attribute(Xml + "lang") })
+            if (attribute is not null && !languages.Contains(attribute.Value)) languages.Add(attribute.Value);
+
+        var pageBreaks = body.DescendantsAndSelf(Tei + "pb")
+            .Select(pb => new TeiPageBreak((string?)pb.Attribute("n"), (string?)pb.Attribute("type")))
+            .ToList();
+
+        return new Provenance(title, surfaceId, graphics, idnos, licence, responsibilities, languages, pageBreaks);
+    }
+
+    /// <summary>Real EpiDoc graphics use values such as "5520px"; missing units are also valid.</summary>
+    private static int? ParsePixels(XAttribute? attribute)
+    {
+        if (attribute is null) return null;
+        var value = attribute.Value.Trim();
+        int end = 0;
+        while (end < value.Length && char.IsDigit(value[end])) end++;
+        return end > 0 && int.TryParse(value[..end], out var pixels) && pixels > 0 ? pixels : null;
+    }
+
+    /// <summary>NTVMR availability blocks embed HTML in CDATA; keep readable text only.</summary>
+    private static string? CleanProvenance(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = System.Text.RegularExpressions.Regex.Replace(value, "<[^>]+>", " ");
+        text = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+([.,;:])", "$1");
+        return text.Length == 0 ? null : text;
+    }
+
+    private static void ReportUnsupported(
+        Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported,
+        string element, PageXml.IssueSeverity severity, string detail)
+    {
+        if (unsupported.TryGetValue(element, out var existing))
+            unsupported[element] = (existing.Count + 1, existing.Severity, existing.Detail);
+        else
+            unsupported[element] = (1, severity, detail);
+    }
+
+    private static int? ParseLineNumber(XElement element) =>
+        int.TryParse((string?)element.Attribute("n"), out var number) ? number : null;
+
+    private static TextDirection? ParseDirection(XElement ab)
+    {
         foreach (var part in ((string?)ab.Attribute("rend") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
             var pair = part.Split(':', 2, StringSplitOptions.TrimEntries);
-            if (pair.Length != 2) continue;
-            if (pair[0] == "direction")
-                direction = pair[1] switch
-                {
-                    "left-to-right" or "ltr" => TextDirection.Ltr,
-                    "right-to-left" or "rtl" => TextDirection.Rtl,
-                    "top-to-bottom" or "ttb" => TextDirection.VerticalTopToBottom,
-                    "bottom-to-top" or "btt" => TextDirection.VerticalBottomToTop,
-                    _ => null,
-                };
-            else if (pair[0] == "script") script = pair[1];
+            if (pair.Length != 2 || pair[0] != "direction") continue;
+            return pair[1] switch
+            {
+                "left-to-right" or "ltr" => TextDirection.Ltr,
+                "right-to-left" or "rtl" => TextDirection.Rtl,
+                "top-to-bottom" or "ttb" => TextDirection.VerticalTopToBottom,
+                "bottom-to-top" or "btt" => TextDirection.VerticalBottomToTop,
+                _ => null,
+            };
         }
-        return new TeiLineOrientation(lineId, direction, script);
+        return null;
     }
 
-    private static string BuildLine(XElement ab, EntityId lineId, List<TextRevision> revisions,
-        List<Annotation> annotations, List<PageXml.ImportIssue> unsupported)
+    private static string? ParseScript(XElement ab)
     {
-        var text = new System.Text.StringBuilder();
-        foreach (var node in ab.Nodes())
+        foreach (var part in ((string?)ab.Attribute("rend") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
-            switch (node)
-            {
-                case XElement el:
-                    HandleInline(el, lineId, text, revisions, annotations, unsupported);
-                    break;
-                case XText t:
-                    text.Append(t.Value);
-                    break;
-                case XComment c:
-                    if (c.Value.Contains("not-yet-transcribed"))
-                        annotations.Add(new Annotation
-                        {
-                            Id = new EntityId(EntityKind.Annotation, $"nyt{annotations.Count}"),
-                            Kind = AnnotationKind.NotYetTranscribed,
-                            AnchoredRevisionId = default,
-                            Range = new ScalarRange(0, 0),
-                        });
-                    break;
-            }
+            var pair = part.Split(':', 2, StringSplitOptions.TrimEntries);
+            if (pair.Length == 2 && pair[0] == "script") return pair[1];
         }
-        return text.ToString();
+        return null;
     }
 
-    private static void HandleInline(XElement el, EntityId lineId, System.Text.StringBuilder text,
-        List<TextRevision> revisions, List<Annotation> annotations, List<PageXml.ImportIssue> unsupported)
+    private static IReadOnlyList<string> ParseLanguages(XElement ab) =>
+        ab.Attribute(Xml + "lang") is { } lang ? [lang.Value] : [];
+
+    private static IReadOnlyList<string> ParseTags(XElement ab)
     {
-        switch (el.Name.LocalName)
-        {
-            case "lb":
-                return;
-            case "unclear":
-            case "supplied":
-            {
-                int start = ScalarText.Count(text.ToString());
-                text.Append(el.Value);
-                annotations.Add(new Annotation
-                {
-                    Id = new EntityId(EntityKind.Annotation, $"{el.Name.LocalName}{annotations.Count}"),
-                    Kind = el.Name.LocalName == "unclear" ? AnnotationKind.Unclear : AnnotationKind.SuppliedEditorial,
-                    AnchoredRevisionId = default, // bound by the importer after the revision exists
-                    Range = new ScalarRange(start, start + ScalarText.Count(el.Value)),
-                    Description = (string?)el.Attribute("reason"),
-                });
-                break;
-            }
-            case "gap":
-            {
-                int position = ScalarText.Count(text.ToString());
-                var extent = ((string?)el.Attribute("extent")) switch
-                {
-                    "known" => GapExtent.Known,
-                    "estimated" => GapExtent.Estimated,
-                    _ => GapExtent.Unknown,
-                };
-                int? quantity = (int?)el.Attribute("quantity");
-                annotations.Add(new Annotation
-                {
-                    Id = new EntityId(EntityKind.Annotation, $"gap{annotations.Count}"),
-                    Kind = AnnotationKind.Lost,
-                    AnchoredRevisionId = default,
-                    Range = new ScalarRange(position, position),
-                    GapExtent = extent,
-                    EstimatedScalarCount = quantity,
-                });
-                break;
-            }
-            case "app":
-            {
-                int start = ScalarText.Count(text.ToString());
-                var lem = el.Element(Tei + "lem")?.Value ?? "";
-                text.Append(lem);
-                var rdg = el.Element(Tei + "rdg")?.Value;
-                if (rdg is not null)
-                    annotations.Add(new Annotation
-                    {
-                        Id = new EntityId(EntityKind.Annotation, $"rdg{annotations.Count}"),
-                        Kind = AnnotationKind.AlternativeReading,
-                        AnchoredRevisionId = default,
-                        Range = new ScalarRange(start, start + ScalarText.Count(lem)),
-                        AlternativeText = rdg,
-                    });
-                break;
-            }
-            case "choice":
-            {
-                var abbr = el.Element(Tei + "abbr")?.Value;
-                var expan = el.Element(Tei + "expan")?.Value;
-                int start = ScalarText.Count(text.ToString());
-                var visible = abbr ?? el.Value;
-                text.Append(visible);
-                if (expan is not null)
-                    annotations.Add(new Annotation
-                    {
-                        Id = new EntityId(EntityKind.Annotation, $"abbr{annotations.Count}"),
-                        Kind = AnnotationKind.Abbreviation,
-                        AnchoredRevisionId = default,
-                        Range = new ScalarRange(start, start + ScalarText.Count(visible)),
-                        ExpansionText = expan,
-                        Description = "TEI choice/abbr; linked L2 revision not reconstructed on import",
-                    });
-                break;
-            }
-            default:
-                unsupported.Add(new PageXml.ImportIssue(el.Name.LocalName, $"inline element outside the bounded profile (preserved in attachment)"));
-                text.Append(el.Value); // text content survives; markup distinction does not
-                break;
-        }
+        var tags = ab.Attributes()
+            .Where(a => a.Name.Namespace == XNamespace.None && a.Name.LocalName.StartsWith("data-", StringComparison.Ordinal))
+            .Select(a => $"{a.Name.LocalName[5..]}={a.Value}")
+            .ToList();
+        // Source verse/line labels are not always integers (NTVMR uses B09K1V10).
+        if ((string?)ab.Attribute("n") is { Length: > 0 } n && !int.TryParse(n, out _))
+            tags.Add($"n={n}");
+        if ((string?)ab.Attribute("part") is { Length: > 0 } part) tags.Add($"part={part}");
+        return tags;
     }
 
-    private static int Count(string s) => ScalarText.Count(s);
+    private static string? TagValue(TeiLineInfo? info, string key)
+    {
+        if (info is null) return null;
+        var prefix = key + "=";
+        return info.Tags.FirstOrDefault(t => t.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+    }
+
+    private static string StableSuffix(string? xmlId, string token, int index, HashSet<string> used)
+    {
+        var candidate = string.IsNullOrWhiteSpace(xmlId)
+            ? $"tei-{token}-{index}"
+            : xmlId.Trim();
+        var suffix = new string(candidate.Select(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z'
+            or >= '0' and <= '9' or '_' or '.' or ':' or '-' ? c : '-').ToArray());
+        suffix = suffix.Trim('-', '.', ':');
+        if (suffix.Length == 0) suffix = $"tei-{token}-{index}";
+        var unique = suffix;
+        int counter = 1;
+        while (!used.Add(unique)) unique = $"{suffix}-{++counter}";
+        return unique;
+    }
+
+    private static int? FindScalarIndex(string haystack, string needle)
+    {
+        if (needle.Length == 0) return null;
+        int haystackScalars = ScalarText.Count(haystack);
+        int needleScalars = ScalarText.Count(needle);
+        for (int i = 0; i + needleScalars <= haystackScalars; i++)
+            if (ScalarText.Slice(haystack, i, i + needleScalars) == needle) return i;
+        return null;
+    }
 }

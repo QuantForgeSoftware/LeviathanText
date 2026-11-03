@@ -7,6 +7,7 @@ public static class ModelPackageLimits
     public const long MaxModelBytes = 1L * 1024 * 1024 * 1024;
     public const long MaxMetadataBytes = 1L * 1024 * 1024;
     public const long MaxManifestBytes = 1L * 1024 * 1024;
+    public const long MaxRunDetailsBytes = 64L * 1024 * 1024;
     public const long MaxOptimizerBytes = 2L * 1024 * 1024 * 1024;
 
     private static readonly string[] ExecutableExtensions =
@@ -26,5 +27,21 @@ public static class ModelPackageLimits
         var length = new FileInfo(path).Length;
         if (length > limit)
             throw new InvalidDataException($"{label} is {length} bytes, exceeding the {limit}-byte package limit.");
+    }
+
+    internal static void EnsureNotSymbolicLink(string path, string label)
+    {
+        // LinkTarget also detects dangling links, for which File.Exists is false.
+        var info = new FileInfo(path);
+        if (info.LinkTarget is not null || (info.Exists && (info.Attributes & FileAttributes.ReparsePoint) != 0))
+            throw new InvalidDataException($"{label} cannot be a symbolic link.");
+    }
+
+    /// <summary>Expected file outputs must not alias links or existing directories.</summary>
+    internal static void EnsureFileOutput(string path, string label)
+    {
+        EnsureNotSymbolicLink(path, label);
+        if (Directory.Exists(path))
+            throw new InvalidDataException($"{label} cannot be an existing directory.");
     }
 }

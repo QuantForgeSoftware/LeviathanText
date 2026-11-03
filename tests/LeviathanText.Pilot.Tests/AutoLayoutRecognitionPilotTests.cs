@@ -27,7 +27,7 @@ public sealed class AutoLayoutRecognitionPilotTests(ITestOutputHelper output)
     private sealed class InMemoryStore : IProjectStore
     {
         private readonly Dictionary<string, string> _projects = [];
-        public void SaveProject(NativeProject project) => _projects[project.Id.ToString()] = NativeJson.Save(project);
+        public long SaveProject(NativeProject project) { _projects[project.Id.ToString()] = NativeJson.Save(project); return project.Version + 1; }
         public NativeProject? LoadProject(EntityId id) =>
             _projects.TryGetValue(id.ToString(), out var json) ? NativeJson.Load(json) : null;
         public IReadOnlyList<(EntityId Id, string Name)> ListProjects() =>

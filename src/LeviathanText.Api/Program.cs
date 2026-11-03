@@ -67,6 +67,9 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
 builder.Services.AddSingleton<PresenceService>(sp => new PresenceService(sp.GetRequiredService<LocalStore>()));
+builder.Services.AddSingleton(sp => new SessionService(
+    sp.GetRequiredService<LocalStore>(),
+    $"{Environment.MachineName}:{Environment.ProcessId}"));
 
 var app = builder.Build();
 
@@ -305,6 +308,15 @@ static AuthAuditEntry AuditOf(HttpContext context, UserAccount principal, string
 static bool IsReviewDecision(string method, string path) =>
     HttpMethods.IsPost(method) && path.EndsWith("/review", StringComparison.OrdinalIgnoreCase);
 
+static UserAccount PrincipalOf(HttpContext context) =>
+    context.Items["user"] as UserAccount ?? new UserAccount
+    {
+        Id = "usr-local",
+        Name = "local",
+        Role = UserRole.Admin,
+        CreatedAt = DateTimeOffset.MinValue,
+    };
+
 static bool IsAdminOnly(string path, string method) =>
     path.StartsWith("/api/v1/users", StringComparison.OrdinalIgnoreCase)
     || path.StartsWith("/api/v1/audit", StringComparison.OrdinalIgnoreCase)
@@ -423,12 +435,14 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/abbyy", (ProjectService projects,
         "application/xml");
 });
 
-api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, string id, string surfaceId) =>
+api.MapGet("projects/{id}/surfaces/{surfaceId}/tei", (ProjectService projects, string id, string surfaceId, bool? report) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    return Results.Text(
-        new InterchangeService(projects).ExportTei(project, EntityId.Parse(surfaceId, EntityKind.Surface), $"LeviathanText export {surfaceId}"),
-        "application/xml");
+    var exported = new InterchangeService(projects)
+        .ExportTeiWithReport(project, EntityId.Parse(surfaceId, EntityKind.Surface), $"LeviathanText export {surfaceId}");
+    return report == true
+        ? Results.Ok(new { xml = exported.Xml, lossReport = exported.Report })
+        : Results.Text(exported.Xml, "application/xml");
 });
 
 api.MapPost("projects/{id}/import-image", (ProjectService projects, string id, [FromBody] ImportImageRequest request) =>
@@ -505,6 +519,54 @@ api.MapPost("projects/{id}/import-line-text", (ProjectService projects, IProject
     });
 });
 
+api.MapPost("projects/{id}/import-tei", (ProjectService projects, string id, [FromBody] ImportTeiRequest request) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var interchange = new InterchangeService(projects);
+    if (request.SkipDuplicate && interchange.FindTeiDuplicate(project, File.ReadAllText(request.DocumentPath)) is { } duplicate)
+    {
+        return Results.Ok(new
+        {
+            skipped = true,
+            objectId = duplicate.Id.ToString(),
+            surfaceId = duplicate.Surfaces[0].Id.ToString(),
+            lineCount = duplicate.Surfaces[0].Lines.Count,
+            l2Count = duplicate.Surfaces[0].Revisions.Count(r => r.Layer == TextLayer.L2Editorial),
+            attachments = duplicate.Attachments.Select(a => new { a.Id, a.Name, a.MediaType, a.Sha256, a.Role }),
+            imageUrl = (string?)null,
+            notes = Array.Empty<object>(),
+        });
+    }
+    var (imported, notes, imageUrl) = interchange
+        .ImportTei(project, request.DocumentPath, request.ImagePath, request.Kind ?? "page");
+    return Results.Ok(new
+    {
+        objectId = imported.Id.ToString(),
+        surfaceId = imported.Surfaces[0].Id.ToString(),
+        lineCount = imported.Surfaces[0].Lines.Count,
+        l2Count = imported.Surfaces[0].Revisions.Count(r => r.Layer == TextLayer.L2Editorial),
+        attachments = imported.Attachments.Select(a => new { a.Id, a.Name, a.MediaType, a.Sha256, a.Role }),
+        imageUrl,
+        notes,
+    });
+});
+
+api.MapGet("projects/{id}/attachments/{attachmentId}", (ProjectService projects, string id, string attachmentId) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var attachment = project.Objects
+        .SelectMany(o => o.Attachments)
+        .FirstOrDefault(a => string.Equals(a.Id, attachmentId, StringComparison.Ordinal))
+        ?? throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = attachmentId,
+            Message = "No such attachment in the project.",
+        });
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(attachment.Content),
+        attachment.MediaType, attachment.Name);
+});
+
 api.MapPost("projects/{id}/import-epidoc", (ProjectService projects, string id, [FromBody] ImportEpiDocRequest request) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
@@ -520,13 +582,18 @@ api.MapPost("projects/{id}/import-epidoc", (ProjectService projects, string id, 
     });
 });
 
-api.MapPost("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceService presence, string surfaceId,
-    [FromBody] PresenceRequest request) =>
+api.MapPost("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceService presence,
+    SessionService sessions, HttpContext http, string surfaceId, [FromBody] PresenceRequest request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     _ = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
-    return Results.Ok(new { editors = presence.Touch(surfaceEntityId, request.EditorId) });
+    // With a session the editor identity comes from the authenticated principal, not from a
+    // client-chosen string; the legacy editorId path remains for local/advisory use.
+    var editorId = string.IsNullOrWhiteSpace(request.SessionId)
+        ? request.EditorId
+        : sessions.Heartbeat(PrincipalOf(http), request.SessionId, 15).UserName;
+    return Results.Ok(new { editors = presence.Touch(surfaceEntityId, editorId), editor = editorId });
 });
 
 api.MapGet("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceService presence, string surfaceId) =>
@@ -535,6 +602,49 @@ api.MapGet("surfaces/{surfaceId}/presence", (ProjectService projects, PresenceSe
     _ = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
     return Results.Ok(new { editors = presence.List(surfaceEntityId) });
+});
+
+// Server-issued editing sessions: a shared, TTL-bounded coordination registry. These are
+// advisory; every request is still authenticated on its own.
+api.MapPost("sessions", (SessionService sessions, ProjectService projects, HttpContext http,
+    [FromBody] CreateSessionRequest request) =>
+{
+    var user = PrincipalOf(http);
+    var surfaceId = string.IsNullOrWhiteSpace(request.SurfaceId)
+        ? (EntityId?)null
+        : EntityId.Parse(request.SurfaceId, EntityKind.Surface);
+    if (surfaceId is { } surface)
+        _ = projects.LoadProjectForSurface(surface)
+            ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surface.ToString(), Message = "Surface not found in any project." });
+    var session = sessions.Create(user, surfaceId, request.TtlMinutes ?? 15);
+    return Results.Ok(new { session.Id, session.NodeId, session.SurfaceId, session.CreatedAt, session.ExpiresAt });
+});
+
+api.MapPost("sessions/{sessionId}/heartbeat", (SessionService sessions, HttpContext http,
+    string sessionId, [FromBody] HeartbeatSessionRequest? request) =>
+{
+    var session = sessions.Heartbeat(PrincipalOf(http), sessionId, request?.TtlMinutes ?? 15);
+    return Results.Ok(new { session.Id, session.LastSeenAt, session.ExpiresAt });
+});
+
+api.MapDelete("sessions/{sessionId}", (SessionService sessions, HttpContext http, string sessionId) =>
+    Results.Ok(new { revoked = sessions.Revoke(PrincipalOf(http), sessionId) }));
+
+api.MapGet("sessions", (SessionService sessions, HttpContext http, string? surfaceId) =>
+{
+    var surface = string.IsNullOrWhiteSpace(surfaceId)
+        ? (EntityId?)null
+        : EntityId.Parse(surfaceId, EntityKind.Surface);
+    return Results.Ok(sessions.List(PrincipalOf(http), surface));
+});
+
+api.MapGet("surfaces/{surfaceId}/sessions", (SessionService sessions, ProjectService projects,
+    HttpContext http, string surfaceId) =>
+{
+    var surface = EntityId.Parse(surfaceId, EntityKind.Surface);
+    _ = projects.LoadProjectForSurface(surface)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
+    return Results.Ok(sessions.List(PrincipalOf(http), surface));
 });
 
 api.MapDelete("surfaces/{surfaceId}/presence/{editorId}", (PresenceService presence, string surfaceId, string editorId) =>
@@ -780,10 +890,25 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
     var loaded = RecognitionModelLoader.Load(directory);
+    try
+    {
+        loaded.PreprocessingProfile.RequireStandardGeometry();
+    }
+    catch (InvalidOperationException ex)
+    {
+        loaded.Model.Dispose();
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.ModelIncompatible,
+            Scope = request.Model,
+            Message = ex.Message,
+        });
+    }
     var pipeline = new RecognitionPipeline(store, imageResolver);
     var outcome = pipeline.Run(project, surfaceEntityId, new RecognitionPipeline.Options
     {
         ModelDirectory = directory,
+        PreprocessingProfile = loaded.PreprocessingProfile,
         ModelName = loaded.Manifest?.ModelName ?? request.Model,
         ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
         ModelFactory = () => loaded.Model,
@@ -852,14 +977,15 @@ api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometrySe
     });
 });
 
-api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, LayoutModelRegistry models, string surfaceId) =>
+api.MapPost("surfaces/{surfaceId}/detect-layout", (ProjectService projects, LayoutService layout, LayoutModelRegistry models, string surfaceId, bool? columns) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
     var surface = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == surfaceEntityId);
-    var outcome = layout.Detect(project, surfaceEntityId, model: models.Resolve(surface.Kind));
+    var outcome = layout.Detect(project, surfaceEntityId, model: models.Resolve(surface.Kind),
+        detectColumns: columns ?? false);
     return Results.Ok(new
     {
         surfaceId = outcome.Surface.Id.ToString(),
@@ -956,16 +1082,33 @@ api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionS
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
+    EntityId? parent = string.IsNullOrEmpty(request.ParentRevisionId)
+        ? null
+        : EntityId.Parse(request.ParentRevisionId, EntityKind.TranscriptionRevision);
+    if (request.Merge)
+    {
+        var (_, mergedSurface, mergedRevision, merged) = transcription.AppendLineRevisionMerged(
+            project, lineEntityId, request.Layer, request.Text,
+            new AgentRef { Id = request.AuthorId, IsModel = false }, parent);
+        return Results.Ok(new
+        {
+            revisionId = mergedRevision.Id.ToString(),
+            surfaceId = mergedSurface.Id.ToString(),
+            layer = mergedRevision.Layer.ToString(),
+            merged,
+        });
+    }
+
     var (_, surface, revision) = transcription.AppendLineRevision(project, lineEntityId, request.Layer,
         request.Text,
-        new AgentRef { Id = request.AuthorId, IsModel = false },
-        string.IsNullOrEmpty(request.ParentRevisionId) ? null : EntityId.Parse(request.ParentRevisionId, EntityKind.TranscriptionRevision));
+        new AgentRef { Id = request.AuthorId, IsModel = false }, parent);
 
     return Results.Ok(new
     {
         revisionId = revision.Id.ToString(),
         surfaceId = surface.Id.ToString(),
         layer = revision.Layer.ToString(),
+        merged = false,
     });
 });
 
@@ -989,7 +1132,10 @@ api.MapPost("lines/{lineId}/review", (ProjectService projects, ReviewService rev
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
     var (_, _, decision, correction) = reviews.Record(project, lineEntityId, request.Reviewer,
-        request.Outcome, request.Note, request.CorrectionText);
+        request.Outcome, request.Note, request.CorrectionText,
+        string.IsNullOrWhiteSpace(request.RevisionId)
+            ? null
+            : EntityId.Parse(request.RevisionId, EntityKind.TranscriptionRevision));
     return Results.Ok(new
     {
         reviewId = decision.Id,
@@ -1343,7 +1489,7 @@ public sealed record ImportLegacyRequest(string DocumentPath, string ImagePath, 
 
 public sealed record ImportImageRequest(string ImagePath, string? Kind = null);
 
-public sealed record PresenceRequest(string EditorId);
+public sealed record PresenceRequest(string EditorId, string? SessionId = null);
 
 public sealed record CreateInviteRequest(UserRole Role, int ExpiresInHours = 24);
 
@@ -1354,12 +1500,19 @@ public sealed record ImportPdfRequest(string PdfPath, string? OutputDirectory = 
 
 public sealed record ImportEpiDocRequest(string DocumentPath, string ImagePath, string? Kind = null);
 
+public sealed record ImportTeiRequest(string DocumentPath, string ImagePath, string? Kind = null,
+    bool SkipDuplicate = false);
+
+public sealed record CreateSessionRequest(string? SurfaceId = null, int? TtlMinutes = null);
+
+public sealed record HeartbeatSessionRequest(int? TtlMinutes = null);
+
 public sealed record ImportLineTextRequest(string CsvText, TextLayer Layer = TextLayer.L1Diplomatic, string? AuthorId = null);
 public sealed record RecognizeRequest(string Model);
 
 public sealed record CreateJobRequest(string Type, string OwnerId, string? IdempotencyKey, string? SurfaceId = null,
     string? ModelPackagePath = null, string? ProjectId = null, string? SourceDirectory = null, int Priority = 0);
-public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId);
+public sealed record AppendRevisionRequest(TextLayer Layer, string Text, string AuthorId, string? ParentRevisionId, bool Merge = false);
 
 public sealed record CreateUserRequest(string Name, UserRole Role);
 
@@ -1367,7 +1520,8 @@ public sealed record AddProjectMemberRequest(string UserId);
 
 public sealed record RetractAnnotationRequest(string Reviewer, string? Reason = null);
 
-public sealed record ReviewRequest(string Reviewer, ReviewOutcome Outcome, string? Note = null, string? CorrectionText = null);
+public sealed record ReviewRequest(string Reviewer, ReviewOutcome Outcome, string? Note = null,
+    string? CorrectionText = null, string? RevisionId = null);
 
 public sealed record AddAnnotationRequest(
     AnnotationKind Kind,

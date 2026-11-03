@@ -5,9 +5,8 @@ and in-progress checklist items; plan narrative and reference records (contracts
 register, decisions, estimates) live in [project-plan.md](project-plan.md). Rule recorded in
 `lessons.md`.
 
-Archive build: 2026-10-20 (archive run from `64ee002`).
-`9810e57`.
-Entries are verbatim, including commit references and links. 56 items.
+Archive build: 2026-11-02 (archive run from `fc96d5b`).
+Entries are verbatim, including commit references and links. 79 items.
 
 
 ## 1. Request and boundaries
@@ -20,6 +19,20 @@ Entries are verbatim, including commit references and links. 56 items.
 - [x] Research concrete datasets and published licenses, distinguishing images, transcriptions, code and weights (Section 5).
 - [x] Define parallel work packages, ownership, dependencies and integration rules for two or more AI instances (Section 6).
 - [x] Create separate no-code task briefs for Instance A (contracts/integration) and Instance B (corpus/evaluation planning), linked in Section 6.
+
+## 3. Reference capability inventory and release scope
+
+### Greek transcription contract — completed 2026-11-02
+
+- [x] Define versioned transcription profiles with a Greek specialist. Cover case, lunate/final/medial sigma, historical letters, ligatures, punctuation, numerals, abbreviations, nomina sacra, overbars, supralinear letters and nonalphabetic signs. Record visible glyph forms separately when plain Unicode text cannot express the distinction. *(greek-diplomatic-1.0-draft ratified for pilot; executable policy/sign inventory and profile tests.)*
+- [x] Use Unicode scalar-aware processing and grapheme-aware editing/alignment; define revision-scoped scalar offsets in persisted annotations, with explicit conversion to C#/browser UTF-16 offsets and grapheme boundaries. Changing normalization must not detach annotations or diacritics from their source spans. *(NFC remapping and revision offsets already implemented; shared JSON fixture now asserts identical C#/Angular scalar/UTF-16 boundaries.)*
+- [x] Represent unclear traces, alternative readings, lost versus illegible text, known/estimated/unknown gap extent, erasures, additions, deletions, different hands and correction sequences as annotations. Keep “not yet transcribed” distinct from “illegible.” Editorial underdots/brackets must not be confused with visible marks on the object. *(annotation vocabulary + editor tools + TEI mapping; supplied text is L2-only.)*
+- [x] Keep diplomatic text, editorial reading, scholarly annotations, and application revision history distinct. Historical corrections in the witness are not application edits. Do not claim to identify a hand or reconstruct a correction sequence automatically without evidence. *(L0/L1/L2 + L3 annotation ledger; hands/sequences require explicit labels; no automatic attribution.)*
+- [x] Preserve imported text and original model output; derive canonical NFC text for interchange/scoring with explicit offset mappings. Do not apply compatibility folding, case folding, sigma substitution, spelling modernization, or accent stripping to the diplomatic layer by default. Training label normalization is a model-versioned decision. *(raw imports retained as attachments where bounded; L0 kept separate; NFC remapping already tested.)*
+
+### Scholarly interchange — completed 2026-11-02
+
+- [x] Preserve unsupported imported markup in the original attachment and report it; do not silently flatten scholarly distinctions or claim universal TEI compatibility. *(Checksummed bounded `NativeAttachment` + aggregated name/count report for TEI and EpiDoc imports.)*
 
 ## 5. Independent model and data strategy
 
@@ -97,3 +110,44 @@ Entries are verbatim, including commit references and links. 56 items.
 ## 6. Delivery backlog and acceptance gates
 ### Phase 4 — wider replacement scope
 - [x] Implement bounded ALTO v4 and hOCR import/export (line boxes + line text; unsupported elements reported; external entities refused; legacy import path). *(adapters + round-trip tests + CLI/API/bundle exports; no word-segmentation synthesis)*
+
+## NTVMR / CSNTM pilot — 2026-11-02
+
+- [x] **NT-12 (review preparation):** prepare [the P46 specialist packet](docs/data/p46-specialist-review-packet.md) with 81 proposed line/context crops, source TEI and apparatus, full pages, 18 adjudication questions, blank CSV worksheets and portable offline archive. All answers remain pending; this completes packet preparation only, not NT-05/NT-11 adjudication or training readiness.
+- [x] **NT-13 / provisional experiment (training instance):** run the owner's newly authorized bounded P46 training experiment on a conservatively filtered, unadjudicated subset; keep physical leaves separate, record baseline/selected checkpoint metrics and reload verification, and publish a local research report. Specialist acceptance and release gates remain open. *(Completed: [two-run report](docs/evaluation/p46-provisional-training.md), 17 train / 7 development lines; selected v2 epoch 1,164, 73.97% development CER; package reload and independent metric audit passed. Research experiment only.)*
+
+### P46 development-error investigation — 2026-11-02
+
+- [x] **NT-14 / development-error investigation (training instance):** quantify v2 failures, audit preprocessing/labels/geometry and test the saved checkpoint without retraining; update the plan with evidence-ranked corrective experiments, ownership and acceptance checks. *(Completed: [evidence report](docs/evaluation/p46-development-error-investigation.md), preserved-checkpoint inference/beam test and [D1–D5 next-run protocol](project-plan.md#p46-next-run-protocol--2026-11-02); no retraining.)*
+
+### Training diagnostics, modes and padding — 2026-11-02
+
+- [x] **NT-16 / D2 (A; parallel with NT-15):** implement the authorized diagnostic telemetry, explicit train/eval modes and background/polarity-safe padding/augmentation contracts with regression tests; preserve existing model polarity and propagate shared-transform metadata. Record any broader preprocessing migration remaining. These inactive issues did not explain v2. *(Completed: [engineering record](docs/evaluation/training-engineering.md); 155 selected tests pass, solution build 0 warnings/errors, and saved P46 output matches 24/24. Broader preparation unification is NT-16b.)*
+
+### Shared preprocessing contract — 2026-11-02
+
+- [x] **NT-16b / remaining D2 preparation (A; before NT-18):** implement the authorized versioned shared C# preparation contract and propagate package profiles through training/evaluation/inference; preserve legacy route behavior, serialize profile/height/geometry, reject unsupported/conflicting contracts and prove old-package compatibility plus tensor equivalence with regression tests. P46 rectification remains external to generic crop preparation. *(Completed: [contract/verification](docs/evaluation/preprocessing-contract.md); 219 selected tests pass, solution build 0 warnings/errors, typed format-2 packages and legacy format-1 defaults verified; saved P46 output unchanged.)*
+
+### Two-hour provisional study — 2026-11-02
+
+- [x] **NT-19 / two-hour provisional study (training instance):** work 2026-11-02 15:37:39–17:37:39 CST on the newly authorized training session; preserve reviewed-gate status, implement/test T1 normalization and T2 gamma, inspect inputs, run the provisional fit control and bounded three-seed matrix if the control passes, then retain checkpoints/metrics/resource evidence and update the plan. Does not complete specialist-dependent NT-15/17/18.
+
+Completed the authorized 15:37:39–17:37:39 CST window; closure recorded 17:38:10 CST. [Full results](docs/evaluation/p46-two-hour-study.md) and [A1.1 handoff](docs/handoffs/NT-PILOT-A.md): three controls plus nine accuracy comparisons (63,594 updates), six separate training-resource probes (6,000 updates), exact recovery checks, 475 passing regressions and zero-warning solution build. No qualifying development improvement or model promotion. Source packets, evidence and parallel next-work briefs are retained; reviewed NT-15/17/18 and remaining NT-20 gates stay open.
+
+### Second two-hour provisional session — 2026-11-02
+
+- [x] **NT-21 / second two-hour provisional session (A integrator + corpus/reviewer agents):** work 2026-11-02 18:07:20–20:07:20 CST; preserve the closed study and original splits, independently inspect conservative source-reference lines from staged Michigan1470–1520, freeze a separate provisional expansion and matched old/expanded-data experiment if source/crop QA and technical control pass, finish demonstrated trainer-lifecycle fixes, retain all failures/resource/reload evidence and report the result. No specialist acceptance, fresh blind result or automatic model promotion is inferred.
+
+Authorized18:07:20–20:07:20 CST window complete; actual closure 2026-11-02 20:07:32 CST. [Results](docs/evaluation/p46-expanded-training-study.md):44 provisional training lines,10 registered accuracy fits/53,471updates, failed final-CER screen81.28→80.82%,493 passing regressions and851 exact saved-string replays. [Maintainer packet](docs/handoffs/p46-evening-maintainer-review.md) retains three demonstrated engineering corrections. Longer lifecycle and five-route resource probes preserve the unresolved RSS-growth finding; specialist-dependent NT-15/17/18 and resource NT-20 stay open. No model promotion, commit, submission or release.
+
+## Now — doable without external inputs
+- [x] **Codec resize/merge parity:** `fail`/`new`/`union` label-set resize with explicit NFD normalization and 4 xUnit tests (`test_merging.py`).
+- [x] **RTL recognition records:** bbox/baseline geometry, region identity, logical/display order, slicing/cuts and 6 xUnit tests; full BiDi and RTL recognition remain blocked.
+- [x] **Forced-alignment baseline-OCR records:** baseline/boundary, per-grapheme cuts, confidence, region identity and JSON round-trip tests.
+- [x] **Tokenizer/script coverage:** unknown-grapheme reporting, bounded script detection and mixed-script routing checks + 4 xUnit tests.
+- [x] **XML edge matrix:** duplicate-ID rejection, Rect/line geometry fallback, dimension/unit/source validation, reading-order groups and round-trip tests; official XSD validation remains dependent on pinned schemas.
+- [x] **DATA-01 ledger validation:** opt-in extended audit for object IDs, parent-image lineage, granularity, language/period/material, transcription profile, evidence URL, unresolved questions and code/weight licences.
+- [x] **PDF reading-order/column inference mechanics:** clean two-column gutter ordering with single-column fallback and synthetic tests; no real-document accuracy claim.
+- [x] **Chained `segment → ocr` CLI convenience:** `image segment-ocr` forwards to the existing segment/OCR path; process test added.
+- [x] **Publication docs:** image commands, model cards, AI provider configuration, PDF limits and known failures added to `docs/operations.md`; verified fresh-offline-with-installed-models remains blocked until weights exist.
+- [x] **Session/presence UI:** the surface view creates/heartbeats/revokes its session and presence uses the authenticated principal; a session panel lists active sessions and revokes one, with a spec.

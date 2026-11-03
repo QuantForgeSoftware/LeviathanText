@@ -14,19 +14,27 @@ public sealed class RecognitionTaskModel
 {
     private readonly CrnnModel _model;
     private readonly LabelSet _labels;
+    private readonly LinePreprocessingProfile _preprocessing;
 
-    public RecognitionTaskModel(CrnnModel model, LabelSet labels)
+    public RecognitionTaskModel(CrnnModel model, LabelSet labels) : this(model, labels, null)
+    {
+    }
+
+    public RecognitionTaskModel(CrnnModel model, LabelSet labels, LinePreprocessingProfile? preprocessing)
     {
         _model = model ?? throw new ArgumentNullException(nameof(model));
         _labels = labels ?? throw new ArgumentNullException(nameof(labels));
         if (model.NumClasses != labels.NumClasses)
             throw new ArgumentException("Model and label set class counts differ.");
+        _preprocessing = preprocessing ?? LinePreprocessingProfile.LegacyInkPositive(model.InputHeightPixels);
+        _preprocessing.Validate(model.InputHeightPixels);
     }
 
     public IReadOnlyList<RecognitionRecord> Predict(SKBitmap page, IReadOnlyList<NativeLine> lines)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(lines);
+        _preprocessing.RequireStandardGeometry();
         if (lines.Count == 0) return [];
 
         var images = new List<LineImage>(lines.Count);
@@ -37,12 +45,14 @@ public sealed class RecognitionTaskModel
             geometries.Add((line, geometry));
             if (geometry.Count < 2)
             {
-                images.Add(new LineImage(CrnnModel.InputHeight, 8, new float[CrnnModel.InputHeight * 8]));
+                using var blank = new SKBitmap(8, _model.InputHeightPixels);
+                blank.Erase(SKColors.White);
+                images.Add(LinePreprocessor.Apply(blank, _preprocessing));
                 continue;
             }
             var points = geometry.Select(p => new SKPoint((float)p.X, (float)p.Y)).ToList();
             var crop = LineCropper.Extract(page, points);
-            try { images.Add(RecognitionPipeline.ToLineImage(crop.Bitmap)); }
+            try { images.Add(RecognitionPipeline.ToLineImage(crop.Bitmap, _preprocessing)); }
             finally { crop.Bitmap.Dispose(); }
         }
 
@@ -75,11 +85,18 @@ public sealed class ForcedAlignmentTaskModel
 {
     private readonly CrnnModel _model;
     private readonly LabelSet _labels;
+    private readonly LinePreprocessingProfile _preprocessing;
 
-    public ForcedAlignmentTaskModel(CrnnModel model, LabelSet labels)
+    public ForcedAlignmentTaskModel(CrnnModel model, LabelSet labels) : this(model, labels, null)
+    {
+    }
+
+    public ForcedAlignmentTaskModel(CrnnModel model, LabelSet labels, LinePreprocessingProfile? preprocessing)
     {
         _model = model ?? throw new ArgumentNullException(nameof(model));
         _labels = labels ?? throw new ArgumentNullException(nameof(labels));
+        _preprocessing = preprocessing ?? LinePreprocessingProfile.LegacyInkPositive(model.InputHeightPixels);
+        _preprocessing.Validate(model.InputHeightPixels);
     }
 
     public IReadOnlyList<ForcedAlignmentRecord> Predict(
@@ -88,6 +105,7 @@ public sealed class ForcedAlignmentTaskModel
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(lines);
+        _preprocessing.RequireStandardGeometry();
         var records = new List<ForcedAlignmentRecord>();
         foreach (var (line, text) in lines)
         {
@@ -98,7 +116,7 @@ public sealed class ForcedAlignmentTaskModel
             try
             {
                 records.Add(ForcedAlignmentTask.Align(
-                    _model, _labels, line, RecognitionPipeline.ToLineImage(crop.Bitmap), text));
+                    _model, _labels, line, RecognitionPipeline.ToLineImage(crop.Bitmap, _preprocessing), text));
             }
             finally { crop.Bitmap.Dispose(); }
         }

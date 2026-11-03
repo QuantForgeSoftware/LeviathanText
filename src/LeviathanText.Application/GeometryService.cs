@@ -47,7 +47,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, surface);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, surface, surface.Lines.Single(l => l.Id == lineId));
     }
 
@@ -84,7 +84,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, updatedLine);
     }
 
@@ -126,7 +126,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         var foundProject = WithSurface(project, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, updatedRegion);
     }
 
@@ -205,7 +205,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, line);
     }
 
@@ -246,7 +246,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated);
     }
 
@@ -292,7 +292,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, surface);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, surface);
     }
 
@@ -406,7 +406,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         var foundProject = WithSurface(project, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated);
     }
 
@@ -483,7 +483,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, topLine, bottomLine);
     }
 
@@ -567,7 +567,7 @@ public sealed class GeometryService(IProjectStore store)
             ],
         };
         foundProject = WithSurface(foundProject, updated);
-        store.SaveProject(foundProject);
+        foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, merged);
     }
 

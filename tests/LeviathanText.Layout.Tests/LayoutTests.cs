@@ -120,3 +120,61 @@ public class LayoutComparisonTests
         Assert.Equal(0.5, summary.IouThreshold);
     }
 }
+
+public class ProjectionColumnTests
+{
+    private static SKBitmap TwoColumnPage()
+    {
+        using var surface = SKSurface.Create(new SKImageInfo(800, 600));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.White);
+        using var paint = new SKPaint { Color = SKColors.Black };
+        foreach (var top in new[] { 80, 160, 240, 320 })
+        {
+            canvas.DrawRect(new SKRect(80, top, 340, top + 30), paint);
+            canvas.DrawRect(new SKRect(460, top, 720, top + 30), paint);
+        }
+        using var image = surface.Snapshot();
+        return SKBitmap.FromImage(image);
+    }
+
+    [Fact]
+    public void Opt_in_column_detection_splits_a_clear_gutter_and_orders_left_then_right()
+    {
+        using var page = TwoColumnPage();
+
+        var single = ProjectionProfileLayout.Detect(page);
+        Assert.Equal(4, single.Lines.Count); // rows span both columns in the baseline
+
+        var columns = ProjectionProfileLayout.Detect(page,
+            new ProjectionProfileLayout.Options { DetectColumns = true });
+
+        Assert.Equal(8, columns.Lines.Count);
+        Assert.Equal("ProjectionProfileLayout-columns", columns.Method);
+        Assert.All(columns.Lines.Take(4), line => Assert.True(line.Right < 400));
+        Assert.All(columns.Lines.Skip(4), line => Assert.True(line.Left > 400));
+        Assert.Equal(Enumerable.Range(0, 8), columns.Lines.Select(line => line.OrderIndex));
+        Assert.Equal(columns.Lines.OrderBy(line => line.Top).Select(line => line.Top).Distinct().Count(),
+            columns.Lines.Take(4).Select(line => line.Top).Distinct().Count());
+    }
+
+    [Fact]
+    public void Column_detection_falls_back_when_there_is_no_gutter()
+    {
+        using var page = new SKBitmap(400, 240);
+        using (var canvas = new SKCanvas(page))
+        {
+            canvas.Clear(SKColors.White);
+            using var paint = new SKPaint { Color = SKColors.Black };
+            canvas.DrawRect(new SKRect(40, 40, 360, 70), paint);
+            canvas.DrawRect(new SKRect(40, 110, 360, 140), paint);
+            canvas.DrawRect(new SKRect(40, 180, 360, 210), paint);
+        }
+
+        var result = ProjectionProfileLayout.Detect(page,
+            new ProjectionProfileLayout.Options { DetectColumns = true });
+
+        Assert.Equal(3, result.Lines.Count);
+        Assert.Equal("ProjectionProfileLayout", result.Method);
+    }
+}

@@ -20,11 +20,16 @@ public static class EpiDocImport
     public sealed record Result(
         IReadOnlyList<Line> Lines,
         string? ImageUrl,
-        IReadOnlyList<PageXml.ImportIssue> Notes);
+        IReadOnlyList<PageXml.ImportIssue> Notes,
+        string? Title = null,
+        IReadOnlyList<TeiXml.TeiIdno>? Idnos = null,
+        string? Licence = null,
+        string? OriginalMarkup = null);
 
     public static Result Parse(string xml)
     {
-        var doc = XDocument.Parse(xml, LoadOptions.None);
+        // Word spaces between inline elements are content; do not discard them.
+        var doc = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
         if (doc.DocumentType is not null)
             throw new InvalidDataException("DOCTYPE/external entities are not accepted in EpiDoc imports.");
 
@@ -43,7 +48,7 @@ public static class EpiDocImport
 
         var rawLines = new List<(int Number, string Text)>();
         int lbCounter = 0;
-        bool skippedNote = false, skippedGap = false;
+        bool skippedNote = false, skippedGap = false, flattenedApparatus = false, flattenedChoice = false;
 
         void Flush(StringBuilder current, int number)
         {
@@ -77,6 +82,31 @@ public static class EpiDocImport
                         {
                             skippedGap = true; // gaps are not visible text; geometry/uncertainty is annotated by a human
                         }
+                        else if (local == "app")
+                        {
+                            // Do not concatenate lemma and readings. The published edition's
+                            // lemma is the reference reading; variants are reported, never merged.
+                            var baseReading = child.Element(Tei + "lem") ?? child.Element(Tei + "rdg");
+                            if (baseReading is not null) Walk(baseReading, current, ref number);
+                            if (child.Elements(Tei + "rdg").Count() > 1) flattenedApparatus = true;
+                        }
+                        else if (local == "choice")
+                        {
+                            // Pick exactly one half of the pair; concatenation corrupts the text.
+                            var chosen = child.Element(Tei + "abbr")
+                                ?? child.Element(Tei + "orig")
+                                ?? child.Element(Tei + "sic")
+                                ?? child.Element(Tei + "reg")
+                                ?? child.Element(Tei + "expan")
+                                ?? child.Element(Tei + "corr");
+                            if (chosen is not null) Walk(chosen, current, ref number);
+                            flattenedChoice = true;
+                        }
+                        else if (local is "del" or "delSpan")
+                        {
+                            // Erased text is not part of the visible reading.
+                            flattenedChoice = true;
+                        }
                         else
                         {
                             Walk(child, current, ref number);
@@ -102,6 +132,10 @@ public static class EpiDocImport
             notes.Add(new PageXml.ImportIssue("note", "Editorial notes were skipped (not visible text).", PageXml.IssueSeverity.Note));
         if (skippedGap)
             notes.Add(new PageXml.ImportIssue("gap", "Gap markers were skipped; annotate damage/geometry manually.", PageXml.IssueSeverity.Note));
+        if (flattenedApparatus)
+            notes.Add(new PageXml.ImportIssue("app", "Extra apparatus readings were skipped; the lemma was imported as the reference reading.", PageXml.IssueSeverity.Note));
+        if (flattenedChoice)
+            notes.Add(new PageXml.ImportIssue("choice", "One half of each choice/correction pair was imported; the other reading is reported, not concatenated.", PageXml.IssueSeverity.Note));
 
         var graphic = doc.Descendants(Tei + "graphic")
             .FirstOrDefault(g => (string?)g.Attribute("n") == "screen")
@@ -110,10 +144,33 @@ public static class EpiDocImport
         if (string.IsNullOrWhiteSpace(imageUrl))
             notes.Add(new PageXml.ImportIssue("graphic", "No image URL declared; supply an image path.", PageXml.IssueSeverity.Loss));
 
+        var title = doc.Descendants(Tei + "titleStmt").Elements(Tei + "title")
+            .Select(t => t.Value.Trim()).FirstOrDefault(v => v.Length > 0);
+        var idnos = doc.Descendants(Tei + "idno")
+            .Select(i => new TeiXml.TeiIdno((string?)i.Attribute("type"), i.Value.Trim()))
+            .Where(i => i.Value.Length > 0)
+            .ToList();
+        var licence = CleanProvenance(doc.Descendants(Tei + "licence").Select(l => l.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)))
+            ?? CleanProvenance(doc.Descendants(Tei + "availability").Elements(Tei + "p")
+                .Select(p => p.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)));
+
         return new Result(
             [.. rawLines.Select(l => new Line(l.Number, l.Text))],
             imageUrl,
-            notes);
+            notes,
+            title,
+            idnos,
+            licence,
+            Encoding.UTF8.GetByteCount(xml) <= TeiXml.MaxAttachmentBytes ? xml : null);
+    }
+
+    private static string? CleanProvenance(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = System.Text.RegularExpressions.Regex.Replace(value, "<[^>]+>", " ");
+        text = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+([.,;:])", "$1");
+        return text.Length == 0 ? null : text;
     }
 
     private static string Normalize(string value) =>

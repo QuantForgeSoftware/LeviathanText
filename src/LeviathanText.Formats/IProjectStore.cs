@@ -9,7 +9,11 @@ namespace LeviathanText.Formats;
 /// </summary>
 public interface IProjectStore
 {
-    void SaveProject(NativeProject project);
+    /// <summary>
+    /// Persist the document and return its new optimistic-concurrency version. Callers that
+    /// keep mutating the returned object must carry this version forward.
+    /// </summary>
+    long SaveProject(NativeProject project);
     NativeProject? LoadProject(EntityId id);
     IReadOnlyList<(EntityId Id, string Name)> ListProjects();
 
@@ -19,6 +23,21 @@ public interface IProjectStore
     /// </summary>
     void DeleteProject(EntityId id) =>
         throw new NotSupportedException("This project store does not support deletion.");
+}
+
+/// <summary>
+/// Optional server-issued editing sessions used by shared deployments. Sessions bind a user
+/// to a node and surface, expire unless heartbeat, and are advisory coordination records;
+/// they never participate in authorization.
+/// </summary>
+public interface ISessionStore
+{
+    EditSession CreateSession(string userId, string userName, string nodeId,
+        EntityId? surfaceId, DateTimeOffset now, TimeSpan ttl);
+    EditSession? FindSession(string id);
+    EditSession? TouchSession(string id, DateTimeOffset now, TimeSpan ttl);
+    bool RevokeSession(string id, DateTimeOffset now);
+    IReadOnlyList<EditSession> ListSessions(DateTimeOffset now, EntityId? surfaceId = null, bool includeExpired = false);
 }
 
 /// <summary>

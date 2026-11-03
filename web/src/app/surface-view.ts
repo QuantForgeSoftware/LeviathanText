@@ -10,6 +10,7 @@ import { ApiClient, DiplomaticExport, ProjectPayload } from './api-client';
 import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
 import { GeometryEditor } from './geometry-editor';
+import { SessionPanel } from './session-panel';
 
 @Component({
   selector: 'app-surface-view',
@@ -67,6 +68,10 @@ import { GeometryEditor } from './geometry-editor';
         @if (presence().length > 0) {
           <p class="hint">Editing now: {{ presence().join(', ') }}</p>
         }
+        @if (sessionNode()) {
+          <p class="hint">Editing session on {{ sessionNode() }}</p>
+        }
+        <app-session-panel [surfaceId]="surfaceId()" />
 
         <p class="hint">
           QA profile {{ qaProfile() }}: {{ qaFlagged() }} flagged line(s)
@@ -137,7 +142,7 @@ import { GeometryEditor } from './geometry-editor';
     }
     .lines { line-height: 2; }
   `],
-  imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe],
+  imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe, SessionPanel],
 })
 export class SurfaceView implements OnDestroy {
   projectId = input.required<string>();
@@ -164,6 +169,9 @@ export class SurfaceView implements OnDestroy {
   protected readonly reviewQueue = signal<{ lineId: string; meanConfidence: number | null; emptyOutput: boolean }[]>([]);
   protected readonly editorName = authorId();
   protected readonly presence = signal<string[]>([]);
+  protected readonly sessionNode = signal('');
+  private sessionId: string | null = null;
+  private presenceEditor = this.editorName;
   private presenceTimer: ReturnType<typeof setInterval> | null = null;
 
   protected hasNeighbour(delta: number): boolean {
@@ -287,7 +295,16 @@ export class SurfaceView implements OnDestroy {
   }
 
   ngOnInit(): void {
-    this.heartbeatPresence();
+    // A session binds presence to the authenticated principal and the serving node.
+    // Readers/failed creation fall back to the advisory local Author identity.
+    this.api.createSession(this.surfaceId(), 60).subscribe({
+      next: session => {
+        this.sessionId = session.id;
+        this.sessionNode.set(session.nodeId);
+        this.heartbeatPresence();
+      },
+      error: () => this.heartbeatPresence(),
+    });
     this.presenceTimer = setInterval(() => this.heartbeatPresence(), 20_000);
     this.api.diplomaticExport(this.projectId(), this.surfaceId())
       .subscribe({
@@ -349,17 +366,25 @@ export class SurfaceView implements OnDestroy {
   }
 
   private heartbeatPresence(): void {
-    this.api.touchPresence(this.surfaceId(), this.editorName).subscribe({
-      next: result => this.presence.set(result.editors),
+    this.api.touchPresence(this.surfaceId(), this.editorName, this.sessionId ?? undefined).subscribe({
+      next: result => {
+        this.presenceEditor = result.editor ?? this.editorName;
+        this.presence.set(result.editors);
+      },
       error: () => { /* presence is advisory */ },
     });
   }
 
   ngOnDestroy(): void {
     if (this.presenceTimer) clearInterval(this.presenceTimer);
-    this.api.leavePresence(this.surfaceId(), this.editorName).subscribe({
+    this.api.leavePresence(this.surfaceId(), this.presenceEditor).subscribe({
       error: () => { /* presence is advisory */ },
     });
+    if (this.sessionId) {
+      this.api.revokeSession(this.sessionId).subscribe({
+        error: () => { /* sessions are advisory; expiry is the fallback */ },
+      });
+    }
   }
 
   protected select(lineIndex: number): void {

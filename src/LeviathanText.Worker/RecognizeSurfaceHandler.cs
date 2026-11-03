@@ -61,6 +61,7 @@ public sealed class RecognizeSurfaceHandler(IProjectStore store, ImageResolver? 
         var outcome = pipeline.Run(project, input.Entity, new RecognitionPipeline.Options
         {
             ModelDirectory = packageDirectory,
+            PreprocessingProfile = loaded.PreprocessingProfile,
             ModelName = ModelNameOf(packageDirectory, loaded),
             ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
             ModelFactory = () => loaded.Model,

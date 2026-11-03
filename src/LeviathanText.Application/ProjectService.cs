@@ -20,7 +20,7 @@ public sealed class ProjectService(IProjectStore store)
             Name = name,
             Objects = [],
         };
-        store.SaveProject(project);
+        project = project with { Version = store.SaveProject(project) };
         return project;
     }
 
@@ -64,7 +64,7 @@ public sealed class ProjectService(IProjectStore store)
         List().Select(entry => Load(entry.Id)).FirstOrDefault(p =>
             p.Objects.SelectMany(o => o.Surfaces).Any(s => s.Regions.Any(r => r.Id == regionId)));
 
-    public void Save(NativeProject project) => store.SaveProject(project);
+    public long Save(NativeProject project) => store.SaveProject(project);
 }
 
 /// <summary>
@@ -308,6 +308,156 @@ public sealed class InterchangeService(ProjectService projects)
     }
 
     /// <summary>
+    /// Import the bounded TEI/EpiDoc profile as a text-first surface: L1 visible text and an
+    /// optional linked L2 editorial reading, annotations, line numbers, orientation and image
+    /// link. The exact source XML is retained as a bounded attachment when it fits, and every
+    /// unsupported construct is reported. Lines start without geometry; placement is manual.
+    /// </summary>
+    /// <summary>
+    /// Find an existing object whose retained TEI attachment has exactly this source hash.
+    /// Used for an explicit repeat-import/dedup report; detection does not mutate the project.
+    /// </summary>
+    public NativeObject? FindTeiDuplicate(NativeProject project, string xml)
+    {
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(xml)));
+        return project.Objects.FirstOrDefault(o =>
+            o.Attachments.Any(a => string.Equals(a.Sha256, hash, StringComparison.OrdinalIgnoreCase))
+            || (o.Metadata.TryGetValue("tei:sourceSha256", out var stored)
+                && string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public (NativeObject Imported, IReadOnlyList<PageXml.ImportIssue> Notes, string? ImageUrl)
+        ImportTei(NativeProject project, string teiPath, string imagePath, string surfaceKind = "page")
+    {
+        if (!File.Exists(teiPath))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = teiPath, Message = "TEI file is not readable." });
+        if (!File.Exists(imagePath))
+            throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = imagePath, Message = "Surface image is not readable." });
+
+        var xml = File.ReadAllText(teiPath);
+        var sourceHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(xml)));
+        var parsed = TeiXml.Import(xml);
+        using var decoded = ImageDecoder.Decode(imagePath);
+        var captureId = NewCaptureId(project);
+        var regionId = NewId(EntityKind.Region, project, "reg");
+        var lines = new List<NativeLine>();
+        var info = parsed.Document?.Lines ?? [];
+        var revisionGroups = parsed.Revisions.GroupBy(r => r.ScopeId).ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var lineInfo in info)
+        {
+            var revisions = revisionGroups.GetValueOrDefault(lineInfo.LineId) ?? [];
+            var l1 = revisions.FirstOrDefault(r => r.Layer == TextLayer.L1Diplomatic);
+            var tags = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (var tag in lineInfo.Tags)
+            {
+                var pair = tag.Split('=', 2);
+                tags[pair[0]] = [pair.Length > 1 ? pair[1] : ""];
+            }
+            if (!string.IsNullOrWhiteSpace(lineInfo.XmlId)) tags["source-id"] = [lineInfo.XmlId!];
+            lines.Add(new NativeLine
+            {
+                Id = lineInfo.LineId,
+                RegionId = regionId,
+                FrameRef = captureId,
+                Polygon = [],
+                Baseline = [],
+                LineNumber = lineInfo.Number,
+                DiplomaticRevisionId = l1?.Id,
+                Direction = lineInfo.Direction,
+                Script = lineInfo.Script,
+                Languages = lineInfo.Languages,
+                Tags = tags,
+            });
+        }
+
+        var surface = new NativeSurface
+        {
+            Id = NewId(EntityKind.Surface, project, "surf"),
+            Kind = surfaceKind,
+            Captures = [new NativeCapture
+            {
+                Id = captureId,
+                Frame = new CoordinateFrame { ImageRef = captureId, ImageChecksum = decoded.SourceChecksum },
+                ImageLocation = Path.GetFullPath(imagePath),
+                WidthPx = decoded.Bitmap.Width,
+                HeightPx = decoded.Bitmap.Height,
+            }],
+            Regions = [new NativeRegion
+            {
+                Id = regionId,
+                FrameRef = captureId,
+                Polygon =
+                [
+                    new PointD(0, 0),
+                    new PointD(decoded.Bitmap.Width, 0),
+                    new PointD(decoded.Bitmap.Width, decoded.Bitmap.Height),
+                    new PointD(0, decoded.Bitmap.Height),
+                ],
+                LayoutSource = LayoutSource.Manual,
+                ReadingOrderIndex = 0,
+            }],
+            Lines = lines,
+            Revisions = parsed.Revisions,
+            Annotations = parsed.Annotations,
+        };
+
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(parsed.Document?.Title)) metadata["tei:title"] = parsed.Document!.Title!;
+        if (!string.IsNullOrWhiteSpace(parsed.Document?.SurfaceId)) metadata["tei:surfaceId"] = parsed.Document!.SurfaceId!;
+        if (!string.IsNullOrWhiteSpace(parsed.Document?.Licence)) metadata["tei:licence"] = parsed.Document!.Licence!;
+        if (parsed.Document?.PageBreaks is { Count: > 0 } breaks)
+        {
+            metadata["tei:pageBreaks"] = breaks.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!string.IsNullOrWhiteSpace(breaks[0].Number)) metadata["tei:folio"] = breaks[0].Number!;
+        }
+        if (parsed.Unsupported.Count > 0) metadata["tei:unsupported"] = parsed.Unsupported.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        metadata["tei:sourceSha256"] = sourceHash;
+
+        var externalRefs = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var idno in parsed.Document?.Idnos ?? [])
+        {
+            var baseKey = string.IsNullOrWhiteSpace(idno.Type) ? "tei:idno" : $"tei:{idno.Type}";
+            var key = baseKey;
+            int duplicate = 1;
+            while (externalRefs.ContainsKey(key)) key = $"{baseKey}:{++duplicate}";
+            externalRefs[key] = idno.Value;
+        }
+        foreach (var graphic in parsed.Document?.Graphics ?? [])
+            externalRefs[$"tei:graphic:{graphic.N ?? "view"}"] = graphic.Url;
+
+        var attachments = new List<NativeAttachment>();
+        if (parsed.OriginalMarkup is { } original)
+        {
+            attachments.Add(new NativeAttachment
+            {
+                Id = $"att-{Guid.NewGuid().ToString("N")[..12]}",
+                Name = Path.GetFileName(teiPath),
+                MediaType = "application/tei+xml",
+                Sha256 = sourceHash,
+                Content = original,
+                Role = "original-tei-markup",
+            });
+        }
+
+        var imported = new NativeObject
+        {
+            Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            ExternalRefs = externalRefs,
+            Track = surfaceKind.Contains("inscription", StringComparison.OrdinalIgnoreCase) ? MaterialTrack.Inscription
+                : surfaceKind.Contains("papyrus", StringComparison.OrdinalIgnoreCase) ? MaterialTrack.Papyrus
+                : MaterialTrack.Manuscript,
+            Metadata = metadata,
+            Attachments = attachments,
+            Surfaces = [surface],
+        };
+        projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
+        return (imported, parsed.Unsupported, parsed.Document?.Graphics.FirstOrDefault()?.Url);
+    }
+
+    /// <summary>
     /// Bootstrap an inscription record from EpiDoc: the published edition is imported as L2
     /// reference lines (no L1!), the image becomes the capture, and every line starts without
     /// geometry. A human draws the boxes and transcribes the visible text; the edition must
@@ -321,7 +471,10 @@ public sealed class InterchangeService(ProjectService projects)
         if (!File.Exists(imagePath))
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = imagePath, Message = "Inscription image is not readable." });
 
-        var parsed = EpiDocImport.Parse(File.ReadAllText(epdocPath));
+        var sourceXml = File.ReadAllText(epdocPath);
+        var sourceHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(sourceXml)));
+        var parsed = EpiDocImport.Parse(sourceXml);
         using var decoded = ImageDecoder.Decode(imagePath);
         var token = Guid.NewGuid().ToString("N")[..8];
         var captureId = NewCaptureId(project);
@@ -349,6 +502,7 @@ public sealed class InterchangeService(ProjectService projects)
                 FrameRef = captureId,
                 Polygon = [],
                 Baseline = [],
+                LineNumber = parsed.Lines[i].Number,
             });
         }
 
@@ -382,9 +536,35 @@ public sealed class InterchangeService(ProjectService projects)
             Revisions = revisions,
         };
 
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(parsed.Title)) metadata["tei:title"] = parsed.Title!;
+        if (!string.IsNullOrWhiteSpace(parsed.Licence)) metadata["tei:licence"] = parsed.Licence!;
+        metadata["tei:sourceSha256"] = sourceHash;
+        var externalRefs = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var idno in parsed.Idnos ?? [])
+            externalRefs[string.IsNullOrWhiteSpace(idno.Type) ? "tei:idno" : $"tei:{idno.Type}"] = idno.Value;
+        if (!string.IsNullOrWhiteSpace(parsed.ImageUrl)) externalRefs["tei:graphic:screen"] = parsed.ImageUrl!;
+        var attachments = new List<NativeAttachment>();
+        if (parsed.OriginalMarkup is { } original)
+        {
+            attachments.Add(new NativeAttachment
+            {
+                Id = $"att-{Guid.NewGuid().ToString("N")[..12]}",
+                Name = Path.GetFileName(epdocPath),
+                MediaType = "application/tei+xml",
+                Sha256 = sourceHash,
+                Content = original,
+                Role = "original-epidoc-markup",
+            });
+        }
+
         var imported = new NativeObject
         {
             Id = NewId(EntityKind.PhysicalObject, project, "obj"),
+            ExternalRefs = externalRefs,
+            Track = MaterialTrack.Inscription,
+            Metadata = metadata,
+            Attachments = attachments,
             Surfaces = [surface],
         };
         projects.Save(project with { Objects = [.. project.Objects.Append(imported)] });
@@ -708,14 +888,60 @@ public sealed class InterchangeService(ProjectService projects)
         return AbbyyXml.Export(surface, surface.Captures[0], surface.Revisions);
     }
 
-    public string ExportTei(NativeProject project, EntityId surfaceId, string title)
+    public string ExportTei(NativeProject project, EntityId surfaceId, string title) =>
+        ExportTeiWithReport(project, surfaceId, title).Xml;
+
+    /// <summary>TEI export with the mandatory machine-readable loss report.</summary>
+    public TeiXml.TeiExportResult ExportTeiWithReport(NativeProject project, EntityId surfaceId, string title)
     {
         var surface = FindSurface(project, surfaceId);
-        return TeiXml.Export(
-            surface.Lines.Select(l => (l.Id, l.DiplomaticRevisionId is { } rid ? surface.Revisions.FirstOrDefault(r => r.Id == rid) : null,
-                (IReadOnlyList<Annotation>)surface.Annotations.Where(a => a.AnchoredRevisionId == l.DiplomaticRevisionId).ToList())),
-            title,
-            surface.Lines.ToDictionary(l => l.Id, l => new TeiXml.TeiLineOrientation(l.Id, l.Direction, l.Script)));
+        var owner = project.Objects.FirstOrDefault(o => o.Surfaces.Any(s => s.Id == surfaceId));
+        var revisionsById = surface.Revisions.ToDictionary(r => r.Id);
+        var latestL2 = surface.Revisions
+            .Where(r => r.Layer == TextLayer.L2Editorial)
+            .GroupBy(r => r.ScopeId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.CreatedAt).First());
+        var lines = surface.Lines.Select(line =>
+        {
+            var l1 = line.DiplomaticRevisionId is { } rid ? revisionsById.GetValueOrDefault(rid) : null;
+            var l2 = latestL2.GetValueOrDefault(line.Id);
+            var tags = line.Tags.Select(t => $"{t.Key}={string.Join('|', t.Value)}").ToList();
+            var info = new TeiXml.TeiLineInfo(line.Id, line.LineNumber,
+                line.Tags.GetValueOrDefault("source-id")?.FirstOrDefault(), line.Direction, line.Script,
+                line.Languages, tags);
+            return new TeiXml.TeiExportLine(line.Id, l1, l2, surface.Annotations, info);
+        }).ToList();
+
+        var sourceGraphic = owner?.ExternalRefs.GetValueOrDefault("tei:graphic:screen");
+        var graphics = surface.Captures
+            .Where(c => !string.IsNullOrWhiteSpace(c.ImageLocation))
+            .Select((c, index) => new TeiXml.TeiGraphic(
+                index == 0 && !string.IsNullOrWhiteSpace(sourceGraphic) ? sourceGraphic! : c.ImageLocation,
+                c.Id.Suffix, c.WidthPx, c.HeightPx))
+            .ToList();
+        var idnos = (owner?.ExternalRefs ?? new Dictionary<string, string>())
+            .Where(pair => pair.Key.StartsWith("tei:", StringComparison.Ordinal) && !pair.Key.StartsWith("tei:graphic:", StringComparison.Ordinal))
+            .Select(pair => new TeiXml.TeiIdno(
+                pair.Key.StartsWith("tei:idno", StringComparison.Ordinal) ? "idno" : pair.Key["tei:".Length..],
+                pair.Value))
+            .ToList();
+        var responsibilities = surface.Revisions
+            .Where(r => r.Layer == TextLayer.L1Diplomatic)
+            .GroupBy(r => r.Author.Id, StringComparer.Ordinal)
+            .Select(g => new TeiXml.TeiResponsibility("transcriber", g.Key,
+                g.Min(r => r.CreatedAt).ToString("O")))
+            .ToList();
+
+        return TeiXml.ExportDocument(lines, title, new TeiXml.TeiExportContext(
+            SurfaceId: owner?.Metadata.GetValueOrDefault("tei:surfaceId") ?? surface.Id.Suffix,
+            Graphics: graphics,
+            Idnos: idnos,
+            Licence: owner?.Metadata.GetValueOrDefault("tei:licence"),
+            Responsibilities: responsibilities,
+            GeometryCount: surface.Lines.Count(l => l.Baseline.Count > 0 || l.Polygon.Count > 0),
+            Orientations: surface.Lines.ToDictionary(l => l.Id,
+                l => new TeiXml.TeiLineOrientation(l.Id, l.Direction, l.Script)),
+            Folio: owner?.Metadata.GetValueOrDefault("tei:folio")));
     }
 
     private static NativeSurface FindSurface(NativeProject project, EntityId surfaceId) =>

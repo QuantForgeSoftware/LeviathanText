@@ -29,6 +29,8 @@
 - [layout-impact-page-cer.md](layout-impact-page-cer.md) — same recognition model, projection
   vs learned layout: page CER 0.971 → 0.942 and detection recall ~0.54 → ~0.996 on held-out
   M02a pages (one-to-one matching).
+- [layout-columns.md](layout-columns.md) — opt-in two-column projection split on a clear
+  gutter; synthetic-only evidence, default behaviour unchanged.
 - [layout-postfilter.md](layout-postfilter.md) — dev-selected post-filter evaluated on
   held-out pages (density filter: precision up, recall unchanged; now the detector default).
 - [throughput.md](throughput.md) — measured import/training/recognition throughput on the
@@ -38,6 +40,13 @@
 - [end-to-end-page-cer.md](end-to-end-page-cer.md) — page-level CER for the image-only
   workflow (layout + recognition), with a PAGE-box control that separates recognition from
   layout losses.
+- [interchange-v2.md](interchange-v2.md) — layered TEI/EpiDoc profile: line splitting,
+  supplied/expansion L2 links, facsimile, provenance, corrections, attachments and loss report.
+- [collaboration-concurrency.md](collaboration-concurrency.md) — optimistic project versions,
+  three-way line merge and server-issued editing sessions.
+- [escriptorium-integration.md](escriptorium-integration.md) — evaluation of making
+  eScriptorium use LeviathanText as its kraken replacement: coupling points, gaps, three
+  integration options, risks and recommendation.
 - [../handoffs/B-CODE.md](../handoffs/B-CODE.md) — implementation handoff and review notes.
 
 All numbers are pilot-scale baselines unless a sheet explicitly says otherwise. No sheet is

@@ -1,4 +1,4 @@
-# Project status — 2026-10-20 (pilot)
+# Project status — 2026-11-02 (pilot)
 
 One-page operational status. Plan narrative lives in [project-plan.md](../project-plan.md), the
 actionable checklist in [todo.md](../todo.md), completed work in
@@ -10,9 +10,9 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Capability | Evidence |
 | --- | --- |
 | Native project model, revisions (L0/L1/L2), annotations | contract + service/HTTP tests |
-| PAGE import/export, TEI/EpiDoc, ALTO, hOCR, IIIF P3 import, PDF page rasterization + L2 text reference, ABBYY XML, direction/script metadata | 30 format tests; roundtrip smokes |
+| PAGE import/export, layered bounded TEI/EpiDoc, ALTO, hOCR, IIIF P3 import, PDF page rasterization + L2 text reference, ABBYY XML, direction/script metadata | format tests; layered TEI/profile evidence in [interchange-v2](evaluation/interchange-v2.md) |
 | Plain-text export with mandatory loss report | export tests |
-| Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN: M02a P 0.965/R 0.987, page CER 0.971→0.942; fresh book M01 layout P 0.994/R 0.991 (page CER neutral 0.801→0.805) |
+| Automatic layout | projection default (P 0.403 / R 0.473); opt-in patch/row CNN: M02a P 0.965/R 0.987, page CER 0.971→0.942; fresh book M01 layout P 0.994/R 0.991 (page CER neutral 0.801→0.805); opt-in two-column gutter split (synthetic tests only) |
 | Manual correction (move/resize/draw/delete/split/merge/order) | API + overlay editor (view + edit), client undo, surface audit |
 | Recognition pipeline (C# CTC, CPU) | line-crop CER ~0.88 measured on M02a; L0 persisted with provenance |
 | Image-only workflow | papyrus 4/4 lines recognized; M02a page 25 lines (19 non-empty) |
@@ -24,14 +24,15 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Export bundle | native + training + 4 formats + manifest |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
-| Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link |
+| Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link, session list/revoke panel |
 | Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, opt-in per-project membership + admin panels, hashed one-time invite tokens, workspace key panel, read-only; advisory store-backed presence |
-| Collaboration limits | per-surface presence heartbeat/display + invitation UI/API + revision-conflict rebase prompt | no distributed session registry or automatic concurrent-edit merge |
+| Collaboration | per-surface presence, invitation UI/API, server-issued TTL sessions (node/surface binding, heartbeat/revoke), optimistic project versions, three-way merge for stale text revisions and stale annotation/review checks; no edit locks or push, geometry/order writes are not merged |
 
 ## Verification
 
-- 703 tests (701 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors.
-- 46 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
+- 953 tests (951 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
+  (2026-11-02 cycle close).
+- 49 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
 ## Measured numbers (pilot scale)
@@ -51,16 +52,24 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Known engineering gaps
 
-- Multi-column/curved/rotated layout; learned layout underperforms projection (recorded).
-- No server-side geometry revision history (client undo + backups only).
-- TIFF unsupported by the current imaging backend; full-resolution tiled decode not implemented.
-- Shared-server auth is pilot-grade (key + read-only), no accounts/roles/audit.
+- Default layout is single-column; an opt-in two-column gutter split is synthetic-tested only.
+  Curved/rotated pages and merged/shallow gutters remain unsupported; learned layout
+  underperforms projection on some material (recorded).
+- No entity-level geometry revision history (append-only audit snapshots, client undo and
+  backups only).
+- TIFF works through a bounded ImageSharp fallback; very large TIFF pages still decode the full
+  frame and there is no general tiled decoder.
+- Shared deployment is pilot-grade: local accounts/roles/audit, TTL sessions and a three-way
+  text merge and a per-surface session panel, but no SSO/refresh tokens, edit locks or
+  deployment-wide session console.
 - Hosted AI provider calls unproven (local Ollama transport smoke only).
-- Backend/CPU-only; GPU paths and collection-scale resource profiling unmeasured.
+- Backend/CPU-only; GPU paths unmeasured. NT-20's repeated-loading RSS growth remains
+  unexplained and collection-scale/supported-platform resource profiling is incomplete.
 
 ## Next recommended steps
 
 0. Limits and open issues: [docs/release/known-issues.md](release/known-issues.md).
 1. Data: finish adjudication of the pilot labels; add fresh held-out witnesses for any claim.
-2. Engineering: patch-level layout learning; confidence-aware review queue; tiled decode.
+2. Engineering: TEI schema pinning/validation; learned/merged-gutter layout; deployment-wide
+   session console; tiled decode; confidence-aware review queue.
 3. Integration: surface B's latest evaluation artifacts; reconcile contract increments before any bump.

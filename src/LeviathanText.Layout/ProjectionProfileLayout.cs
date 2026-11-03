@@ -60,6 +60,14 @@ public static class ProjectionProfileLayout
         /// 0.335→0.381, recall unchanged). Disable to reproduce the unfiltered baseline.
         /// </summary>
         public bool FilterImplausibleLines { get; init; } = true;
+
+        /// <summary>
+        /// Opt-in two-column split on a clear vertical gutter. The page is banded per column
+        /// and ordered left-to-right; without a credible gutter (or with fewer than two lines
+        /// on either side) the result is the unchanged single-column baseline. This is a
+        /// geometric helper, not a learned region model or a rotated-layout claim.
+        /// </summary>
+        public bool DetectColumns { get; init; }
     }
 
     public static LayoutResult Detect(SKBitmap page, Options? options = null)
@@ -94,60 +102,83 @@ public static class ProjectionProfileLayout
         int areaLeft = contentLeft + trimX, areaRight = contentRight - trimX;
         int areaTop = contentTop + trimY, areaBottom = contentBottom - trimY;
 
-        // 3) Row ink densities inside the trimmed area.
-        var rowDensity = new double[height];
-        for (int row = areaTop; row < areaBottom; row++)
+        // 3)–5) Row bands. Banding is a function of an x-range so the same measured
+        // procedure runs over the whole page or over each side of an opt-in column gutter.
+        int nextLineId = 0;
+        List<DetectedLine> ExtractBands(int xLeft, int xRight)
         {
-            int ink = 0;
-            for (int col = areaLeft; col < areaRight; col++)
+            var rowDensity = new double[height];
+            for (int row = areaTop; row < areaBottom; row++)
             {
-                int b = (row * width + col) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                if (luminance < inkThreshold) ink++;
+                int ink = 0;
+                for (int col = xLeft; col < xRight; col++)
+                {
+                    int b = (row * width + col) * info.BytesPerPixel;
+                    byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+                    float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                    if (luminance < inkThreshold) ink++;
+                }
+                rowDensity[row] = (double)ink / Math.Max(1, xRight - xLeft);
             }
-            rowDensity[row] = (double)ink / Math.Max(1, areaRight - areaLeft);
+
+            // Smooth (moving average) to bridge intraline gaps and suppress speck noise.
+            int smoothWindow = Math.Max(1, height / 150);
+            var smoothed = MovingAverage(rowDensity, smoothWindow);
+
+            // Bands split at rows below an adaptive threshold between the LOCAL BACKGROUND
+            // and the local peak. (Peak-only fractions fail on real scans: the parchment
+            // texture floor is ~1/3 of the letter peaks, so peak*0.15 < floor and every
+            // row looks like text.)
+            int localWindow = Math.Max(20, height / 12);
+            var bands = new List<DetectedLine>();
+            int start = -1;
+            for (int row = areaTop; row <= areaBottom; row++)
+            {
+                double localPeak = LocalPeak(smoothed, row, localWindow, areaTop, areaBottom);
+                double localFloor = LocalFloor(smoothed, row, localWindow, areaTop, areaBottom);
+                double splitAt = Math.Max(options.MinRowDensity,
+                    localFloor + (localPeak - localFloor) * options.ValleyFraction);
+                bool inBand = row < areaBottom && smoothed[row] >= splitAt;
+                if (inBand && start < 0) start = row;
+                if (!inBand && start >= 0)
+                {
+                    int end = row; // exclusive
+                    if (end - start >= options.MinLineHeight && localPeak > 0)
+                    {
+                        var (left, right, density) = BandExtent(page, start, end, inkThreshold, xLeft, xRight);
+                        if (right > left)
+                            bands.Add(new DetectedLine
+                            {
+                                Id = new EntityId(EntityKind.Region, $"lay{nextLineId++:x4}"),
+                                Top = start,
+                                Bottom = end,
+                                Left = left,
+                                Right = right,
+                                OrderIndex = bands.Count,
+                                InkDensity = density,
+                            });
+                    }
+                    start = -1;
+                }
+            }
+            return bands;
         }
 
-        // 4) Smooth (moving average) to bridge intraline gaps and suppress speck noise.
-        int smoothWindow = Math.Max(1, height / 150);
-        var smoothed = MovingAverage(rowDensity, smoothWindow);
-
-        // 5) Bands split at rows below an adaptive threshold between the LOCAL BACKGROUND
-        //    and the local peak. (Peak-only fractions fail on real scans: the parchment
-        //    texture floor is ~1/3 of the letter peaks, so peak*0.15 < floor and every
-        //    row looks like text.)
-        int localWindow = Math.Max(20, height / 12);
-        var lines = new List<DetectedLine>();
-        int start = -1;
-        for (int row = areaTop; row <= areaBottom; row++)
+        List<DetectedLine> lines;
+        int? columnBoundary = options.DetectColumns
+            ? FindColumnBoundary(page, bytes, info, areaLeft, areaRight, areaTop, areaBottom, inkThreshold)
+            : null;
+        if (columnBoundary is { } boundary)
         {
-            double localPeak = LocalPeak(smoothed, row, localWindow, areaTop, areaBottom);
-            double localFloor = LocalFloor(smoothed, row, localWindow, areaTop, areaBottom);
-            double splitAt = Math.Max(options.MinRowDensity,
-                localFloor + (localPeak - localFloor) * options.ValleyFraction);
-            bool inBand = row < areaBottom && smoothed[row] >= splitAt;
-            if (inBand && start < 0) start = row;
-            if (!inBand && start >= 0)
-            {
-                int end = row; // exclusive
-                if (end - start >= options.MinLineHeight && localPeak > 0)
-                {
-                    var (left, right, density) = BandExtent(page, start, end, inkThreshold, areaLeft, areaRight);
-                    if (right > left)
-                        lines.Add(new DetectedLine
-                        {
-                            Id = new EntityId(EntityKind.Region, $"lay{lines.Count:x4}"),
-                            Top = start,
-                            Bottom = end,
-                            Left = left,
-                            Right = right,
-                            OrderIndex = lines.Count,
-                            InkDensity = density,
-                        });
-                }
-                start = -1;
-            }
+            var left = ExtractBands(areaLeft, boundary);
+            var right = ExtractBands(boundary, areaRight);
+            lines = left.Count >= 2 && right.Count >= 2
+                ? [.. left, .. right]
+                : ExtractBands(areaLeft, areaRight);
+        }
+        else
+        {
+            lines = ExtractBands(areaLeft, areaRight);
         }
 
         if (options.FilterImplausibleLines && lines.Count > 2)
@@ -164,7 +195,67 @@ public static class ProjectionProfileLayout
         }
 
         var parametersHash = HashOf(options, inkThreshold);
-        return new LayoutResult(lines, nameof(ProjectionProfileLayout), parametersHash);
+        var method = columnBoundary is null ? nameof(ProjectionProfileLayout) : $"{nameof(ProjectionProfileLayout)}-columns";
+        return new LayoutResult(lines, method, parametersHash);
+    }
+
+    /// <summary>
+    /// Find a credible two-column gutter from column-ink density. Returns the gutter midpoint
+    /// only when a low-ink run is wide enough, lies away from the margins, and both sides carry
+    /// ink; otherwise null (the single-column path is unchanged).
+    /// </summary>
+    private static int? FindColumnBoundary(SKBitmap page, byte[] bytes, SKImageInfo info,
+        int areaLeft, int areaRight, int areaTop, int areaBottom, float inkThreshold)
+    {
+        int width = areaRight - areaLeft;
+        if (width < 80) return null;
+        var density = new double[width];
+        for (int x = 0; x < width; x++)
+        {
+            int ink = 0;
+            for (int row = areaTop; row < areaBottom; row++)
+            {
+                int b = (row * page.Width + areaLeft + x) * info.BytesPerPixel;
+                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
+                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                if (luminance < inkThreshold) ink++;
+            }
+            density[x] = (double)ink / Math.Max(1, areaBottom - areaTop);
+        }
+
+        var positive = density.Where(v => v > 0).OrderBy(v => v).ToList();
+        if (positive.Count == 0) return null;
+        double reference = positive[positive.Count * 3 / 4];
+        double gutterThreshold = Math.Max(0.002, reference * 0.10);
+        int minRun = Math.Max(4, (int)(width * 0.025));
+        int leftInk = 0, rightInk = 0, totalInk = 0;
+        foreach (var value in density) if (value > gutterThreshold) totalInk++;
+
+        int bestStart = -1, bestLength = 0;
+        int runStart = -1;
+        for (int x = 0; x <= width; x++)
+        {
+            bool clear = x < width && density[x] <= gutterThreshold;
+            if (clear && runStart < 0) runStart = x;
+            if ((!clear || x == width) && runStart >= 0)
+            {
+                int length = x - runStart;
+                double center = (runStart + x) / 2.0 / width;
+                if (length >= minRun && length > bestLength && center >= 0.30 && center <= 0.70)
+                {
+                    bestLength = length;
+                    bestStart = runStart;
+                }
+                runStart = -1;
+            }
+        }
+        if (bestStart < 0) return null;
+
+        // Both sides must carry real ink, not just scan noise or a single speck.
+        for (int x = 0; x < bestStart; x++) if (density[x] > gutterThreshold) leftInk++;
+        for (int x = bestStart + bestLength; x < width; x++) if (density[x] > gutterThreshold) rightInk++;
+        if (totalInk == 0 || leftInk < totalInk * 0.15 || rightInk < totalInk * 0.15) return null;
+        return areaLeft + bestStart + bestLength / 2;
     }
 
     private static double Median(IEnumerable<double> values)
@@ -266,5 +357,5 @@ public static class ProjectionProfileLayout
     internal static string HashOf(Options options, float resolvedInkThreshold) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(
-                $"{options.InkThreshold:R}|{options.MinRowDensity:R}|{options.MinLineHeight}|{options.ValleyFraction:R}|otsu:{resolvedInkThreshold:R}"))).ToLowerInvariant();
+                $"{options.InkThreshold:R}|{options.MinRowDensity:R}|{options.MinLineHeight}|{options.ValleyFraction:R}|filter:{options.FilterImplausibleLines}|columns:{options.DetectColumns}|otsu:{resolvedInkThreshold:R}"))).ToLowerInvariant();
 }

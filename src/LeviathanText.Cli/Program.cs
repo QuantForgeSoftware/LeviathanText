@@ -165,6 +165,24 @@ public static class Program
                 return 0;
             }
 
+            case "migrate" when rest.Length >= 3 && rest[1] == "inventory":
+            {
+                var outIndex = Array.IndexOf(rest, "--out");
+                var limitIndex = Array.IndexOf(rest, "--limit");
+                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length
+                    ? int.Parse(rest[limitIndex + 1])
+                    : MigrationInventory.DefaultMaxFiles;
+                var report = MigrationInventory.Scan(rest[2], limit,
+                    computeHashes: Array.IndexOf(rest, "--no-hash") < 0);
+                var json = MigrationInventory.ToJson(report);
+                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], json);
+                else Console.WriteLine(json);
+                Console.Error.WriteLine($"inventoried {report.FileCount} file(s), {report.TotalBytes} byte(s): " +
+                    string.Join(", ", report.Counts.Select(c => $"{c.Key}={c.Value}")));
+                foreach (var note in report.Notes.Take(10)) Console.Error.WriteLine($"note: {note}");
+                return 0;
+            }
+
             case "project" when rest.Length >= 2 && rest[1] == "new":
             {
                 var name = rest.Length >= 3 ? rest[2] : throw new ArgumentException("Usage: project new <name>");
@@ -293,6 +311,31 @@ public static class Program
                 return 0;
             }
 
+            case "import" when rest.Length >= 5 && rest[1] == "tei":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var kind = rest.Length >= 7 && rest[5] == "--kind" ? rest[6] : "page";
+                if (Array.IndexOf(rest, "--skip-duplicates") >= 0)
+                {
+                    var source = File.ReadAllText(rest[3]);
+                    var duplicate = interchange.FindTeiDuplicate(project, source);
+                    if (duplicate is not null)
+                    {
+                        Console.WriteLine($"skipped duplicate source: object {duplicate.Id}, " +
+                                          $"surface {duplicate.Surfaces[0].Id}");
+                        return 0;
+                    }
+                }
+                var (imported, notes, imageUrl) = interchange.ImportTei(project, rest[3], rest[4], kind);
+                foreach (var note in notes)
+                    Console.Error.WriteLine($"{note.Severity}: {note.Element}: {note.Description}");
+                Console.WriteLine($"imported {imported.Surfaces[0].Lines.Count} TEI line(s) with " +
+                                  $"{imported.Surfaces[0].Revisions.Count(r => r.Layer == TextLayer.L2Editorial)} L2 reading(s); " +
+                                  $"surface {imported.Surfaces[0].Id}; source attachment: {imported.Attachments.Count}; " +
+                                  $"image URL: {imageUrl ?? "none"}");
+                return 0;
+            }
+
             case "import" when rest.Length >= 5 && rest[1] == "epidoc":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -403,7 +446,9 @@ public static class Program
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
-                Console.WriteLine(interchange.ExportTei(project, surfaceId, $"LeviathanText export {surfaceId}"));
+                var exported = interchange.ExportTeiWithReport(project, surfaceId, $"LeviathanText export {surfaceId}");
+                Console.WriteLine(exported.Xml);
+                if (!exported.Report.IsLossless) Console.Error.WriteLine(exported.Report);
                 return 0;
             }
 
@@ -451,12 +496,13 @@ public static class Program
                         .FromJson<LineEvaluationReport.AcceptanceCriteria>(File.ReadAllText(acceptancePath));
                 }
 
-                var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension);
+                var loaded = RecognitionModelLoader.Load(packageDirectory);
+                var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension,
+                    targetHeight: loaded.Model.InputHeightPixels, preprocessingProfile: loaded.DatasetPreprocessingProfile);
                 var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
                 if (lines.Count == 0)
                     throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = split, Message = $"No labeled {split} lines were found in the dataset." });
 
-                var loaded = RecognitionModelLoader.Load(packageDirectory);
                 var recognizer = loaded.CreateRecognizer();
                 var results = recognizer.Recognize(lines.Select(l => l.Image).ToList());
                 if (results.Count != lines.Count)
@@ -845,6 +891,22 @@ public static class Program
                 return strict && errors > 0 ? 1 : 0;
             }
 
+            case "validate" when rest.Length >= 3 && rest[1] == "tei":
+            {
+                var result = LeviathanText.Formats.TeiXml.Import(File.ReadAllText(rest[2]));
+                foreach (var issue in result.Unsupported)
+                    Console.Error.WriteLine($"{issue.Severity}\t{issue.Element}\t{issue.Description}");
+                var l1 = result.Revisions.Count(r => r.Layer == TextLayer.L1Diplomatic);
+                var l2 = result.Revisions.Count(r => r.Layer == TextLayer.L2Editorial);
+                Console.WriteLine($"lines={result.Document?.Lines.Count ?? 0}\tL1={l1}\tL2={l2}\t" +
+                                  $"annotations={result.Annotations.Count}\t" +
+                                  $"pageBreaks={result.Document?.PageBreaks?.Count ?? 0}\t" +
+                                  $"graphics={result.Document?.Graphics.Count ?? 0}\t" +
+                                  $"attachment={(result.OriginalMarkup is null ? "omitted" : "retained")}");
+                var losses = result.Unsupported.Count(i => i.Severity == PageXml.IssueSeverity.Loss);
+                return losses > 0 && rest.Contains("--strict") ? 1 : 0;
+            }
+
             case "validate" when rest.Length >= 3 && rest[1] == "text":
             {
                 // Greek transcription-profile inspection (no rewriting): unknown scalars,
@@ -1071,7 +1133,8 @@ public static class Program
                 PatchLayoutModel? patchModel = modelIndex >= 0 && modelIndex + 1 < rest.Length
                     ? PatchLayoutModel.Load(rest[modelIndex + 1])
                     : null;
-                var outcome = layout.Detect(project, surfaceId, maxPixels, patchModel);
+                var outcome = layout.Detect(project, surfaceId, maxPixels, patchModel,
+                    detectColumns: Array.IndexOf(rest, "--columns") >= 0);
                 Console.WriteLine($"detected {outcome.LineCount} lines ({outcome.Method}) in region(s) of {outcome.Surface.Id}");
                 return 0;
             }
@@ -1085,7 +1148,19 @@ public static class Program
                 var epochs = rest.Length >= 7 && rest[5] == "--epochs" ? int.Parse(rest[6]) : 120;
                 var profileStrict = rest.Contains("--profile-strict");
 
-                var snapshot = P01LineDataset.Load(dataDir);
+                int DiagnosticsOption(string name, int fallback, int maximum)
+                {
+                    int index = Array.IndexOf(rest, name);
+                    if (index < 0) return fallback;
+                    if (index + 1 >= rest.Length || !int.TryParse(rest[index + 1], out int value) || value < 0 || value > maximum)
+                        throw new ArgumentException($"{name} requires an integer from 0 to {maximum}.");
+                    return value;
+                }
+                int diagnosticsEvery = DiagnosticsOption("--diagnostics-every", 0, int.MaxValue);
+                int diagnosticsSamples = DiagnosticsOption("--diagnostics-samples", 3, 100);
+
+                var preprocessing = LinePreprocessingProfile.P01Otsu(CrnnModel.InputHeight);
+                var snapshot = P01LineDataset.Load(dataDir, preprocessingProfile: preprocessing);
                 if (profileStrict)
                 {
                     // Exclude labels with scalars outside the transcription profile (markup
@@ -1102,9 +1177,29 @@ public static class Program
                     Console.Error.WriteLine($"profile-strict: excluded {excludedTrain} train / {excludedDev} dev out-of-profile lines");
                 }
                 if (snapshot.Train.Count == 0) throw new ArgumentException("dataset produced no training lines");
-                var vocabulary = snapshot.Train.Concat(snapshot.Dev)
+                var vocabulary = snapshot.Train
                     .SelectMany(l => LeviathanText.Core.Unicode.Graphemes.Enumerate(l.Text).Select(g => g.Text))
                     .Distinct(StringComparer.Ordinal).ToList();
+                var trainingLabels = vocabulary.ToHashSet(StringComparer.Ordinal);
+                var developmentOov = snapshot.Dev.Select((line, index) =>
+                {
+                    var unknown = Graphemes.Enumerate(line.Text).Select(g => g.Text)
+                        .Where(g => !trainingLabels.Contains(g)).GroupBy(g => g, StringComparer.Ordinal)
+                        .OrderBy(g => g.Key, StringComparer.Ordinal)
+                        .Select(g => (Grapheme: g.Key, Count: g.Count())).ToArray();
+                    return (Id: line.SourceId ?? $"dev[{index}]", Unknown: unknown);
+                }).Where(line => line.Unknown.Length != 0).ToArray();
+                if (developmentOov.Length != 0)
+                {
+                    int occurrences = developmentOov.Sum(line => line.Unknown.Sum(g => g.Count));
+                    int distinct = developmentOov.SelectMany(line => line.Unknown.Select(g => g.Grapheme))
+                        .Distinct(StringComparer.Ordinal).Count();
+                    Console.Error.WriteLine($"development OOV: {developmentOov.Length} line(s), {occurrences} occurrence(s), {distinct} distinct grapheme(s); training alphabet unchanged.");
+                    foreach (var line in developmentOov)
+                        Console.Error.WriteLine($"  {line.Id}: " + string.Join(", ", line.Unknown.Select(g =>
+                            $"'{g.Grapheme}' ({string.Join(" ", g.Grapheme.EnumerateRunes().Select(r => $"U+{r.Value:X4}"))}) ×{g.Count}")));
+                    return 1;
+                }
                 var labels = new LabelSet(vocabulary);
 
                 var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-train-cli", Guid.NewGuid().ToString("N"));
@@ -1114,8 +1209,12 @@ public static class Program
                     EarlyStoppingPatience = epochs, HiddenSize = 64,
                     ModelName = Path.GetFileName(Path.TrimEndingDirectorySeparator(outDir)),
                     CheckpointDirectory = checkpointDir,
+                    DiagnosticsEveryNEpochs = diagnosticsEvery,
+                    DiagnosticsSampleCount = diagnosticsSamples,
+                    PreprocessingProfile = preprocessing,
                 };
-                var trainer = new CtcTrainer(new CrnnModel(labels.NumClasses, config.HiddenSize), labels, config);
+                using var model = new CrnnModel(labels.NumClasses, config.HiddenSize);
+                using var trainer = new CtcTrainer(model, labels, config);
                 var run = trainer.Fit(snapshot.Train, snapshot.Dev);
 
                 var splitAssignment = string.Join('\n', snapshot.WitnessSplitMap.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
@@ -1145,6 +1244,10 @@ public static class Program
                     CheckpointDigest = bestDigest,
                     BestValidationCer = run.BestValidationCer,
                     EpochsCompleted = run.EpochsCompleted,
+                    PreprocessingProfile = preprocessing,
+                    Preprocessing = preprocessing.Describe(),
+                    DiagnosticsEveryNEpochs = config.DiagnosticsEveryNEpochs,
+                    DiagnosticsSampleCount = config.DiagnosticsSampleCount,
                     CreatedAt = DateTimeOffset.UtcNow,
                     History = run.History,
                 };
@@ -1170,6 +1273,8 @@ public static class Program
                         ["hiddenSize"] = config.HiddenSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         ["augmentTraining"] = config.AugmentTraining.ToString(),
                         ["labels"] = labels.NumClasses.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["diagnosticsEveryNEpochs"] = config.DiagnosticsEveryNEpochs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["diagnosticsSampleCount"] = config.DiagnosticsSampleCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     },
                     Metrics = new Dictionary<string, double>
                     {
@@ -1216,6 +1321,7 @@ public static class Program
                         var outcome = pipeline.Run(current, surface.Id, new RecognitionPipeline.Options
                         {
                             ModelDirectory = packageDir,
+                            PreprocessingProfile = loaded.PreprocessingProfile,
                             ModelName = modelName,
                             ModelFactory = () =>
                             {
@@ -1265,6 +1371,7 @@ public static class Program
                 var outcome = pipeline.Run(project, surfaceId, new RecognitionPipeline.Options
                 {
                     ModelDirectory = packageDir,
+                    PreprocessingProfile = loaded.PreprocessingProfile,
                     ModelName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDir)),
                     ModelFactory = () => loaded.Model,
                     LabelSetFactory = () => loaded.Labels,
@@ -1363,6 +1470,8 @@ public static class Program
                 Message = "The page image named by the XML document was not found.",
             });
 
+        var loaded = RecognitionModelLoader.Load(package);
+        loaded.PreprocessingProfile.RequireStandardGeometry();
         using var decoded = ImageDecoder.Decode(imagePath);
         var selected = parsed.Lines.Where(line => line.Polygon.Count >= 3 || line.Baseline.Count >= 2).ToList();
         var images = new List<LineImage>();
@@ -1377,7 +1486,7 @@ public static class Program
             var extracted = LineCropper.Extract(decoded.Bitmap, points);
             try
             {
-                images.Add(RecognitionPipeline.ToLineImage(extracted.Bitmap));
+                images.Add(loaded.PrepareLine(extracted.Bitmap));
                 boxes.Add((
                     (int)Math.Floor(points.Min(p => p.X)), (int)Math.Floor(points.Min(p => p.Y)),
                     (int)Math.Ceiling(points.Max(p => p.X)), (int)Math.Ceiling(points.Max(p => p.Y))));
@@ -1388,7 +1497,7 @@ public static class Program
             }
         }
 
-        var recognizer = RecognitionModelLoader.Load(package).CreateRecognizer();
+        var recognizer = loaded.CreateRecognizer();
         var results = images.Count == 0 ? [] : recognizer.Recognize(images);
         var entries = results.Select((result, i) => new
         {
@@ -1465,11 +1574,12 @@ public static class Program
 
         if (mode == "line")
         {
-            var result = recognizer.Recognize([RecognitionPipeline.ToLineImage(decoded.Bitmap)])[0];
+            var result = recognizer.Recognize([loaded.PrepareLine(decoded.Bitmap)])[0];
             entries.Add((0, 0, decoded.Bitmap.Width, decoded.Bitmap.Height, result.Text, result.Graphemes));
         }
         else
         {
+            loaded.PreprocessingProfile.RequireStandardGeometry();
             var layout = ProjectionProfileLayout.Detect(decoded.Bitmap);
             var images = new List<LineImage>();
             var boxes = new List<(int Left, int Top, int Right, int Bottom)>();
@@ -1483,7 +1593,7 @@ public static class Program
                 var extracted = LineCropper.Extract(decoded.Bitmap, points);
                 try
                 {
-                    images.Add(RecognitionPipeline.ToLineImage(extracted.Bitmap));
+                    images.Add(loaded.PrepareLine(extracted.Bitmap));
                     boxes.Add((line.Left, line.Top, line.Right, line.Bottom));
                 }
                 finally
@@ -1739,6 +1849,8 @@ public static class Program
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
+              leviathan migrate inventory <existing-tree> [--out <report.json>] [--limit N] [--no-hash]
+              leviathan validate tei <record.xml> [--strict]
               leviathan [--store <path>] layout detect <projectId> <surfaceId>
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>
@@ -1748,6 +1860,7 @@ public static class Program
               leviathan [--store <path>] review active <projectId> [--limit N] [--out <csv>]
               leviathan [--store <path>] review preview <projectId> <decisions.csv>
               leviathan [--store <path>] review apply <projectId> <decisions.csv> [--reviewer <id>]
+              leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--skip-duplicates]
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>
               leviathan [--store <path>] recognize surface <projectId> <surfaceId> [--package <model-package-dir>]

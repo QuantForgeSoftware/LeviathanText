@@ -3,6 +3,52 @@
 All dates are UTC-ish session dates. No stable release exists; this is a pilot record. Contract
 set: C0-0.4-draft.
 
+## Unreleased — 2026-11-02 interchange and collaboration cycle
+
+### Added
+
+- **Layered TEI/EpiDoc profile:** `<lb>` line splitting with `@n`/`@xml:id`/`break="no"`,
+  L1 visible text plus a linked L2 reading, supplied text and abbreviation expansions in L2,
+  orig/reg (and sic/corr), add/del/handShift, facsimile image links, `idno`/`licence`/responsibility
+  provenance and a machine-readable export loss report.
+- **Original-markup attachments:** the exact imported source XML is retained (2 MiB cap) with a
+  SHA-256 digest; unsupported markup is aggregated by name/count instead of silently flattened.
+  `GET /projects/{id}/attachments/{id}` downloads the retained source; `validate tei` reports
+  the profile shape and strict loss status without writing a project.
+- **`import tei` CLI and `POST /projects/{id}/import-tei`** for the layered profile; `export tei`
+  now prints its loss report to stderr. `--skip-duplicates` (API `skipDuplicate`) reports an
+  existing object when the retained source hash matches.
+- **NTVMR-style TEI:** word spaces between `<w>`, verse `@n`/`@part`, `<pb>`, orig/corr
+  apparatus, standalone `<abbr>` and `<hi rend="overline">` are preserved; the public P46
+  page 1440 record smoke-imported 30 lines with verse/overline/correction round-trip.
+- **Server-issued editing sessions:** store-backed TTL sessions with node/surface binding,
+  heartbeat, revoke and per-surface listing; presence can derive its identity from a session.
+  The surface view now creates/heartbeats/revokes its session, displays the serving node and
+  exposes a session list/revoke panel.
+- **Three-way line merge:** `merge: true` on revision writes combines non-overlapping edits and
+  refuses overlapping ones with both candidate texts; the Angular editor requests it on save.
+- **Opt-in two-column projection split:** `layout detect --columns` / `?columns=true` accepts a
+  clear vertical gutter, bands each column independently and orders left then right; synthetic
+  tests only, default unchanged.
+- **Read-only migration inventory:** `migrate inventory` classifies an existing tree
+  (PAGE/ALTO/TEI/hOCR/IIIF/images/PDF/models/scripts), records sizes and SHA-256, and reports
+  unclassified files without modifying the source.
+- **Optimistic project versions:** stale project saves now fail `revision-conflict` instead of
+  overwriting another writer's document; `IProjectStore.SaveProject` returns the new version.
+- **Stale annotation/review writes:** the editor anchors annotations to the revision it shows,
+  and review decisions accept an optional `revisionId`; both fail instead of applying to a
+  superseded revision.
+
+### Fixed
+
+- EpiDoc bootstrap no longer concatenates apparatus readings or `<abbr>`/`<expan>` pairs.
+- Supplied text no longer enters the diplomatic layer.
+
+### Evidence
+
+- `docs/evaluation/interchange-v2.md`, `docs/evaluation/collaboration-concurrency.md`;
+  new format/application/API/core/infrastructure tests and 48 Angular specs.
+
 ## Unreleased — 2026-10-19 / 2026-10-20 work block
 
 ### Changed

@@ -98,7 +98,7 @@ public sealed class ImageResolver(IProjectStore store, string cacheDirectory, Ht
                 ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surfaceId ? updatedSurface : s)] }
                 : o)],
         };
-        store.SaveProject(updatedProject);
+        updatedProject = updatedProject with { Version = store.SaveProject(updatedProject) };
         return new Result(updatedProject, updatedSurface, updatedCapture);
     }
 }

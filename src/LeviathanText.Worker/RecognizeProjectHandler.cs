@@ -88,6 +88,7 @@ public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? 
                 var outcome = pipeline.Run(current, surface.Id, new RecognitionPipeline.Options
                 {
                     ModelDirectory = packageDirectory,
+                    PreprocessingProfile = loaded.PreprocessingProfile,
                     ModelName = modelName,
                     ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
                     ModelFactory = () =>

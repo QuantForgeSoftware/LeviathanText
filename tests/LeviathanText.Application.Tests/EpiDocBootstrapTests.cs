@@ -64,9 +64,15 @@ public sealed class EpiDocBootstrapTests : IDisposable
         Assert.NotEmpty(notes);
 
         var reloaded = store.LoadProject(project.Id)!;
-        var unplaced = new InterchangeService(projects).UnplacedLines(reloaded, surface.Id);
+        var interchange = new InterchangeService(projects);
+        var unplaced = interchange.UnplacedLines(reloaded, surface.Id);
         Assert.Equal(2, unplaced.Count);
         Assert.Contains(unplaced, l => l.ReferenceText.Contains("χρηστὴ"));
+
+        // An L2-only bootstrap must not export empty <ab> elements.
+        var exported = interchange.ExportTeiWithReport(reloaded, surface.Id, "epidoc");
+        Assert.Contains("χρηστὴ", exported.Xml);
+        Assert.Contains("n=\"1\"", exported.Xml);
     }
 
     [Fact]

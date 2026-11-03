@@ -324,16 +324,20 @@ public class TeiXmlTests
     {
         var result = TeiXml.Import(File.ReadAllText(FixturePath("sample.tei.xml")));
 
-        Assert.Single(result.Revisions);
-        var revision = result.Revisions[0];
+        var l1 = Assert.Single(result.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+        var l2 = Assert.Single(result.Revisions, r => r.Layer == TextLayer.L2Editorial);
 
         // Text has no bracket characters and no editorial underdots — they became annotations.
-        Assert.DoesNotContain('<', revision.Text);
-        Assert.DoesNotContain('[', revision.Text);
+        Assert.DoesNotContain('<', l1.Text);
+        Assert.DoesNotContain('[', l1.Text);
+        // Supplied text is editorial: it exists in L2 only, never in the diplomatic layer.
+        Assert.DoesNotContain("φ", l1.Text);
+        Assert.Contains("φ", l2.Text);
 
         Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.Unclear);
         Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.Lost && a.GapExtent == GapExtent.Unknown);
-        Assert.Contains(result.Annotations, a => a.Kind == AnnotationKind.SuppliedEditorial);
+        var supplied = Assert.Single(result.Annotations, a => a.Kind == AnnotationKind.SuppliedEditorial);
+        Assert.Equal(l2.Id, supplied.AnchoredRevisionId);
         var alt = Assert.Single(result.Annotations, a => a.Kind == AnnotationKind.AlternativeReading);
         Assert.Equal("ω", alt.AlternativeText);
     }
@@ -342,14 +346,15 @@ public class TeiXmlTests
     public void Export_import_roundtrip_preserves_text_and_distinctions()
     {
         var imported = TeiXml.Import(File.ReadAllText(FixturePath("sample.tei.xml")));
-        var revision = imported.Revisions[0];
-        // The importer binds produced annotations to their revision; export them as-is.
-        var lineAnnotations = imported.Annotations;
+        var l1 = Assert.Single(imported.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+        var l2 = Assert.Single(imported.Revisions, r => r.Layer == TextLayer.L2Editorial);
 
-        var exported = TeiXml.Export([(revision.ScopeId, revision, lineAnnotations)], "roundtrip");
-        var reparsed = TeiXml.Import(exported);
+        var exported = TeiXml.ExportDocument(
+            [new TeiXml.TeiExportLine(l1.ScopeId, l1, l2, imported.Annotations)], "roundtrip");
+        var reparsed = TeiXml.Import(exported.Xml);
 
-        Assert.Equal(revision.Text, reparsed.Revisions[0].Text);
+        Assert.Equal(l1.Text, Assert.Single(reparsed.Revisions, r => r.Layer == TextLayer.L1Diplomatic).Text);
+        Assert.Equal(l2.Text, Assert.Single(reparsed.Revisions, r => r.Layer == TextLayer.L2Editorial).Text);
 
         // All four scholarly distinctions survive the round trip.
         foreach (var kind in new[] { AnnotationKind.Unclear, AnnotationKind.Lost, AnnotationKind.AlternativeReading, AnnotationKind.SuppliedEditorial })

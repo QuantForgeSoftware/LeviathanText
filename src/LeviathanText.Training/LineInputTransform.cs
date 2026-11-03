@@ -25,7 +25,7 @@ public static class LineInputTransform
         {
             if (Channels != 1)
                 throw new InvalidOperationException("LineImage requires a single-channel transform result.");
-            return new LineImage(Height, Width, Pixels);
+            return new LineImage(Height, Width, Pixels, backgroundValue: 1f);
         }
     }
 
@@ -38,6 +38,16 @@ public static class LineInputTransform
         if (options.Height < 1) throw new ArgumentOutOfRangeException(nameof(options), "Height must be positive.");
         if (options.Width < 0) throw new ArgumentOutOfRangeException(nameof(options), "Width must be non-negative.");
         if (options.Channels is not (1 or 3)) throw new ArgumentOutOfRangeException(nameof(options), "Channels must be 1 or 3.");
+
+        // The common recognizer path shares the exact versioned luminance transform.
+        // Keep the historical fixed-width/channel/Otsu and already-BW options below:
+        // their threshold/rounding semantics are intentionally different.
+        if (options.Channels == 1 && options.Width == 0 && !options.ForceBinarization
+            && options.Height >= 8 && options.Height % 4 == 0 && !Binarization.IsBlackWhite(source))
+        {
+            var line = LinePreprocessor.Apply(source, LinePreprocessingProfile.Luminance(options.Height));
+            return new Result(line.Pixels, 1, line.Width, line.Height, Binarized: false);
+        }
 
         int width = options.Width > 0
             ? options.Width

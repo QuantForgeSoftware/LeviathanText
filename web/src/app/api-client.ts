@@ -113,6 +113,18 @@ export interface ConfidenceValue {
   scale: string;
 }
 
+export interface SessionView {
+  id: string;
+  userId: string;
+  userName: string;
+  nodeId: string;
+  surfaceId?: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  revokedAt?: string | null;
+}
+
 export interface RevisionPayload {
   id: string;
   layer: string;
@@ -273,9 +285,10 @@ export class ApiClient {
     return this.http.post<{ lineCount: number; method: string }>(`/api/v1/surfaces/${surfaceId}/detect-layout`, {});
   }
 
-  appendRevision(lineId: string, layer: string, text: string, authorId: string, parentRevisionId?: string): Observable<{ revisionId: string }> {
-    return this.http.post<{ revisionId: string }>(`/api/v1/lines/${lineId}/revisions`,
-      { layer, text, authorId, parentRevisionId: parentRevisionId ?? null });
+  appendRevision(lineId: string, layer: string, text: string, authorId: string,
+    parentRevisionId?: string, merge = false): Observable<{ revisionId: string; merged?: boolean }> {
+    return this.http.post<{ revisionId: string; merged?: boolean }>(`/api/v1/lines/${lineId}/revisions`,
+      { layer, text, authorId, parentRevisionId: parentRevisionId ?? null, merge });
   }
 
   addAnnotation(lineId: string, annotation: unknown): Observable<AnnotationPayload> {
@@ -287,6 +300,7 @@ export class ApiClient {
     outcome: 'accept' | 'correct' | 'dispute';
     note?: string | null;
     correctionText?: string | null;
+    revisionId?: string | null;
   }): Observable<{ reviewId: string; outcome: string; correctedRevisionId?: string }> {
     return this.http.post<{ reviewId: string; outcome: string; correctedRevisionId?: string }>(
       `/api/v1/lines/${lineId}/review`, body);
@@ -335,8 +349,23 @@ export class ApiClient {
     return this.http.post<void>(`/api/v1/users/${userId}/disable`, {});
   }
 
-  touchPresence(surfaceId: string, editorId: string): Observable<{ editors: string[] }> {
-    return this.http.post<{ editors: string[] }>(`/api/v1/surfaces/${surfaceId}/presence`, { editorId });
+  touchPresence(surfaceId: string, editorId: string, sessionId?: string): Observable<{ editors: string[]; editor?: string }> {
+    return this.http.post<{ editors: string[]; editor?: string }>(`/api/v1/surfaces/${surfaceId}/presence`,
+      { editorId, sessionId: sessionId ?? null });
+  }
+
+  createSession(surfaceId: string, ttlMinutes = 60): Observable<{ id: string; nodeId: string; expiresAt: string }> {
+    return this.http.post<{ id: string; nodeId: string; expiresAt: string }>('/api/v1/sessions',
+      { surfaceId, ttlMinutes });
+  }
+
+  revokeSession(sessionId: string): Observable<{ revoked: boolean }> {
+    return this.http.delete<{ revoked: boolean }>(`/api/v1/sessions/${sessionId}`);
+  }
+
+  sessions(surfaceId?: string): Observable<SessionView[]> {
+    const params = surfaceId ? { surfaceId } : undefined;
+    return this.http.get<SessionView[]>('/api/v1/sessions', { params });
   }
 
   presence(surfaceId: string): Observable<{ editors: string[] }> {

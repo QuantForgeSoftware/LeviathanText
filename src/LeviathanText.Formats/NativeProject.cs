@@ -13,6 +13,13 @@ public sealed record NativeProject
 {
     public required EntityId Id { get; init; }
     public required string Name { get; init; }
+
+    /// <summary>
+    /// Store-assigned optimistic-concurrency version. Zero means "not yet persisted"; stores
+    /// use it to reject a save that would overwrite a newer document.
+    /// </summary>
+    public long Version { get; init; }
+
     public required IReadOnlyList<NativeObject> Objects { get; init; }
 }
 
@@ -30,7 +37,29 @@ public sealed record NativeObject
     /// <summary>Language period / witness dating / material as free metadata; unknown permitted.</summary>
     public IReadOnlyDictionary<string, string> Metadata { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// Original source documents retained without reinterpretation (bounded size). Importers
+    /// attach the exact markup they could not represent so nothing is silently flattened.
+    /// </summary>
+    public IReadOnlyList<NativeAttachment> Attachments { get; init; } = [];
+
     public required IReadOnlyList<NativeSurface> Surfaces { get; init; }
+}
+
+/// <summary>A bounded, checksummed original document retained beside the native model.</summary>
+public sealed record NativeAttachment
+{
+    /// <summary>Document-scoped id (not an EntityId: attachments are not addressable domain entities).</summary>
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string MediaType { get; init; }
+    public required string Sha256 { get; init; }
+
+    /// <summary>Exact original content, retained only when within the importer's byte cap.</summary>
+    public required string Content { get; init; }
+
+    /// <summary>What the attachment is, e.g. "original-tei-markup".</summary>
+    public string? Role { get; init; }
 }
 
 public sealed record NativeSurface
@@ -192,6 +221,9 @@ public sealed record NativeLine
 
     /// <summary>Baseline points (may be empty when geometry is absent/unavailable).</summary>
     public IReadOnlyList<PointD> Baseline { get; init; } = [];
+
+    /// <summary>Source line number when the imported witness declares one (not a reading-order index).</summary>
+    public int? LineNumber { get; init; }
 
     /// <summary>Current L1 diplomatic revision for this line, when transcribed.</summary>
     public EntityId? DiplomaticRevisionId { get; init; }

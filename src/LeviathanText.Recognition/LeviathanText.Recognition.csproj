@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="../LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
     <ProjectReference Include="../LeviathanText.Core/LeviathanText.Core.csproj" />
+    <ProjectReference Include="../LeviathanText.Imaging/LeviathanText.Imaging.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="TorchSharp" Version="0.107.0" />

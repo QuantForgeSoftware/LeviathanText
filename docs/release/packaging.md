@@ -62,9 +62,10 @@ dotnet publish src/LeviathanText.Api -c Release -o dist/api    # succeeded
 - Model artifacts are not bundled; model packages are produced by training and must ship only after rights + capability review.
 - TIFF is decoded through the ImageSharp fallback; very large TIFF pages still need full-frame decode and the dependency uses the Six Labors Split License. High-resolution tiled decode remains open.
 - Shared-server authentication: local accounts with reader/annotator/reviewer/admin roles,
-  SHA-256 hashed keys, rotation/disable, auth audit and opt-in per-project membership exist.
-  SSO/session policy and invitation UI remain open; presence is advisory and store-backed; do not expose an unconfigured
-  instance beyond localhost.
+  SHA-256 hashed keys, rotation/disable, auth audit, opt-in per-project membership, invitation
+  UI, advisory presence and server-issued TTL sessions exist. SSO/refresh-token policy, edit
+  locks and a full session-management panel remain open; do not expose an unconfigured instance
+  beyond localhost.
 
 
 ## Migration/rollback rehearsal
@@ -88,7 +89,7 @@ manifest/checksum restore path; it is not a substitute for a full pre-upgrade ba
 2. **Back up first:** `leviathan --store pilot.db backup ./snapshots/pre-upgrade`
    (`VACUUM INTO` + checksummed image copies).
 3. Replace binaries/assets, then start the new API. Store schema migrations run on open:
-   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`; v6 adds `presence`; v7 adds `invites`;
+   - v1/v2 → v3 adds `users`/`auth_audit`; v4 adds `project_members`; v5 adds `runs`; v6 adds `presence`; v7 adds `invites`; v8 adds the optimistic project `version` column; v9 adds `edit_sessions`;
    - a store written by a **newer** schema is refused with `SchemaVersionUnsupported` (downgrades
      are unsupported).
 4. Verify `/`, `/api/v1/projects`, a login (`/api/v1/me`) and one read/export before resuming work.

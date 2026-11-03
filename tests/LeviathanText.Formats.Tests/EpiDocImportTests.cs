@@ -35,6 +35,29 @@ public class EpiDocImportTests
     }
 
     [Fact]
+    public void Apparatus_and_choice_pairs_do_not_concatenate_their_readings()
+    {
+        const string xml = """
+            <TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+              <div type="edition" subtype="primary"><ab>
+                <lb n="1"/>κ<choice><abbr>ϲ</abbr><expan>υρίου</expan></choice>
+                <choice><orig>ϲ</orig><reg>σ</reg></choice>οφος
+                <app><lem>ο</lem><rdg>ω</rdg><rdg>ου</rdg></app>
+              </ab></div>
+            </body></text></TEI>
+            """;
+
+        var result = EpiDocImport.Parse(xml);
+
+        var line = Assert.Single(result.Lines);
+        Assert.Equal("κϲ ϲοφος ο", line.Text);
+        Assert.DoesNotContain("υρίου", line.Text);
+        Assert.DoesNotContain("ου", line.Text);
+        Assert.Contains(result.Notes, n => n.Element == "choice");
+        Assert.Contains(result.Notes, n => n.Element == "app");
+    }
+
+    [Fact]
     public void Missing_edition_is_rejected()
     {
         Assert.Throws<InvalidDataException>(() => EpiDocImport.Parse(
