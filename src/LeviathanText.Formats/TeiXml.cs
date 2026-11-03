@@ -1131,6 +1131,7 @@ public static class TeiXml
                             WalkChildren(element, unsupported);
                         }
                     }
+                    ReportNestedMarkup(element, unsupported);
                     break;
                 }
                 case "add":
