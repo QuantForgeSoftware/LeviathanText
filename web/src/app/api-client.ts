@@ -577,6 +577,12 @@ export class ApiClient {
     return this.http.get(`/api/v1/projects/${projectId}/overlap`, { responseType: 'text' });
   }
 
+  editionHtml(projectId: string, surfaceId: string): Observable<string> {
+    return this.http.get(
+      `/api/v1/projects/${projectId}/surfaces/${surfaceId}/edition.html`,
+      { responseType: 'text' });
+  }
+
   searchablePdf(projectId: string, surfaceId: string): Observable<Blob> {
     return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/searchable-pdf`,
       { responseType: 'blob' });

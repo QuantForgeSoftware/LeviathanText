@@ -519,6 +519,19 @@ public static class Program
                 return 0;
             }
 
+            case "export" when rest.Length >= 4 && rest[1] == "edition-html":
+            {
+                var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
+                var surfaceId = EntityId.Parse(rest[3], EntityKind.Surface);
+                var result = EditionHtml.Export(project, surfaceId,
+                    $"{project.Name} — {surfaceId}");
+                var outIndex = Array.IndexOf(rest, "--out");
+                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], result.Html);
+                else Console.Write(result.Html);
+                if (!result.Report.IsLossless) Console.Error.WriteLine(result.Report);
+                return 0;
+            }
+
             case "export" when rest.Length >= 4 && rest[1] == "tei":
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
@@ -1985,6 +1998,7 @@ public static class Program
               leviathan [--store <path>] import tei <projectId> <tei.xml> <image> [--kind <surfaceKind>] [--page <folio>] [--skip-duplicates]
               leviathan [--store <path>] export word-boundaries <projectId> [--out <csv>]
               leviathan [--store <path>] export crosswalk <projectId> [--lines|--fragments] [--out <csv>]
+              leviathan [--store <path>] export edition-html <projectId> <surfaceId> [--out <html>]
               leviathan [--store <path>] export searchable-pdf <projectId> <surfaceId> <out.pdf>
               leviathan [--store <path>] export tei <projectId> <surfaceId>
               leviathan [--store <path>] export alto <projectId> <surfaceId>

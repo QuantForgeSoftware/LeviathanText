@@ -216,6 +216,23 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Edition_html_endpoint_returns_escaped_html_and_report()
+    {
+        var client = NewClient();
+        var (projectId, _, surfaceId) = await ImportFixtureAsync(client, "edition-html-e2e");
+
+        var response = await client.GetAsync(
+            $"/api/v1/projects/{projectId}/surfaces/{surfaceId}/edition.html");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("<html", html);
+        Assert.Contains("edition-html", await client.GetStringAsync(
+            $"/api/v1/projects/{projectId}/surfaces/{surfaceId}/edition.html?report=true"));
+    }
+
+    [Fact]
     public async Task Word_boundary_export_lists_the_proposed_division()
     {
         var client = NewClient();

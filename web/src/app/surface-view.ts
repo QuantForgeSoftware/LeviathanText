@@ -113,6 +113,7 @@ import { FragmentPanel } from './fragment-panel';
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadSearchablePdf()">Download searchable PDF</button>
           <button type="button" (click)="downloadWordBoundaries()">Download word boundaries</button>
+          <button type="button" (click)="downloadEditionHtml()">Download edition HTML</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
           <button type="button" (click)="detectLayout()">Detect layout</button>
           <a [href]="bundleUrl()" download>Download bundle (.zip)</a>
@@ -246,6 +247,16 @@ export class SurfaceView implements OnDestroy {
         this.exportStatus.set('TEI downloaded');
       },
       error: () => this.exportStatus.set('TEI export failed'),
+    });
+  }
+
+  protected downloadEditionHtml(): void {
+    this.api.editionHtml(this.projectId(), this.surfaceId()).subscribe({
+      next: html => {
+        this.download(`${this.surfaceId()}-edition.html`, html, 'text/html');
+        this.exportStatus.set('edition HTML downloaded');
+      },
+      error: () => this.exportStatus.set('edition HTML export failed'),
     });
   }
 

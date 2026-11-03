@@ -492,6 +492,17 @@ api.MapGet("projects/{id}/surfaces/{surfaceId}/abbyy", (ProjectService projects,
         "application/xml");
 });
 
+api.MapGet("projects/{id}/surfaces/{surfaceId}/edition.html", (ProjectService projects,
+    string id, string surfaceId, bool? report) =>
+{
+    var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
+    var result = EditionHtml.Export(project, EntityId.Parse(surfaceId, EntityKind.Surface),
+        $"{project.Name} — {surfaceId}");
+    return report == true
+        ? Results.Ok(new { html = result.Html, lossReport = result.Report })
+        : Results.Text(result.Html, "text/html");
+});
+
 api.MapGet("projects/{id}/surfaces/{surfaceId}/searchable-pdf", (ProjectService projects,
     string id, string surfaceId, bool? report) =>
 {

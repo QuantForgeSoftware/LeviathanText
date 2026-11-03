@@ -22,6 +22,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Review/ops | reviewer packets (crops + decision CSV + apply), persisted review queue, double-review/adjudication ledger, **experiment/run registry + per-line evaluation drilldown (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
 | Export bundle | native + training + crosswalk + integrity/overlap audits + 4 formats + searchable PDFs + manifest |
+| Edition HTML | print/reading HTML with L1, optional L2, line apparatus and loss report; CLI/API/UI |
 | Searchable PDF | capture image + invisible L1 line text at source rectangles; loss report for unplaced lines/L2/annotations; CLI/API/UI |
 | Provenance/audit | surface/line/fragment crosswalks, native fragment grouping API, read-only project integrity + corpus-overlap audits |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
@@ -32,7 +33,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 ## Verification
 
-- 1,101 tests (1,099 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
+- 1,103 tests (1,101 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
   (2026-11-03 verification).
 - 53 Angular specs; production build clean; demo, fresh-install, update/rollback, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).

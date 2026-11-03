@@ -78,6 +78,10 @@ public sealed class TeiCommandTests : IDisposable
         var boundaries = PathOf("boundaries.csv");
         Assert.Equal(0, Run("export", "word-boundaries", projectId, "--out", boundaries));
         Assert.Contains("lineId,revisionId,layer,scalarPosition", File.ReadAllText(boundaries));
+
+        var edition = PathOf("edition.html");
+        Assert.Equal(0, Run("export", "edition-html", projectId, SurfaceId(projectId), "--out", edition));
+        Assert.Contains("<html", File.ReadAllText(edition));
     }
 
     [Fact]
