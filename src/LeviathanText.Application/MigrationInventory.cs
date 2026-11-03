@@ -102,6 +102,12 @@ public static class MigrationInventory
         }
 
         if (skipped > 0) notes.Add($"skipped {skipped} symbolic link(s)");
+        foreach (var duplicate in entries
+                     .Where(entry => entry.Sha256 is { Length: 64 })
+                     .GroupBy(entry => entry.Sha256!, StringComparer.OrdinalIgnoreCase)
+                     .Where(group => group.Count() > 1))
+            notes.Add($"duplicate content {duplicate.Key[..12]}: " +
+                      string.Join(", ", duplicate.Select(entry => entry.RelativePath).Take(10)));
         var counts = entries
             .GroupBy(e => e.Kind, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal)

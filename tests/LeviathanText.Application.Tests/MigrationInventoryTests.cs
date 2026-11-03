@@ -63,6 +63,17 @@ public sealed class MigrationInventoryTests : IDisposable
     }
 
     [Fact]
+    public void Duplicate_content_is_reported_for_lineage_review()
+    {
+        Write("a.txt", "same bytes");
+        Write("b.txt", "same bytes");
+
+        var report = MigrationInventory.Scan(_root);
+
+        Assert.Contains(report.Notes, note => note.Contains("duplicate content", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Symbolic_link_directories_are_not_followed()
     {
         if (OperatingSystem.IsWindows()) return; // creating directory links needs privileges

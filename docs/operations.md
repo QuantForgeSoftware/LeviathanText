@@ -353,9 +353,9 @@ leviathan migrate inventory <existing-tree> --out inventory.json [--csv] [--limi
 
 Scans an existing collection tree without modifying it, classifies files by content
 (PAGE XML, ALTO, TEI/EpiDoc, hOCR, IIIF manifests, images, PDF, model metadata/weights,
-archives, scripts, text, other), records size and SHA-256 (files up to 512 MiB) and reports
-unclassified files. It is an intake aid: importing, comparing products and any Kraken
-checkout inspection remain separate authorized steps.
+archives, scripts, text, other), records size and SHA-256 (files up to 512 MiB), reports
+unclassified files and flags duplicate content for lineage review. It is an intake aid:
+importing, comparing products and any Kraken checkout inspection remain separate authorized steps.
 
 ```bash
 leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out ledger.csv]
