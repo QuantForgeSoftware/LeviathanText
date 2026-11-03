@@ -71,6 +71,8 @@ set: C0-0.4-draft.
   API and workspace member panel; consumed invitations remain as history.
 - **Fragment grouping:** native fragments persist external refs/metadata and surface membership,
   with API create/list and a `fragment-crosswalk.csv`; source importers do not infer boundaries.
+- **Fragment panel:** the surface view lists fragment memberships and can create an explicit
+  fragment containing the current surface (TM/inventory ref optional).
 - **Project health panel:** the workspace shows read-only integrity/overlap findings and
   downloads their CSVs; no source record is rewritten.
 - **Corpus overlap audit:** `data audit-overlap` / `GET /projects/{id}/overlap` reports repeated

@@ -124,6 +124,13 @@ export interface ProjectInviteView {
   usedBy?: string | null;
 }
 
+export interface NativeFragmentView {
+  id: string;
+  externalRefs: Record<string, string>;
+  metadata: Record<string, string>;
+  surfaceIds: string[];
+}
+
 export interface ProjectIntegrityIssue {
   code: string;
   scope: string;
@@ -535,6 +542,17 @@ export class ApiClient {
       version: string;
       surfaces: { surfaceId: string; lines: number; flagged: number; issues: { lineId: string; scalarOffset: number; category: string; scalar: string }[] }[];
     }>(`/api/v1/projects/${projectId}/profile-report`);
+  }
+
+  surfaceFragments(surfaceId: string): Observable<NativeFragmentView[]> {
+    return this.http.get<NativeFragmentView[]>(`/api/v1/surfaces/${surfaceId}/fragments`);
+  }
+
+  createSurfaceFragment(surfaceId: string, externalRefs: Record<string, string>): Observable<{
+    id: string; surfaceIds: string[];
+  }> {
+    return this.http.post<{ id: string; surfaceIds: string[] }>(
+      `/api/v1/surfaces/${surfaceId}/fragments`, { externalRefs });
   }
 
   projectIntegrity(projectId: string): Observable<ProjectIntegrityIssue[]> {

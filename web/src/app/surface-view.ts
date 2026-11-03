@@ -11,6 +11,7 @@ import { LineEditor } from './line-editor';
 import { DualPane } from './dual-pane';
 import { GeometryEditor } from './geometry-editor';
 import { SessionPanel } from './session-panel';
+import { FragmentPanel } from './fragment-panel';
 
 @Component({
   selector: 'app-surface-view',
@@ -117,6 +118,8 @@ import { SessionPanel } from './session-panel';
           <span class="hint">{{ exportStatus() }}</span>
         </p>
 
+        <app-fragment-panel [surfaceId]="surfaceId()" />
+
         <h3>Loss report <code>{{ data.lossReport.format }}</code></h3>
         @if (data.lossReport.entries.length === 0) {
           <p>Lossless: nothing was dropped.</p>
@@ -143,7 +146,7 @@ import { SessionPanel } from './session-panel';
     }
     .lines { line-height: 2; }
   `],
-  imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe, SessionPanel],
+  imports: [LineEditor, DualPane, GeometryEditor, DecimalPipe, SessionPanel, FragmentPanel],
 })
 export class SurfaceView implements OnDestroy {
   projectId = input.required<string>();

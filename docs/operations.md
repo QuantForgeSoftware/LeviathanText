@@ -260,7 +260,8 @@ made; use the local scripted/Ollama smoke paths for verification.
 - `data audit-overlap <projectId> [--json]` — repeated external refs/image checksums/surface
   refs for corpus lineage; also `GET /projects/{id}/overlap`.
 - `POST /projects/{id}/objects/{objectId}/fragments` groups existing surfaces with external
-  refs/metadata; `GET` lists them and `crosswalk?fragments=true` exports the fragment map.
+  refs/metadata; `GET` lists them, surface-level `GET/POST /surfaces/{id}/fragments` works from the editor,
+  and `crosswalk?fragments=true` exports the fragment map.
   Fragment boundaries are never inferred from source availability.
 - HTTP equivalents: `/projects/{id}/surfaces/{sid}/{diplomatic|tei|alto|hocr}`,
   `/projects/{id}/training-export`, `/projects/{id}/bundle`. Add `?report=true` to the TEI

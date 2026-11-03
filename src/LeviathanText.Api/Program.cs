@@ -378,6 +378,36 @@ api.MapDelete("projects/{id}", (ProjectService projects, string id) =>
     return Results.NoContent();
 });
 
+api.MapGet("surfaces/{surfaceId}/fragments", (ProjectService projects, string surfaceId) =>
+{
+    var surface = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surface)
+        ?? throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project.",
+        });
+    var obj = project.Objects.Single(o => o.Surfaces.Any(s => s.Id == surface));
+    return Results.Ok(obj.Fragments.Where(f => f.SurfaceIds.Contains(surface)));
+});
+
+api.MapPost("surfaces/{surfaceId}/fragments", (ProjectService projects, string surfaceId,
+    [FromBody] AddFragmentRequest request) =>
+{
+    var surface = EntityId.Parse(surfaceId, EntityKind.Surface);
+    var project = projects.LoadProjectForSurface(surface)
+        ?? throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project.",
+        });
+    var obj = project.Objects.Single(o => o.Surfaces.Any(s => s.Id == surface));
+    var ids = request.SurfaceIds?.Select(value => EntityId.Parse(value, EntityKind.Surface)).ToList()
+        ?? [surface];
+    if (!ids.Contains(surface)) ids.Add(surface);
+    var (_, fragment) = projects.AddFragment(project, obj.Id, request.ExternalRefs, request.Metadata, ids);
+    return Results.Created($"/api/v1/surfaces/{surfaceId}/fragments/{fragment.Id}",
+        new { id = fragment.Id.ToString(), surfaceIds = fragment.SurfaceIds.Select(s => s.ToString()) });
+});
+
 api.MapGet("projects/{id}/objects/{objectId}/fragments", (ProjectService projects, string id, string objectId) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));

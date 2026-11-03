@@ -908,6 +908,12 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             $"/api/v1/projects/{projectId}/objects/{objectId}/fragments");
         Assert.Contains(fragmentId, list);
         Assert.Contains("TM", list);
+        var bySurface = await client.GetStringAsync($"/api/v1/surfaces/{surfaceId}/fragments");
+        Assert.Contains(fragmentId, bySurface);
+        var surfaceCreated = await client.PostAsJsonAsync(
+            $"/api/v1/surfaces/{surfaceId}/fragments",
+            new { externalRefs = new Dictionary<string, string> { ["inventory"] = "inv-1" } });
+        Assert.Equal(HttpStatusCode.Created, surfaceCreated.StatusCode);
         var crosswalk = await client.GetStringAsync(
             $"/api/v1/projects/{projectId}/crosswalk?fragments=true");
         Assert.Contains("fragmentId", crosswalk);
