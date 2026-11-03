@@ -50,6 +50,8 @@ set: C0-0.4-draft.
 - **Bounded searchable PDF:** `export searchable-pdf` draws the capture and invisible L1 line
   text at source rectangles; unplaced lines/L2/annotations are reported as loss. CLI/API and
   PdfPig extraction tests cover it.
+- **Invitation management:** admins can list and revoke unused project invitations from the
+  API and workspace member panel; consumed invitations remain as history.
 - **Fragment grouping:** native fragments persist external refs/metadata and surface membership,
   with API create/list and a `fragment-crosswalk.csv`; source importers do not infer boundaries.
 - **Project integrity audit:** `project audit` / `GET /projects/{id}/integrity` reports

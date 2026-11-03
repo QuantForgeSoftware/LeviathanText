@@ -529,6 +529,10 @@ admins can issue them. Admin invitations are refused. The workspace provides **P
 Create invitation** plus a public **Have an invitation?** acceptance panel. Successful and
 rejected acceptances are written to the auth audit (`invite.accepted` / `invite.rejected`).
 
+Admins can list and revoke unused invitations with
+`GET /api/v1/projects/{id}/invites` and `DELETE /api/v1/projects/{id}/invites/{inviteId}`;
+used invitations remain in membership history and cannot be revoked.
+
 **Presence and sessions (advisory, shared store):** the surface view heartbeats
 `POST /surfaces/{id}/presence {editorId}` every 20 seconds and displays active editors from
 `GET /surfaces/{id}/presence`; `DELETE /surfaces/{id}/presence/{editorId}` clears it. Entries live

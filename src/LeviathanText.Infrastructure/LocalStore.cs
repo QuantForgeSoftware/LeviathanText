@@ -586,6 +586,16 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         return invites;
     }
 
+    /// <summary>Revoke an unused invitation; used invitations remain as membership history.</summary>
+    public bool DeleteInvite(EntityId projectId, string inviteId)
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM invites WHERE id = $id AND project_id = $project AND used_at IS NULL";
+        cmd.Parameters.AddWithValue("$id", inviteId);
+        cmd.Parameters.AddWithValue("$project", projectId.ToString());
+        return cmd.ExecuteNonQuery() == 1;
+    }
+
     /// <summary>Atomically consume an unused invitation; false means it was already used.</summary>
     public bool MarkInviteUsed(string inviteId, string userId, DateTimeOffset at)
     {

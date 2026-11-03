@@ -113,6 +113,17 @@ export interface ConfidenceValue {
   scale: string;
 }
 
+export interface ProjectInviteView {
+  id: string;
+  projectId: string;
+  role: string;
+  createdBy?: string | null;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string | null;
+  usedBy?: string | null;
+}
+
 export interface RegistryEntry {
   id: string;
   name: string;
@@ -407,6 +418,15 @@ export class ApiClient {
   }> {
     return this.http.post<{ inviteId: string; token: string; role: string; expiresAt: string }>(
       `/api/v1/projects/${projectId}/invites`, { role, expiresInHours });
+  }
+
+  invites(projectId: string): Observable<ProjectInviteView[]> {
+    return this.http.get<ProjectInviteView[]>(`/api/v1/projects/${projectId}/invites`);
+  }
+
+  revokeInvite(projectId: string, inviteId: string): Observable<{ revoked: boolean }> {
+    return this.http.delete<{ revoked: boolean }>(
+      `/api/v1/projects/${projectId}/invites/${inviteId}`);
   }
 
   acceptInvite(token: string, name: string): Observable<{

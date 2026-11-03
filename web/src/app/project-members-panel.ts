@@ -1,6 +1,6 @@
 /** Admin-only project membership editor (opt-in per-project scoping). */
 import { Component, OnChanges, SimpleChanges, input, signal } from '@angular/core';
-import { ApiClient, UserAccount } from './api-client';
+import { ApiClient, ProjectInviteView, UserAccount } from './api-client';
 
 @Component({
   selector: 'app-project-members-panel',
@@ -24,6 +24,20 @@ import { ApiClient, UserAccount } from './api-client';
         </div>
         @if (inviteToken()) {
           <p class="key">Invitation token (shown once): <code>{{ inviteToken() }}</code></p>
+        }
+        @if (invites().length > 0) {
+          <ul class="invites">
+            @for (invite of invites(); track invite.id) {
+              <li>
+                <code>{{ invite.id }}</code> {{ invite.role }} · expires {{ invite.expiresAt }}
+                @if (invite.usedAt) {
+                  <span class="hint">used</span>
+                } @else {
+                  <button type="button" (click)="revokeInvite(invite.id)">Revoke</button>
+                }
+              </li>
+            }
+          </ul>
         }
         <ul>
           @for (user of users(); track user.id) {
@@ -59,6 +73,7 @@ export class ProjectMembersPanel implements OnChanges {
   protected readonly inviteRole = signal('annotator');
   protected readonly inviteHours = signal(24);
   protected readonly inviteToken = signal('');
+  protected readonly invites = signal<ProjectInviteView[]>([]);
 
   private readonly api: ApiClient;
 
@@ -73,6 +88,7 @@ export class ProjectMembersPanel implements OnChanges {
     if (changes['projectId'] && !changes['projectId'].firstChange) {
       this.loaded.set(false);
       this.members.set([]);
+      this.invites.set([]);
       this.status.set('');
     }
   }
@@ -90,6 +106,7 @@ export class ProjectMembersPanel implements OnChanges {
       next: result => {
         this.inviteToken.set(result.token);
         this.status.set(`invitation valid until ${result.expiresAt}`);
+        this.loadInvites();
       },
       error: () => this.status.set('invitation creation failed (admin only)'),
     });
@@ -115,6 +132,7 @@ export class ProjectMembersPanel implements OnChanges {
                 this.members.set(members);
                 this.loaded.set(true);
                 this.status.set(`${members.length} member(s)`);
+                this.loadInvites();
               },
               error: () => this.status.set('membership unavailable'),
             });
@@ -123,6 +141,23 @@ export class ProjectMembersPanel implements OnChanges {
         });
       },
       error: () => this.status.set('identity unavailable'),
+    });
+  }
+
+  private loadInvites(): void {
+    this.api.invites(this.projectId()).subscribe({
+      next: invites => this.invites.set(invites),
+      error: () => { /* admin-only; keep the current list */ },
+    });
+  }
+
+  protected revokeInvite(inviteId: string): void {
+    this.api.revokeInvite(this.projectId(), inviteId).subscribe({
+      next: () => {
+        this.invites.update(invites => invites.filter(invite => invite.id !== inviteId));
+        this.status.set('invitation revoked');
+      },
+      error: () => this.status.set('only an unused invitation can be revoked'),
     });
   }
 

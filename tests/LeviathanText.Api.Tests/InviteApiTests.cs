@@ -64,4 +64,28 @@ public sealed class InviteApiTests
         Assert.Contains("invite.accepted", await admin.GetStringAsync("/api/v1/audit?limit=100"));
         Assert.Contains("invite.rejected", await admin.GetStringAsync("/api/v1/audit?limit=100"));
     }
+
+    [Fact]
+    public async Task Unused_invitation_can_be_listed_and_revoked()
+    {
+        using var factory = new InviteFactory();
+        var admin = WithKey(factory.CreateClient(), AdminKey);
+        var project = await (await admin.PostAsJsonAsync("/api/v1/projects", new { name = "invite-revoke" }))
+            .Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        var created = await admin.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/invites",
+            new { role = "reader", expiresInHours = 24 });
+        using var createdJson = System.Text.Json.JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var inviteId = createdJson.RootElement.GetProperty("inviteId").GetString()!;
+        var token = createdJson.RootElement.GetProperty("token").GetString()!;
+
+        Assert.Contains(inviteId, await admin.GetStringAsync($"/api/v1/projects/{project["id"]}/invites"));
+        Assert.Equal(HttpStatusCode.OK,
+            (await admin.DeleteAsync($"/api/v1/projects/{project["id"]}/invites/{inviteId}")).StatusCode);
+        Assert.DoesNotContain(inviteId,
+            await admin.GetStringAsync($"/api/v1/projects/{project["id"]}/invites"));
+
+        var accept = await factory.CreateClient().PostAsJsonAsync("/api/v1/invites/accept",
+            new { token, name = "revoked" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, accept.StatusCode);
+    }
 }

@@ -14,6 +14,8 @@ describe('ProjectMembersPanel', () => {
         { id: 'usr-b', name: 'ben', role: 'annotator', createdAt: '' },
       ]),
       projectMembers: () => of(members),
+      invites: () => of([]),
+      revokeInvite: () => of({ revoked: true }),
       addProjectMember: (_project: string, userId: string) => {
         calls.push(`add:${userId}`);
         members.push(userId);

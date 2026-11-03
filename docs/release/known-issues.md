@@ -65,7 +65,8 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
 
 - Shared deployment has **local accounts with roles** (reader/annotator/reviewer/admin), hashed
   keys, rotation/disable and a read-only mode. There are no refresh tokens or SSO. Opt-in
-  per-project membership, admin panels, one-time invitation tokens, advisory store-backed
+  per-project membership, admin panels, one-time invitation tokens (unused tokens can be
+  listed/revoked), advisory store-backed
   presence, server-issued TTL sessions (heartbeat/revoke, node/surface binding) and a bounded
   three-way merge for stale text revisions exist. Sessions are coordination records, not
   tokens; there are no edit locks. Annotation and review writes can name the revision they

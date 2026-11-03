@@ -1409,6 +1409,21 @@ api.MapPost("projects/{id}/invites", (ProjectService projects, LocalStore store,
     });
 });
 
+api.MapDelete("projects/{id}/invites/{inviteId}", (ProjectService projects, LocalStore store,
+    string id, string inviteId) =>
+{
+    var projectId = EntityId.Parse(id, EntityKind.Collection);
+    _ = projects.Load(projectId);
+    return store.DeleteInvite(projectId, inviteId)
+        ? Results.Ok(new { revoked = true, inviteId })
+        : throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing,
+            Scope = inviteId,
+            Message = "No unused invitation with this id exists for the project.",
+        });
+});
+
 api.MapPost("invites/accept", (LocalStore store, [FromBody] AcceptInviteRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.Name))
