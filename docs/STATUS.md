@@ -21,18 +21,19 @@ actionable checklist in [todo.md](../todo.md), completed work in
 | Durable jobs | layout.detect, layout.project, recognize.surface, recognize.project, import.dir; priority ordering + optional per-owner quota (cooperative cancellation) |
 | Review/ops | reviewer packets (crops + decision CSV + apply), persisted review queue, double-review/adjudication ledger, **experiment/run registry + per-line evaluation drilldown (CLI/API/UI)**, model discovery + recognition, project stats/deletion, manifest audit CLI |
 | Bulk import | 27 PAGE files in 0.6 s (in-process) |
-| Export bundle | native + training + crosswalk + 4 formats + manifest |
-| Searchable PDF | capture image + invisible L1 line text at source rectangles; loss report for unplaced lines/L2/annotations |
+| Export bundle | native + training + crosswalk + integrity/overlap audits + 4 formats + searchable PDFs + manifest |
+| Searchable PDF | capture image + invisible L1 line text at source rectangles; loss report for unplaced lines/L2/annotations; CLI/API/UI |
+| Provenance/audit | surface/line/fragment crosswalks, native fragment grouping API, read-only project integrity + corpus-overlap audits |
 | Backup/restore | consistent snapshot; checksummed restore (db + images); rehearsal script PASS |
 | Packaging | osx-arm64 framework-dependent package + SHA-256 manifest; optional workspace hosting at `/ui`; other targets untested |
 | Workspace | editor with mark/confidence rendering + L1/L2 diff, annotations with retraction, correction-sequence/hand labels, alternatives→L2, geometry (draw/resize/delete/split/merge/order), review/adjudication, search, models + recognition, exports, QA badge, offline read cache, project/surface/line deep links, source-capture link, session list/revoke panel |
-| Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, opt-in per-project membership + admin panels, hashed one-time invite tokens, workspace key panel, read-only; advisory store-backed presence |
-| Collaboration | per-surface presence, invitation UI/API, server-issued TTL sessions (node/surface binding, heartbeat/revoke), optimistic project versions, three-way merge for stale text revisions and stale annotation/review checks; no edit locks or push, geometry/order writes are not merged |
+| Shared deployment | local accounts + roles, hashed keys, rotation/disable, auth audit, opt-in per-project membership + admin panels, hashed one-time invite tokens, workspace key panel, read-only; advisory store-backed presence; invite list/revoke |
+| Collaboration | per-surface presence, invitation UI/API, server-issued TTL sessions (node/surface binding, heartbeat/revoke), optimistic project versions, three-way merge for stale text revisions and stale annotation/review checks; no edit locks or push; geometry/order/retraction writes fail on stale project state (not field-merged) |
 
 ## Verification
 
-- 963 tests (961 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
-  (2026-11-02 cycle close).
+- 1,077 tests (1,075 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
+  (2026-11-03 verification).
 - 51 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
