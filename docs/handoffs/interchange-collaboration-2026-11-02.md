@@ -47,8 +47,8 @@ not a release, acceptance or model-promotion record.
 ## Open / next
 
 - TEI XSD/RelaxNG pinning and the remaining EpiDoc constructs; multi-page `<pb>` splitting.
-- Deployment-wide session console (the surface panel lists/revokes visible sessions) and a
-  presence spec.
+- Cross-project presence feed/push and a formal presence/session spec (surface and workspace
+  panels already list/revoke visible sessions).
 - Geometry/order and annotation-retraction conflict checks; edit locks.
 - Object/surface/fragment provenance crosswalk; accepted-record comparison and eScriptorium
   round trip.

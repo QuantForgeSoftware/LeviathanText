@@ -71,9 +71,9 @@ Date: 2026-10-19. Everything here is a recorded limitation, not a hidden one.
   observed and fail on a stale one; geometry/order writes remain last-write-wins.
   Basic auth audit entries exist (mutations/denials). The workspace has an API-key panel
   (localStorage; X-Api-Key + SSE query token); local-only mode remains the default. The surface
-  view creates/heartbeats/revokes its session and shows the serving node; the session panel
-  lists/revokes sessions visible to the current principal (admins see all), but there is no
-  deployment-wide session console.
+  view creates/heartbeats/revokes its session and shows the serving node; surface and workspace
+  session panels list/revoke sessions visible to the current principal (admins see all). There
+  is no cross-project presence feed or push channel.
 - Provider credentials are read from environment variables; hosted provider calls are unproven.
 - PDF rendering uses native PDFium against files readable by the server process; size/page limits
   are enforced, but PDFium itself is not sandboxed. Treat PDFs as untrusted input. PDF text is

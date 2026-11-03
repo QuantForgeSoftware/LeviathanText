@@ -38,6 +38,8 @@ describe('ProjectsPage (search)', () => {
       objects: [{ id: 'obj-1', surfaces: [{ id: 'surf-1', kind: 'page', lines: [], regions: [], captures: [] }] }],
     });
     fixture.detectChanges();
+    http.expectOne('/api/v1/sessions').flush([]);
+    fixture.detectChanges();
     expect(window.location.search).toContain('project=col-1');
 
     const input = fixture.nativeElement.querySelector('input[placeholder="word or phrase"]') as HTMLInputElement;
@@ -98,6 +100,8 @@ describe('ProjectsPage (deep links)', () => {
     http.expectOne('/api/v1/projects/col-1').flush({
       id: 'col-1', name: 'demo', objects: [],
     });
+    fixture.detectChanges();
+    http.expectOne('/api/v1/sessions').flush([]);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('demo');

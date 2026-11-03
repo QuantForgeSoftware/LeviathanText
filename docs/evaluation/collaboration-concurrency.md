@@ -73,7 +73,8 @@ Evidence: `SessionServiceTests` (create/heartbeat/list/revoke, ownership, expiry
   on the project version and last-write-wins; the version check prevents a silent overwrite for
   documented read-modify-write flows.
 - The surface view creates/heartbeats/revokes its own session and shows the serving node; a
-  session panel lists and revokes sessions visible to the current principal (admins see all).
-  There is no deployment-wide session console.
+  surface panel lists/revokes sessions for that surface, and the workspace collection page has
+  an admin-visible session console (non-admins see their own). There is still no cross-project
+  presence feed or push channel.
 - SQLite remains a single-writer local store; PostgreSQL/object storage for shared
   deployments is still future work.

@@ -32,7 +32,7 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 - 961 tests (959 passed + 2 opt-in skips), 0 failed, 14 suites; Release build 0 warnings/0 errors
   (2026-11-02 cycle close).
-- 49 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
+- 50 Angular specs; production build clean; demo, fresh-install, package and backup/restore rehearsals PASS.
 - Contract self-review: [docs/contracts/self-review-2026-10-19.md](contracts/self-review-2026-10-19.md).
 
 ## Measured numbers (pilot scale)
@@ -61,8 +61,8 @@ actionable checklist in [todo.md](../todo.md), completed work in
 - TIFF works through a bounded ImageSharp fallback; very large TIFF pages still decode the full
   frame and there is no general tiled decoder.
 - Shared deployment is pilot-grade: local accounts/roles/audit, TTL sessions and a three-way
-  text merge and a per-surface session panel, but no SSO/refresh tokens, edit locks or
-  deployment-wide session console.
+  text merge and surface/workspace session panels, but no SSO/refresh tokens, edit locks or
+  cross-project presence feed.
 - Hosted AI provider calls unproven (local Ollama transport smoke only).
 - Backend/CPU-only; GPU paths unmeasured. NT-20's repeated-loading RSS growth remains
   unexplained and collection-scale/supported-platform resource profiling is incomplete.
@@ -71,6 +71,6 @@ actionable checklist in [todo.md](../todo.md), completed work in
 
 0. Limits and open issues: [docs/release/known-issues.md](release/known-issues.md).
 1. Data: finish adjudication of the pilot labels; add fresh held-out witnesses for any claim.
-2. Engineering: TEI schema pinning/validation; learned/merged-gutter layout; deployment-wide
-   session console; tiled decode; confidence-aware review queue.
+2. Engineering: TEI schema pinning/validation; learned/merged-gutter layout; tiled decode;
+   confidence-aware review queue and cross-project presence feed.
 3. Integration: surface B's latest evaluation artifacts; reconcile contract increments before any bump.

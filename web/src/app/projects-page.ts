@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ApiClient, ProjectPayload } from './api-client';
 import { SurfaceView } from './surface-view';
 import { ProjectMembersPanel } from './project-members-panel';
+import { SessionsAdminPanel } from './sessions-admin-panel';
 
 interface ProjectRow {
   id: string;
@@ -78,6 +79,7 @@ interface ProjectRow {
             }
           }
           <app-project-members-panel [projectId]="selectedId()!" />
+          <app-sessions-admin-panel />
           <ul>
             @for (object of payload.objects; track object.id) {
               @for (surface of object.surfaces; track surface.id) {
@@ -132,7 +134,7 @@ interface ProjectRow {
     .hint { color: #667; font-size: 0.85rem; }
     li { margin: 0.2rem 0; }
   `],
-  imports: [SurfaceView, ProjectMembersPanel],
+  imports: [SurfaceView, ProjectMembersPanel, SessionsAdminPanel],
 })
 export class ProjectsPage {
   private readonly api: ApiClient;

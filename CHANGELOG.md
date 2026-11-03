@@ -31,7 +31,8 @@ set: C0-0.4-draft.
 - **Server-issued editing sessions:** store-backed TTL sessions with node/surface binding,
   heartbeat, revoke and per-surface listing; presence can derive its identity from a session.
   The surface view now creates/heartbeats/revokes its session, displays the serving node and
-  exposes a session list/revoke panel.
+  exposes a session list/revoke panel; the workspace collection page adds an admin-visible
+  session console.
 - **Three-way line merge:** `merge: true` on revision writes combines non-overlapping edits and
   refuses overlapping ones with both candidate texts; the Angular editor requests it on save.
 - **Opt-in two-column projection split:** `layout detect --columns` / `?columns=true` accepts a
