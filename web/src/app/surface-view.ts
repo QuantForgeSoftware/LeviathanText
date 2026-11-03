@@ -112,6 +112,7 @@ import { FragmentPanel } from './fragment-panel';
         <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
           <button type="button" (click)="downloadSearchablePdf()">Download searchable PDF</button>
+          <button type="button" (click)="downloadWordBoundaries()">Download word boundaries</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
           <button type="button" (click)="detectLayout()">Detect layout</button>
           <a [href]="bundleUrl()" download>Download bundle (.zip)</a>
@@ -245,6 +246,16 @@ export class SurfaceView implements OnDestroy {
         this.exportStatus.set('TEI downloaded');
       },
       error: () => this.exportStatus.set('TEI export failed'),
+    });
+  }
+
+  protected downloadWordBoundaries(): void {
+    this.api.wordBoundaryCsv(this.projectId()).subscribe({
+      next: csv => {
+        this.download(`${this.surfaceId()}-word-boundaries.csv`, csv, 'text/csv');
+        this.exportStatus.set('word boundaries downloaded');
+      },
+      error: () => this.exportStatus.set('word-boundary export failed'),
     });
   }
 

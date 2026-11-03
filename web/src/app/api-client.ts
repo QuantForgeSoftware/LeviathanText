@@ -555,6 +555,11 @@ export class ApiClient {
       `/api/v1/surfaces/${surfaceId}/fragments`, { externalRefs });
   }
 
+  wordBoundaryCsv(projectId: string): Observable<string> {
+    return this.http.get(`/api/v1/projects/${projectId}/word-boundaries`,
+      { responseType: 'text' });
+  }
+
   projectIntegrity(projectId: string): Observable<ProjectIntegrityIssue[]> {
     return this.http.get<ProjectIntegrityIssue[]>(`/api/v1/projects/${projectId}/integrity`);
   }
