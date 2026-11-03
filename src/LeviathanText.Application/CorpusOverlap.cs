@@ -26,6 +26,16 @@ public static class CorpusOverlap
                 "The same source identifier is attached to multiple objects; review object/fragment lineage."));
 
         foreach (var group in project.Objects
+                     .SelectMany(obj => obj.Fragments)
+                     .SelectMany(fragment => fragment.ExternalRefs.Select(pair => (fragment, pair)))
+                     .Where(item => !string.IsNullOrWhiteSpace(item.pair.Value))
+                     .GroupBy(item => $"{item.pair.Key}={item.pair.Value}", StringComparer.Ordinal)
+                     .Where(group => group.Select(item => item.fragment.Id).Distinct().Count() > 1))
+            rows.Add(new Overlap("fragment-ref", group.Key,
+                string.Join(", ", group.Select(item => item.fragment.Id).Distinct()),
+                "The same source identifier is attached to multiple fragments; review physical lineage."));
+
+        foreach (var group in project.Objects
                      .SelectMany(obj => obj.Surfaces)
                      .SelectMany(surface => surface.Captures)
                      .Where(capture => !string.IsNullOrWhiteSpace(capture.Frame.ImageChecksum.Digest))

@@ -1,5 +1,6 @@
 using LeviathanText.Application;
 using LeviathanText.Contracts;
+using LeviathanText.Formats;
 
 namespace LeviathanText.Application.Tests;
 
@@ -35,6 +36,31 @@ public sealed class CorpusOverlapTests
         Assert.Contains("image-checksum", CorpusOverlap.ToJson(overlaps));
         Assert.Contains("kind,value,entities,note", CorpusOverlap.ToCsv(overlaps));
         Assert.Equal(2, withTwo.Objects.Count); // read-only
+    }
+
+    [Fact]
+    public void Repeated_fragment_refs_are_reported()
+    {
+        var project = SampleProjectBuilder.Build();
+        var obj = project.Objects[0];
+        var surface = obj.Surfaces[0];
+        NativeFragment Fragment(string id) => new()
+        {
+            Id = new EntityId(EntityKind.Fragment, id),
+            ExternalRefs = new Dictionary<string, string> { ["TM"] = "12345" },
+            SurfaceIds = [surface.Id],
+        };
+        var modified = project with
+        {
+            Objects =
+            [
+                obj with { Fragments = [Fragment("frag-a"), Fragment("frag-b")] },
+            ],
+        };
+
+        var overlaps = CorpusOverlap.Audit(modified);
+
+        Assert.Contains(overlaps, overlap => overlap.Kind == "fragment-ref" && overlap.Value == "TM=12345");
     }
 
     [Fact]
