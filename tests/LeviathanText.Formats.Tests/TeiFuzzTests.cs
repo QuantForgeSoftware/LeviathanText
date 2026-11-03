@@ -38,6 +38,59 @@ public class TeiFuzzTests
         }
     }
 
+    [Fact]
+    public void Recursive_supported_profile_fuzz_keeps_imported_l1_text()
+    {
+        var random = new Random(20261105);
+        for (int iteration = 0; iteration < 250; iteration++)
+        {
+            var content = string.Concat(Enumerable.Range(0, random.Next(2, 6))
+                .Select(_ => NestedToken(random, 3)));
+            TeiXml.TeiImportResult imported;
+            try
+            {
+                imported = TeiXml.Import(Prefix + content + Suffix);
+            }
+            catch (Exception ex) when (ex is System.Xml.XmlException or InvalidDataException)
+            {
+                continue; // generated nesting can be well-formed but outside the edition path
+            }
+            var l1 = imported.Revisions.SingleOrDefault(r => r.Layer == TextLayer.L1Diplomatic);
+            if (l1 is null || imported.Document is null) continue;
+            var l2 = imported.Revisions.SingleOrDefault(r => r.Layer == TextLayer.L2Editorial);
+            var line = Assert.Single(imported.Document.Lines);
+            var exported = TeiXml.ExportDocument(
+                [new TeiXml.TeiExportLine(line.LineId, l1, l2, imported.Annotations, line)],
+                "fuzz-recursive", new TeiXml.TeiExportContext(Graphics: [new TeiXml.TeiGraphic("synthetic.png")]));
+            var reparsed = TeiXml.Import(exported.Xml);
+            var reparsedL1 = Assert.Single(reparsed.Revisions, r => r.Layer == TextLayer.L1Diplomatic);
+            Assert.True(l1.Text == reparsedL1.Text,
+                $"iteration {iteration}: L1 changed\ninput: {content}\nL1: {l1.Text}\nreparsed: {reparsedL1.Text}\nxml: {exported.Xml}");
+        }
+    }
+
+    private static string NestedToken(Random random, int depth)
+    {
+        if (depth <= 0 || random.Next(0, 4) == 0) return Greek(random);
+        var inner = NestedToken(random, depth - 1);
+        return random.Next(0, 13) switch
+        {
+            0 => $"<unclear>{inner}</unclear>",
+            1 => $"<supplied>{inner}</supplied>",
+            2 => $"<hi rend=\"overline\">{inner}</hi>",
+            3 => $"<add>{inner}</add>",
+            4 => $"<del>{inner}</del>",
+            5 => $"<damage>{inner}</damage>",
+            6 => $"<ex>{inner}</ex>",
+            7 => $"<certainty cert=\"low\">{inner}</certainty>",
+            8 => $"<choice><abbr>{inner}</abbr><expan>{NestedToken(random, depth - 1)}</expan></choice>",
+            9 => $"<app><lem>{inner}</lem><rdg>{NestedToken(random, depth - 1)}</rdg></app>",
+            10 => "<space/>",
+            11 => "<gap extent=\"unknown\"/>",
+            _ => inner,
+        };
+    }
+
     [Theory]
     [InlineData("<hi rend=\"overline\"><unclear>α</unclear>β</hi>")]
     [InlineData("<unclear><hi rend=\"overline\">α</hi>β</unclear>")]
