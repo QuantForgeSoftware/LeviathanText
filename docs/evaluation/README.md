@@ -29,6 +29,8 @@
 - [layout-impact-page-cer.md](layout-impact-page-cer.md) — same recognition model, projection
   vs learned layout: page CER 0.971 → 0.942 and detection recall ~0.54 → ~0.996 on held-out
   M02a pages (one-to-one matching).
+- [searchable-pdf.md](searchable-pdf.md) — bounded capture + invisible L1 text PDF export,
+  loss reporting and limits.
 - [route-resource.md](route-resource.md) — bounded single-process API/store route RSS probe;
   no model loading, worker concurrency or leak claim.
 - [migration-inventory.md](migration-inventory.md) — read-only tree inventory and bounded
