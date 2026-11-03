@@ -97,6 +97,22 @@ public static class ProjectIntegrity
                         else if (parentRevision.ScopeId != revision.ScopeId || parentRevision.Layer != revision.Layer)
                             issues.Add(new Issue("parent-scope-mismatch", revision.Id.ToString(),
                                 "Parent revision has a different scope or layer."));
+                        else
+                        {
+                            var seen = new HashSet<EntityId> { revision.Id };
+                            TextRevision? cursor = parentRevision;
+                            while (cursor is not null)
+                            {
+                                if (!seen.Add(cursor.Id))
+                                {
+                                    issues.Add(new Issue("revision-cycle", revision.Id.ToString(),
+                                        "Revision ancestry contains a cycle."));
+                                    break;
+                                }
+                                cursor = cursor.ParentRevisionId is { } next
+                                    && revisions.TryGetValue(next, out var ancestor) ? ancestor : null;
+                            }
+                        }
                     }
                     int scalars = LeviathanText.Core.Unicode.ScalarText.ScalarLength(revision.Text);
                     foreach (var annotation in surface.Annotations.Where(a => a.AnchoredRevisionId == revision.Id))
