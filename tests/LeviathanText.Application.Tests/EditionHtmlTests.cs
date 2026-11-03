@@ -7,6 +7,29 @@ namespace LeviathanText.Application.Tests;
 public sealed class EditionHtmlTests
 {
     [Fact]
+    public void Edition_html_rejects_active_image_schemes()
+    {
+        var project = SampleProjectBuilder.Build();
+        var surface = project.Objects[0].Surfaces[0];
+        var capture = surface.Captures[0] with { ImageLocation = "javascript:alert(1)" };
+        var modified = project with
+        {
+            Objects =
+            [
+                project.Objects[0] with
+                {
+                    Surfaces = [surface with { Captures = [capture] }],
+                },
+            ],
+        };
+
+        var result = EditionHtml.Export(modified, surface.Id, "safe");
+
+        Assert.DoesNotContain("javascript:", result.Html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("No capture attached.", result.Html);
+    }
+
+    [Fact]
     public void Edition_html_renders_l1_l2_and_escaped_apparatus()
     {
         var project = SampleProjectBuilder.Build();

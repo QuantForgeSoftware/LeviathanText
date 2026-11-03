@@ -48,8 +48,9 @@ public static class EditionHtml
         html.AppendLine("<body>");
         html.AppendLine($"<h1>{Encode(title)}</h1>");
         html.AppendLine("<div class=\"surface\"><figure>");
-        if (capture is not null)
-            html.AppendLine($"<img src=\"{Encode(imageSource ?? capture.ImageLocation)}\" alt=\"source capture\">");
+        var image = capture is null ? null : SafeImageSource(imageSource ?? capture.ImageLocation);
+        if (image is not null)
+            html.AppendLine($"<img src=\"{Encode(image)}\" alt=\"source capture\">");
         else
             html.AppendLine("<p class=\"editorial\">No capture attached.</p>");
         html.AppendLine("</figure><main><ol class=\"lines\">");
@@ -169,6 +170,16 @@ public static class EditionHtml
         AnnotationKind.DifferentHand => annotation.HandLabel ?? annotation.Description ?? "",
         _ => annotation.Description ?? annotation.HandLabel ?? "",
     };
+
+    private static string? SafeImageSource(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return null;
+        var trimmed = source.TrimStart();
+        return trimmed.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("vbscript:", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("data:text/html", StringComparison.OrdinalIgnoreCase)
+            ? null : source;
+    }
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 }
