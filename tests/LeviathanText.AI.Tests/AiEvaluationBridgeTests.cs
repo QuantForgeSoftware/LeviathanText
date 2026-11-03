@@ -47,6 +47,17 @@ public class AiEvaluationBridgeTests
         Assert.Equal(expected, AiEvaluationBridge.ToDisposition(source));
 
     [Fact]
+    public void Advisory_translation_does_not_enter_correction_effort_scoring()
+    {
+        var translation = Proposal(AiTaskKind.Translation, ProposalStatus.Proposed, "Lord", "κυριου");
+
+        var score = AiEvaluationBridge.ScoreSession("κυρίου", "κυριου", "κυρίου", [translation]);
+
+        Assert.Equal(0, score.PendingSuggestions);
+        Assert.Equal(0, score.AcceptedSuggestions);
+    }
+
+    [Fact]
     public void Session_scoring_uses_the_recorded_source_and_status()
     {
         var accepted = Proposal(AiTaskKind.Accentuation, ProposalStatus.Accepted, "κυρίου", "κυριου");

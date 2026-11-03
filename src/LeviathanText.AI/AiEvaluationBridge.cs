@@ -48,6 +48,10 @@ public static class AiEvaluationBridge
         CorrectionTime? time = null)
     {
         ArgumentNullException.ThrowIfNull(proposals);
-        return CorrectionEffortScorer.Score(reference, raw, final, proposals.Select(ToAudit).ToArray(), time);
+        // Translation/extraction are advisory, not text-replacement suggestions; including
+        // them in correction-effort scoring would misstate the edit burden.
+        var editable = proposals.Where(proposal =>
+            proposal.Request.Task is not (AiTaskKind.Translation or AiTaskKind.StructuredExtraction));
+        return CorrectionEffortScorer.Score(reference, raw, final, editable.Select(ToAudit).ToArray(), time);
     }
 }
