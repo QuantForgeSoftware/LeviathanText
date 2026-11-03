@@ -747,8 +747,9 @@ derive identity from a session instead of a client-chosen string.
 format, records sizes/SHA-256 and reports unclassified files without modifying it. Smoke on
 the local M01 artifact tree inventoried 241 files (120 PAGE XML, 120 images, 1 archive); a
 read-only run on the `~/Code/kraken` reference checkout inventoried 291 files/118.9 MB
-(12 PAGE, 10 ALTO, 21 images, 13 model weights, 134 scripts) without changing it. It is an
-intake aid, not a migration or comparison claim.
+(12 PAGE, 10 ALTO, 21 images, 13 model weights, 134 scripts) without changing it. A
+`migrate import` smoke on the local M01 tree imported 120/120 PAGE records into a new project
+with zero unsupported notes. It is an intake aid, not a migration or comparison claim.
 
 **Evidence:** [interchange](docs/evaluation/interchange-v2.md),
 [concurrency/collaboration](docs/evaluation/collaboration-concurrency.md) and the
