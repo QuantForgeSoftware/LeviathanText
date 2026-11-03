@@ -524,6 +524,11 @@ export class ApiClient {
     }>(`/api/v1/projects/${projectId}/profile-report`);
   }
 
+  searchablePdf(projectId: string, surfaceId: string): Observable<Blob> {
+    return this.http.get(`/api/v1/projects/${projectId}/surfaces/${surfaceId}/searchable-pdf`,
+      { responseType: 'blob' });
+  }
+
   trainingExport(projectId: string): Observable<unknown> {
     return this.http.get<unknown>(`/api/v1/projects/${projectId}/training-export`);
   }

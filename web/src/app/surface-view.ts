@@ -110,6 +110,7 @@ import { SessionPanel } from './session-panel';
 
         <p class="tools">
           <button type="button" (click)="downloadTei()">Download TEI/EpiDoc</button>
+          <button type="button" (click)="downloadSearchablePdf()">Download searchable PDF</button>
           <button type="button" (click)="downloadTraining()">Download training JSON</button>
           <button type="button" (click)="detectLayout()">Detect layout</button>
           <a [href]="bundleUrl()" download>Download bundle (.zip)</a>
@@ -241,6 +242,21 @@ export class SurfaceView implements OnDestroy {
         this.exportStatus.set('TEI downloaded');
       },
       error: () => this.exportStatus.set('TEI export failed'),
+    });
+  }
+
+  protected downloadSearchablePdf(): void {
+    this.api.searchablePdf(this.projectId(), this.surfaceId()).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${this.surfaceId()}.pdf`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.exportStatus.set('searchable PDF downloaded');
+      },
+      error: () => this.exportStatus.set('searchable PDF export failed'),
     });
   }
 
