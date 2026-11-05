@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Infrastructure;
@@ -37,16 +38,38 @@ public static class Program
              new ImportDirectoryHandler(store, jobStore)]);
         var workerId = host.WorkerId.ToString();
 
-        Console.WriteLine($"worker {workerId} polling {storePath}");
-        do
+        using var stopping = new CancellationTokenSource();
+        using var terminate = OperatingSystem.IsWindows() ? null :
+            PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+            {
+                context.Cancel = true;
+                stopping.Cancel();
+            });
+        ConsoleCancelEventHandler interrupt = (_, args) =>
         {
-            var finished = host.RunNext();
-            if (finished is { } job)
-                Console.WriteLine($"{DateTimeOffset.UtcNow:O} {job.Id} -> {job.Status}{(job.Failure is null ? "" : $" ({job.Failure})")}");
-            if (runOnce) return 0;
-            await Task.Delay(1000);
+            args.Cancel = true;
+            stopping.Cancel();
+        };
+        Console.CancelKeyPress += interrupt;
+        try
+        {
+            Console.WriteLine($"worker {workerId} polling {storePath}");
+            while (!stopping.IsCancellationRequested)
+            {
+                // Drain the current handler on shutdown. Interrupting it mid-write
+                // could requeue a job whose partial side effects have committed.
+                var finished = host.RunNext();
+                if (finished is { } job)
+                    Console.WriteLine($"{DateTimeOffset.UtcNow:O} {job.Id} -> {job.Status}{(job.Failure is null ? "" : $" ({job.Failure})")}");
+                if (runOnce) break;
+                await Task.Delay(1000, stopping.Token);
+            }
         }
-        while (!Console.IsInputRedirected); // Ctrl+C terminates
+        catch (OperationCanceledException) when (stopping.IsCancellationRequested) { }
+        finally
+        {
+            Console.CancelKeyPress -= interrupt;
+        }
 
         return 0;
     }
@@ -62,6 +85,8 @@ public static class Program
         public void Save(JobRecord job) => store.SaveJob(job);
 
         public JobRecord? Find(EntityId id) => store.LoadJob(id);
+
+        public JobRecord? Update(EntityId id, Func<JobRecord, JobRecord?> transition) => store.UpdateJob(id, transition);
     }
 
     /// <summary>Placeholder handler proving the claim/execute/finalize protocol end to end.</summary>

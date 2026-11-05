@@ -16,40 +16,90 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public const int SchemaVersion = 9;
 
     private readonly SqliteConnection _connection;
+    private readonly string _connectionString;
+    private readonly Lock _writes;
 
-    public LocalStore(string databasePath)
+    public LocalStore(string databasePath) : this(CreateConnectionString(databasePath), initialize: true, new Lock())
     {
+    }
+
+    private LocalStore(string connectionString, bool initialize, Lock writes)
+    {
+        _connectionString = connectionString;
+        _writes = writes;
+        _connection = new SqliteConnection(connectionString);
+        try
+        {
+            _connection.Open();
+            if (initialize)
+            {
+                Migrate();
+            }
+            else
+            {
+                // Let SQLite wait briefly for ordinary file contention before the
+                // provider falls back to its coarse busy-retry interval.
+                using var busy = _connection.CreateCommand();
+                busy.CommandText = "PRAGMA busy_timeout = 50";
+                busy.ExecuteNonQuery();
+                var version = ReadSchemaVersion();
+                if (version != SchemaVersion)
+                    throw UnsupportedSchema(version, "Peer connections require an initialized store with the current schema.");
+            }
+        }
+        catch
+        {
+            _connection.Dispose();
+            throw;
+        }
+    }
+
+    private static string CreateConnectionString(string databasePath)
+    {
+        if (databasePath == ":memory:")
+        {
+            // A unique shared name keeps independently constructed stores isolated
+            // while allowing peer connections to use the same in-memory database.
+            return new SqliteConnectionStringBuilder
+            {
+                DataSource = $"leviathan-{Guid.NewGuid():N}",
+                Mode = SqliteOpenMode.Memory,
+                Cache = SqliteCacheMode.Shared,
+                Pooling = false,
+            }.ToString();
+        }
         var dir = Path.GetDirectoryName(Path.GetFullPath(databasePath));
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-
-        _connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        return new SqliteConnectionStringBuilder
         {
             DataSource = databasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
-        }.ToString());
-        _connection.Open();
-        Migrate();
+        }.ToString();
+    }
+
+    /// <summary>Open an independent connection to the already initialized database.</summary>
+    public LocalStore OpenPeer()
+    {
+        var settings = new SqliteConnectionStringBuilder(_connectionString);
+        if (settings.Mode != SqliteOpenMode.Memory) settings.Mode = SqliteOpenMode.ReadWrite;
+        return new LocalStore(settings.ToString(), initialize: false, _writes);
+    }
+
+    private int ReadSchemaVersion(SqliteTransaction? transaction = null)
+    {
+        using var command = _connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "PRAGMA user_version";
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     private void Migrate()
     {
         using var tx = _connection.BeginTransaction();
-        var userVersion = _connection.CreateCommand();
-        userVersion.CommandText = "PRAGMA user_version";
-        var existing = Convert.ToInt32(userVersion.ExecuteScalar());
+        var existing = ReadSchemaVersion(tx);
 
         if (existing > SchemaVersion)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.SchemaVersionUnsupported,
-                Scope = "local-store",
-                Details = new Dictionary<string, string>
-                {
-                    ["storeSchema"] = existing.ToString(),
-                    ["supportedSchema"] = SchemaVersion.ToString(),
-                },
-                Message = "Store was created by a newer schema; refusing to open (downgrades are unsupported).",
-            });
+            throw UnsupportedSchema(existing, "Store was created by a newer schema; refusing to open (downgrades are unsupported).");
 
         if (existing < SchemaVersion)
         {
@@ -161,6 +211,25 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         tx.Commit();
     }
 
+    private static LeviathanException UnsupportedSchema(int version, string message) => new(new LeviathanError
+    {
+        Code = ErrorCode.SchemaVersionUnsupported,
+        Scope = "local-store",
+        Details = new Dictionary<string, string>
+        {
+            ["storeSchema"] = version.ToString(),
+            ["supportedSchema"] = SchemaVersion.ToString(),
+        },
+        Message = message,
+    });
+
+    // Request peers own their connections. Serialize only the short mutating SQL
+    // across peers in this process so they do not spin in the provider's busy retry.
+    private int ExecuteWrite(SqliteCommand command)
+    {
+        lock (_writes) return command.ExecuteNonQuery();
+    }
+
     // ---- users (shared deployments) ----
 
     public UserAccount CreateUser(string name, UserRole role, string keyHash)
@@ -177,7 +246,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$role", role.ToString());
         cmd.Parameters.AddWithValue("$hash", keyHash);
         cmd.Parameters.AddWithValue("$created", createdAt.ToString("O"));
-        try { cmd.ExecuteNonQuery(); }
+        try { ExecuteWrite(cmd); }
         catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
         {
             throw new LeviathanException(new LeviathanError
@@ -232,7 +301,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE users SET disabled = 1 WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id);
-        if (cmd.ExecuteNonQuery() == 0)
+        if (ExecuteWrite(cmd) == 0)
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
     }
 
@@ -242,7 +311,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.CommandText = "UPDATE users SET key_hash = $hash WHERE id = $id";
         cmd.Parameters.AddWithValue("$hash", keyHash);
         cmd.Parameters.AddWithValue("$id", id);
-        if (cmd.ExecuteNonQuery() == 0)
+        if (ExecuteWrite(cmd) == 0)
             throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "No such user." });
     }
 
@@ -258,7 +327,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
         cmd.Parameters.AddWithValue("$user", userId);
         cmd.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     public void RemoveProjectMember(EntityId projectId, string userId)
@@ -267,7 +336,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.CommandText = "DELETE FROM project_members WHERE project_id = $project AND user_id = $user";
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
         cmd.Parameters.AddWithValue("$user", userId);
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     public IReadOnlyList<string> LoadProjectMembers(EntityId projectId)
@@ -290,21 +359,39 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         return cmd.ExecuteScalar() is not null;
     }
 
-    /// <summary>Find the project containing a line/surface/region/annotation id (membership checks).</summary>
-    public EntityId? FindProjectForEntity(EntityId entityId)
+    public bool ProjectExists(EntityId projectId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM projects WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", projectId.ToString());
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>Find the unique project containing an indirect entity ID.</summary>
+    public EntityId? FindProjectForEntity(EntityId entityId) => FindProjectForEntity(entityId, out _);
+
+    public EntityId? FindProjectForEntity(EntityId entityId, out bool ambiguous)
+    {
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT id, json FROM projects";
         using var reader = cmd.ExecuteReader();
+        EntityId? match = null;
+        ambiguous = false;
         while (reader.Read())
         {
             var project = NativeJson.Load(reader.GetString(1));
             bool found = project.Objects.SelectMany(o => o.Surfaces).Any(s =>
                 s.Id == entityId || s.Lines.Any(l => l.Id == entityId) || s.Regions.Any(r => r.Id == entityId)
                 || s.Annotations.Any(a => a.Id == entityId));
-            if (found) return project.Id;
+            if (!found) continue;
+            if (match is not null)
+            {
+                ambiguous = true;
+                return null;
+            }
+            match = project.Id;
         }
-        return null;
+        return match;
     }
 
     // ---- experiment runs ----
@@ -331,7 +418,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$history", ContractJson.ToJson(run.History));
         cmd.Parameters.AddWithValue("$artifacts", ContractJson.ToJson(run.Artifacts));
         cmd.Parameters.AddWithValue("$notes", (object?)run.Notes ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     public IReadOnlyList<RunRecord> LoadRuns(string? kind = null, int limit = 100)
@@ -384,7 +471,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
         cmd.Parameters.AddWithValue("$editor", editorId);
         cmd.Parameters.AddWithValue("$at", at.ToString("O"));
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     public IReadOnlyList<string> ListPresence(EntityId surfaceId, DateTimeOffset since)
@@ -393,7 +480,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         prune.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND updated_at < $since";
         prune.Parameters.AddWithValue("$surface", surfaceId.ToString());
         prune.Parameters.AddWithValue("$since", since.ToString("O"));
-        prune.ExecuteNonQuery();
+        ExecuteWrite(prune);
 
         var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT editor_id FROM presence WHERE surface_id = $surface ORDER BY editor_id";
@@ -410,7 +497,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND editor_id = $editor";
         cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
         cmd.Parameters.AddWithValue("$editor", editorId);
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     // ---- editing sessions (advisory, server-issued) ----
@@ -443,7 +530,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$created", session.CreatedAt.ToString("O"));
         cmd.Parameters.AddWithValue("$seen", session.LastSeenAt.ToString("O"));
         cmd.Parameters.AddWithValue("$expires", session.ExpiresAt.ToString("O"));
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
         return session;
     }
 
@@ -469,7 +556,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$now", now.ToString("O"));
         cmd.Parameters.AddWithValue("$expires", expires.ToString("O"));
-        if (cmd.ExecuteNonQuery() == 0) return null;
+        if (ExecuteWrite(cmd) == 0) return null;
         return FindSession(id);
     }
 
@@ -482,7 +569,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             """;
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$now", now.ToString("O"));
-        return cmd.ExecuteNonQuery() > 0;
+        return ExecuteWrite(cmd) > 0;
     }
 
     public IReadOnlyList<EditSession> ListSessions(DateTimeOffset now, EntityId? surfaceId = null,
@@ -556,7 +643,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$by", (object?)createdBy ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$created", invite.CreatedAt.ToString("O"));
         cmd.Parameters.AddWithValue("$expires", invite.ExpiresAt.ToString("O"));
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
         return invite;
     }
 
@@ -593,7 +680,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.CommandText = "DELETE FROM invites WHERE id = $id AND project_id = $project AND used_at IS NULL";
         cmd.Parameters.AddWithValue("$id", inviteId);
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
-        return cmd.ExecuteNonQuery() == 1;
+        return ExecuteWrite(cmd) == 1;
     }
 
     /// <summary>Atomically consume an unused invitation; false means it was already used.</summary>
@@ -604,7 +691,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$at", at.ToString("O"));
         cmd.Parameters.AddWithValue("$user", userId);
         cmd.Parameters.AddWithValue("$id", inviteId);
-        return cmd.ExecuteNonQuery() == 1;
+        return ExecuteWrite(cmd) == 1;
     }
 
     private static ProjectInvite ReadInvite(SqliteDataReader reader) => new()
@@ -636,7 +723,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.Parameters.AddWithValue("$method", entry.Method);
         cmd.Parameters.AddWithValue("$path", entry.Path);
         cmd.Parameters.AddWithValue("$status", (object?)entry.Status ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
+        ExecuteWrite(cmd);
     }
 
     public IReadOnlyList<AuthAuditEntry> LoadAuthAudit(int limit = 100)
@@ -687,49 +774,52 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public long SaveProject(NativeProject project)
     {
         var json = NativeJson.Save(project with { Version = 0 });
-        using var tx = _connection.BeginTransaction();
-        if (project.Version > 0)
+        lock (_writes)
         {
-            var update = _connection.CreateCommand();
-            update.Transaction = tx;
-            update.CommandText = """
-                UPDATE projects
-                SET name = $name, contract_version = $cv, json = $json, version = version + 1
-                WHERE id = $id AND version = $expected
-                """;
-            update.Parameters.AddWithValue("$id", project.Id.ToString());
-            update.Parameters.AddWithValue("$name", project.Name);
-            update.Parameters.AddWithValue("$cv", ContractVersion.Current);
-            update.Parameters.AddWithValue("$json", json);
-            update.Parameters.AddWithValue("$expected", project.Version);
-            if (update.ExecuteNonQuery() == 0)
-                ThrowConflict(project.Id, tx, project.Version);
-            tx.Commit();
-            return project.Version + 1;
-        }
+            using var tx = _connection.BeginTransaction();
+            if (project.Version > 0)
+            {
+                var update = _connection.CreateCommand();
+                update.Transaction = tx;
+                update.CommandText = """
+                    UPDATE projects
+                    SET name = $name, contract_version = $cv, json = $json, version = version + 1
+                    WHERE id = $id AND version = $expected
+                    """;
+                update.Parameters.AddWithValue("$id", project.Id.ToString());
+                update.Parameters.AddWithValue("$name", project.Name);
+                update.Parameters.AddWithValue("$cv", ContractVersion.Current);
+                update.Parameters.AddWithValue("$json", json);
+                update.Parameters.AddWithValue("$expected", project.Version);
+                if (update.ExecuteNonQuery() == 0)
+                    ThrowConflict(project.Id, tx, project.Version);
+                tx.Commit();
+                return project.Version + 1;
+            }
 
-        var insert = _connection.CreateCommand();
-        insert.Transaction = tx;
-        // Version 0 means the caller never loaded a persisted document (new project or a
-        // legacy/unversioned caller). Keep the historical upsert for compatibility; any
-        // documented read-modify-write path carries a non-zero version and is checked above.
-        insert.CommandText = """
-            INSERT INTO projects (id, name, contract_version, json, version) VALUES ($id, $name, $cv, $json, 1)
-            ON CONFLICT(id) DO UPDATE SET
-                name = $name, contract_version = $cv, json = $json, version = projects.version + 1
-            """;
-        insert.Parameters.AddWithValue("$id", project.Id.ToString());
-        insert.Parameters.AddWithValue("$name", project.Name);
-        insert.Parameters.AddWithValue("$cv", ContractVersion.Current);
-        insert.Parameters.AddWithValue("$json", json);
-        insert.ExecuteNonQuery();
-        var next = _connection.CreateCommand();
-        next.Transaction = tx;
-        next.CommandText = "SELECT version FROM projects WHERE id = $id";
-        next.Parameters.AddWithValue("$id", project.Id.ToString());
-        var version = Convert.ToInt64(next.ExecuteScalar());
-        tx.Commit();
-        return version;
+            var insert = _connection.CreateCommand();
+            insert.Transaction = tx;
+            // Version 0 means the caller never loaded a persisted document (new project or a
+            // legacy/unversioned caller). Keep the historical upsert for compatibility; any
+            // documented read-modify-write path carries a non-zero version and is checked above.
+            insert.CommandText = """
+                INSERT INTO projects (id, name, contract_version, json, version) VALUES ($id, $name, $cv, $json, 1)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = $name, contract_version = $cv, json = $json, version = projects.version + 1
+                """;
+            insert.Parameters.AddWithValue("$id", project.Id.ToString());
+            insert.Parameters.AddWithValue("$name", project.Name);
+            insert.Parameters.AddWithValue("$cv", ContractVersion.Current);
+            insert.Parameters.AddWithValue("$json", json);
+            insert.ExecuteNonQuery();
+            var next = _connection.CreateCommand();
+            next.Transaction = tx;
+            next.CommandText = "SELECT version FROM projects WHERE id = $id";
+            next.Parameters.AddWithValue("$id", project.Id.ToString());
+            var version = Convert.ToInt64(next.ExecuteScalar());
+            tx.Commit();
+            return version;
+        }
     }
 
     private void ThrowConflict(EntityId id, SqliteTransaction tx, long expected)
@@ -778,54 +868,124 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void DeleteProject(EntityId id)
     {
-        using var tx = _connection.BeginTransaction();
-        var cmd = _connection.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "DELETE FROM projects WHERE id = $id";
-        cmd.Parameters.AddWithValue("$id", id.ToString());
-        var removed = cmd.ExecuteNonQuery();
-        tx.Commit();
-        if (removed == 0)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.InputMissing,
-                Scope = id.ToString(),
-                Message = "No such project.",
-            });
+        lock (_writes)
+        {
+            using var tx = _connection.BeginTransaction();
+            var cmd = _connection.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM projects WHERE id = $id";
+            cmd.Parameters.AddWithValue("$id", id.ToString());
+            var removed = cmd.ExecuteNonQuery();
+            tx.Commit();
+            if (removed == 0)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.InputMissing,
+                    Scope = id.ToString(),
+                    Message = "No such project.",
+                });
+        }
     }
 
     // ---- jobs ----
 
-    public void SaveJob(JobRecord job)
+    private const string InsertJob = """
+        INSERT INTO jobs (id, type, status, idempotency_key, retries, json) VALUES ($id, $type, $status, $key, $retries, $json)
+        """;
+
+    public void SaveJob(JobRecord job) => WriteJob(job);
+
+    /// <summary>Insert a job, or return false when another writer has already reserved its idempotency key.</summary>
+    public bool TryCreateJob(JobRecord job) => TryCreateJob(job, maxActivePerOwner: 0);
+
+    /// <summary>Check the active-owner quota and reserve the key in the same SQLite write.</summary>
+    public bool TryCreateJob(JobRecord job, int maxActivePerOwner)
     {
-        using var tx = _connection.BeginTransaction();
-        var cmd = _connection.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = """
-            INSERT INTO jobs (id, type, status, idempotency_key, retries, json) VALUES ($id, $type, $status, $key, $retries, $json)
-            ON CONFLICT(id) DO UPDATE SET type = $type, status = $status, idempotency_key = $key, retries = $retries, json = $json
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = maxActivePerOwner <= 0
+            ? InsertJob + " ON CONFLICT(idempotency_key) DO NOTHING"
+            : """
+            INSERT INTO jobs (id, type, status, idempotency_key, retries, json)
+            SELECT $id, $type, $status, $key, $retries, $json
+            WHERE (SELECT COUNT(*) FROM jobs
+                   WHERE status IN ('Pending', 'Running') AND json_extract(json, '$.owner.id') = $owner) < $max
+            ON CONFLICT(idempotency_key) DO NOTHING
             """;
+        if (maxActivePerOwner > 0)
+        {
+            cmd.Parameters.AddWithValue("$owner", job.Owner.Id);
+            cmd.Parameters.AddWithValue("$max", maxActivePerOwner);
+        }
+        BindJob(cmd, job);
+        return ExecuteWrite(cmd) == 1;
+    }
+
+    public long CountActiveJobs(string ownerId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM jobs
+            WHERE status IN ('Pending', 'Running') AND json_extract(json, '$.owner.id') = $owner
+            """;
+        cmd.Parameters.AddWithValue("$owner", ownerId);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    /// <summary>
+    /// Apply a conditional transition atomically across store connections. The callback
+    /// may be reevaluated after a competing write and must have no side effects.
+    /// </summary>
+    public JobRecord? UpdateJob(EntityId id, Func<JobRecord, JobRecord?> transition)
+    {
+        while (ReadJobJson(id) is { } previousJson)
+        {
+            var replacement = transition(ContractJson.FromJson<JobRecord>(previousJson));
+            if (replacement is null) return null;
+            if (replacement.Id != id)
+                throw new InvalidOperationException("A job transition must preserve the job ID.");
+            if (WriteJob(replacement, previousJson)) return replacement;
+        }
+        return null;
+    }
+
+    private bool WriteJob(JobRecord job, string? previousJson = null)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = previousJson is null
+            ? InsertJob + " ON CONFLICT(id) DO UPDATE SET type = $type, status = $status, idempotency_key = $key, retries = $retries, json = $json"
+            : """
+            UPDATE jobs SET type = $type, status = $status, idempotency_key = $key, retries = $retries, json = $json
+            WHERE id = $id AND json = $previous
+            """;
+        if (previousJson is not null) cmd.Parameters.AddWithValue("$previous", previousJson);
+        BindJob(cmd, job);
+        return ExecuteWrite(cmd) == 1;
+    }
+
+    private static void BindJob(SqliteCommand cmd, JobRecord job)
+    {
         cmd.Parameters.AddWithValue("$id", job.Id.ToString());
         cmd.Parameters.AddWithValue("$type", job.Type);
         cmd.Parameters.AddWithValue("$status", job.Status.ToString());
         cmd.Parameters.AddWithValue("$key", (object?)job.IdempotencyKey ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$retries", job.RetriesUsed);
         cmd.Parameters.AddWithValue("$json", ContractJson.ToJson(job));
-        cmd.ExecuteNonQuery();
-        tx.Commit();
     }
 
-    public JobRecord? LoadJob(EntityId id)
+    public JobRecord? LoadJob(EntityId id) => ReadJobJson(id) is { } json
+        ? ContractJson.FromJson<JobRecord>(json) : null;
+
+    private string? ReadJobJson(EntityId id)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT json FROM jobs WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id.ToString());
-        return (cmd.ExecuteScalar() as string) is { } json ? ContractJson.FromJson<JobRecord>(json) : null;
+        return cmd.ExecuteScalar() as string;
     }
 
     public JobRecord? FindJobByIdempotencyKey(string key)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT json FROM jobs WHERE idempotency_key = $key";
         cmd.Parameters.AddWithValue("$key", key);
         return (cmd.ExecuteScalar() as string) is { } json ? ContractJson.FromJson<JobRecord>(json) : null;
@@ -864,7 +1024,8 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public void BackupTo(string targetDatabasePath)
     {
         var full = Path.GetFullPath(targetDatabasePath);
-        if (File.Exists(full)) File.Delete(full);
+        if (File.Exists(full) || new FileInfo(full).LinkTarget is not null)
+            throw new IOException("Backup database already exists.");
         var dir = Path.GetDirectoryName(full);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
@@ -872,6 +1033,26 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         cmd.CommandText = "VACUUM INTO $target";
         cmd.Parameters.AddWithValue("$target", full);
         cmd.ExecuteNonQuery();
+    }
+
+    public static void VerifyBackupDatabase(string path)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA quick_check(1)";
+        if (!string.Equals(command.ExecuteScalar() as string, "ok", StringComparison.Ordinal))
+            throw new InvalidDataException("Backup database failed SQLite verification.");
+        command.CommandText = "PRAGMA user_version";
+        if (Convert.ToInt32(command.ExecuteScalar()) > SchemaVersion)
+            throw new InvalidDataException("Backup database uses a newer store schema.");
+        command.CommandText = "SELECT id, name, contract_version, json FROM projects LIMIT 0";
+        using var projects = command.ExecuteReader();
     }
 
     public void Dispose() => _connection.Dispose();

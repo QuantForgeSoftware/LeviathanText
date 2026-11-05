@@ -1,0 +1,38 @@
+# NTVMR source contract v1
+
+Contract identifier `ntvmr-source-v1`. Verified 2026-11-04 against the immutable November 2 P46 Michigan source packages. The [inventory](ntvmr-source-inventory-v1.json) binds published identifiers and exact local bytes. It is a source handoff for NTVMR docID 10046 and University of Michigan Library shelfmark P.Mich.inv. 6238. New captures and witnesses require their own evidence.
+
+## Identity and revisions
+
+| Identity | Key or evidence |
+| --- | --- |
+| NTVMR page | `sourceId = ntvmr:<decimal docID>:<decimal pageID>`. Parse and validate external numeric IDs before joining. Preserve the received representation in the original metadata. |
+| Holding instance | NTVMR shelf ID and institutional shelfmark. P46 has multiple holdings. This inventory is scoped to shelf ID 5439 and Michigan. |
+| Proposed physical leaf and surface | NTVMR folio string, with leading zero and side retained, and proposed physical leaf number. Confirm against institutional metadata and the photograph before using in an accepted dataset. |
+| Image capture | Institution, APIS processing ID, source filename, IIIF canvas and image service IDs. Keep NTVMR surrogate ID and JPEG pointer separately. |
+| Raster revision | Exact response URL, byte length, SHA-256 and decoded pixel dimensions. A width-2200 institutional IIIF raster and NTVMR JPEG are separate byte sources, even where the capture family matches. |
+| Transcription revision | `sourceId`, exact public TEI response URL and SHA-256. Retain the TEI folio marker and `lb` element count as source evidence. |
+| Line correspondence | In downstream records, bind source TEI revision, folio, source line ordinal and anchor to reviewed region geometry on one exact raster revision. Keep any revised reading or geometry as a new recorded revision. |
+
+For source intake, the same provider ID plus the same byte hash refers to the same asset revision. The same provider ID plus a different hash requires a new revision and review of all dependent assertions. A conflicting folio or institutional capture ID stays unresolved. Page IDs, shelf folios, APIS processing IDs, raster names and physical leaves occupy distinct namespaces. APIS capture sequence is not an ID-generation rule. Retain both recto/verso candidates when partitioning by confirmed physical leaf, including alternate captures and derivatives. The inventory's leaf proposals alone cannot authorize a split.
+
+## Access, rights and transformations
+
+- Read the public NTVMR metadata and individual TEI routes under `/community/vmr/api/`. A local-only link in the metadata response is source evidence. Build the public TEI request from verified `docID` and `pageID`. Reject absent, empty, error, placeholder and protected responses. Parse the actual body and verify the requested folio marker, Greek content and availability notice. [P46 source metadata](https://ntvmr.uni-muenster.de/community/vmr/api/metadata/manuscript/get/?docID=10046&detail=10&format=json) · [Example TEI](https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1440&format=teiraw).
+- Use the institution-declared canvas/image service. Validate the complete decoded raster and preserve the unmodified response bytes. The nine retained JPEGs are official width-2200 IIIF review derivatives. Original TIFF IDs and dimensions are provenance fields. NTVMR public flags and JPEG pointers describe access and mapping. Actual Michigan image access is evidenced by the decoded official IIIF responses. [Example institutional manifest](https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3612).
+- Record rights per asset. For the exact Michigan canvases listed here, `dlxs_ri` carries a public-domain statement and links PDM 1.0. Credit University of Michigan Library Digital Collections, shelfmark, capture and source link. PDM 1.0 records copyright status. The nine exact INTF TEI responses carry a separate CC BY 4.0 notice. Preserve INTF credit, the original copyright and availability notice, source link, and modification record. Recheck new captures and TEI revisions separately, including different holders' images of the same witness. [Institutional reproductions guidance](https://lib.umich.edu/find-borrow-request/access-special-collections-materials/guidance-using-reproductions/) · [NTVMR agreement](https://ntvmr.uni-muenster.de/license-agreement).
+- Preserve any derived crop or text with parent hashes and declared transforms. Record the source pixel frame, dimensions, exact geometry and coordinate conversion. Separate crop, rotation, scale and pixel normalization recipes. Record transformations only when applied. Model weights and separately photographed CSNTM or Chester Beatty sources are outside this rights record.
+
+## Transcription states
+
+The retained TEI is an immutable **source edition**. Keep markup, attributes, branch order and unmodified bytes, including supplied and unclear text, abbreviations, expansions, overbars, correction branches and break markers. The raw reference and any parsed or transformed projection retain a common source revision. Where the existing layered importer can represent a construct, preserve distinct readings and anchor the import to the original attachment. Loss reports cover unsupported constructs. [Bounded interchange evidence](../evaluation/interchange-v2.md).
+
+A **proposed source correspondence** links a TEI anchor and a raster area with explicit uncertainty. A **reviewed visible target** is a separate adjudicated revision. It requires line geometry, visible text or uncertainty, chosen witness/correction state, reviewer identity and date, independent review status and an explicit transcription profile. Editorial expansions, restored text and conventional normalization stay separate from visible labels. Preserve marks, word-boundary and sigma policy, and Unicode representation in that profile. Never concatenate alternative apparatus branches or treat source `lb` counts as usable-line counts. Keep unresolved rows out of exact scoring and training eligibility until the declared policy admits them. Preserve source-exposure history and keep acceptance custody separate.
+
+## Verified inventory boundary
+
+- **Nine paired source records**, NTVMR pages 1440–1520 at the recorded ten-unit steps. The initial three have preliminary visual correspondence. The later six have source-exposed provisional expansion correspondence. All are source references awaiting scholarly review.
+- **Six metadata-only leads**, pages 1370–1420. The inventory pins their Michigan manifests and public NTVMR pointers. TEI bodies and image rasters were absent from this intake. Their null fields do not inherit the exact-asset rights or validation status of the paired bodies.
+- **Zero accepted visible targets, reviewed geometries or assigned review splits** in this source inventory. Prior provisional study splits and exposure remain documented separately. [First three pages](p46-michigan-page-review.md) · [Six-page expansion](p46-expansion-candidates.md) · [Earlier leaves](p46-earlier-leaves-candidates.md) · [Provisional study history](p46-expanded-provisional-corpus.md).
+
+Asset paths in the inventory are relative to its `assetBase` under the repository. The verification checked prior receipt bytes/hashes, metadata-to-folio/capture joins, IIIF canvas/service lineage, JPEG decode and dimensions, source TEI folio/Greek content and exact rights notices. It uses archived public-response bytes from November 2, with no new network availability claim on November 4. Asset hash checks remain reproducible against the retained packages.

@@ -17,7 +17,10 @@ public static class SearchablePdf
     public sealed record TextLine(string Text, double Left, double Top, double Right, double Bottom);
 
     public sealed record Page(string? ImagePath, int Width, int Height,
-        IReadOnlyList<TextLine> Lines);
+        IReadOnlyList<TextLine> Lines)
+    {
+        public byte[]? ImageBytes { get; init; }
+    }
 
     public static byte[] Export(string imagePath, int width, int height,
         IReadOnlyList<TextLine> lines, string title) =>
@@ -41,20 +44,20 @@ public static class SearchablePdf
         {
             foreach (var page in pages)
             {
-                using var bitmap = LoadImage(page.ImagePath);
+                using var raster = LoadImage(page);
                 int pageWidth = Math.Max(1, (int)Math.Ceiling(page.Width * scale));
                 int pageHeight = Math.Max(1, (int)Math.Ceiling(page.Height * scale));
                 using var canvas = document.BeginPage(pageWidth, pageHeight);
                 canvas.Clear(SKColors.White);
-                if (bitmap is not null)
+                if (raster is not null)
                 {
-                    using var image = SKImage.FromBitmap(bitmap);
+                    using var image = SKImage.FromBitmap(raster.Bitmap);
                     canvas.DrawImage(image, new SKRect(0, 0, pageWidth, pageHeight),
                         new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
                 }
 
                 using var font = new SKFont(SKTypeface.Default, 10);
-                using var paint = new SKPaint { Color = SKColors.Transparent };
+                using var paint = new SKPaint { Color = raster is null ? SKColors.Black : SKColors.Transparent };
                 foreach (var line in page.Lines)
                 {
                     if (string.IsNullOrWhiteSpace(line.Text)) continue;
@@ -71,10 +74,11 @@ public static class SearchablePdf
         return stream.ToArray();
     }
 
-    private static SKBitmap? LoadImage(string? imagePath)
+    private static ImageDecoder.ScaledImage? LoadImage(Page page)
     {
-        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return null;
-        using var decoded = ImageDecoder.DecodeBounded(imagePath, 40_000_000);
-        return decoded.Bitmap.Copy();
+        if (page.ImageBytes is { } bytes)
+            return ImageDecoder.DecodeBounded(bytes, page.ImagePath ?? "bundle capture", 40_000_000);
+        if (string.IsNullOrWhiteSpace(page.ImagePath) || !File.Exists(page.ImagePath)) return null;
+        return ImageDecoder.DecodeBounded(page.ImagePath, 40_000_000);
     }
 }

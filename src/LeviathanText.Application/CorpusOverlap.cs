@@ -38,7 +38,9 @@ public static class CorpusOverlap
         foreach (var group in project.Objects
                      .SelectMany(obj => obj.Surfaces)
                      .SelectMany(surface => surface.Captures)
-                     .Where(capture => !string.IsNullOrWhiteSpace(capture.Frame.ImageChecksum.Digest))
+                     .Where(capture =>
+                         !string.Equals(capture.Frame.ImageChecksum.Algorithm, "unavailable", StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrWhiteSpace(capture.Frame.ImageChecksum.Digest))
                      .GroupBy(capture => capture.Frame.ImageChecksum.Digest, StringComparer.OrdinalIgnoreCase)
                      .Where(group => group.Select(capture => capture.Id).Distinct().Count() > 1))
             rows.Add(new Overlap("image-checksum", group.Key[..Math.Min(16, group.Key.Length)],

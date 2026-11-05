@@ -46,7 +46,7 @@ Same as [manuscripts.md §1](manuscripts.md#1-evidence-legend): `[prior]`, `[new
 - **Rights (split):** **CC BY 4.0** for the images, shared "with the permission of the Petrie Museum" `[new]`. No IIIF `[new]`.
 - **Attribution / conditions:** CC BY 4.0; credit the Petrie Museum / UCL and the dataset creator (Peter Liddel) `[new]`.
 - **Parent-object lineage:** per-museum inventory numbers `[unk]` (not confirmed in the PDF without retrieval).
-- **Proposed use:** **priority image seed / construct** `[prior]` — actual photographs with a clear CC BY 4.0 grant; requires epigraphist line annotation.
+- **Proposed use:** **permission-dependent candidate / construct**. The deposit gives CC BY 4.0 and two checked embedded photographs carry an older CC BY-NC-SA notice. Resolve the exact photo terms and verify the edition rights before annotation. See the [November 4 inventory](inscription-intake-2026-11-04.md#i02-petrie-museum).
 - **Unanswered checks:** extract object list from the PDF; per-image rights confirmation; pair with any published edition text; confirm date/material distribution.
 - **Next action:** **INS-01**.
 
@@ -78,7 +78,7 @@ Same as [manuscripts.md §1](manuscripts.md#1-evidence-legend): `[prior]`, `[new
 
 ## 4. Image-to-line corpus construction plan
 
-Only **two** potentially reusable image sources exist for inscriptions: **I02** (CC BY 4.0 photographs, no geometry) and whatever subset of **I01** IIIF imagery clears per-item rights. I03 is auxiliary/ShareAlike. Nothing is a ready line-recognition corpus.
+The two priority photo leads are **I02**, pending resolution of competing license notices, and whatever subset of **I01** IIIF imagery clears per-item rights. I03 is auxiliary/ShareAlike. Nothing is a ready line-recognition corpus.
 
 **Construction pipeline (per object):**
 
@@ -95,7 +95,7 @@ Only **two** potentially reusable image sources exist for inscriptions: **I02** 
 ## 5. Pilot recommendation and intake order
 
 1. **I01 I.Sicily** — largest Greek+image potential; blocks on the per-item image-rights intersection.
-2. **I02 Petrie** — clear CC BY 4.0 photographs; blocks on extracting the object list and adding line geometry/labels.
+2. **I02 Petrie** — catalogued photographs with conflicting notices on the checked images. Clear exact rights before deriving geometry and labels.
 3. **I03 Bessarion** — auxiliary benchmark only, with ShareAlike obligations preserved.
 
 Given the rights state, the **first honest inscription deliverable is a scoped, annotated subset**, not a corpus. If neither I01 imagery nor I02 can be fully cleared, the inscription track remains a **research-only disclosure**, not an accepted automatic-recognition claim (project-plan Section 3).
@@ -108,7 +108,7 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 | Material | Stone (I01/I02), painted/high-relief (I03) | Metal, ceramic, curved surfaces, uneven lighting/RTI |
 | Geometry | I03 outlines; I01/IIIF canvases | I01/I02 line polygons, baselines, orientation largely absent |
 | Visible text | Editions exist | **Visible diplomatic line labels** must be created |
-| Rights | I02 images CC BY 4.0; I01 data CC BY 4.0 | I01 imagery unresolved; I03 ShareAlike; rest restricted |
+| Rights | I02 deposit declares CC BY 4.0; I01 has record-level notices | I02 embedded-photo conflict; I01 imagery unresolved per item; I03 ShareAlike |
 
 **No broad, already aligned and audited Classical/Koine inscription photo-to-line corpus was verified** (project-plan Section 5 conclusion upheld and strengthened).
 
@@ -125,13 +125,13 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 | `witness_dating` | not stated → `unknown` |
 | `units_evidence` | "1 PDF (~872 KB); no counts stated (file-list-derived)" `[new]` |
 | `paired_line_counts` | `unverified` (no aligned geometry) |
-| `license_image` | `CC-BY-4.0` |
-| `license_text` | n/a (no aligned transcription) |
+| `license_image` | deposit CC BY 4.0, with conflicting checked embedded CC BY-NC-SA notices |
+| `license_text` | independently verify catalogue and cited edition terms |
 | `license_annotation` | n/a yet |
 | `license_code` / `license_weights` | n/a |
 | `license_evidence` | Manchester institutional record (2026-10-18) |
 | `attribution` | Petrie Museum / UCL; dataset creator (Peter Liddel) |
-| `allowed_intended_use` | `train` + `dev` after INS-01 |
+| `allowed_intended_use` | metadata-only while item terms and labels are unresolved |
 | `unresolved_questions` | object list (extract from PDF); per-image credit; paired editions; date/material |
 | `item_id` / `external_ids` | project-minted; `inventory:<Petrie no.>` once extracted |
 | `object_type` | `inscribed-object` |
@@ -157,7 +157,7 @@ Given the rights state, the **first honest inscription deliverable is a scoped, 
 ## 9. Open questions handed to A / the owner
 
 1. Confirm the "I.Sicily IIIF is CC BY 4.0" claim before any image use — project-plan Section 5 should be corrected (`B-CCR-5`, still open; A owns `project-plan.md`).
-2. Whether inscriptions may proceed to acceptance with **I02-only** imagery if I01 imagery stays unresolved (recommend: yes, disclosed as a narrow profile).
+2. Whether inscriptions may proceed to acceptance with **I02-only** imagery if I01 imagery stays unresolved (pending exact image and edition grants, visible-line adjudication and independent witness coverage).
 3. Damage/orientation vocabulary for the transcription profile — A's `greek-transcription.md` §5 covers `unclear`/`illegible`/`lost`/`erased`/`added`/`overwritten`; the residual is the inscriptions-specific sign inventory (A's open question to the specialist).
 4. Suggested source-backed replacement for A's invented EX-3/EX-6: a real I01/I02 stoichedon or worn-stone line once INS-02 creates it.
 
@@ -197,3 +197,7 @@ planning.
 The blocker remains **image acquisition and expert line geometry/visible-text labels**, not
 record selection: only the smoke image is local. The EpiDoc text-first import + manual
 placement workflow (operations guide) is the intended label-construction path.
+
+## 12. INS-01 source intersection and catalogue audit — 2026-11-04
+
+The [November 4 audit](inscription-intake-2026-11-04.md) reconciles the local I01 counts by selector, preserves four filename mismatches, records a four-object live IIIF metadata sample, and inventories all 24 entries of I02. Neither source has a verified reusable image-plus-reviewed-line intersection. The five noncommercial I01 edition records and I02 conflicting photo notices are held separately.

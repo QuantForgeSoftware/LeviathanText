@@ -1,0 +1,624 @@
+{
+  "contractVersion": "ntvmr-source-v1",
+  "observedOn": "2026-11-02",
+  "verifiedOn": "2026-11-04",
+  "assetBase": ".artifacts/datasets/ntvmr-pilot",
+  "witness": "GA P46",
+  "docId": 10046,
+  "holdingInstitution": "University of Michigan Library",
+  "shelfmark": "P.Mich.inv. 6238",
+  "metadata": {
+    "path": "expansion-discovery-2026-11-02/ntvmr-10046-metadata.json",
+    "url": "https://ntvmr.uni-muenster.de/community/vmr/api/metadata/manuscript/get/?docID=10046&detail=10&format=json",
+    "bytes": 246751,
+    "sha256": "1bd6e01ac37deb4411d580e53d0896a20cb2c541e2962e1d425334e28e3ffb90"
+  },
+  "imageRights": {
+    "status": "public domain",
+    "statusMarkUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "credit": "University of Michigan Library Digital Collections"
+  },
+  "sourceTranscriptionRights": {
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "credit": "Institut für Neutestamentliche Textforschung",
+    "copyrightYear": 2026,
+    "scope": "Only exact retained TEI bytes with the matching availability notice."
+  },
+  "entries": [
+    {
+      "pageId": 1370,
+      "proposedFolio": "078r",
+      "proposedPhysicalLeaf": 78,
+      "sourceId": "ntvmr:10046:1370",
+      "shelfId": 5439,
+      "apisImageManifestId": 3604,
+      "institutionalCapture": "6238_152.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3604:6238_152.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3604:6238_152.TIF",
+      "nativeDimensions": [
+        5072,
+        5840
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_152JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3604.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3604",
+        "bytes": 10540,
+        "sha256": "cfff28274bee457040660d6112e53d2f3020f71c468668251d0a47a51d0eaa20"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1380,
+      "proposedFolio": "078v",
+      "proposedPhysicalLeaf": 78,
+      "sourceId": "ntvmr:10046:1380",
+      "shelfId": 5439,
+      "apisImageManifestId": 3606,
+      "institutionalCapture": "6238_153.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3606:6238_153.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3606:6238_153.TIF",
+      "nativeDimensions": [
+        5032,
+        5912
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_153JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3606.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3606",
+        "bytes": 10543,
+        "sha256": "6ab794b0d5955317d1767de187d860e6faedaa545b5327ff3053e1357a866cbb"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1390,
+      "proposedFolio": "079r",
+      "proposedPhysicalLeaf": 79,
+      "sourceId": "ntvmr:10046:1390",
+      "shelfId": 5439,
+      "apisImageManifestId": 3607,
+      "institutionalCapture": "6238_154.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3607:6238_154.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3607:6238_154.TIF",
+      "nativeDimensions": [
+        4901,
+        5680
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_154JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3607.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3607",
+        "bytes": 10442,
+        "sha256": "2e0ad4926660c0ce3c821a173b445b138337120bc7cb4a848ee7eb4037e7caf2"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1400,
+      "proposedFolio": "079v",
+      "proposedPhysicalLeaf": 79,
+      "sourceId": "ntvmr:10046:1400",
+      "shelfId": 5439,
+      "apisImageManifestId": 3608,
+      "institutionalCapture": "6238_155.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3608:6238_155.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3608:6238_155.TIF",
+      "nativeDimensions": [
+        4795,
+        5880
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_155JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3608.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3608",
+        "bytes": 10448,
+        "sha256": "ce8c1c63d7d0c185b3ff3c84d7e8b1ff98fdedb34de48270087849f60e54d526"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1410,
+      "proposedFolio": "080r",
+      "proposedPhysicalLeaf": 80,
+      "sourceId": "ntvmr:10046:1410",
+      "shelfId": 5439,
+      "apisImageManifestId": 3609,
+      "institutionalCapture": "6238_156.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3609:6238_156.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3609:6238_156.TIF",
+      "nativeDimensions": [
+        4912,
+        5976
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_156JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3609.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3609",
+        "bytes": 10452,
+        "sha256": "5fe8a2af23f9340ed2f1e1f17ac042173f31ceadffad3e5264a22d39f91d446f"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1420,
+      "proposedFolio": "080v",
+      "proposedPhysicalLeaf": 80,
+      "sourceId": "ntvmr:10046:1420",
+      "shelfId": 5439,
+      "apisImageManifestId": 3610,
+      "institutionalCapture": "6238_157.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3610:6238_157.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3610:6238_157.TIF",
+      "nativeDimensions": [
+        4952,
+        5968
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_157JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "earlier-leaves-discovery-2026-11-02/apis-3610.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3610",
+        "bytes": 10453,
+        "sha256": "80201da674d9cfbb3cdfe4e9e7f84aeb8b3c853a278fb0309aed5d360cc44d5c"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": null,
+      "sourceTranscription": null,
+      "pairingStatus": "metadata-only candidate; no image raster or TEI admitted",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1440,
+      "proposedFolio": "081v",
+      "proposedPhysicalLeaf": 81,
+      "sourceId": "ntvmr:10046:1440",
+      "shelfId": 5439,
+      "apisImageManifestId": 3612,
+      "institutionalCapture": "6238_159.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3612:6238_159.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3612:6238_159.TIF",
+      "nativeDimensions": [
+        5059,
+        5832
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_159JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "review-2026-11-02/apis-3612.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3612",
+        "bytes": 10453,
+        "sha256": "91be67706f450f6584f098595761469b806bc65d9a2fa84a6351f05b1a5299d0"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "review-2026-11-02/apis-3612-w2200.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3612:6238_159.TIF/full/2200,/0/default.jpg",
+        "bytes": 1017224,
+        "sha256": "ed2b5873fcf76c410ed94fb0bc99d56ecd4c0af4b61ec23054ebcef1d338ca5d",
+        "dimensions": [
+          2200,
+          2536
+        ]
+      },
+      "sourceTranscription": {
+        "path": "review-2026-11-02/ntvmr-10046-1440.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1440&format=teiraw",
+        "bytes": 7820,
+        "sha256": "a7ff05653a9fc90df92f9204f3b3fab64204b5ca91558828caa55d56eff5bff2",
+        "folioMarker": "081v",
+        "sourceLineBreakElements": 27
+      },
+      "pairingStatus": "preliminary page correspondence; source-exposed",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1450,
+      "proposedFolio": "082r",
+      "proposedPhysicalLeaf": 82,
+      "sourceId": "ntvmr:10046:1450",
+      "shelfId": 5439,
+      "apisImageManifestId": 3613,
+      "institutionalCapture": "6238_160.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3613:6238_160.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3613:6238_160.TIF",
+      "nativeDimensions": [
+        5020,
+        5880
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_160JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "review-2026-11-02/apis-3613.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3613",
+        "bytes": 10454,
+        "sha256": "4e6a7d7de0501397f9714199d327c8c6bf8ba4c333c7baccdc6efa4d052ca4fa"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "review-2026-11-02/apis-3613-w2200.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3613:6238_160.TIF/full/2200,/0/default.jpg",
+        "bytes": 862885,
+        "sha256": "a13a5e4bfbdc3ee8299d47590efd84bd4479d41b7221e7c3367f9434df139608",
+        "dimensions": [
+          2200,
+          2577
+        ]
+      },
+      "sourceTranscription": {
+        "path": "review-2026-11-02/ntvmr-10046-1450.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1450&format=teiraw",
+        "bytes": 7252,
+        "sha256": "b03c98e5f9fd924bb2093559b8ed8080ce633f1b3ed8285792b6abeb9c5c3742",
+        "folioMarker": "082r",
+        "sourceLineBreakElements": 26
+      },
+      "pairingStatus": "preliminary page correspondence; source-exposed",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1460,
+      "proposedFolio": "082v",
+      "proposedPhysicalLeaf": 82,
+      "sourceId": "ntvmr:10046:1460",
+      "shelfId": 5439,
+      "apisImageManifestId": 3614,
+      "institutionalCapture": "6238_161.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3614:6238_161.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3614:6238_161.TIF",
+      "nativeDimensions": [
+        4932,
+        5888
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_161JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "review-2026-11-02/apis-3614.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3614",
+        "bytes": 10456,
+        "sha256": "e254ea0d88c640ab3d4e236682e8e00464c953e04efec15208338526d67ed9b4"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "review-2026-11-02/apis-3614-w2200.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3614:6238_161.TIF/full/2200,/0/default.jpg",
+        "bytes": 946520,
+        "sha256": "4079842d996f67a137c61b700b8e694f5c135ee2aecefdbe19e19e0a15a7d4a4",
+        "dimensions": [
+          2200,
+          2626
+        ]
+      },
+      "sourceTranscription": {
+        "path": "review-2026-11-02/ntvmr-10046-1460.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1460&format=teiraw",
+        "bytes": 8003,
+        "sha256": "ed45977b6ad94c2d7a0696ce09a69543e267aa0893f57d5648a3fa37ccb82239",
+        "folioMarker": "082v",
+        "sourceLineBreakElements": 28
+      },
+      "pairingStatus": "preliminary page correspondence; source-exposed",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1470,
+      "proposedFolio": "083r",
+      "proposedPhysicalLeaf": 83,
+      "sourceId": "ntvmr:10046:1470",
+      "shelfId": 5439,
+      "apisImageManifestId": 3615,
+      "institutionalCapture": "6238_162.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3615:6238_162.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3615:6238_162.TIF",
+      "nativeDimensions": [
+        4936,
+        5832
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_162JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3615.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3615",
+        "bytes": 10451,
+        "sha256": "99a0a52430471cf6bed163befd116052ae46611093ec98aba0e53d3b9f78ae85"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1470.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3615:6238_162.TIF/full/2200,/0/default.jpg",
+        "bytes": 906100,
+        "sha256": "70c1a5ceebd738846b8369208c7b8e0deca7d6187c909cd9d81c7ccb20ea989f",
+        "dimensions": [
+          2200,
+          2599
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1470.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1470&format=teiraw",
+        "bytes": 7902,
+        "sha256": "0eafe7f356e4c5bab6dd153052295575e49c31019aa85e820768cdf460bd417d",
+        "folioMarker": "083r",
+        "sourceLineBreakElements": 27
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1480,
+      "proposedFolio": "083v",
+      "proposedPhysicalLeaf": 83,
+      "sourceId": "ntvmr:10046:1480",
+      "shelfId": 5439,
+      "apisImageManifestId": 3616,
+      "institutionalCapture": "6238_163.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3616:6238_163.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3616:6238_163.TIF",
+      "nativeDimensions": [
+        5052,
+        5904
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_163JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3616.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3616",
+        "bytes": 10462,
+        "sha256": "cb9b10999bec399d2092a6d52f031db900331bdbb2bff9661f9bddaca802b696"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1480.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3616:6238_163.TIF/full/2200,/0/default.jpg",
+        "bytes": 882127,
+        "sha256": "e10baf2b0bb5f1aa095ff7caaccd4c9b6f673b98cdb7c294bff00b99577f01c4",
+        "dimensions": [
+          2200,
+          2571
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1480.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1480&format=teiraw",
+        "bytes": 8366,
+        "sha256": "9d3c12845c6621a5990ab0ead9224fb6e6be299959edc31674f0a8904b5b9429",
+        "folioMarker": "083v",
+        "sourceLineBreakElements": 27
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1490,
+      "proposedFolio": "084r",
+      "proposedPhysicalLeaf": 84,
+      "sourceId": "ntvmr:10046:1490",
+      "shelfId": 5439,
+      "apisImageManifestId": 3617,
+      "institutionalCapture": "6238_164.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3617:6238_164.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3617:6238_164.TIF",
+      "nativeDimensions": [
+        4928,
+        5792
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_164JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3617.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3617",
+        "bytes": 10610,
+        "sha256": "3ee478696c6aeae4527c09903f06189bfb581bfdbc6f6e0194ebd59a05ce0c0c"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1490.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3617:6238_164.TIF/full/2200,/0/default.jpg",
+        "bytes": 922509,
+        "sha256": "17d4a4f51b496a78b62fa01a73d96b083cb3dbf3f28a428d3758e61e1dd15ae0",
+        "dimensions": [
+          2200,
+          2586
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1490.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1490&format=teiraw",
+        "bytes": 8906,
+        "sha256": "2d4f7fda992d1ab73a5ad8ab8f217f463005a38031d331e6e16c60fb35201652",
+        "folioMarker": "084r",
+        "sourceLineBreakElements": 27
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1500,
+      "proposedFolio": "084v",
+      "proposedPhysicalLeaf": 84,
+      "sourceId": "ntvmr:10046:1500",
+      "shelfId": 5439,
+      "apisImageManifestId": 3618,
+      "institutionalCapture": "6238_165.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3618:6238_165.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3618:6238_165.TIF",
+      "nativeDimensions": [
+        4928,
+        5896
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_165JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3618.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3618",
+        "bytes": 10611,
+        "sha256": "43da50c980e48ca82a07fc11750840381117b657ba4b04934461e78dad9800d4"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1500.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3618:6238_165.TIF/full/2200,/0/default.jpg",
+        "bytes": 910744,
+        "sha256": "49b164e0a8c8aeef67b9158329e3107822a8e6918be5866568ccc11ad429dddf",
+        "dimensions": [
+          2200,
+          2632
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1500.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1500&format=teiraw",
+        "bytes": 7628,
+        "sha256": "7dd1f3d00fae85d071ed2b0673b9a759d17cfa23bd6326518c83123760e778fe",
+        "folioMarker": "084v",
+        "sourceLineBreakElements": 28
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1510,
+      "proposedFolio": "085r",
+      "proposedPhysicalLeaf": 85,
+      "sourceId": "ntvmr:10046:1510",
+      "shelfId": 5439,
+      "apisImageManifestId": 3619,
+      "institutionalCapture": "6238_166.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3619:6238_166.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3619:6238_166.TIF",
+      "nativeDimensions": [
+        5084,
+        5768
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_166JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3619.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3619",
+        "bytes": 10455,
+        "sha256": "4a18529bcb8f50b9d66fef63fd3c0ba4a05830519301befab1cb924a7a650635"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1510.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3619:6238_166.TIF/full/2200,/0/default.jpg",
+        "bytes": 819672,
+        "sha256": "32803156295b65a0248b938ecd3d6d0a6d68ef634d7621b07fef25d36303523f",
+        "dimensions": [
+          2200,
+          2496
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1510.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1510&format=teiraw",
+        "bytes": 8145,
+        "sha256": "218aa4ce29a48ebe7f76def52c0b23efc9bb3d2cffb712dacc1eeafc5f0e4445",
+        "folioMarker": "085r",
+        "sourceLineBreakElements": 26
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    },
+    {
+      "pageId": 1520,
+      "proposedFolio": "085v",
+      "proposedPhysicalLeaf": 85,
+      "sourceId": "ntvmr:10046:1520",
+      "shelfId": 5439,
+      "apisImageManifestId": 3620,
+      "institutionalCapture": "6238_167.TIF",
+      "canvasId": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3620:6238_167.TIF/canvas/0",
+      "iiifImageService": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3620:6238_167.TIF",
+      "nativeDimensions": [
+        5080,
+        5984
+      ],
+      "ntvmrPublicImagePointer": "https://ntmss.info/images/webfriendly/10046/10046x6238_167JP2_UMich.jpg",
+      "ntvmrSurrogateId": 10,
+      "manifest": {
+        "path": "expansion-staging-2026-11-02/sources/apis-3620.json",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/manifest/apis:3620",
+        "bytes": 10456,
+        "sha256": "d8ec7daaa053fe096ee5a83ec962c8f8073e6b56ea109fa773c935c3f514d1b7"
+      },
+      "imageRightsEvidenceField": "canvas.metadata[field=dlxs_ri]",
+      "reviewImage": {
+        "path": "expansion-staging-2026-11-02/images/1520.jpg",
+        "url": "https://quod.lib.umich.edu/cgi/i/image/api/image/apis:3620:6238_167.TIF/full/2200,/0/default.jpg",
+        "bytes": 871628,
+        "sha256": "accd95d07aad41d0207f0c7a5ecc3d7c3154ed3a3ca1042832016425f86c3b4a",
+        "dimensions": [
+          2200,
+          2591
+        ]
+      },
+      "sourceTranscription": {
+        "path": "expansion-staging-2026-11-02/sources/ntvmr-10046-1520.tei.xml",
+        "url": "https://ntvmr.uni-muenster.de/community/vmr/api/transcript/get/?docID=10046&pageID=1520&format=teiraw",
+        "bytes": 7396,
+        "sha256": "0bdb629b119d1a5345191c9902e0d90d5ea4941f13a9b804b00f24471eef501b",
+        "folioMarker": "085v",
+        "sourceLineBreakElements": 27
+      },
+      "pairingStatus": "source-exposed; provisional expansion correspondence",
+      "acceptedVisibleText": false,
+      "reviewedGeometry": false,
+      "reviewSplit": null
+    }
+  ]
+}

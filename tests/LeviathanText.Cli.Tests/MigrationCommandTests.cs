@@ -14,11 +14,13 @@ public sealed class MigrationCommandTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "page.xml"),
             """<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"/>""");
         var output = Path.Combine(_root, "report.json");
+        var store = Path.Combine(_root, "store.db");
 
         var exit = LeviathanText.Cli.Program.Main(
-            ["--store", Path.Combine(_root, "store.db"), "migrate", "inventory", _root, "--out", output]);
+            ["--store", store, "migrate", "inventory", _root, "--out", output]);
 
         Assert.Equal(0, exit);
+        Assert.False(File.Exists(store));
         var json = File.ReadAllText(output);
         Assert.Contains("\"page-xml\"", json);
         Assert.Contains("page.xml", json);

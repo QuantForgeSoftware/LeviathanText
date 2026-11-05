@@ -5,7 +5,7 @@
   "changeLog": [
     {
       "date": "2026-10-18",
-      "change": "P01 acquired (59 files, md5-verified) and audited: 27 pairs, 321 lines, 14394 chars; 5 images recorded image-only. Evidence: tests/LeviathanText.Pilot.Tests.",
+      "change": "P01 acquired (59 files, md5-verified) and audited: 27 pairs, 321 lines, historical character count superseded in 2026-11-04 audit; 5 images recorded image-only. Evidence: tests/LeviathanText.Pilot.Tests.",
       "evidence": ["https://zenodo.org/api/records/6565706"]
     }
   ],
@@ -24,7 +24,7 @@
         "provenance": "inspected"
       },
       "paired_line_counts": 321,
-      "paired_char_counts": 14394,
+      "paired_char_counts": 6318,
       "license_image": "cc-by-4.0",
       "license_text": "cc-by-4.0",
       "license_annotation": "cc-by-4.0",
@@ -32,7 +32,7 @@
       "license_weights": "unverified",
       "license_evidence": "Zenodo rendered license: cc-by-4.0 (https://zenodo.org/api/records/6565706, accessed 2026-10-18)",
       "attribution": "Isabelle Marthot-Santaniello; Tobias Hodel; D-Scribes project (University of Basel); CC BY 4.0",
-      "conditions_exceptions": ["no uniform separate image-rights statement found; treat as pending specialist confirmation"],
+      "conditions_exceptions": ["record-level CC BY 4.0; upstream photo origin and item-level terms remain unverified"],
       "allowed_intended_use": "dev",
       "unresolved_questions": [
         "sampled expert audit of diplomatic labels (expansion/editorial supply unknown)",
@@ -45,10 +45,12 @@
         "checksum_algorithm": "md5",
         "verified": true
       },
-      "splits": { "assignment": "pending DATA-03", "split_hash": null },
+      "splits": { "assignment": "historical pilot only: 176 train / 50 development / 95 spent test lines; new reviewed split pending DATA-03", "split_hash": "f36aaa2ecd742b5c037e2e5ef63c92810abf2ce906b5f1e19953ddf6272297c6" },
       "notes": [
         "record inconsistency: files block '5.2 MB' vs stats '811 MB total volume' (recorded in source card)",
-        "label spaces: documentary hand with word spacing; lunate sigma present"
+        "label spaces on 141 lines and lunate sigma on 227; visible source alignment remains pending",
+        "paired_char_counts counts direct PAGE TextLine Unicode scalars, with 6318 both raw and NFC",
+        "five lines have polygon points outside the pixel-index range, including three with baseline points also outside"
       ]
     }
   ]

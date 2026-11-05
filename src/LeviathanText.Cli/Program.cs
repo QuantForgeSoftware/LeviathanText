@@ -36,9 +36,260 @@ public static class Program
         }
     }
 
+    private static int InventoryMigration(string[] rest)
+    {
+        var outIndex = Array.IndexOf(rest, "--out");
+        var limitIndex = Array.IndexOf(rest, "--limit");
+        var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length
+            ? int.Parse(rest[limitIndex + 1])
+            : MigrationInventory.DefaultMaxFiles;
+        var report = MigrationInventory.Scan(rest[2], limit,
+            computeHashes: Array.IndexOf(rest, "--no-hash") < 0);
+        var output = rest.Contains("--csv")
+            ? MigrationInventory.ToCsv(report) : MigrationInventory.ToJson(report);
+        if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], output);
+        else Console.Write(output);
+        Console.Error.WriteLine($"inventoried {report.FileCount} file(s), {report.TotalBytes} byte(s): " +
+            string.Join(", ", report.Counts.Select(c => $"{c.Key}={c.Value}")));
+        foreach (var note in report.Notes.Take(10)) Console.Error.WriteLine($"note: {note}");
+        return 0;
+    }
+
+    private static int WriteBackup(LocalStore store, string storePath, string target)
+    {
+        var destination = Path.GetFullPath(target);
+        if (Path.Exists(destination) || new DirectoryInfo(destination).LinkTarget is not null)
+        {
+            Console.Error.WriteLine("backup target already exists; choose a new directory");
+            return 1;
+        }
+
+        var sourceImages = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
+        var files = Directory.Exists(sourceImages) ? Directory.GetFiles(sourceImages) : [];
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (files.Any(file => !TryAddBackupImageName(Path.GetFileName(file), names)
+            || new FileInfo(file).LinkTarget is not null))
+        {
+            Console.Error.WriteLine("image cache contains invalid, duplicate, or linked file names");
+            return 1;
+        }
+
+        var parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(destination))!;
+        var stage = Path.Combine(parent, $".lt-backup-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stage);
+        try
+        {
+            var database = Path.Combine(stage, "store.db");
+            store.BackupTo(database);
+            var entries = new List<object>();
+            if (files.Length > 0)
+            {
+                var imageTarget = Path.Combine(stage, "images");
+                Directory.CreateDirectory(imageTarget);
+                foreach (var file in files)
+                {
+                    var name = Path.GetFileName(file);
+                    var copy = Path.Combine(imageTarget, name);
+                    File.Copy(file, copy);
+                    entries.Add(new { name, sha256 = Sha256File(copy), size = new FileInfo(copy).Length });
+                }
+            }
+            var manifest = new
+            {
+                createdAt = DateTimeOffset.UtcNow.ToString("O"),
+                storeChecksum = Sha256File(database),
+                images = entries,
+            };
+            File.WriteAllText(Path.Combine(stage, "backup-manifest.json"),
+                System.Text.Json.JsonSerializer.Serialize(manifest, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            Directory.Move(stage, destination);
+            Console.WriteLine($"backup written: {target} ({entries.Count} images)");
+            return 0;
+        }
+        finally
+        {
+            RemoveBackupStage(stage);
+        }
+    }
+
+    private static int RestoreBackup(string storePath, string[] rest)
+    {
+        var source = rest[1];
+        string? destination = null;
+        var force = false;
+        for (var i = 2; i < rest.Length; i++)
+        {
+            if (rest[i] == "--into" && destination is null && i + 1 < rest.Length
+                && !rest[i + 1].StartsWith("--", StringComparison.Ordinal))
+                destination = rest[++i];
+            else if (rest[i] == "--force" && !force)
+                force = true;
+            else
+                throw new ArgumentException("Use restore <backup> [--into <store>] [--force].");
+        }
+        var targetDb = Path.GetFullPath(destination ?? storePath);
+
+        var manifestPath = Path.Combine(source, "backup-manifest.json");
+        if (!File.Exists(manifestPath)) { Console.Error.WriteLine("no backup-manifest.json in the backup"); return 1; }
+        using var manifestDocument = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+        var manifest = manifestDocument.RootElement;
+        var images = new List<(string Name, string? Digest)>();
+        var imageNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in manifest.GetProperty("images").EnumerateArray())
+        {
+            var name = property.GetProperty("name").GetString();
+            if (!TryAddBackupImageName(name, imageNames))
+            {
+                Console.Error.WriteLine("backup manifest contains an invalid or duplicate image name");
+                return 1;
+            }
+            images.Add((name!, property.GetProperty("sha256").GetString()));
+        }
+        var sourceImages = Path.Combine(source, "images");
+        if (images.Count > 0 && new DirectoryInfo(sourceImages).LinkTarget is not null)
+            throw new IOException("Backup image directory is a symbolic link.");
+
+        var targetDirectory = Path.GetDirectoryName(targetDb)!;
+        var imagesTarget = Path.Combine(targetDirectory, "images");
+        if (IsObstructedFile(targetDb) || new[] { "-wal", "-shm", "-journal" }.Any(suffix => Path.Exists(targetDb + suffix))
+            || (images.Count > 0 && (File.Exists(imagesTarget) || new DirectoryInfo(imagesTarget).LinkTarget is not null
+                || images.Any(image => IsObstructedFile(Path.Combine(imagesTarget, image.Name))))))
+        {
+            Console.Error.WriteLine("restore target is obstructed, linked, or has SQLite sidecar files");
+            return 1;
+        }
+        if (File.Exists(targetDb) && !force)
+        {
+            Console.Error.WriteLine($"target store exists ({targetDb}); pass --force to overwrite");
+            return 1;
+        }
+
+        var stage = Path.Combine(targetDirectory, $".lt-restore-{Guid.NewGuid():N}");
+        var incoming = Path.Combine(stage, "incoming");
+        var prior = Path.Combine(stage, "prior");
+        Directory.CreateDirectory(incoming);
+        var keepStage = false;
+        try
+        {
+            var database = Path.Combine(stage, "store.db");
+            CopyVerifiedBackupFile(Path.Combine(source, "store.db"), database,
+                manifest.GetProperty("storeChecksum").GetString());
+            LocalStore.VerifyBackupDatabase(database);
+
+            var changes = new List<(string Incoming, string Target, string? Prior)>();
+            if (images.Count > 0)
+            {
+                Directory.CreateDirectory(prior);
+                foreach (var image in images)
+                {
+                    var imageSource = Path.Combine(sourceImages, image.Name);
+                    var imageIncoming = Path.Combine(incoming, image.Name);
+                    var imageTarget = Path.Combine(imagesTarget, image.Name);
+                    CopyVerifiedBackupFile(imageSource, imageIncoming, image.Digest);
+                    var imagePrior = File.Exists(imageTarget) ? Path.Combine(prior, image.Name) : null;
+                    if (imagePrior is not null) File.Copy(imageTarget, imagePrior);
+                    changes.Add((imageIncoming, imageTarget, imagePrior));
+                }
+                Directory.CreateDirectory(imagesTarget);
+            }
+
+            var applied = 0;
+            try
+            {
+                foreach (var change in changes)
+                {
+                    File.Move(change.Incoming, change.Target, overwrite: change.Prior is not null);
+                    applied++;
+                }
+                File.Move(database, targetDb, overwrite: force);
+            }
+            catch (Exception publishError) when (publishError is IOException or UnauthorizedAccessException)
+            {
+                try
+                {
+                    for (var i = applied - 1; i >= 0; i--)
+                    {
+                        var change = changes[i];
+                        if (change.Prior is { } previous) File.Move(previous, change.Target, overwrite: true);
+                        else File.Delete(change.Target);
+                    }
+                }
+                catch (Exception rollbackError) when (rollbackError is IOException or UnauthorizedAccessException)
+                {
+                    keepStage = true;
+                    throw new IOException($"Restore rollback failed; recovery files remain in {stage}.",
+                        new AggregateException(publishError, rollbackError));
+                }
+                throw;
+            }
+            Console.WriteLine($"restored: {source} -> {targetDb}");
+            return 0;
+        }
+        finally
+        {
+            if (!keepStage) RemoveBackupStage(stage);
+        }
+    }
+
+    private static bool IsObstructedFile(string path) =>
+        Directory.Exists(path) || new FileInfo(path).LinkTarget is not null;
+
+    private static void CopyVerifiedBackupFile(string source, string target, string? digest)
+    {
+        if (new FileInfo(source).LinkTarget is not null)
+            throw new IOException($"Backup file is a symbolic link: {Path.GetFileName(source)}.");
+        File.Copy(source, target);
+        if (!string.Equals(Sha256File(target), digest, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Backup checksum mismatch: {Path.GetFileName(source)}.");
+    }
+
+    private static void RemoveBackupStage(string stage)
+    {
+        try { if (Directory.Exists(stage)) Directory.Delete(stage, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"temporary backup files remain at {stage}: {ex.Message}");
+        }
+    }
+
+    private static bool TryAddBackupImageName(string? name, HashSet<string> names) =>
+        !string.IsNullOrWhiteSpace(name) && !name.EndsWith('.') && !name.EndsWith(' ')
+        && name.IndexOfAny(['/', '\\', ':', '\0']) < 0 && names.Add(name);
+
     private static int Run(string[] args)
     {
         var (storePath, rest) = ExtractStore(args);
+        // Standalone visual benchmarks never open or mutate the transcription store.
+        if (rest.Length > 0 && rest[0] == "benchmark")
+        {
+            // Only inference needs a graceful stop to close every planned result row.
+            // Offline validation/scoring retain normal console interruption; installing
+            // a handler for their synchronous work would swallow Ctrl-C.
+            if (rest.Length < 2 || rest[1] != "vlm")
+                return VlmBenchmarkCommand.RunAsync(rest[1..]).GetAwaiter().GetResult();
+            using var cancellation = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancel = (_, signal) =>
+            {
+                signal.Cancel = true;
+                cancellation.Cancel();
+            };
+            Console.CancelKeyPress += cancel;
+            try
+            {
+                return VlmBenchmarkCommand.RunAsync(rest[1..], cancellationToken: cancellation.Token)
+                    .GetAwaiter().GetResult();
+            }
+            finally { Console.CancelKeyPress -= cancel; }
+        }
+        if (rest.Length >= 2 && rest[0] == "restore")
+            return RestoreBackup(storePath, rest);
+
+        if (rest.Length >= 3 && rest[0] == "migrate" && rest[1] == "inventory")
+            return InventoryMigration(rest);
+
+        if (rest is ["layout", "compare", ..])
+            return LayoutCompareCommand.Run(rest[2..]);
+
         using var store = new LocalStore(storePath);
         var projects = new ProjectService(store);
         var interchange = new InterchangeService(projects);
@@ -73,116 +324,7 @@ public static class Program
                 return ImageDewarp(rest);
 
             case "backup" when rest.Length >= 2:
-            {
-                // Consistent backup set: VACUUM INTO database copy + cached images + manifest.
-                var target = rest[1];
-                Directory.CreateDirectory(target);
-                var dbTarget = Path.Combine(target, "store.db");
-                store.BackupTo(dbTarget);
-
-                var imagesDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
-                var manifest = new Dictionary<string, object>
-                {
-                    ["createdAt"] = DateTimeOffset.UtcNow.ToString("O"),
-                    ["storeChecksum"] = Sha256File(dbTarget),
-                    ["images"] = new List<object>(),
-                };
-                var imageEntries = (List<object>)manifest["images"]!;
-                if (Directory.Exists(imagesDir))
-                {
-                    var imageTarget = Path.Combine(target, "images");
-                    Directory.CreateDirectory(imageTarget);
-                    foreach (var file in Directory.GetFiles(imagesDir))
-                    {
-                        var name = Path.GetFileName(file);
-                        File.Copy(file, Path.Combine(imageTarget, name), overwrite: true);
-                        imageEntries.Add(new Dictionary<string, object>
-                        {
-                            ["name"] = name,
-                            ["sha256"] = Sha256File(file),
-                            ["size"] = new FileInfo(file).Length,
-                        });
-                    }
-                }
-                File.WriteAllText(Path.Combine(target, "backup-manifest.json"),
-                    System.Text.Json.JsonSerializer.Serialize(manifest, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
-                Console.WriteLine($"backup written: {target} ({imageEntries.Count} images)");
-                return 0;
-            }
-
-            case "restore" when rest.Length >= 2:
-            {
-                var source = rest[1];
-                var targetDb = rest.Length >= 4 && rest[2] == "--into" ? rest[3] : storePath;
-                var force = rest.Contains("--force");
-
-                var manifestPath = Path.Combine(source, "backup-manifest.json");
-                if (!File.Exists(manifestPath)) { Console.Error.WriteLine("no backup-manifest.json in the backup"); return 1; }
-                var manifest = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath)).RootElement;
-
-                var sourceDb = Path.Combine(source, "store.db");
-                var expected = manifest.GetProperty("storeChecksum").GetString();
-                if (Sha256File(sourceDb) != expected)
-                {
-                    Console.Error.WriteLine("backup checksum mismatch; refusing to restore");
-                    return 1;
-                }
-
-                // Verify every image BEFORE writing anything: a corrupt set must not leave
-                // a half-restored store behind.
-                var imagesSource = Path.Combine(source, "images");
-                var images = manifest.GetProperty("images").EnumerateArray().ToList();
-                foreach (var property in images)
-                {
-                    var name = property.GetProperty("name").GetString()!;
-                    var file = Path.Combine(imagesSource, name);
-                    if (!File.Exists(file) || Sha256File(file) != property.GetProperty("sha256").GetString())
-                    {
-                        Console.Error.WriteLine($"image checksum mismatch or missing ({name}); refusing to restore");
-                        return 1;
-                    }
-                }
-
-                if (File.Exists(targetDb) && !force)
-                {
-                    Console.Error.WriteLine($"target store exists ({targetDb}); pass --force to overwrite");
-                    return 1;
-                }
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(targetDb))!);
-                File.Copy(sourceDb, targetDb, overwrite: true);
-
-                if (images.Count > 0)
-                {
-                    var imagesTarget = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(targetDb))!, "images");
-                    Directory.CreateDirectory(imagesTarget);
-                    foreach (var property in images)
-                    {
-                        var name = property.GetProperty("name").GetString()!;
-                        File.Copy(Path.Combine(imagesSource, name), Path.Combine(imagesTarget, name), overwrite: true);
-                    }
-                }
-                Console.WriteLine($"restored: {source} -> {targetDb}");
-                return 0;
-            }
-
-            case "migrate" when rest.Length >= 3 && rest[1] == "inventory":
-            {
-                var outIndex = Array.IndexOf(rest, "--out");
-                var limitIndex = Array.IndexOf(rest, "--limit");
-                var limit = limitIndex >= 0 && limitIndex + 1 < rest.Length
-                    ? int.Parse(rest[limitIndex + 1])
-                    : MigrationInventory.DefaultMaxFiles;
-                var report = MigrationInventory.Scan(rest[2], limit,
-                    computeHashes: Array.IndexOf(rest, "--no-hash") < 0);
-                var output = rest.Contains("--csv")
-                    ? MigrationInventory.ToCsv(report) : MigrationInventory.ToJson(report);
-                if (outIndex >= 0 && outIndex + 1 < rest.Length) File.WriteAllText(rest[outIndex + 1], output);
-                else Console.Write(output);
-                Console.Error.WriteLine($"inventoried {report.FileCount} file(s), {report.TotalBytes} byte(s): " +
-                    string.Join(", ", report.Counts.Select(c => $"{c.Key}={c.Value}")));
-                foreach (var note in report.Notes.Take(10)) Console.Error.WriteLine($"note: {note}");
-                return 0;
-            }
+                return WriteBackup(store, storePath, rest[1]);
 
             case "migrate" when rest.Length >= 4 && rest[1] == "import":
             {
@@ -546,7 +688,7 @@ public static class Program
             }
 
             case "export" when rest.Length >= 3 && rest[1] == "edition-html"
-                && (rest.Length == 3 || rest.Contains("--all")):
+                && (rest.Length == 3 || rest[3] == "--out" || rest.Contains("--all")):
             {
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var result = EditionHtml.ExportProject(project, project.Name);
@@ -624,7 +766,9 @@ public static class Program
                         .FromJson<LineEvaluationReport.AcceptanceCriteria>(File.ReadAllText(acceptancePath));
                 }
 
+                using var tensorScope = TorchSharp.torch.NewDisposeScope();
                 var loaded = RecognitionModelLoader.Load(packageDirectory);
+                using var model = loaded.Model;
                 var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension,
                     targetHeight: loaded.Model.InputHeightPixels, preprocessingProfile: loaded.DatasetPreprocessingProfile);
                 var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
@@ -1470,13 +1614,13 @@ public static class Program
                 var project = projects.Load(EntityId.Parse(rest[2], EntityKind.Collection));
                 var packageDir = rest.Length >= 5 && rest[3] == "--package" ? rest[4] : null;
                 packageDir ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".leviathantext", "models", "p01-pilot");
+                using var tensorScope = TorchSharp.torch.NewDisposeScope();
                 var loaded = RecognitionModelLoader.Load(packageDir);
+                using var model = loaded.Model;
                 var modelName = loaded.Manifest?.ModelName
                     ?? (Directory.GetFiles(packageDir, "*.best.json") is [var only]
                         ? Path.GetFileName(only).Replace(".best.json", string.Empty, StringComparison.Ordinal)
                         : Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDir)));
-                var modelPath = CheckpointStore.ModelPath(packageDir, modelName, ".best");
-                var metadata = loaded.Metadata;
 
                 var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
                 var pipeline = new RecognitionPipeline(store, new ImageResolver(store, imageCache));
@@ -1493,13 +1637,8 @@ public static class Program
                             ModelDirectory = packageDir,
                             PreprocessingProfile = loaded.PreprocessingProfile,
                             ModelName = modelName,
-                            ModelFactory = () =>
-                            {
-                                var model = new CrnnModel(loaded.Labels.NumClasses, metadata.HiddenSize,
-                                    metadata.WidthDownsampleFactor, metadata.InputHeightPixels, metadata.Dropout);
-                                model.load(modelPath);
-                                return model;
-                            },
+                            ModelFactory = () => model,
+                            LeaveModelOpen = true,
                             LabelSetFactory = () => loaded.Labels,
                         });
                         surfaces++;
@@ -1534,7 +1673,9 @@ public static class Program
 
                 // Load the packaged model (manifest + label hash + weights verified by the loader);
                 // a package that cannot prove its identity fails with ModelIncompatible.
+                using var tensorScope = TorchSharp.torch.NewDisposeScope();
                 var loaded = RecognitionModelLoader.Load(packageDir);
+                using var model = loaded.Model;
 
                 var imageCache = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(storePath))!, "images");
                 var pipeline = new RecognitionPipeline(store, new ImageResolver(store, imageCache));
@@ -1543,7 +1684,8 @@ public static class Program
                     ModelDirectory = packageDir,
                     PreprocessingProfile = loaded.PreprocessingProfile,
                     ModelName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packageDir)),
-                    ModelFactory = () => loaded.Model,
+                    ModelFactory = () => model,
+                    LeaveModelOpen = true,
                     LabelSetFactory = () => loaded.Labels,
                 });
 
@@ -1640,7 +1782,9 @@ public static class Program
                 Message = "The page image named by the XML document was not found.",
             });
 
+        using var tensorScope = TorchSharp.torch.NewDisposeScope();
         var loaded = RecognitionModelLoader.Load(package);
+        using var model = loaded.Model;
         loaded.PreprocessingProfile.RequireStandardGeometry();
         using var decoded = ImageDecoder.Decode(imagePath);
         var selected = parsed.Lines.Where(line => line.Polygon.Count >= 3 || line.Baseline.Count >= 2).ToList();
@@ -1737,7 +1881,9 @@ public static class Program
             return 1;
         }
 
+        using var tensorScope = TorchSharp.torch.NewDisposeScope();
         var loaded = RecognitionModelLoader.Load(package);
+        using var model = loaded.Model;
         var recognizer = loaded.CreateRecognizer();
         using var decoded = ImageDecoder.Decode(input);
         var entries = new List<(int Left, int Top, int Right, int Bottom, string Text, IReadOnlyList<GraphemeConfidence> Confidence)>();
@@ -2006,6 +2152,9 @@ public static class Program
             LeviathanText CLI (local; no web server required)
 
               leviathan [--store <path>] project new <name>
+              leviathan benchmark vlm-validate <manifest.json> [--allow-provisional]
+              leviathan benchmark vlm <manifest.json> --model <lm-studio-id> --out <new-dir> [--mode image-only|ocr-assisted] [--response-format plain-text|transcription-json-v1] [--credential-env <name>] [--repetitions 3] [--allow-provisional]
+              leviathan benchmark vlm-score <run-dir> --references <references.json> --out <new-report.json>
               leviathan [--store <path>] backup <target-dir>
               leviathan [--store <path>] restore <backup-dir> [--into <store>] [--force]
               leviathan [--store <path>] project list
@@ -2022,6 +2171,7 @@ public static class Program
               leviathan migrate inventory <existing-tree> [--out <report.json|csv>] [--csv] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>] [--audit]
               leviathan validate tei <record.xml> [--schema <tei.xsd>] [--expect-schema-sha256 <hash>] [--strict]
+              leviathan layout compare <truth.xml> <prediction.xml> --metric vertical-iou|center-distance --threshold <value>
               leviathan [--store <path>] layout detect <projectId> <surfaceId> [--columns] [--rtl-columns] [--max-pixels N] [--model <pkg>]
               leviathan [--store <path>] export diplomatic <projectId> <surfaceId>
               leviathan [--store <path>] export page <projectId> <surfaceId>

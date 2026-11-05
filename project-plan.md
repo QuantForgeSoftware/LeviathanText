@@ -768,3 +768,295 @@ from this cycle.
 The owner authorized correction of all eleven findings from the preceding12-hour review, with data-loss and registry-security defects first. Base revision is `9262c57`. Root owns registry/API integration, shared plans and final verification. The interchange instance owns `TeiXml.cs`, TEI import in `ProjectService.cs` and focused Formats/Application tests. The concurrency instance owns `LocalStore.cs`, `TranscriptionService.cs` and focused Infrastructure/Application tests. Tests sharing existing files must be coordinated before edits. The independent reviewer checks integration after the initial patches. No instance stages another's files.
 
 Each scope first adds regressions reproducing its reviewed failures on the named baseline and retains results in `.artifacts/review-fixes-2026-11-03/`. Fixes must preserve source metadata, Unicode spans, revision ownership, supported legacy packages and normal API/CLI operation. Registry requests need explicit destination and redirect validation before filesystem/network effects. Baseline reproduction data are synthetic and disposable. Combined verification runs the affected suites, Angular tests where interfaces change and a serial solution build with zero warnings/errors. Record review dispositions and test counts before archiving REV-01 throughREV-04. Existing P46 scholarly and resource investigations retain their separate dependencies.
+
+## November 4 review corrections
+
+The owner authorized all seven findings in the latest November 3 batch (`a1e5a90..6c9265f`). Root owns bundle/API filesystem authorization, shared documentation and integration. The UI instance owns advisory saving and revision-aware rendering in Angular; the edition instance owns `EditionHtml.cs` and its Application tests; the CLI/script instance owns the HTML argument route, the worker-resource script and their focused tests. Changes must preserve local CLI/admin workflows, legitimate project image export, source revision identity, Greek scalar coordinates, advisory payloads and explicit loss reports. Capture files selected through shared-server filesystem APIs require administrator authorization, and bundle image copying must reject non-image/corrupt inputs. Standalone HTML must carry a usable image source rather than a server filesystem path; bundled HTML retains relative links to included images.
+
+Each scope preserves baseline failing regressions or equivalent synthetic reproductions under `.artifacts/review-fixes-2026-11-04/`. Coordinate shared .NET builds serially. Final integration checks the affected .NET and Angular suites, a zero-warning solution build and independent cross-review. No corpus training, automatic data recovery, release, DCO certification or commit is part of this correction. Track work in NOV4-01 through NOV4-05 and archive completed items at the handoff.
+
+Cross-review additionally found two pre-existing editor defects in the touched workflow: changing the selected line left the reused editor on the old line's state, and accepting an alternative sent an L1 parent into the L2 revision chain. The CLI/script instance owns the follow-up in `line-editor.ts` and its tests after the UI instance's handoff. Reload/reset on input changes, cancel and guard asynchronous responses, and use the current L2 parent (or no parent for a new L2 chain). Preserve failing-before/passing-after component evidence and rerun the full Angular suite/build.
+
+All seven original and two follow-up defects are fixed and independently reviewed. Final evidence: 917 .NET tests passed (one opt-in live-provider test skipped), 78 Angular tests passed, four worker-script regressions passed, and Release/Angular production builds are clean. The .NET run includes 12 full suites plus focused preprocessing and existing corpus-intake checks; no training or locked acceptance study was run. [The correction handoff](docs/handoffs/review-fixes-2026-11-04.md) records baseline failures, final counts, source hashes, commands, administrator-only server-path imports and preview limits. NOV4-01 through NOV4-06 are archived in `completed.md`; existing P46 scholarly/resource dependencies remain open. Changes remain uncommitted.
+
+## VLM benchmark through LM Studio — 2026-11-04
+
+### Execution activation — 07:29–10:29 CST
+
+The owner subsequently authorized three hours of work, starting 2026-11-04 07:29:19 CST
+and ending 10:29:19 CST. This activates bounded implementation and inference preparation/
+diagnostics; the no-training constraint and pending specialist decisions remain in force.
+Root owns new CLI benchmark orchestration, local LM Studio inspection/model acquisition,
+synthetic/live diagnostics, integration and shared plans. A owns new AI vision transport
+and focused AI tests; B owns new evaluation scorer/tests and corpus/scoring manifests.
+Agree interfaces before dependent edits; serialize .NET builds in the shared checkout.
+Preserve pre-existing dirty files and record their starting hashes. Use newly versioned
+artifacts under `.artifacts/vlm-benchmark/vlm-bench-1/`. No selection/confirmation claim may
+be made from provisional P46 targets. Root finishes verification, peer review and handoffs
+within the window; no fitting, release or default recognizer replacement is authorized.
+
+Verification deviation discovered during this cycle: two earlier CLI regression commands
+each ran an existing one-epoch synthetic alphabet fixture test because their filter missed
+a second fitting test. The temporary fixtures were disposed; no P46 or VLM weights were
+trained or modified. Subsequent CLI verification explicitly excludes both fitting tests.
+The exact tests, timestamps and retained TRX hashes are recorded in
+`.artifacts/vlm-benchmark/vlm-bench-1/root/synthetic-test-training-deviation.json`.
+This is a deviation from the intended no-training scope, not training authorization.
+
+The owner requested a planned VLM comparison using LM Studio, with two parallel AI task
+briefs and no training. [VLM-BENCH-1](docs/evaluation/vlm-lmstudio-benchmark.md) is the
+authoritative experiment specification; todo VLM-01–08 contains its executable backlog.
+The original planning-only assignment changed documentation; the activation above now
+also covers implementation, model acquisition and separately recorded exploratory inference.
+
+Candidate order is Qwen3-VL-8B-Instruct, Qwen2.5-VL-7B-Instruct, then Mistral
+Small-3.1-24B-Instruct-2503 if memory allows. The specification links upstream Apache-2.0
+cards and concrete LM Studio GGUF packages with their matching vision projectors, and
+requires exact revisions/hashes and an installed-runtime capability check before use.
+The new standalone C# vision provider supplies explicit image-input serialization;
+naming a VLM in the existing text-only request still does not provide visual evidence.
+
+Compare the frozen existing recognizer (R0), image-only VLM transcription (V1), and
+image-plus-R0 correction (V2) on identical source crops. Preserve raw L0 output, independent
+L1 review and explicit L2/L3 editorial proposals. Freeze reviewed dataset versions, prompts,
+input scaling, quantization, repetitions, failure handling and finite run budgets before
+scores. Report per-material/physical-unit CER, insertions/deletions/substitutions, visible
+marks, unsupported completions, coverage, correction time and resources. Proposed research
+screens require >=10% relative CER reduction per claimed material with paired evidence and no observed covered-
+stratum regression; workflow claims additionally need >=20% correction-time reduction
+without residual-quality loss. Exact definitions and resource gates live in VLM-BENCH-1;
+they are not established release thresholds.
+
+[Instance A — VLM-A1](docs/tasks/vlm-lmstudio-engineering.md) owns LM Studio transport,
+synthetic compatibility fixtures, later C# harness work and resource receipts.
+[Instance B — VLM-B1](docs/tasks/vlm-corpus-evaluation.md) owns rights/exposure inventory,
+specialist worksheets, reviewed manifests, scorer/grounding design and evaluation reports.
+They agree a versioned input/result contract, then work independently; root alone edits
+shared plans and integrates contract changes. Greek adjudication and confirmation custody
+require separately named people/roles. Neither instance changes the other's files, old
+P46 artifacts or pre-existing uncommitted fixes.
+
+Existing 51 P46 proposed targets and 81 pending specialist decisions do not constitute a
+reviewed benchmark. Already inspected leaves remain exposed development material. The
+proposed setup/selection/confirmation releases and multi-track coverage are unmet targets;
+missing labels, fresh units, compatible baselines or hardware produce explicit gaps. A
+current inference assignment does not authorize training, acceptance-label reuse, deployment
+or model promotion. NT-15/17/18/20 and the scholarly review dependencies stay open.
+
+### First VLM execution phase and extension to 13:00 CST
+
+The first phase is closed: [session handoff](docs/handoffs/vlm-session-2026-11-04.md).
+The C# image transport, CLI and scorer are implemented and independently reviewed. All
+1,509 planned slots across 34 runs are retained, including six unattempted deadline slots
+and the original client-parser diagnostic. Applicable tests pass 289 cases with one opt-in
+live test skipped and both fitting CLI tests excluded; the two earlier unintended synthetic
+fixture epochs remain explicitly disclosed. Final rescoring of 28 standard-protocol runs
+passes, and the solution builds without warnings/errors. The initial empty loaded-model
+state was restored. VLM-01/02/03/05/08 are archived; VLM-04/06/07 remain open.
+
+The owner extended the current assignment at 10:15 CST to **13:00 CST on 2026-11-04**.
+This activates VLM-09 and supersedes the original session stop, while preserving every
+closed study's registrations, outputs and limits. New artifacts use
+`.artifacts/vlm-benchmark/vlm-bench-2/`. No training, specialist decisions, natural-data
+selection, promotion or release is authorized by this extension.
+
+A owns an optional fixed transcription-object JSON schema request in the vision provider
+and its mocked tests; the default payload must remain unchanged. The agreed request
+interface is `VisionResponseFormat { PlainText = 0, TranscriptionJsonV1 = 1 }` and an optional
+`VisionInferenceRequest.ResponseFormat`, default PlainText. Opt-in appends a fixed strict
+`transcription_v1` object schema after the seed; unknown values reject before HTTP.
+Request hashes include the schema, prompt hashes remain prompt-only, and returned text/wire
+remain untouched. Transport completion does not imply schema validity. B owns an artifact-only
+C# paired synthetic probe/report. C owns read-only runtime/logging investigation and
+independent review. Root integrates shared files and alone controls model loads, inference
+and bounded logs. Production scoring and closed benchmark-1 artifacts remain unchanged
+unless an independently reproduced defect requires a separately evidenced correction.
+
+The proposed matrix is three models × two routes × 15 frozen synthetic images × three
+repetitions = 270 calls, plus six separately registered schema-challenge calls. Images are
+the existing setup five and raw geometry ten (13 text fixtures and two blanks). Both routes
+use the same visible-JSON prompt; only the server-requested schema differs. Interleave
+matched route pairs with deterministic alternating order. Use one model/request at a time,
+temperature zero, top-p one, seed 42, output limit 512, 30-second request timeout and a
+60-minute global execution cap including setup; stop live work by 12:30 CST to leave time
+for final verification. Freeze exact manifests/prompts/schema/hashes before calls.
+
+Record schema validity independently from transport, decoded text, blank hallucinations,
+literal/NFC exactness and uncapped source distance. Preserve malformed raw text and every
+planned slot; repetitions are not new independent images. A requested schema or a valid
+JSON response alone does not prove runtime grammar enforcement. Capture effective image
+grid, vision tokens and rendered template only where the installed backend exposes them,
+and distinguish these observations from [embedded GGUF metadata](docs/evaluation/vlm-model-input-metadata-2026-11-04.md).
+No direct latency/quality comparison to benchmark-1's different timeout is justified.
+Greek review, fresh physical units and correction-time/acceptance gates remain dependencies.
+
+### Optional structured CLI follow-up
+
+The paired synthetic experiment closed at 11:19 CST with all 276 registered responses
+retained and the original empty loaded-model state restored. Its observed benefit is
+format interoperability: Mistral's paired text differs only by JSON fences, while Qwen2.5
+still inserts text on a blank fixture. Runtime diagnostic output and HTTP output may be
+different representations; the runtime investigation must explain that boundary before
+attributing formatting to model generation. These results do not establish better Greek
+recognition or authorize a new default.
+
+VLM-10 makes the fixed provider option usable through the exploratory CLI. A complete
+change needs an explicitly selected response format, a new named JSON prompt/version,
+condition provenance and strict offline validation. The current plain-text prompt/version,
+request bytes and legacy reader behavior remain unchanged. New structured receipts must be
+rejected by old readers rather than silently scored as ordinary transcription. Raw wire and
+transport status remain original evidence. A valid sole-property transcription object may
+produce a separate decoded scoring view; invalid JSON retains its entire raw output and
+fails format assessment. No fence removal, substring extraction or response repair is
+allowed. Missing, cancelled and failed rows retain their planned denominators.
+
+A proposes the minimal contract and implements only after root/B review; B reviews schema,
+scoring and compatibility semantics; C reviews integrity and failure handling after the
+runtime report. Root owns shared plans, CLI dispatch/help integration and final verification.
+Pre-change source hashes are frozen under `.artifacts/vlm-benchmark/vlm-cli-json-1/`.
+Acceptance requires a failing baseline support demonstration, mocked schema/failure/Unicode
+regressions, unchanged default-wire tests, all applicable no-fitting suites, a warning-free
+solution build and replay of the 28 closed standard-protocol runs. No new live calls,
+training, model promotion or specialist decisions belong to this follow-up.
+
+### Optional authenticated local endpoint follow-up
+
+VLM-10 is verified: 137 CLI tests pass with both fitting tests excluded, 76 independent
+score-only checks pass, the solution builds without warnings/errors and all 28 closed
+legacy reports replay byte-identically. Its baseline is frozen before this separate scope.
+
+The [credential review](.artifacts/vlm-benchmark/vlm-cli-json-1/c/auth-gap-review.md)
+identifies a concrete interface gap: the existing provider supports environment-referenced
+bearer credentials, but the standalone VLM CLI cannot select that reference. VLM-11 adds
+only an optional `--credential-env NAME` inference argument, using a bounded portable
+environment-variable name. Omission remains keyless; no common token variable is read
+implicitly. The CLI never accepts, stores or prints a token value and does not inspect real
+credentials during this work. Validation rejects malformed references before output or HTTP.
+
+The existing provider supplies header-only authorization and response-echo redaction.
+Missing credentials must produce recorded configuration failures without HTTP or keyless
+fallback; 401/403 remain failed attempts. Body hashes exclude headers and must remain
+unchanged when only the credential changes. Authentication receipts contain only the
+explicit nonsecret reference and method. Scoring discloses credential-redacted outputs,
+which are no longer exact served text, while retaining every row and failure denominator.
+Legacy keyless and unredacted report bytes remain unchanged. Offline validation/scoring
+neither accepts a credential argument nor resolves environment values.
+
+A owns CLI wiring and new mocked tests; B/C review secret handling, receipt compatibility
+and failure accounting; root owns help, documentation, shared plans and integration.
+Artifacts use `.artifacts/vlm-benchmark/vlm-cli-auth-1/`. Acceptance includes compiling
+unsupported-option baseline evidence, dummy-token mocks, full applicable no-fitting CLI
+regression checks, independent review and unchanged legacy replays. No live authenticated
+service changes or requests, training, new dependencies or AI/Evaluation behavior changes
+are part of this scope. Defer if the slice requires broader transport changes.
+
+Security review identified a prerequisite exception to the transport freeze: JSON escapes
+inside the model's transcription object can be decoded after the transport's existing
+one-layer credential check. First reproduce that path with a dummy token. If confirmed,
+A may make a narrowly scoped redaction correction that checks the assembled model-content
+string layer and redacts the whole content/wire on an encoded credential echo. Preserve
+the original captured-byte digest and redaction flag; do not repair JSON, add unbounded
+recursive decoding or resolve credentials during offline scoring. Require fail-before
+evidence, split-SSE/truncated-prefix/ordinary-Greek controls, independent B/C review and
+the full applicable AI suite. No actual credential values are inspected. Broader transport
+changes remain out of scope, and the Evaluation library stays unchanged.
+
+VLM-10 and VLM-11 are complete and archived. The Release build passed with zero
+warnings and errors, and all 30 compatibility reports replayed byte-for-byte. The
+extension handoff records the regression evidence and remaining live validation gaps.
+[Extension handoff](docs/handoffs/vlm-extension-2026-11-04.md).
+
+The earlier extension ended with an unresolved UI timeout. The subsequent nine-call
+Debug trace measured effective image grids and encoding token counts on its synthetic
+fixture. Reviewed Greek references remain the prerequisite for natural geometry
+comparisons under VLM-04. [Debug trace results](docs/evaluation/vlm-09-debug-trace-2026-11-04.md).
+
+### Synthetic VLM follow-up after the runtime trace
+
+The completed VLM-09 trace measured backend token grids and encoding counts on all
+nine registered requests. The operator chose Debug as the retained app preference.
+The geometry audit joins those measurements to earlier transcription results and
+reports where individual lines drive aggregate changes.
+[Runtime trace](docs/evaluation/vlm-09-debug-trace-2026-11-04.md) ·
+[Paired geometry audit](docs/evaluation/vlm-geometry-paired-offline-2026-11-04.md).
+
+The crossed grounding diagnostic holds pixels fixed while changing the supplied
+OCR hint. Its 81 requests cover two generated uppercase text lines and one blank
+with three models. A separate glyph study tests six single-character contrasts
+in two fonts and two carrier contexts. Preserve its first layout and its
+spacing-focused follow-up as distinct versions. No VLM condition has been selected
+for reviewed material.
+[Crossed grounding report](docs/evaluation/vlm-crossed-grounding-2026-11-04.md).
+
+The correction-effort protocol and offline dry run define the custodian and editor
+workflow, including missing assignments and manual fallback. The natural study
+still requires specialist-adjudicated references and geometry, a matched comparator,
+and a named custodian for confirmation data.
+[Reviewed-run preflight](docs/evaluation/vlm-reviewed-run-preflight.md).
+
+The follow-up completed 1,481 synthetic request slots across registered studies.
+The shipped JSON profile passed the repeated compact blank on both tested models.
+Compact glyph results and the matched hint controls retain their individual
+denominators and expose the limits of these synthetic fixtures. The P46 intake
+checker is ready for attributed human returns.
+[Two-hour benchmark handoff](docs/handoffs/vlm-two-hour-2026-11-04.md).
+
+### Four-hour VLM continuation — 2026-11-04
+
+[Four-hour handoff](docs/handoffs/vlm-four-hour-2026-11-04.md) links generated
+blank and contrast studies, script-profile triage, and the three-model
+word screen. All four registered visits stopped at the idle preflight. Keep reviewed natural evaluation behind VLM-04/06/07. Review
+rights and adjudicate crop geometry and diplomatic targets before freezing the
+baseline and resampling independent physical units.
+
+### Overnight todo execution — 2026-11-04 to 2026-11-05
+
+The authorized window runs through 05:00 CST. Parallel owners handle NT-20
+lifecycle measurement, NT-02/NT-10 source and handoff evidence, and manuscript
+or papyrus intake reconciliation. The integrator first rehearses read-only
+reference-tree inventory and public-format import into a disposable local
+store. Preserve source bytes, explain every skipped record, verify recoverable
+backups and keep scholarly acceptance separate from import parity. Further
+engineering slices use focused regression tests and isolated fixtures. Review,
+confirmation, permissions and release gates retain their existing owners.
+
+The overnight NT-20 mitigation check also compares the number of live wrappers
+and exact inference outputs for project recognition. Existing project routes
+construct an unused verified package model and reload its weights for each
+surface. Test ownership before changing the routes, then verify one
+package-scoped instance is disposed on completion or failure. This reduces
+repeated module construction within a job and leaves the dependency-level
+correction as a separate gate.
+
+A read-only PAGE layout comparison slice exposes the existing greedy vertical
+IoU and center-distance metrics on an explicit pair of PAGE documents. Require
+matching declared image frame names and dimensions and usable line geometry.
+Record the metric, threshold, geometry policy and input hashes. Keep the
+paired metric contract separate from real-image adjudication, reading-order
+validation and model training.
+
+The overnight engineering candidate passed a zero-warning Release build,
+1,113 non-fitting C# tests and 84 Angular tests, with one existing C# skip.
+The [handoff](docs/handoffs/overnight-todo-2026-11-05.md) and archived completed
+items distinguish mechanical corpus verification, scholarly acceptance, code
+regressions and package checks. The frozen two-worker soak completed all
+68 jobs and 1,632 generated imports across eight hours and fifteen minutes.
+A separate burst exercised the final packaged candidate. Native dependency
+retention, measured API contention limits, remaining shared-workspace policy,
+reviewed Greek labels, image permissions and cross-platform acceptance stay open.
+
+### Overnight uncommitted-change review — 2026-11-05
+
+Review the overnight diff and retained handoff in disjoint API/worker/storage,
+geometry/layout, scholarly interchange, and backup/bundle/migration scopes.
+Reproduce each concrete defect before changing it, preserve focused regression
+evidence, then verify the integrated candidate with fitting tests excluded.
+Archive completed corrections and retain externally blocked acceptance work.
+
+The [overnight review](docs/handoffs/overnight-review-2026-11-05.md) corrected
+export publication and metadata, timestamp rollback selection, atomic job
+quotas, project-job access, creator idempotency collisions, editor response
+races and line-order targets, Gray8 threshold equivalence, and TEI uncertainty
+projection and license-loss accounting. Combined verification passed the
+zero-warning Release build, 1,131 selected C# tests, 93 Angular tests and six
+script tests, with one existing C# skip. Fitting fixtures were excluded.

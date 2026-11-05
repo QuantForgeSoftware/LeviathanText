@@ -39,6 +39,29 @@ public sealed class CorpusOverlapTests
     }
 
     [Fact]
+    public void Unavailable_checksums_do_not_imply_shared_image_bytes()
+    {
+        var project = SampleProjectBuilder.Build();
+        var obj = project.Objects[0];
+        var surface = obj.Surfaces[0];
+        var capture = surface.Captures[0];
+        var first = capture with
+        {
+            Frame = capture.Frame with
+            {
+                ImageChecksum = new Checksum { Algorithm = "unavailable", Digest = "pending" },
+            },
+        };
+        var second = first with { Id = new EntityId(EntityKind.Capture, "cap-unavailable") };
+        var withTwo = project with
+        {
+            Objects = [obj with { Surfaces = [surface with { Captures = [first, second] }] }],
+        };
+
+        Assert.DoesNotContain(CorpusOverlap.Audit(withTwo), overlap => overlap.Kind == "image-checksum");
+    }
+
+    [Fact]
     public void Repeated_fragment_refs_are_reported()
     {
         var project = SampleProjectBuilder.Build();

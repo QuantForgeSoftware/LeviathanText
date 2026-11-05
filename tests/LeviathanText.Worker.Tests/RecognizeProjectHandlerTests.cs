@@ -4,6 +4,7 @@ using LeviathanText.Infrastructure;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using SkiaSharp;
+using TorchSharp;
 using Xunit;
 
 namespace LeviathanText.Worker.Tests;
@@ -23,7 +24,7 @@ public sealed class RecognizeProjectHandlerTests : IDisposable
         Directory.CreateDirectory(_dir);
         Directory.CreateDirectory(_package);
         var labels = new LabelSet(["α", "β"]);
-        var model = new CrnnModel(labels.NumClasses, hiddenSize: 8);
+        using var model = new CrnnModel(labels.NumClasses, hiddenSize: 8);
         model.save(CheckpointStore.ModelPath(_package, "tiny", ".best"));
         CheckpointStore.WriteMetadata(_package, "tiny", new CheckpointMetadata
         {
@@ -121,7 +122,9 @@ public sealed class RecognizeProjectHandlerTests : IDisposable
         jobs.Save(job);
         var host = new WorkerHost(jobs, [new RecognizeProjectHandler(store)]);
 
+        var liveBefore = DisposeScopeManager.Statistics.ThreadTotalLiveCount;
         var finished = host.RunNext();
+        Assert.Equal(liveBefore, DisposeScopeManager.Statistics.ThreadTotalLiveCount);
         Assert.Equal(JobStatus.Succeeded, finished!.Status);
         Assert.Equal("surfaces=2;lines=2;failed=0", Assert.Single(finished.Outputs).Artifact.Digest);
 

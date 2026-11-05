@@ -16,16 +16,28 @@ if [[ -e "$OUT" ]]; then
   echo "refusing to overwrite existing release directory: $OUT" >&2
   exit 2
 fi
+COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+DIRTY=false
+if [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then DIRTY=true; fi
 
 echo "== publish ($RID) =="
 mkdir -p "$OUT/cli" "$OUT/api" "$OUT/worker" "$OUT/web"
+BUILD_LOG="$(mktemp "${TMPDIR:-/tmp}/lt-package-build.XXXXXX")"
+trap 'rm -f "$BUILD_LOG"' EXIT
 for project in Cli Api Worker; do
-  dotnet publish "$ROOT/src/LeviathanText.$project" -c Release -r "$RID" --self-contained false \
-    -o "$OUT/$(echo "$project" | tr '[:upper:]' '[:lower:]')" >/dev/null
+  if ! dotnet publish "$ROOT/src/LeviathanText.$project" -c Release -r "$RID" --self-contained false \
+    -m:1 -p:UseSharedCompilation=false \
+    -o "$OUT/$(echo "$project" | tr '[:upper:]' '[:lower:]')" >"$BUILD_LOG" 2>&1; then
+    cat "$BUILD_LOG" >&2
+    exit 1
+  fi
 done
 
 echo "== web =="
-( cd "$ROOT/web" && npx ng build >/dev/null )
+if ! ( cd "$ROOT/web" && npx ng build >"$BUILD_LOG" 2>&1 ); then
+  cat "$BUILD_LOG" >&2
+  exit 1
+fi
 cp -R "$ROOT/web/dist/web/browser/." "$OUT/web/"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
 cp "$ROOT/docs/release/known-issues.md" "$OUT/KNOWN-ISSUES.md"
@@ -36,18 +48,18 @@ if grep -R -q -E --include='*.csproj' --include='*.cs' 'PackageReference Include
   exit 1
 fi
 
-COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 DOTNET_VERSION="$(dotnet --version)"
 cat > "$OUT/README.txt" <<TXT
 LeviathanText pilot release
 runtime: $RID
 commit: $COMMIT
+working tree dirty: $DIRTY
 dotnet: $DOTNET_VERSION
 built: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 This is a framework-dependent pilot build. Install the matching .NET runtime first.
   cli/LeviathanText.Cli --help
-  LeviathanText__WebRoot="$PWD/web" api/LeviathanText.Api --urls http://127.0.0.1:5000
+  LeviathanText__WebRoot="\$PWD/web" api/LeviathanText.Api --urls http://127.0.0.1:5000
       (workspace at http://127.0.0.1:5000/ui; omit WebRoot for API-only)
   worker/LeviathanText.Worker --once
   web/  Angular assets (also usable with any static file server)
@@ -57,9 +69,9 @@ runtime is required. See docs/release/packaging.md for supported/untested target
 TXT
 
 echo "== manifest =="
-python3 - "$OUT" "$RID" "$COMMIT" "$DOTNET_VERSION" <<'PY'
+python3 - "$OUT" "$RID" "$COMMIT" "$DOTNET_VERSION" "$DIRTY" <<'PY'
 import hashlib, json, os, sys
-root, rid, commit, dotnet = sys.argv[1:5]
+root, rid, commit, dotnet, dirty = sys.argv[1:6]
 files = []
 for dirpath, _, names in os.walk(root):
     for name in sorted(names):
@@ -69,7 +81,7 @@ for dirpath, _, names in os.walk(root):
         files.append({"path": rel.replace(os.sep, '/'), "bytes": len(data),
                       "sha256": hashlib.sha256(data).hexdigest()})
 manifest = {"product": "LeviathanText", "releaseKind": "pilot-framework-dependent",
-            "runtime": rid, "commit": commit, "dotnetVersion": dotnet,
+            "runtime": rid, "commit": commit, "workingTreeDirty": dirty == "true", "dotnetVersion": dotnet,
             "pythonRequired": False, "krakenRequired": False,
             "modelArtifactsBundled": False, "files": files}
 with open(os.path.join(root, "release-manifest.json"), "w", encoding="utf-8") as fh:
@@ -78,7 +90,8 @@ with open(os.path.join(root, "release-manifest.json"), "w", encoding="utf-8") as
 print(f"{len(files)} files, {sum(f['bytes'] for f in files)} bytes")
 PY
 
-tar -czf "$OUT.tar.gz" -C "$OUT" .
+# BSD tar on macOS otherwise adds AppleDouble members absent from the manifest.
+COPYFILE_DISABLE=1 tar -czf "$OUT.tar.gz" -C "$OUT" .
 echo "== done =="
 echo "directory: $OUT"
 echo "archive:   $OUT.tar.gz"

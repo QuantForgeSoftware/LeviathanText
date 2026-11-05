@@ -58,5 +58,5 @@ This is a single-user/local install; it does not configure SSO or a shared tenan
 Model packages are separate artifacts.
 TXT
 
+LEVIATHAN_STORE="$TMP/verification.db" "$PREFIX/bin/leviathan" project list >/dev/null
 echo "PASS: installed $PREFIX"
-"$PREFIX/bin/leviathan" project list >/dev/null

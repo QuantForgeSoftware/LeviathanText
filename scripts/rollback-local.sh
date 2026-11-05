@@ -24,12 +24,27 @@ if [[ "${#BACKUPS[@]}" -eq 0 ]]; then
   exit 2
 fi
 
-BACKUP="${BACKUPS[$((${#BACKUPS[@]} - 1))]}"
+BACKUP=""
+LATEST_STAMP=""
+for candidate in "${BACKUPS[@]}"; do
+  candidate_stamp="${candidate##*-}"
+  if [[ "$candidate_stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ && "$candidate_stamp" > "$LATEST_STAMP" ]]; then
+    BACKUP="$candidate"
+    LATEST_STAMP="$candidate_stamp"
+  fi
+done
+if [[ -z "$BACKUP" ]]; then
+  echo "no timestamped backup found for $PREFIX" >&2
+  exit 2
+fi
+VERIFY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lt-rollback.XXXXXX")"
+trap 'rm -rf "$VERIFY_DIR"' EXIT
+"$BACKUP/cli/LeviathanText.Cli" --store "$VERIFY_DIR/store.db" project list >/dev/null
+
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 if [[ -e "$PREFIX" ]]; then
   mv "$PREFIX" "$PREFIX.failed-$STAMP"
   echo "current install kept at $PREFIX.failed-$STAMP"
 fi
 mv "$BACKUP" "$PREFIX"
-"$PREFIX/bin/leviathan" project list >/dev/null
 echo "PASS: restored $PREFIX from $BACKUP"

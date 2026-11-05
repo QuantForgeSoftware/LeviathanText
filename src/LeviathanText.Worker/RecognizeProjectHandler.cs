@@ -1,7 +1,6 @@
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
-using LeviathanText.Recognition;
 using LeviathanText.Training;
 
 namespace LeviathanText.Worker;
@@ -9,7 +8,7 @@ namespace LeviathanText.Worker;
 /// <summary>
 /// Durable batch recognition: first input artifact entity = target project; digest carries
 /// <c>pkg:&lt;model-package-dir&gt;</c>. Every surface with lines is recognized (a model
-/// instance is loaded per surface because the pipeline owns/disposes it), L0 revisions are
+/// instance is shared sequentially for the job), L0 revisions are
 /// persisted with provenance, and the output records surface/line counts. A surface that
 /// fails is reported without stopping the batch.
 /// </summary>
@@ -63,11 +62,9 @@ public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? 
                 Message = "Target project not found.",
             });
 
+        using var tensorScope = TorchSharp.torch.NewDisposeScope();
         var loaded = RecognitionModelLoader.Load(packageDirectory);
-        var metadata = loaded.Metadata;
-        var labels = loaded.Labels;
-        var modelPath = CheckpointStore.ModelPath(packageDirectory,
-            loaded.Manifest?.ModelName ?? FindModelName(packageDirectory), ".best");
+        using var model = loaded.Model;
         var modelName = loaded.Manifest?.ModelName ?? FindModelName(packageDirectory);
         var pipeline = new RecognitionPipeline(store, imageResolver);
 
@@ -91,14 +88,9 @@ public sealed class RecognizeProjectHandler(IProjectStore store, ImageResolver? 
                     PreprocessingProfile = loaded.PreprocessingProfile,
                     ModelName = modelName,
                     ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
-                    ModelFactory = () =>
-                    {
-                        var model = new CrnnModel(labels.NumClasses, metadata.HiddenSize,
-                            metadata.WidthDownsampleFactor, metadata.InputHeightPixels, metadata.Dropout);
-                        model.load(modelPath);
-                        return model;
-                    },
-                    LabelSetFactory = () => labels,
+                    ModelFactory = () => model,
+                    LabelSetFactory = () => loaded.Labels,
+                    LeaveModelOpen = true,
                     RunId = $"{job.Id.Suffix}-{surface.Id.Suffix[..Math.Min(8, surface.Id.Suffix.Length)]}",
                 }, cancellationToken, persistL0: true);
 

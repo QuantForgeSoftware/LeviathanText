@@ -25,7 +25,7 @@ public static class MigrationImport
         var inventory = MigrationInventory.Scan(tree, maxFiles: MigrationInventory.DefaultMaxFiles,
             computeHashes: false);
         var documents = inventory.Files
-            .Where(file => file.Kind is "page-xml" or "tei-epidoc" or "alto-xml" or "hocr")
+            .Where(file => file.Kind is "page-xml" or "tei-epidoc" or "alto-xml" or "hocr" or "abbyy-xml")
             .ToList();
         if (limit > 0) documents = [.. documents.Take(limit)];
 
@@ -42,9 +42,11 @@ public static class MigrationImport
                     {
                         var (imported, unsupported) = interchange.ImportPage(project, path);
                         project = projects.Load(project.Id)!;
+                        var image = imported.Surfaces[0].Captures[0].ImageLocation;
+                        var missing = !Path.IsPathFullyQualified(image) || !File.Exists(image);
                         rows.Add(new Row(document.RelativePath, document.Kind, "imported",
                             imported.Id.ToString(), imported.Surfaces[0].Id.ToString(),
-                            $"{unsupported.Count} unsupported note(s)"));
+                            $"{unsupported.Count} unsupported note(s)" + (missing ? "; capture image unresolved" : "")));
                         break;
                     }
                     case "tei-epidoc":
@@ -65,6 +67,7 @@ public static class MigrationImport
                     }
                     case "alto-xml":
                     case "hocr":
+                    case "abbyy-xml":
                     {
                         var image = ResolveImage(path);
                         if (image is null)
@@ -74,7 +77,7 @@ public static class MigrationImport
                             break;
                         }
                         var (imported, unsupported) = interchange.ImportLegacyLayout(project, path, image,
-                            document.Kind == "hocr" ? "hocr" : "alto");
+                            document.Kind switch { "hocr" => "hocr", "abbyy-xml" => "abbyy", _ => "alto" });
                         project = projects.Load(project.Id)!;
                         rows.Add(new Row(document.RelativePath, document.Kind, "imported",
                             imported.Id.ToString(), imported.Surfaces[0].Id.ToString(),

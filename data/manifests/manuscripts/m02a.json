@@ -5,7 +5,7 @@
   "changeLog": [
     {
       "date": "2026-10-19",
-      "change": "M02a acquired (242.9 MB zip, md5-verified), unpacked with root-name remap; audited: 54/54 image/XML pairs, 1038 TextLines, Word layer carries text, 157 lines excluded for editorial markup. Pilot training run green.",
+      "change": "M02a acquired (242.9 MB zip, md5-verified), unpacked with root-name remap; audited: 54/54 image/XML pairs, 1038 TextLines, direct line and word layers carry text, 157 lines excluded for editorial markup. Pilot training run green.",
       "evidence": ["https://zenodo.org/api/records/5595669"]
     }
   ],
@@ -20,11 +20,11 @@
       "language_period": "Greek, Koine gospel text (Matthew incipit); later minuscule witness",
       "witness_dating": { "range": "1301-1350", "basis": "publisher record" },
       "units_evidence": {
-        "counts": { "pages": 54, "xml": 54, "text_lines": 1038, "words_total": "publisher-reported 2776 in sibling repos; not audited" },
+        "counts": { "pages": 54, "xml": 54, "text_lines": 1038, "word_elements": 5972 },
         "provenance": "inspected"
       },
-      "paired_line_counts": 881,
-      "paired_char_counts": "unverified",
+      "paired_line_counts": 1038,
+      "paired_char_counts": 34121,
       "license_image": "cc-by-4.0",
       "license_text": "cc-by-4.0",
       "license_annotation": "cc-by-4.0",
@@ -32,11 +32,11 @@
       "license_weights": "unverified",
       "license_evidence": "Zenodo rendered license: cc-by-4.0 (https://zenodo.org/api/records/5595669, accessed 2026-10-18)",
       "attribution": "Stavronikita Monastery / HTR-United catalog contributors; CC BY 4.0",
-      "conditions_exceptions": [],
+      "conditions_exceptions": ["record-level grant; exact upstream capture attribution and terms remain unverified"],
       "allowed_intended_use": "dev",
       "unresolved_questions": [
         "Greek-specialist review of expansion-lite labels (ἰῦ, χῦ) and diaeresis forms (ϊ) in the labels",
-        "whether overbars are recorded as signs or lost (overbarred nomina sacra composites appear in the label set)",
+        "how visible nomina sacra and overbars are represented (no combining overline or macron in the direct line strings)",
         "cross-hand generalization requires M02b/M02c/M01 witnesses (this archive is one codex)"
       ],
       "artifacts": {
@@ -47,8 +47,8 @@
       },
       "splits": { "assignment": "page-level within codex (every 5th page test, every 6th dev); publisher line-level .lst splits NOT used (within-book randomization)", "split_hash": null },
       "label_policy": {
-        "granularity": "line (assembled from Word layer)",
-        "markup_exclusions": "labels containing <, >, &, [, ] are excluded from all splits (editorial interventions never become visible-text labels)",
+        "granularity": "direct line Unicode; Word text retained separately because the single-space join differs on 240 lines",
+        "markup_exclusions": "historical pilot excludes 157 labels containing <, >, &, [, ]; remaining 881 are provisional, with one additional brace-bearing line flagged for review",
         "scriptio_continua": "word-spaced documentary convention; spaces are visible? — pending specialist check"
       },
       "notes": [

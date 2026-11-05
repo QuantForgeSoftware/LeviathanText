@@ -173,6 +173,27 @@ public sealed class RecognizeSurfaceHandlerTests : IDisposable
         Assert.Empty(store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Revisions);
     }
 
+    [Fact]
+    public void Bound_recognition_job_uses_the_authorized_project_even_with_a_duplicate_surface()
+    {
+        using var store = new LocalStore(_db);
+        var (project, _, surfaceId) = Seed(store);
+        var decoy = project with { Id = new EntityId(EntityKind.Collection, "decoy"), Name = "a-decoy" };
+        store.SaveProject(decoy);
+
+        var handler = new RecognizeSurfaceHandler(store);
+        var job = Job(surfaceId, _package) with { BoundProjectId = project.Id };
+        var executed = handler.Execute(job, CancellationToken.None);
+
+        Assert.Equal("1", Assert.Single(executed.Outputs).Artifact.Digest);
+        Assert.Single(store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Revisions);
+        Assert.Empty(store.LoadProject(decoy.Id)!.Objects[0].Surfaces[0].Revisions);
+        var missing = job with { BoundProjectId = new EntityId(EntityKind.Collection, "missing") };
+        var error = Assert.Throws<LeviathanException>(() => handler.Execute(missing, CancellationToken.None));
+        Assert.Equal(ErrorCode.InputMissing, error.Error.Code);
+        Assert.Empty(store.LoadProject(decoy.Id)!.Objects[0].Surfaces[0].Revisions);
+    }
+
     public void Dispose()
     {
         if (File.Exists(_db)) File.Delete(_db);

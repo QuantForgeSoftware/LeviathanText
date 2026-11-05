@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -37,25 +38,28 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     foreach (var converter in ContractJson.Options.Converters)
         options.SerializerOptions.Converters.Add(converter);
 });
-builder.Services.AddSingleton<IProjectStore>(sp => new LocalStore(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db"));
-builder.Services.AddSingleton(sp => (LocalStore)sp.GetRequiredService<IProjectStore>());
-builder.Services.AddSingleton<ProjectService>();
-builder.Services.AddSingleton<InterchangeService>();
-builder.Services.AddSingleton<TranscriptionService>();
-builder.Services.AddSingleton<GeometryService>();
-builder.Services.AddSingleton<ReviewService>();
-builder.Services.AddSingleton(sp =>
+builder.Services.AddSingleton(sp => new ApiStoreLifetime(
+    sp.GetRequiredService<IConfiguration>()["LeviathanText:StorePath"] ?? "leviathan.db"));
+builder.Services.AddScoped(sp => sp.GetRequiredService<ApiStoreLifetime>().OpenRequestStore());
+builder.Services.AddScoped(sp => new RequestProjectStore(sp.GetRequiredService<LocalStore>()));
+builder.Services.AddScoped<IProjectStore>(sp => sp.GetRequiredService<RequestProjectStore>());
+builder.Services.AddScoped<ProjectService>();
+builder.Services.AddScoped<InterchangeService>();
+builder.Services.AddScoped<TranscriptionService>();
+builder.Services.AddScoped<GeometryService>();
+builder.Services.AddScoped<ReviewService>();
+builder.Services.AddScoped(sp =>
 {
     var cache = builder.Configuration["LeviathanText:ImageCache"]
         ?? Path.Combine(Path.GetDirectoryName(builder.Configuration["LeviathanText:StorePath"] ?? "leviathan.db")!, "images");
     return new ImageResolver(sp.GetRequiredService<IProjectStore>(), cache);
 });
-builder.Services.AddSingleton(sp => new LayoutService(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
+builder.Services.AddScoped(sp => new LayoutService(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
 builder.Services.AddSingleton<LayoutModelRegistry>();
-builder.Services.AddSingleton(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
+builder.Services.AddScoped(sp => new RecognitionPipeline(sp.GetRequiredService<IProjectStore>(), sp.GetRequiredService<ImageResolver>()));
 builder.Services.AddSingleton<JobTable>();
 builder.Services.AddSingleton<JobEventBus>();
-builder.Services.AddSingleton<JobEnqueuer>();
+builder.Services.AddScoped<JobEnqueuer>();
 builder.Services.AddSingleton<RevisionChain>();
 builder.Services.AddHttpClient();
 // Registry redirects are followed explicitly, after checking every destination.
@@ -69,8 +73,8 @@ builder.Services.AddSingleton(sp =>
     return new AiProviderRegistry(settings, new HttpClient(), new EnvironmentCredentialSource());
 });
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
-builder.Services.AddSingleton<PresenceService>(sp => new PresenceService(sp.GetRequiredService<LocalStore>()));
-builder.Services.AddSingleton(sp => new SessionService(
+builder.Services.AddScoped<PresenceService>(sp => new PresenceService(sp.GetRequiredService<LocalStore>()));
+builder.Services.AddScoped(sp => new SessionService(
     sp.GetRequiredService<LocalStore>(),
     $"{Environment.MachineName}:{Environment.ProcessId}"));
 
@@ -280,20 +284,33 @@ app.Use(async (context, next) =>
         .GetValue<bool>("LeviathanText:Auth:ProjectMembership");
     if (membershipEnabled && principal.Role != UserRole.Admin)
     {
-        var projectId = ProjectIdForMembership(context, store);
-        if (projectId is { } scoped && !store.IsProjectMember(scoped, principal.Id))
+        var scope = ProjectScopeForMembership(context, store);
+        if (scope.Ambiguous || (scope.ProjectId is { } scoped && !store.IsProjectMember(scoped, principal.Id)))
         {
             store.AppendAuthAudit(AuditOf(context, principal, "denied", StatusCodes.Status403Forbidden));
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(new { code = "forbidden", message = "You are not a member of this project." });
             return;
         }
+        if (scope.Indirect)
+        {
+            if (scope.ProjectId is not { } indirectProject)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.InputMissing,
+                    Scope = context.Request.Path.Value ?? "",
+                    Message = "No project contains the requested entity.",
+                });
+            context.RequestServices.GetRequiredService<RequestProjectStore>().Bind(indirectProject);
+        }
     }
 
     context.Items["user"] = principal;
     await next();
     if (!readOnlyRequest)
-        store.AppendAuthAudit(AuditOf(context, principal, "authenticated", context.Response.StatusCode));
+        store.AppendAuthAudit(AuditOf(context, principal,
+            context.Response.StatusCode == StatusCodes.Status403Forbidden ? "denied" : "authenticated",
+            context.Response.StatusCode));
 });
 
 static AuthAuditEntry AuditOf(HttpContext context, UserAccount principal, string action, int status) => new()
@@ -326,27 +343,64 @@ static bool IsAdminOnly(string path, string method) =>
     || path.Contains("/members", StringComparison.OrdinalIgnoreCase)
     || path.Contains("/invites", StringComparison.OrdinalIgnoreCase)
     || path.Contains("/models/registry", StringComparison.OrdinalIgnoreCase)
+    || (HttpMethods.IsPost(method) && IsHostFilesystemImport(path))
     || (HttpMethods.IsDelete(method) && path.StartsWith("/api/v1/projects/", StringComparison.OrdinalIgnoreCase));
 
-static EntityId? ProjectIdForMembership(HttpContext context, LocalStore store)
+// A project role authorizes project editing, not access to arbitrary paths on the host.
+// Local mode still runs as administrator; shared deployments let administrators ingest
+// host files and let project users work with the resulting documents and images.
+static bool IsHostFilesystemImport(string path) =>
+    path.TrimEnd('/').Split('/').Last().ToLowerInvariant() is
+        "import-page" or "import-image" or "import-pdf" or "import-tei"
+        or "import-epidoc" or "import-legacy" or "import-iiif";
+
+static (EntityId? ProjectId, bool Indirect, bool Ambiguous) ProjectScopeForMembership(HttpContext context, LocalStore store)
 {
     var segments = (context.Request.Path.Value ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
-    if (segments.Length >= 4 && segments[0] == "api" && segments[1] == "v1" && segments[2] == "projects")
-        return EntityId.TryParse(segments[3], EntityKind.Collection, out var projectId) ? projectId : null;
+    if (segments.Length < 4 || !segments[0].Equals("api", StringComparison.OrdinalIgnoreCase)
+        || !segments[1].Equals("v1", StringComparison.OrdinalIgnoreCase))
+        return default;
 
-    if (segments.Length >= 4 && segments[0] == "api" && segments[1] == "v1"
-        && segments[2] is "lines" or "surfaces" or "regions" or "annotations")
+    var route = segments[2].ToLowerInvariant();
+    if (route == "projects")
+        return (EntityId.TryParse(segments[3], EntityKind.Collection, out var projectId) ? projectId : null, false, false);
+    if (route == "jobs" && EntityId.TryParse(segments[3], EntityKind.Job, out var jobId)
+        && store.LoadJob(jobId) is { } job)
+        return ProjectScopeForJob(job, store);
+
+    var kind = route switch
     {
-        var kind = segments[2] switch
-        {
-            "lines" => EntityKind.Line,
-            "surfaces" => EntityKind.Surface,
-            "regions" => EntityKind.Region,
-            _ => EntityKind.Annotation,
-        };
-        if (EntityId.TryParse(segments[3], kind, out var entity)) return store.FindProjectForEntity(entity);
-    }
-    return null;
+        "lines" => EntityKind.Line,
+        "surfaces" => EntityKind.Surface,
+        "regions" => EntityKind.Region,
+        "annotations" => EntityKind.Annotation,
+        _ => (EntityKind?)null,
+    };
+    if (kind is not { } entityKind) return default;
+    if (!EntityId.TryParse(segments[3], entityKind, out var entity)) return (null, true, false);
+    var project = store.FindProjectForEntity(entity, out var ambiguous);
+    return (project, true, ambiguous);
+}
+
+static (EntityId? ProjectId, bool Indirect, bool Ambiguous) ProjectScopeForJob(JobRecord job, LocalStore store)
+{
+    var target = job.BoundProjectId ?? job.Inputs.FirstOrDefault()?.Entity;
+    if (target is not { } entity) return default;
+    EntityId? project;
+    if (entity.Kind == EntityKind.Collection)
+        project = entity;
+    else if (entity.Kind is EntityKind.Surface or EntityKind.Line or EntityKind.Region or EntityKind.Annotation)
+        project = store.FindProjectForEntity(entity);
+    else
+        return default;
+    return project is { } id && store.ProjectExists(id) ? (id, false, false) : (null, false, true);
+}
+
+static bool CanAccessJob(JobRecord job, LocalStore store, UserAccount? principal, bool membershipEnabled)
+{
+    if (!membershipEnabled || principal is null || principal.Role == UserRole.Admin) return true;
+    var scope = ProjectScopeForJob(job, store);
+    return !scope.Ambiguous && (scope.ProjectId is not { } id || store.IsProjectMember(id, principal.Id));
 }
 
 app.MapControllers();
@@ -849,7 +903,7 @@ api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService 
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
     var (_, _, line) = geometry.SetLineGeometry(project, lineEntityId, request.Polygon, request.Baseline,
-        request.AuthorId ?? "api");
+        request.AuthorId ?? "api", request.ExpectedGeometry);
     return Results.Ok(new
     {
         lineId = line.Id.ToString(),
@@ -981,11 +1035,14 @@ api.MapGet("projects/{id}/lines.csv", (ProjectService projects, string id) =>
 api.MapGet("projects/{id}/bundle", (ProjectService projects, string id, bool? images) =>
 {
     var project = projects.Load(EntityId.Parse(id, EntityKind.Collection));
-    var path = Path.Combine(Path.GetTempPath(), $"leviathantext-{project.Id}.zip");
-    ProjectBundle.Export(project, path, images == true);
-    var bytes = File.ReadAllBytes(path);
-    File.Delete(path);
-    return Results.File(bytes, "application/zip", $"{project.Id}.zip");
+    var workspace = Directory.CreateTempSubdirectory("leviathantext-bundle-");
+    try
+    {
+        var path = Path.Combine(workspace.FullName, "bundle.zip");
+        ProjectBundle.Export(project, path, images == true);
+        return Results.File(File.ReadAllBytes(path), "application/zip", $"{project.Id}.zip");
+    }
+    finally { workspace.Delete(recursive: true); }
 });
 
 // Model packages are discovered under one configured directory; clients name a package,
@@ -1117,14 +1174,15 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
+    using var tensorScope = TorchSharp.torch.NewDisposeScope();
     var loaded = RecognitionModelLoader.Load(directory);
+    using var model = loaded.Model;
     try
     {
         loaded.PreprocessingProfile.RequireStandardGeometry();
     }
     catch (InvalidOperationException ex)
     {
-        loaded.Model.Dispose();
         throw new LeviathanException(new LeviathanError
         {
             Code = ErrorCode.ModelIncompatible,
@@ -1139,7 +1197,8 @@ api.MapPost("surfaces/{surfaceId}/recognize", (IConfiguration configuration, Pro
         PreprocessingProfile = loaded.PreprocessingProfile,
         ModelName = loaded.Manifest?.ModelName ?? request.Model,
         ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
-        ModelFactory = () => loaded.Model,
+        ModelFactory = () => model,
+        LeaveModelOpen = true,
         LabelSetFactory = () => loaded.Labels,
         RunId = Guid.NewGuid().ToString("N")[..10],
     });
@@ -1623,8 +1682,14 @@ api.MapPost("users/{userId}/rotate", (LocalStore store, string userId) =>
     return Results.Ok(new { apiKey = key });
 });
 
-api.MapPost("jobs", (JobEnqueuer enqueuer, HttpContext http, [FromBody] CreateJobRequest request) =>
+api.MapPost("jobs", (JobEnqueuer enqueuer, LocalStore store, HttpContext http, IConfiguration configuration,
+    [FromBody] CreateJobRequest request) =>
 {
+    if (string.Equals(request.Type, "import.dir", StringComparison.OrdinalIgnoreCase)
+        && PrincipalOf(http).Role != UserRole.Admin)
+        return Results.Json(new { code = "forbidden", message = "Server-directory imports require an administrator." },
+            statusCode: StatusCodes.Status403Forbidden);
+
     // Jobs may carry one input artifact: a surface (layout/recognition) or a project
     // (bulk import). Recognition jobs also name the model package; the worker verifies it
     // before loading, and no path is trusted beyond the worker host's own check.
@@ -1656,27 +1721,49 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, HttpContext http, [FromBody] CreateJo
             new Checksum { Algorithm = "page-xml-directory", Digest = "dir:" + request.SourceDirectory })];
     }
 
-    // Authenticated callers own their jobs; a client-supplied owner id is only a local-mode
-    // convenience and must not be used to evade a per-owner quota.
-    var ownerId = (http.Items["user"] as UserAccount)?.Id ?? request.OwnerId;
+    var principal = http.Items["user"] as UserAccount;
+    EntityId? boundProjectId = null;
+    if (inputs is { Count: > 0 } && principal is { Role: not UserRole.Admin }
+        && configuration.GetValue<bool>("LeviathanText:Auth:ProjectMembership"))
+    {
+        var target = inputs[0].Entity;
+        var project = target.Kind == EntityKind.Collection ? target : store.FindProjectForEntity(target);
+        if (project is not { } projectId || !store.IsProjectMember(projectId, principal.Id))
+            return Results.Json(new { code = "forbidden", message = "You are not a member of this project." },
+                statusCode: StatusCodes.Status403Forbidden);
+
+        // Surface IDs can repeat across imported projects. The worker must use the
+        // project authorized here, even if a separate lookup would find another copy.
+        if (target.Kind == EntityKind.Surface) boundProjectId = projectId;
+    }
+
+    // A client-supplied owner id is a local-mode convenience.
+    var ownerId = principal?.Id ?? request.OwnerId;
     var job = enqueuer.Enqueue(request.Type, new AgentRef { Id = ownerId, IsModel = false },
-        inputs: inputs, idempotencyKey: request.IdempotencyKey, priority: request.Priority);
+        inputs: inputs, idempotencyKey: request.IdempotencyKey, priority: request.Priority, boundProjectId: boundProjectId);
+    if (principal is { Role: not UserRole.Admin } && job.Owner.Id != principal.Id)
+        return Results.Conflict(new { code = "idempotency_conflict", message = "This idempotency key is unavailable." });
+    if (!CanAccessJob(job, store, principal, configuration.GetValue<bool>("LeviathanText:Auth:ProjectMembership")))
+        return Results.Json(new { code = "forbidden", message = "You are not a member of this project." },
+            statusCode: StatusCodes.Status403Forbidden);
     return Results.Content(ContractJson.ToJson(job), "application/json");
 });
 
-api.MapGet("jobs", (LocalStore store, string? status) =>
+api.MapGet("jobs", (LocalStore store, HttpContext http, IConfiguration configuration, string? status) =>
 {
-    if (string.IsNullOrEmpty(status))
-        return Results.Ok(store.LoadJobs());
-
-    if (!Enum.TryParse<JobStatus>(status, ignoreCase: true, out var parsed))
+    IReadOnlyList<JobRecord> jobs;
+    if (string.IsNullOrEmpty(status)) jobs = store.LoadJobs();
+    else if (Enum.TryParse<JobStatus>(status, ignoreCase: true, out var parsed)) jobs = store.LoadJobsByStatus(parsed);
+    else
         throw new LeviathanException(new LeviathanError
         {
             Code = ErrorCode.StageContractViolation,
             Scope = status,
             Message = "Unknown job status filter.",
         });
-    return Results.Ok(store.LoadJobsByStatus(parsed));
+    var principal = http.Items["user"] as UserAccount;
+    var membership = configuration.GetValue<bool>("LeviathanText:Auth:ProjectMembership");
+    return Results.Ok(jobs.Where(job => CanAccessJob(job, store, principal, membership)));
 });
 
 api.MapGet("jobs/{id}", (LocalStore store, string id) =>
@@ -1689,13 +1776,16 @@ api.MapGet("jobs/{id}", (LocalStore store, string id) =>
 api.MapPost("jobs/{id}/cancel", (JobEnqueuer enqueuer, string id) =>
     Results.Content(ContractJson.ToJson(enqueuer.Cancel(EntityId.Parse(id, EntityKind.Job))), "application/json"));
 
-api.MapGet("jobs/{id}/events", (JobEventBus bus, string id) =>
+api.MapGet("jobs/{id}/events", (JobEventBus bus, LocalStore store, string id, CancellationToken cancellation) =>
 {
     var jobId = EntityId.Parse(id, EntityKind.Job);
-    return Results.ServerSentEvents(JobEvents(bus, jobId));
+    _ = store.LoadJob(jobId)
+        ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "Unknown job." });
+    return Results.ServerSentEvents(JobEvents(bus, jobId, cancellation));
 });
 
-static async IAsyncEnumerable<SseItem<string>> JobEvents(JobEventBus bus, EntityId jobId)
+static async IAsyncEnumerable<SseItem<string>> JobEvents(JobEventBus bus, EntityId jobId,
+    [EnumeratorCancellation] CancellationToken cancellation)
 {
     // Subscribe first so nothing is missed between replay and live delivery.
     var channel = System.Threading.Channels.Channel.CreateUnbounded<JobEventBus.JobEvent>();
@@ -1709,7 +1799,7 @@ static async IAsyncEnumerable<SseItem<string>> JobEvents(JobEventBus bus, Entity
     }
 
     var reader = channel.Reader;
-    while (await reader.WaitToReadAsync().ConfigureAwait(false))
+    while (await reader.WaitToReadAsync(cancellation).ConfigureAwait(false))
     {
         while (reader.TryRead(out var evt))
         {
@@ -1793,7 +1883,8 @@ public sealed record AddAnnotationRequest(
     int? SequenceIndex = null,
     AnnotationOrderBasis? OrderBasis = null);
 
-public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline, string? AuthorId = null);
+public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline,
+    string? AuthorId = null, LineGeometrySnapshot? ExpectedGeometry = null);
 
 public sealed record OrientationRequest(TextDirection? Direction = null, string? Script = null, string? AuthorId = null);
 

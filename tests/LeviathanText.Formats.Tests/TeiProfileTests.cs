@@ -129,6 +129,26 @@ public class TeiProfileTests
         Assert.Equal("This work is licensed under a Creative Commons Attribution 4.0.", licence);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Multiple_licence_targets_report_a_loss_only_when_distinct(bool distinct)
+    {
+        var second = distinct ? "https://example.org/other" : "https://example.org/license";
+        var header = "<teiHeader><fileDesc><publicationStmt><availability>" +
+            "<licence target=\"https://example.org/license\">First grant</licence>" +
+            $"<licence target=\"{second}\">Second grant</licence>" +
+            "</availability></publicationStmt></fileDesc></teiHeader>";
+        var xml = Document("<div type=\"edition\"><ab><lb/>α</ab></div>", header);
+
+        var imported = TeiXml.Import(xml);
+
+        Assert.Equal(xml, imported.OriginalMarkup);
+        Assert.Equal(distinct ? null : "https://example.org/license", imported.Document!.LicenceTarget);
+        Assert.Equal(distinct, imported.Unsupported.Any(issue => issue.Element == "licence-target"
+            && issue.Severity == PageXml.IssueSeverity.Loss));
+    }
+
     [Fact]
     public void Ntvmr_style_verse_markup_maps_orig_corr_overlines_and_non_numeric_n()
     {
@@ -639,6 +659,123 @@ public class TeiProfileTests
         Assert.Equal(new ScalarRange(1, 3),
             reparsed.Annotations.Single(a => a.Kind == AnnotationKind.Unclear).Range);
         Assert.DoesNotContain(exported.Report.Entries, e => e.Category == "annotation-mapping");
+    }
+
+    [Theory]
+    [InlineData("α<unclear>ν</unclear><supplied>ο</supplied><unclear>ν</unclear>", "ανν", "ανον", 2)]
+    [InlineData("𐅀 <supplied>κατα</supplied> β<supplied>ν</supplied><unclear>κ</unclear><supplied>εκυ</supplied>",
+        "𐅀 βκ", "𐅀 κατα βνκεκυ", 3)]
+    public void Unclear_span_survives_when_supplied_ranges_explain_the_complete_layer_difference(
+        string content, string diplomatic, string editorial, int start)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+
+        Assert.DoesNotContain(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        Assert.Equal(diplomatic, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(editorial, Revision(reparsed, TextLayer.L2Editorial).Text);
+        Assert.Contains(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear
+            && a.Range == new ScalarRange(start, start + 1));
+    }
+
+    [Theory]
+    [InlineData("<unclear>α</unclear>α<supplied>α</supplied> αα")]
+    [InlineData("α <supplied>α</supplied>α<unclear>α</unclear>α")]
+    [InlineData("𐅀 <unclear>α</unclear>α<supplied>α</supplied> αα")]
+    public void Exact_supplied_projection_prevents_context_from_selecting_another_occurrence(string content)
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" + content + "</ab></div>"));
+        var original = Assert.Single(imported.Annotations, a => a.Kind == AnnotationKind.Unclear);
+
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+
+        Assert.DoesNotContain(exported.Report.Entries, e => e.Category is "annotation-mapping" or "nested-annotation");
+        Assert.Equal(Revision(imported, TextLayer.L1Diplomatic).Text, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(Revision(imported, TextLayer.L2Editorial).Text, Revision(reparsed, TextLayer.L2Editorial).Text);
+        Assert.Equal(original.Range, Assert.Single(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear).Range);
+    }
+
+    [Theory]
+    [InlineData("editorial-text")]
+    [InlineData("discontiguous")]
+    [InlineData("occupied")]
+    public void Supplied_range_projection_refuses_unproven_or_overlapping_spans(string condition)
+    {
+        var imported = TeiXml.Import(Document(
+            "<div type=\"edition\"><ab><lb/>αν<supplied>ο</supplied><unclear>ν</unclear></ab></div>"));
+        var editorial = Revision(imported, TextLayer.L2Editorial);
+        var unclear = Assert.Single(imported.Annotations, a => a.Kind == AnnotationKind.Unclear);
+        imported = condition switch
+        {
+            "editorial-text" => imported with
+            {
+                Revisions = imported.Revisions.Select(r => r.Id == editorial.Id
+                    ? r with { Text = r.Text + "δ" } : r).ToList(),
+            },
+            "discontiguous" => imported with
+            {
+                Annotations = imported.Annotations.Select(a => a.Id == unclear.Id
+                    ? a with { Range = new ScalarRange(1, 3) } : a).ToList(),
+            },
+            "occupied" => imported with
+            {
+                Annotations = [.. imported.Annotations, unclear with
+                {
+                    Id = new EntityId(EntityKind.Annotation, "ann-existing-editorial"),
+                    AnchoredRevisionId = editorial.Id,
+                    Kind = AnnotationKind.Illegible,
+                    Range = new ScalarRange(3, 4),
+                }],
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(condition)),
+        };
+
+        var exported = RoundtripExport(imported);
+
+        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        Assert.DoesNotContain(TeiXml.Import(exported.Xml).Annotations, a => a.Kind == AnnotationKind.Unclear);
+    }
+
+    [Fact]
+    public void Exact_supplied_projection_preserves_both_repeated_uncertainty_spans()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" +
+            "<unclear reason=\"first\">α</unclear><supplied>β</supplied><unclear reason=\"second\">α</unclear>α</ab></div>"));
+
+        var exported = RoundtripExport(imported);
+
+        Assert.DoesNotContain(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        Assert.DoesNotContain(exported.Report.Entries, e => e.Category == "nested-annotation");
+        var reparsed = TeiXml.Import(exported.Xml);
+        foreach (var annotation in imported.Annotations.Where(a => a.Kind == AnnotationKind.Unclear))
+            Assert.Equal(annotation.Range, Assert.Single(reparsed.Annotations,
+                a => a.Kind == AnnotationKind.Unclear && a.Description == annotation.Description).Range);
+    }
+
+    [Fact]
+    public void Discontiguous_supplied_projection_does_not_fall_back_to_an_unrelated_exact_reading()
+    {
+        var imported = TeiXml.Import(Document("<div type=\"edition\"><ab><lb/>" +
+            "<unclear>αγ</unclear><supplied>β</supplied> αγ</ab></div>"));
+        var editorial = Revision(imported, TextLayer.L2Editorial);
+        imported = imported with
+        {
+            Revisions = imported.Revisions.Select(r => r.Id == editorial.Id
+                ? r with { Text = "αβγ αγ" } : r).ToList(),
+            Annotations = imported.Annotations.Select(a => a.Kind == AnnotationKind.SuppliedEditorial
+                ? a with { Range = new ScalarRange(1, 2) } : a).ToList(),
+        };
+
+        var exported = RoundtripExport(imported);
+        var reparsed = TeiXml.Import(exported.Xml);
+
+        Assert.Contains(exported.Report.Entries, e => e.Category == "annotation-mapping");
+        Assert.DoesNotContain(reparsed.Annotations, a => a.Kind == AnnotationKind.Unclear);
+        Assert.Equal(Revision(imported, TextLayer.L1Diplomatic).Text, Revision(reparsed, TextLayer.L1Diplomatic).Text);
+        Assert.Equal(Revision(imported, TextLayer.L2Editorial).Text, Revision(reparsed, TextLayer.L2Editorial).Text);
     }
 
 }

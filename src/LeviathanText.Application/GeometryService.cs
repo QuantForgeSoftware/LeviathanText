@@ -4,6 +4,8 @@ using LeviathanText.Formats;
 
 namespace LeviathanText.Application;
 
+public sealed record LineGeometrySnapshot(IReadOnlyList<PointD> Polygon, IReadOnlyList<PointD> Baseline);
+
 /// <summary>
 /// Geometry and reading-order corrections (todo Phase 2: geometry/order correction;
 /// "permit manual line/region annotation whenever automatic layout fails").
@@ -19,10 +21,28 @@ public sealed class GeometryService(IProjectStore store)
     public (NativeProject Project, NativeSurface Surface, NativeLine Line) SetLineGeometry(
         NativeProject project, EntityId lineId,
         IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline,
-        string author = "manual-editor")
+        string author = "manual-editor", LineGeometrySnapshot? expectedGeometry = null)
     {
         Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
         var (foundProject, surface, line) = FindLine(project, lineId);
+        if (expectedGeometry is not null)
+        {
+            if (expectedGeometry.Polygon is null || expectedGeometry.Baseline is null)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = lineId.ToString(),
+                    Message = "Expected geometry requires polygon and baseline arrays.",
+                });
+            if (!line.Polygon.SequenceEqual(expectedGeometry.Polygon)
+                || !line.Baseline.SequenceEqual(expectedGeometry.Baseline))
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RevisionConflict,
+                    Scope = lineId.ToString(),
+                    Message = "Line geometry changed since it was loaded.",
+                });
+        }
 
         var before = GeometryJson(line.Polygon, line.Baseline);
         var after = GeometryJson(validatedPolygon, validatedBaseline);
@@ -597,7 +617,7 @@ public sealed class GeometryService(IProjectStore store)
                 Message = "Only a line-geometry edit with a recorded before-state can be restored.",
             });
 
-        var snapshot = JsonSerializer.Deserialize<GeometrySnapshot>(source.Before,
+        var snapshot = JsonSerializer.Deserialize<LineGeometrySnapshot>(source.Before,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new LeviathanException(new LeviathanError
             {
@@ -637,8 +657,6 @@ public sealed class GeometryService(IProjectStore store)
         foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, edit);
     }
-
-    private sealed record GeometrySnapshot(PointD[] Polygon, PointD[] Baseline);
 
     private static string GeometryJson(IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline) =>
         JsonSerializer.Serialize(new { polygon, baseline });

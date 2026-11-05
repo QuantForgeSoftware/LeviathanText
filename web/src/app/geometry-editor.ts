@@ -4,7 +4,8 @@
  * in the image's natural coordinate frame; drags translate the selected line; region
  * order is editable with up/down; saves go through the geometry API.
  */
-import { Component, input, output, signal, OnInit } from '@angular/core';
+import { Component, computed, DestroyRef, inject, input, OnChanges, output, signal, SimpleChanges } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiClient, GeometryLine, GeometryPoint, GeometryRegion, ProjectPayload } from './api-client';
 
 interface DragState {
@@ -79,14 +80,13 @@ interface DragState {
       <div class="tools">
         <button type="button" (click)="setMode('move')" [disabled]="mode() === 'move'">Move / resize</button>
         <button type="button" (click)="setMode('draw')" [disabled]="mode() === 'draw'">Draw new line</button>
-        <button type="button" (click)="saveGeometry()" [disabled]="!dirty()">Save geometry</button>
-        <button type="button" (click)="undoGeometry()" [disabled]="history().length === 0">Undo edit</button>
-        <button type="button" (click)="splitSelected()" [disabled]="!selectedId()">Split line</button>
-        <button type="button" (click)="mergeSelectedWithNext()" [disabled]="!selectedId()">Merge with next</button>
-        <button type="button" (click)="deleteSelected()" [disabled]="!selectedId()">Delete line</button>
-        <button type="button" (click)="reset()" [disabled]="!dirty()">Reset</button>
-        <span class="hint" role="status">{{ dirty() ? 'unsaved geometry' : 'saved' }}</span>
-        @if (actionStatus()) { <span class="hint">{{ actionStatus() }}</span> }
+        <button type="button" (click)="saveGeometry()" [disabled]="!selectedDirty() || savingGeometry() || changingStructure()">Save geometry</button>
+        <button type="button" (click)="undoGeometry()" [disabled]="history().length === 0 || changingStructure()">Undo edit</button>
+        <button type="button" (click)="splitSelected()" [disabled]="!selectedId() || changingStructure()">Split line</button>
+        <button type="button" (click)="mergeSelectedWithNext()" [disabled]="!selectedId() || changingStructure()">Merge with next</button>
+        <button type="button" (click)="deleteSelected()" [disabled]="!selectedId() || changingStructure()">Delete line</button>
+        <button type="button" (click)="reset()" [disabled]="!dirty() || changingStructure()">Reset</button>
+        <span class="hint" role="status">{{ dirty() ? 'unsaved geometry' : 'saved' }} {{ actionStatus() }}</span>
       </div>
       }
 
@@ -115,7 +115,7 @@ interface DragState {
           </li>
         }
       </ol>
-      <button type="button" (click)="saveOrder()" [disabled]="!orderDirty()">Save reading order</button>
+      <button type="button" (click)="saveOrder()" [disabled]="!orderDirty() || savingOrder() || changingStructure()">Save reading order</button>
 
       <h4>Line order <small>(region {{ activeRegionId() }})</small></h4>
       <ol>
@@ -129,7 +129,7 @@ interface DragState {
           <li>No lines in this region.</li>
         }
       </ol>
-      <button type="button" (click)="saveLineOrder()" [disabled]="!lineOrderDirty()">Save line order</button>
+      <button type="button" (click)="saveLineOrder()" [disabled]="!lineOrderDirty() || savingLineOrder() || changingStructure()">Save line order</button>
 
       <details>
         <summary>Edit history ({{ historyEdits().length }})</summary>
@@ -159,7 +159,7 @@ interface DragState {
     .hint { color: #667; font-size: 0.85rem; }
   `],
 })
-export class GeometryEditor implements OnInit {
+export class GeometryEditor implements OnChanges {
   projectId = input.required<string>();
   surfaceId = input.required<string>();
   imageUrl = input.required<string>();
@@ -171,9 +171,17 @@ export class GeometryEditor implements OnInit {
   protected readonly selectedId = signal<string | null>(null);
   protected readonly width = signal(1);
   protected readonly height = signal(1);
-  protected readonly dirty = signal(false);
-  protected readonly orderDirty = signal(false);
-  protected readonly lineOrderDirty = signal(false);
+  protected readonly dirty = computed(() => this.lines().some(line => this.isChanged(line)));
+  protected readonly selectedDirty = computed(() => {
+    const selected = this.lines().find(line => line.id === this.selectedId());
+    return selected !== undefined && this.isChanged(selected);
+  });
+  protected readonly savingGeometry = signal(false);
+  protected readonly changingStructure = signal(false);
+  protected readonly orderDirty = computed(() => this.regions().map(region => region.id).join('|') !== this.originalOrder().join('|'));
+  protected readonly lineOrderDirty = computed(() => this.lineOrder().join('|') !== this.originalLineOrder().join('|'));
+  protected readonly savingOrder = signal(false);
+  protected readonly savingLineOrder = signal(false);
   protected readonly mode = signal<'move' | 'draw'>('move');
   protected readonly drawRect = signal<{ x: number; y: number; width: number; height: number } | null>(null);
   protected readonly actionStatus = signal('');
@@ -185,11 +193,16 @@ export class GeometryEditor implements OnInit {
   }[]>([]);
   private drawStart: { x: number; y: number } | null = null;
   protected readonly lineOrder = signal<string[]>([]);
+  private readonly lineOrderRegionId = signal('');
   protected readonly history = signal<GeometryLine[][]>([]);
   private pendingSnapshot: GeometryLine[] | null = null;
-  private readonly original = signal<GeometryLine[]>([]);
+  private readonly original = signal(new Map<string, GeometryLine>());
   private readonly originalOrder = signal<string[]>([]);
+  private readonly originalLineOrder = signal<string[]>([]);
   private drag: DragState | null = null;
+  private loadGeneration = 0;
+  private historyGeneration = 0;
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly api: ApiClient;
 
@@ -197,18 +210,40 @@ export class GeometryEditor implements OnInit {
     this.api = api;
   }
 
-  ngOnInit(): void {
-    this.api.loadProject(this.projectId()).subscribe(payload => this.loadFrom(payload));
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['projectId'] && !changes['surfaceId']) return;
+    this.lines.set([]);
+    this.original.set(new Map());
+    this.regions.set([]);
+    this.originalOrder.set([]);
+    this.originalLineOrder.set([]);
+    this.lineOrder.set([]);
+    this.lineOrderRegionId.set('');
+    this.selectedId.set(null);
+    this.placingLineId.set(null);
+    this.history.set([]);
+    this.historyEdits.set([]);
+    this.unplaced.set([]);
+    this.pendingSnapshot = null;
+    this.drag = null;
+    this.actionStatus.set('');
+    this.changingStructure.set(false);
+    this.setMode('move');
+    this.reload();
   }
 
   private loadHistory(): void {
-    this.api.geometryHistory(this.surfaceId()).subscribe({
-      next: edits => this.historyEdits.set(edits),
-      error: () => this.historyEdits.set([]),
+    const surfaceId = this.surfaceId();
+    const generation = this.loadGeneration;
+    const request = ++this.historyGeneration;
+    const current = () => generation === this.loadGeneration && request === this.historyGeneration;
+    this.api.geometryHistory(surfaceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: edits => { if (current()) this.historyEdits.set(edits); },
+      error: () => { if (current()) this.historyEdits.set([]); },
     });
-    this.api.unplacedLines(this.surfaceId()).subscribe({
-      next: lines => this.unplaced.set(lines),
-      error: () => this.unplaced.set([]),
+    this.api.unplacedLines(surfaceId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: lines => { if (current()) this.unplaced.set(lines); },
+      error: () => { if (current()) this.unplaced.set([]); },
     });
   }
 
@@ -220,7 +255,11 @@ export class GeometryEditor implements OnInit {
 
   private loadFrom(payload: ProjectPayload): void {
     const surface = payload.objects.flatMap(o => o.surfaces).find(s => s.id === this.surfaceId());
-    if (!surface) return;
+    if (!surface) {
+      this.changingStructure.set(false);
+      this.actionStatus.set('surface geometry is unavailable');
+      return;
+    }
     const lines = surface.lines.map(l => ({
       id: l.id,
       regionId: (l as { regionId?: string }).regionId ?? '',
@@ -233,14 +272,15 @@ export class GeometryEditor implements OnInit {
     })).sort((a, b) => (a.readingOrderIndex ?? 0) - (b.readingOrderIndex ?? 0));
 
     this.lines.set(lines);
-    this.original.set(lines.map(l => ({ ...l, polygon: l.polygon.map(p => ({ ...p })), baseline: l.baseline.map(p => ({ ...p })) })));
+    this.original.set(new Map(lines.map(line => [line.id, this.clone(line)])));
     this.regions.set(regions);
     this.originalOrder.set(regions.map(r => r.id));
     const firstRegion = regions[0]?.id;
+    this.lineOrderRegionId.set(firstRegion ?? '');
     this.lineOrder.set(lines.filter(l => l.regionId === firstRegion).map(l => l.id));
-    this.dirty.set(false);
-    this.orderDirty.set(false);
-    this.lineOrderDirty.set(false);
+    this.originalLineOrder.set([...this.lineOrder()]);
+    this.history.set([]);
+    this.changingStructure.set(false);
     this.loadHistory();
   }
 
@@ -269,14 +309,14 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onSvgDown(event: PointerEvent): void {
-    if (this.mode() !== 'draw' || event.target !== event.currentTarget) return;
+    if (this.readOnly() || this.changingStructure() || this.mode() !== 'draw' || event.target !== event.currentTarget) return;
     const point = this.dragFor(event);
     this.drawStart = { x: point.startX, y: point.startY };
     this.drawRect.set({ x: point.startX, y: point.startY, width: 0, height: 0 });
   }
 
   protected onDown(event: PointerEvent, line: GeometryLine): void {
-    if (this.mode() === 'draw') return;
+    if (this.mode() === 'draw' || this.changingStructure()) return;
     this.selectedId.set(line.id);
     if (this.readOnly()) {
       this.lineSelected.emit(line.id);
@@ -288,7 +328,7 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onResizeDown(event: PointerEvent, line: GeometryLine, corner: number): void {
-    if (this.mode() === 'draw') return;
+    if (this.mode() === 'draw' || this.changingStructure()) return;
     event.stopPropagation();
     (event.target as Element).setPointerCapture?.(event.pointerId);
     this.selectedId.set(line.id);
@@ -313,6 +353,13 @@ export class GeometryEditor implements OnInit {
     return { ...line, polygon: line.polygon.map(p => ({ ...p })), baseline: line.baseline.map(p => ({ ...p })) };
   }
 
+  private isChanged(line: GeometryLine): boolean {
+    const original = this.original().get(line.id);
+    const equal = (a: GeometryPoint[], b: GeometryPoint[]) =>
+      a.length === b.length && a.every((point, index) => point.x === b[index].x && point.y === b[index].y);
+    return !original || !equal(line.polygon, original.polygon) || !equal(line.baseline, original.baseline);
+  }
+
   private dragFor(event: PointerEvent): { startX: number; startY: number } {
     const svg = (event.target as Element).closest('svg')!;
     const rect = svg.getBoundingClientRect();
@@ -323,7 +370,7 @@ export class GeometryEditor implements OnInit {
   }
 
   protected onMove(event: PointerEvent): void {
-    if (this.readOnly()) return;
+    if (this.readOnly() || this.changingStructure()) return;
     if (this.drawStart) {
       const point = this.dragFor(event);
       const x = Math.min(this.drawStart.x, point.startX);
@@ -356,14 +403,16 @@ export class GeometryEditor implements OnInit {
       }
 
       // Resize: drag one corner; the opposite corner stays fixed.
-      const b = this.bbox(this.drag!.original);
-      const opposite = [
-        { x: b.right, y: b.bottom }, { x: b.left, y: b.bottom },
-        { x: b.left, y: b.top }, { x: b.left, y: b.top },
-      ][this.drag!.corner];
-      const moving = this.bboxCorners(this.drag!.original)[this.drag!.corner];
-      const nx = Math.min(Math.max(moving.x + dx, opposite.x + 4), this.width() - 1);
-      const ny = Math.min(Math.max(moving.y + dy, opposite.y + 4), this.height() - 1);
+      const corner = this.drag!.corner;
+      const corners = this.bboxCorners(this.drag!.original);
+      const moving = corners[corner];
+      const opposite = corners[(corner + 2) % corners.length];
+      const resizeAxis = (position: number, fixed: number, onLowSide: boolean, frameEnd: number) => {
+        const limit = Math.max(0, Math.min(frameEnd, fixed + (onLowSide ? -4 : 4)));
+        return onLowSide ? Math.max(0, Math.min(position, limit)) : Math.min(frameEnd, Math.max(position, limit));
+      };
+      const nx = resizeAxis(moving.x + dx, opposite.x, corner === 0 || corner === 3, this.width() - 1);
+      const ny = resizeAxis(moving.y + dy, opposite.y, corner === 0 || corner === 1, this.height() - 1);
       const left = Math.min(opposite.x, nx), right = Math.max(opposite.x, nx);
       const top = Math.min(opposite.y, ny), bottom = Math.max(opposite.y, ny);
       return {
@@ -375,7 +424,6 @@ export class GeometryEditor implements OnInit {
         baseline: [{ x: left, y: bottom }, { x: right, y: bottom }],
       };
     }));
-    this.dirty.set(true);
   }
 
   protected onUp(): void {
@@ -404,24 +452,25 @@ export class GeometryEditor implements OnInit {
     const placing = this.placingLineId();
 
     if (placing) {
-      this.api.updateLineGeometry(placing, polygon, baseline).subscribe({
-        next: () => {
-          this.actionStatus.set('text line placed');
-          this.placingLineId.set(null);
-          this.reload();
-        },
-        error: () => this.actionStatus.set('could not place the text line'),
-      });
+      const line = this.lines().find(candidate => candidate.id === placing);
+      if (!line) return;
+      const draft = { ...line, polygon, baseline };
+      this.lines.update(lines => lines.map(candidate => candidate.id === placing ? draft : candidate));
+      this.selectedId.set(placing);
+      this.submitGeometry(draft);
       return;
     }
 
-    this.api.addLine(this.surfaceId(), polygon, baseline)
+    if (!this.beginStructureChange()) return;
+    const generation = this.loadGeneration;
+    this.api.addLine(this.surfaceId(), polygon, baseline).pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          if (generation !== this.loadGeneration) return;
           this.actionStatus.set('line added');
           this.reload();
         },
-        error: () => this.actionStatus.set('could not add line'),
+        error: () => this.structureError(generation, 'could not add line'),
       });
   }
 
@@ -430,13 +479,16 @@ export class GeometryEditor implements OnInit {
     if (!line || line.polygon.length === 0) return;
     const ys = line.polygon.map(p => p.y);
     const middle = (Math.min(...ys) + Math.max(...ys)) / 2;
-    this.api.splitLine(line.id, middle).subscribe({
+    if (!this.beginStructureChange()) return;
+    const generation = this.loadGeneration;
+    this.api.splitLine(line.id, middle).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
+        if (generation !== this.loadGeneration) return;
         this.actionStatus.set('line split');
         this.selectedId.set(null);
         this.reload();
       },
-      error: () => this.actionStatus.set('split refused (line has transcribed text)'),
+      error: () => this.structureError(generation, 'split refused (line has transcribed text)'),
     });
   }
 
@@ -451,39 +503,71 @@ export class GeometryEditor implements OnInit {
       this.actionStatus.set('no following line in this region to merge');
       return;
     }
-    this.api.mergeLines(selected, next.id).subscribe({
+    if (!this.beginStructureChange()) return;
+    const generation = this.loadGeneration;
+    this.api.mergeLines(selected, next.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
+        if (generation !== this.loadGeneration) return;
         this.actionStatus.set('lines merged');
         this.selectedId.set(null);
         this.reload();
       },
-      error: () => this.actionStatus.set('merge refused (transcribed text or different region)'),
+      error: () => this.structureError(generation, 'merge refused (transcribed text or different region)'),
     });
   }
 
   protected deleteSelected(): void {
     const id = this.selectedId();
     if (!id) return;
-    this.api.deleteLine(id).subscribe({
+    if (!this.beginStructureChange()) return;
+    const generation = this.loadGeneration;
+    this.api.deleteLine(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
+        if (generation !== this.loadGeneration) return;
         this.actionStatus.set('line deleted');
         this.selectedId.set(null);
         this.reload();
       },
-      error: () => this.actionStatus.set('deletion refused (line has transcribed text)'),
+      error: () => this.structureError(generation, 'deletion refused (line has transcribed text)'),
     });
   }
 
   private reload(): void {
-    this.api.loadProject(this.projectId()).subscribe(payload => this.loadFrom(payload));
+    const generation = ++this.loadGeneration;
+    this.savingGeometry.set(false);
+    this.savingOrder.set(false);
+    this.savingLineOrder.set(false);
+    this.api.loadProject(this.projectId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: payload => { if (generation === this.loadGeneration) this.loadFrom(payload); },
+      error: () => this.structureError(generation, 'could not reload geometry'),
+    });
+  }
+
+  private beginStructureChange(): boolean {
+    if (this.readOnly() || this.changingStructure()) return false;
+    if (this.dirty() || this.savingGeometry() || this.orderDirty() || this.lineOrderDirty()
+      || this.savingOrder() || this.savingLineOrder()) {
+      this.actionStatus.set('Save geometry and order drafts before adding, splitting, merging, or deleting a line.');
+      return false;
+    }
+    this.changingStructure.set(true);
+    this.drag = null;
+    this.pendingSnapshot = null;
+    return true;
+  }
+
+  private structureError(generation: number, message: string): void {
+    if (generation !== this.loadGeneration) return;
+    this.changingStructure.set(false);
+    this.actionStatus.set(message);
   }
 
   protected undoGeometry(): void {
+    if (this.changingStructure()) return;
     const stack = this.history();
     if (stack.length === 0) return;
     this.lines.set(stack[stack.length - 1].map(l => this.clone(l)));
     this.history.set(stack.slice(0, -1));
-    this.dirty.set(true);
   }
 
   private snapshot(): GeometryLine[] {
@@ -492,44 +576,75 @@ export class GeometryEditor implements OnInit {
 
   protected saveGeometry(): void {
     const line = this.lines().find(l => l.id === this.selectedId());
-    if (!line) return;
-    this.api.updateLineGeometry(line.id, line.polygon, line.baseline).subscribe({
+    if (line) this.submitGeometry(line);
+  }
+
+  private submitGeometry(line: GeometryLine): void {
+    if (this.readOnly() || this.savingGeometry() || this.changingStructure() || !this.isChanged(line)) return;
+    const original = this.original().get(line.id);
+    if (!original) return;
+    const submitted = this.clone(line);
+    const { polygon, baseline } = this.clone(original);
+    const expectedGeometry = { polygon, baseline };
+    const generation = this.loadGeneration;
+    const wasUnplaced = original.polygon.length === 0 && original.baseline.length === 0;
+    this.savingGeometry.set(true);
+    this.actionStatus.set('');
+    this.api.updateLineGeometry(line.id, submitted.polygon, submitted.baseline, expectedGeometry)
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        this.original.set(this.lines().map(l => ({ ...l })));
-        this.dirty.set(false);
+        if (generation !== this.loadGeneration) return;
+        this.savingGeometry.set(false);
+        this.original.update(lines => new Map(lines).set(submitted.id, submitted));
+        if (wasUnplaced) {
+          if (this.placingLineId() === submitted.id) this.placingLineId.set(null);
+          this.actionStatus.set('text line placed');
+          this.loadHistory();
+        }
       },
-      error: () => this.dirty.set(true),
+      error: error => {
+        if (generation !== this.loadGeneration) return;
+        this.savingGeometry.set(false);
+        this.actionStatus.set(error.status === 409
+          ? 'Line geometry changed on the server. Your draft is still here.'
+          : 'Could not save geometry. Your draft is still here.');
+      },
     });
   }
 
   protected reset(): void {
-    this.lines.set(this.original().map(l => this.clone(l)));
+    if (this.changingStructure()) return;
+    this.lines.set([...this.original().values()].map(l => this.clone(l)));
     this.history.set([]);
-    this.dirty.set(false);
   }
 
   protected move(regionId: string, delta: number): void {
+    if (this.changingStructure()) return;
     const list = [...this.regions()];
     const index = list.findIndex(r => r.id === regionId);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
     this.regions.set(list);
-    this.orderDirty.set(list.map(r => r.id).join('|') !== this.originalOrder().join('|'));
   }
 
   protected saveOrder(): void {
-    this.api.updateReadingOrder(this.surfaceId(), this.regions().map(r => r.id)).subscribe({
+    if (this.readOnly() || this.savingOrder() || this.changingStructure() || !this.orderDirty()) return;
+    const submitted = this.regions().map(region => region.id);
+    const generation = this.loadGeneration;
+    this.savingOrder.set(true);
+    this.api.updateReadingOrder(this.surfaceId(), submitted).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        this.originalOrder.set(this.regions().map(r => r.id));
-        this.orderDirty.set(false);
+        if (generation !== this.loadGeneration) return;
+        this.savingOrder.set(false);
+        this.originalOrder.set(submitted);
       },
-      error: () => this.orderDirty.set(true),
+      error: () => { if (generation === this.loadGeneration) this.savingOrder.set(false); },
     });
   }
 
   protected activeRegionId(): string {
-    return this.regions()[0]?.id ?? '';
+    return this.lineOrderRegionId();
   }
 
   protected orderedLines(): { id: string }[] {
@@ -539,19 +654,27 @@ export class GeometryEditor implements OnInit {
   }
 
   protected moveLine(lineId: string, delta: number): void {
+    if (this.changingStructure()) return;
     const list = [...this.lineOrder()];
     const index = list.indexOf(lineId);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
     this.lineOrder.set(list);
-    this.lineOrderDirty.set(true);
   }
 
   protected saveLineOrder(): void {
-    this.api.updateLineOrder(this.activeRegionId(), this.lineOrder()).subscribe({
-      next: () => this.lineOrderDirty.set(false),
-      error: () => this.lineOrderDirty.set(true),
+    if (this.readOnly() || this.savingLineOrder() || this.changingStructure() || !this.lineOrderDirty()) return;
+    const submitted = [...this.lineOrder()];
+    const generation = this.loadGeneration;
+    this.savingLineOrder.set(true);
+    this.api.updateLineOrder(this.activeRegionId(), submitted).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        if (generation !== this.loadGeneration) return;
+        this.savingLineOrder.set(false);
+        this.originalLineOrder.set(submitted);
+      },
+      error: () => { if (generation === this.loadGeneration) this.savingLineOrder.set(false); },
     });
   }
 }

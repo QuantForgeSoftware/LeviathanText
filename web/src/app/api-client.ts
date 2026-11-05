@@ -59,7 +59,8 @@ export interface LinePayload {
   diplomatic: string | null;
   direction?: string | null;
   script?: string | null;
-  history: RevisionPayload[];
+  /** The line endpoint returns L1 history without a layer property. */
+  history: Omit<RevisionPayload, 'layer'>[];
   revisions?: RevisionPayload[];
   reviews?: ReviewPayload[];
 }
@@ -268,8 +269,10 @@ export class ApiClient {
     return this.http.get<JobSummary[]>('/api/v1/jobs');
   }
 
-  updateLineGeometry(lineId: string, polygon: GeometryPoint[], baseline: GeometryPoint[]): Observable<unknown> {
-    return this.http.put(`/api/v1/lines/${lineId}/geometry`, { polygon, baseline });
+  updateLineGeometry(lineId: string, polygon: GeometryPoint[], baseline: GeometryPoint[],
+    expectedGeometry?: Pick<GeometryLine, 'polygon' | 'baseline'>): Observable<unknown> {
+    return this.http.put(`/api/v1/lines/${lineId}/geometry`,
+      expectedGeometry ? { polygon, baseline, expectedGeometry } : { polygon, baseline });
   }
 
   setLineOrientation(lineId: string, direction: string | null, script: string | null): Observable<OrientationResponse> {

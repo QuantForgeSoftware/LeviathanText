@@ -76,9 +76,10 @@ public static class ProjectionProfileLayout
     public static LayoutResult Detect(SKBitmap page, Options? options = null)
     {
         options ??= new Options();
-        int width = page.Width, height = page.Height;
-        var info = page.Info;
-        var bytes = page.Bytes;
+        var raster = new LayoutRaster(page);
+        int width = raster.Width, height = raster.Height;
+        int pixelSize = raster.BytesPerPixel, rowBytes = raster.RowBytes;
+        int rowPadding = rowBytes - width * pixelSize;
 
         // 1) Per-page Otsu binarization (fixed thresholds fail across captures).
         int sampleStride = Math.Max(1, (width * height) / 200_000);
@@ -86,9 +87,10 @@ public static class ProjectionProfileLayout
         long sampled = 0;
         for (int p = 0; p < width * height; p += sampleStride)
         {
-            int b = p * info.BytesPerPixel;
-            byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-            float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+            int offset = p * pixelSize;
+            if (rowPadding != 0)
+                offset += (p / width) * rowPadding;
+            float luminance = raster.Luminance(offset);
             histogram[(int)(luminance * 255f)]++;
             sampled++;
         }
@@ -100,7 +102,7 @@ public static class ProjectionProfileLayout
 
         // 2) Restrict to the bright page area first (photographic scans often have a dark
         //    surround that produces spurious bands), then trim a small inner border.
-        var (contentLeft, contentTop, contentRight, contentBottom) = RowFeatureExtractor.ContentBounds(page);
+        var (contentLeft, contentTop, contentRight, contentBottom) = RowFeatureExtractor.ContentBounds(raster);
         int trimX = (int)((contentRight - contentLeft) * 0.02), trimY = (int)((contentBottom - contentTop) * 0.02);
         int areaLeft = contentLeft + trimX, areaRight = contentRight - trimX;
         int areaTop = contentTop + trimY, areaBottom = contentBottom - trimY;
@@ -114,13 +116,9 @@ public static class ProjectionProfileLayout
             for (int row = areaTop; row < areaBottom; row++)
             {
                 int ink = 0;
-                for (int col = xLeft; col < xRight; col++)
-                {
-                    int b = (row * width + col) * info.BytesPerPixel;
-                    byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                    float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                    if (luminance < inkThreshold) ink++;
-                }
+                int offset = row * rowBytes + xLeft * pixelSize;
+                for (int col = xLeft; col < xRight; col++, offset += pixelSize)
+                    if (raster.Luminance(offset) < inkThreshold) ink++;
                 rowDensity[row] = (double)ink / Math.Max(1, xRight - xLeft);
             }
 
@@ -148,7 +146,7 @@ public static class ProjectionProfileLayout
                     int end = row; // exclusive
                     if (end - start >= options.MinLineHeight && localPeak > 0)
                     {
-                        var (left, right, density) = BandExtent(page, start, end, inkThreshold, xLeft, xRight);
+                        var (left, right, density) = BandExtent(raster, start, end, inkThreshold, xLeft, xRight);
                         if (right > left)
                             bands.Add(new DetectedLine
                             {
@@ -169,7 +167,7 @@ public static class ProjectionProfileLayout
 
         List<DetectedLine> lines;
         int? columnBoundary = options.DetectColumns
-            ? FindColumnBoundary(page, bytes, info, areaLeft, areaRight, areaTop, areaBottom, inkThreshold)
+            ? FindColumnBoundary(raster, areaLeft, areaRight, areaTop, areaBottom, inkThreshold)
             : null;
         if (columnBoundary is { } boundary)
         {
@@ -207,22 +205,19 @@ public static class ProjectionProfileLayout
     /// only when a low-ink run is wide enough, lies away from the margins, and both sides carry
     /// ink; otherwise null (the single-column path is unchanged).
     /// </summary>
-    private static int? FindColumnBoundary(SKBitmap page, byte[] bytes, SKImageInfo info,
+    private static int? FindColumnBoundary(LayoutRaster raster,
         int areaLeft, int areaRight, int areaTop, int areaBottom, float inkThreshold)
     {
         int width = areaRight - areaLeft;
         if (width < 80) return null;
         var density = new double[width];
+        int rowBytes = raster.RowBytes, pixelSize = raster.BytesPerPixel;
         for (int x = 0; x < width; x++)
         {
             int ink = 0;
-            for (int row = areaTop; row < areaBottom; row++)
-            {
-                int b = (row * page.Width + areaLeft + x) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                if (luminance < inkThreshold) ink++;
-            }
+            int offset = areaTop * rowBytes + (areaLeft + x) * pixelSize;
+            for (int row = areaTop; row < areaBottom; row++, offset += rowBytes)
+                if (raster.Luminance(offset) < inkThreshold) ink++;
             density[x] = (double)ink / Math.Max(1, areaBottom - areaTop);
         }
 
@@ -328,22 +323,18 @@ public static class ProjectionProfileLayout
     }
 
     private static (int Left, int Right, double Density) BandExtent(
-        SKBitmap page, int top, int bottom, float inkThreshold, int minX, int maxX)
+        LayoutRaster raster, int top, int bottom, float inkThreshold, int minX, int maxX)
     {
-        int width = page.Width;
-        var info = page.Info;
-        var bytes = page.Bytes;
+        int rowBytes = raster.RowBytes, pixelSize = raster.BytesPerPixel;
         int left = maxX, right = minX;
         long inkPixels = 0;
 
         for (int row = top; row < bottom; row++)
         {
-            for (int col = minX; col < maxX; col++)
+            int offset = row * rowBytes + minX * pixelSize;
+            for (int col = minX; col < maxX; col++, offset += pixelSize)
             {
-                int b = (row * width + col) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                if (luminance < inkThreshold)
+                if (raster.Luminance(offset) < inkThreshold)
                 {
                     if (col < left) left = col;
                     if (col > right) right = col;

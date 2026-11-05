@@ -120,7 +120,7 @@ public sealed class TeiImportTests : IDisposable
             <TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
               <div type="edition">
                 <pb n="001r"/><ab><lb/>αλφα</ab>
-                <pb n="001v"/><ab><lb/>βητα</ab>
+                <pb n="001v" break="no"/><ab><lb/>βητα</ab>
               </div>
             </body></text></TEI>
             """;
@@ -140,6 +140,41 @@ public sealed class TeiImportTests : IDisposable
         Assert.Equal("001v", imported.Metadata["tei:folio"]);
         Assert.Null(interchange.FindTeiDuplicate(store.LoadProject(project.Id)!, content, "001r"));
         Assert.NotNull(interchange.FindTeiDuplicate(store.LoadProject(project.Id)!, content, "001v"));
+        Assert.Contains("<pb n=\"001v\" type=\"folio\" break=\"no\" />",
+            interchange.ExportTeiWithReport(projects.Load(project.Id), imported.Surfaces[0].Id, "selected folio").Xml);
+    }
+
+    [Theory]
+    [InlineData("<licence target=\"https://creativecommons.org/licenses/by/4.0/\">Source credit</licence>")]
+    [InlineData("<p>Source credit</p><p><![CDATA[This work is licensed under <a rel=\"license\" href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0<br/></a>.]]></p>")]
+    public void Export_preserves_licensed_source_and_nonbreaking_folio_from_new_and_legacy_projects(string availability)
+    {
+        var (xml, image, fixture) = Fixture();
+        var source = fixture.Replace("<licence>CC BY 4.0</licence>", availability, StringComparison.Ordinal)
+            .Replace("<pb n=\"001r\" type=\"folio\"/>", "<pb n=\"001r\" type=\"folio\" break=\"no\"/>", StringComparison.Ordinal);
+        File.WriteAllText(xml, source);
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var project = projects.Create("source-provenance");
+        var interchange = new InterchangeService(projects);
+        var (imported, _, _) = interchange.ImportTei(project, xml, image);
+        var loaded = projects.Load(project.Id);
+        var surfaceId = imported.Surfaces[0].Id;
+        const string licence = "<licence target=\"https://creativecommons.org/licenses/by/4.0/\">Source credit</licence>";
+        const string folio = "<pb n=\"001r\" type=\"folio\" break=\"no\" />";
+
+        var fresh = interchange.ExportTeiWithReport(loaded, surfaceId, "source").Xml;
+        Assert.Contains(licence, fresh);
+        Assert.Contains(folio, fresh);
+
+        var legacyMetadata = imported.Metadata
+            .Where(pair => pair.Key is not ("tei:licenceTarget" or "tei:folioBreak"))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+        var legacy = loaded with { Objects = [imported with { Metadata = legacyMetadata }] };
+        var old = interchange.ExportTeiWithReport(legacy, surfaceId, "source").Xml;
+        Assert.Contains(licence, old);
+        Assert.Contains(folio, old);
+        Assert.Equal(source, Assert.Single(imported.Attachments).Content);
     }
 
     [Fact]

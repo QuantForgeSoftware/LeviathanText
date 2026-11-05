@@ -11,7 +11,8 @@ namespace LeviathanText.Formats;
 /// </summary>
 public static class AbbyyXml
 {
-    private static readonly XNamespace Ns = "http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml";
+    public const string NamespaceUri = "http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml";
+    private static readonly XNamespace Ns = NamespaceUri;
 
     public sealed record ImportResult(
         IReadOnlyList<NativeRegion> Regions,

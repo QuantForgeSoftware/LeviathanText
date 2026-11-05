@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using LeviathanText.Formats;
 
 namespace LeviathanText.Application;
 
@@ -244,6 +245,7 @@ public static class MigrationInventory
             || text.Contains("pagecontent", StringComparison.Ordinal)) return "page-xml";
         if (text.Contains("<alto", StringComparison.OrdinalIgnoreCase)
             || text.Contains("alto.org", StringComparison.OrdinalIgnoreCase)) return "alto-xml";
+        if (text.Contains(AbbyyXml.NamespaceUri, StringComparison.Ordinal)) return "abbyy-xml";
         if (text.Contains("<TEI", StringComparison.Ordinal)
             || text.Contains("tei-c.org", StringComparison.Ordinal)) return "tei-epidoc";
         if (text.Contains("ocr_page", StringComparison.Ordinal)

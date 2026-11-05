@@ -23,11 +23,13 @@ public static class RowFeatureExtractor
     /// surround common in photographic scans. Falls back to the full image when no
     /// clear content region exists.
     /// </summary>
-    public static (int Left, int Top, int Right, int Bottom) ContentBounds(SKBitmap page)
+    public static (int Left, int Top, int Right, int Bottom) ContentBounds(SKBitmap page) =>
+        ContentBounds(new LayoutRaster(page));
+
+    internal static (int Left, int Top, int Right, int Bottom) ContentBounds(LayoutRaster raster)
     {
-        int width = page.Width, height = page.Height;
-        var info = page.Info;
-        var bytes = page.Bytes;
+        int width = raster.Width, height = raster.Height;
+        int rowBytes = raster.RowBytes, pixelSize = raster.BytesPerPixel;
         int stride = Math.Max(1, Math.Min(width, height) / 400); // subsample rows/cols
 
         var luminance = new float[height, width];
@@ -35,9 +37,7 @@ public static class RowFeatureExtractor
         for (int y = 0; y < height; y += stride)
             for (int x = 0; x < width; x += stride)
             {
-                int b = (y * width + x) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float l = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
+                float l = raster.Luminance(y * rowBytes + x * pixelSize);
                 luminance[y, x] = l;
                 total += l;
             }
@@ -69,24 +69,25 @@ public static class RowFeatureExtractor
 
     public static PageProfile Profile(SKBitmap page)
     {
-        int width = page.Width, height = page.Height;
-        var info = page.Info;
-        var bytes = page.Bytes;
-        var (left, top, right, bottom) = ContentBounds(page);
+        var raster = new LayoutRaster(page);
+        int width = raster.Width, height = raster.Height;
+        int rowBytes = raster.RowBytes, pixelSize = raster.BytesPerPixel;
+        var (left, top, right, bottom) = ContentBounds(raster);
 
         // Otsu within the content region (the surround would otherwise dominate).
         int sampleStride = Math.Max(1, ((right - left) * (bottom - top)) / 200_000);
         var histogram = new int[256];
         long sampled = 0;
         for (int y = top; y < bottom; y++)
-            for (int x = left; x < right; x += sampleStride)
+        {
+            int offset = y * rowBytes + left * pixelSize;
+            for (int x = left; x < right; x += sampleStride, offset += sampleStride * pixelSize)
             {
-                int b = (y * width + x) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float l = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                histogram[(int)(Math.Clamp(l, 0f, 1f) * 255f)]++;
+                float luminance = raster.Luminance(offset);
+                histogram[(int)(Math.Clamp(luminance, 0f, 1f) * 255f)]++;
                 sampled++;
             }
+        }
         int otsu = ProjectionProfileLayout.Otsu(histogram, (int)sampled);
         // Paper-relative threshold: faint manuscript letters sit ~0.1-0.25 below the
         // parchment tone, while global Otsu lands between parchment and dark borders
@@ -102,12 +103,10 @@ public static class RowFeatureExtractor
         {
             int ink = 0;
             int run = 0;
-            for (int x = left; x < right; x++)
+            int offset = y * rowBytes + left * pixelSize;
+            for (int x = left; x < right; x++, offset += pixelSize)
             {
-                int b = (y * width + x) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float l = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                bool isInk = l < inkThreshold;
+                bool isInk = raster.Luminance(offset) < inkThreshold;
                 if (isInk)
                 {
                     ink++;
@@ -134,20 +133,19 @@ public static class RowFeatureExtractor
     public static (int Left, int Right, double Density) InkBounds(
         SKBitmap page, int top, int bottom, float inkThreshold, int minX, int maxX)
     {
-        int width = page.Width;
-        var info = page.Info;
-        var bytes = page.Bytes;
+        var raster = new LayoutRaster(page);
+        int rowBytes = raster.RowBytes, pixelSize = raster.BytesPerPixel;
+        int scanTop = Math.Max(0, top), scanBottom = Math.Min(raster.Height, bottom);
+        int scanLeft = Math.Max(0, minX), scanRight = Math.Min(raster.Width, maxX);
         int left = maxX, right = minX;
         long inkPixels = 0;
 
-        for (int row = Math.Max(0, top); row < Math.Min(page.Height, bottom); row++)
+        for (int row = scanTop; row < scanBottom; row++)
         {
-            for (int col = Math.Max(0, minX); col < Math.Min(width, maxX); col++)
+            int offset = row * rowBytes + scanLeft * pixelSize;
+            for (int col = scanLeft; col < scanRight; col++, offset += pixelSize)
             {
-                int b = (row * width + col) * info.BytesPerPixel;
-                byte blue = bytes[b], green = bytes[b + 1], red = bytes[b + 2];
-                float luminance = (0.299f * red + 0.587f * green + 0.114f * blue) / 255f;
-                if (luminance < inkThreshold)
+                if (raster.Luminance(offset) < inkThreshold)
                 {
                     if (col < left) left = col;
                     if (col > right) right = col;

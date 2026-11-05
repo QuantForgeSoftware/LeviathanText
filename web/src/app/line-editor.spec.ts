@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { ApiClient } from './api-client';
 import { LineEditor } from './line-editor';
 
@@ -84,7 +84,7 @@ describe('LineEditor (alternatives)', () => {
     expect(button).toBeTruthy();
     button.click();
 
-    expect(calls).toEqual([{ layer: 'L2Editorial', text: 'aXd', parent: 'rev-1' }]);
+    expect(calls).toEqual([{ layer: 'L2Editorial', text: 'aXd', parent: undefined }]);
   });
 });
 
@@ -411,4 +411,248 @@ describe('LineEditor (concurrent merge)', () => {
     expect(fixture.nativeElement.textContent).toContain('overlap a newer revision');
     expect((fixture.nativeElement.querySelector('input') as HTMLInputElement).value).toBe('Αβγ');
   });
+});
+
+describe('LineEditor annotation coordinates', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  function setup() {
+    const appendRevision = jasmine.createSpy('appendRevision').and.returnValue(of({ revisionId: 'rev-new' }));
+    TestBed.configureTestingModule({ imports: [LineEditor], providers: [{ provide: ApiClient, useValue: {
+      line: () => of({ line: 'ln-anchors', diplomatic: 'αβ',
+        // The real line API's L1 history deliberately has no layer property.
+        history: [{ id: 'rev-current', text: 'αβ', author: 'human', at: '' }],
+        revisions: [{ id: 'rev-current', layer: 'L1Diplomatic', text: 'αβ', author: 'human', at: '' },
+          { id: 'rev-editorial', layer: 'L2Editorial', text: 'αγβ', author: 'human', at: '' }],
+      }),
+      annotations: () => of([
+        { id: 'ann-current', kind: 'unclear', anchoredRevisionId: 'rev-current', range: { start: 0, end: 1 } },
+        { id: 'ann-old', kind: 'erased', anchoredRevisionId: 'rev-old', range: { start: 1, end: 2 } },
+        { id: 'ann-l2', kind: 'suppliedEditorial', anchoredRevisionId: 'rev-editorial', range: { start: 1, end: 2 } },
+        { id: 'ann-alt-old', kind: 'alternativeReading', anchoredRevisionId: 'rev-old', range: { start: 0, end: 1 }, alternativeText: 'δ' },
+        { id: 'ann-alt-l2', kind: 'alternativeReading', anchoredRevisionId: 'rev-editorial', range: { start: 0, end: 1 }, alternativeText: 'ε' },
+      ]), providers: () => of({ providers: [] }), appendRevision,
+    } }] });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-anchors');
+    fixture.componentRef.setInput('authorId', 'reviewer');
+    fixture.detectChanges();
+    return { fixture, appendRevision };
+  }
+
+  it('marks only annotations anchored to the displayed saved L1, not L2 or old revisions', () => {
+    const { fixture } = setup();
+    expect(fixture.nativeElement.querySelector('.marked').textContent).toBe('αβ');
+    expect(fixture.nativeElement.querySelector('.marked .mark-unclear')?.textContent).toBe('α');
+    expect(fixture.nativeElement.querySelector('.marked .mark-supplied')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.marked .mark-erased')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.marked .mark-alternative')).toBeNull();
+  });
+
+  it('offers no L2 acceptance action for stale or L2-anchored alternatives', () => {
+    const { fixture, appendRevision } = setup();
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>);
+    expect(buttons.filter(button => button.textContent?.includes('Accept as L2')).length).toBe(0);
+    expect(appendRevision).not.toHaveBeenCalled();
+  });
+
+  it('suppresses saved offsets on an unsaved draft, restoring marks when its original text returns', () => {
+    const { fixture } = setup();
+    const editor = fixture.nativeElement.querySelector('input.greek') as HTMLInputElement;
+    editor.value = 'γαβ';
+    editor.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.marked [class^="mark-"]')).toBeNull();
+    editor.value = 'αβ';
+    editor.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.marked .mark-unclear')?.textContent).toBe('α');
+  });
+});
+
+describe('LineEditor line navigation', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  const payload = (line: string, text = line === 'ln-first' ? 'αβ' : 'γδ') => ({
+    line, diplomatic: text, direction: line === 'ln-first' ? 'rtl' : 'ltr', script: line,
+    history: [{ id: `${line}-revision`, text, author: 'human', at: '' }],
+  });
+
+  function setup(overrides: Record<string, unknown> = {}) {
+    const api = {
+      line: jasmine.createSpy('line').and.callFake((line: string) => of(payload(line))),
+      annotations: jasmine.createSpy('annotations').and.returnValue(of([])),
+      providers: () => of({ providers: [] }),
+      appendRevision: jasmine.createSpy('appendRevision').and.returnValue(of({ revisionId: 'rev-new' })),
+      addAnnotation: jasmine.createSpy('addAnnotation').and.returnValue(of({ annotationId: 'ann-new' })),
+      setLineOrientation: jasmine.createSpy('setLineOrientation'),
+      ...overrides,
+    };
+    TestBed.configureTestingModule({ imports: [LineEditor], providers: [{ provide: ApiClient, useValue: api }] });
+    const fixture = TestBed.createComponent(LineEditor);
+    fixture.componentRef.setInput('lineId', 'ln-first');
+    fixture.componentRef.setInput('authorId', 'reviewer');
+    fixture.detectChanges();
+    const edit = (text: string) => {
+      const input = fixture.nativeElement.querySelector('input.greek') as HTMLInputElement;
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    const click = (label: string) => {
+      const button = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+        .find(candidate => candidate.textContent?.trim() === label)!;
+      button.click();
+      fixture.detectChanges();
+    };
+    const switchTo = (line: string) => {
+      fixture.componentRef.setInput('lineId', line);
+      fixture.detectChanges();
+    };
+    return { api, fixture, edit, click, switchTo };
+  }
+
+  it('loads the new line and its own draft, resetting undo and annotation form state', () => {
+    localStorage.setItem('leviathan:draft:ln-second', 'second draft');
+    const { api, fixture, edit, switchTo } = setup();
+    edit('first draft');
+    const kind = fixture.nativeElement.querySelector('.annotation-form select') as HTMLSelectElement;
+    kind.value = 'Abbreviation'; kind.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    switchTo('ln-second');
+
+    expect(api.line).toHaveBeenCalledWith('ln-second');
+    expect(fixture.nativeElement.querySelector('h3').textContent).toContain('ln-second');
+    expect(fixture.nativeElement.querySelector('input.greek').value).toBe('second draft');
+    expect(fixture.nativeElement.querySelector('.orientation select').value).toBe('ltr');
+    expect(fixture.nativeElement.querySelector('.orientation input').value).toBe('ln-second');
+    expect(fixture.nativeElement.querySelector('.annotation-form select').value).toBe('Unclear');
+    const undo = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find(button => button.textContent?.trim() === 'Undo')!;
+    expect(undo.disabled).toBeTrue();
+    expect(localStorage.getItem('leviathan:draft:ln-first')).toBe('first draft');
+  });
+
+  it('ignores a late initial line response and error after selecting another line', () => {
+    const first = new Subject<ReturnType<typeof payload>>();
+    const { fixture, switchTo } = setup({ line: (line: string) => line === 'ln-first' ? first : of(payload(line)) });
+    switchTo('ln-second');
+    first.next(payload('ln-first'));
+    first.error({ status: 500 });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('input.greek').value).toBe('γδ');
+    expect(fixture.nativeElement.querySelector('h3').textContent).toContain('ln-second');
+  });
+
+  it('ignores the original request when navigating away and back to the same line', () => {
+    const original = new Subject<ReturnType<typeof payload>>();
+    let firstReads = 0;
+    const { fixture, switchTo } = setup({ line: (line: string) => {
+      if (line === 'ln-first' && firstReads++ === 0) return original;
+      return of(payload(line, line === 'ln-first' ? 'new first reading' : 'γδ'));
+    } });
+    switchTo('ln-second'); switchTo('ln-first');
+    original.next(payload('ln-first', 'old first reading'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('input.greek').value).toBe('new first reading');
+  });
+
+  it('ignores late annotation responses from the previous line', () => {
+    const first = new Subject<unknown[]>();
+    const { fixture, switchTo } = setup({ annotations: (line: string) => line === 'ln-first' ? first : of([]) });
+    switchTo('ln-second');
+    first.next([{ id: 'ann-old', kind: 'Unclear', anchoredRevisionId: 'ln-first-revision',
+      range: { start: 0, end: 1 }, description: 'previous-line annotation' }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('previous-line annotation');
+    expect(fixture.nativeElement.querySelector('input.greek').value).toBe('γδ');
+  });
+
+  for (const outcome of ['success', 'conflict']) {
+    it(`keeps the new line's draft when the previous save returns ${outcome}`, () => {
+      const saved = new Subject<{ revisionId: string }>();
+      const { api, fixture, edit, click, switchTo } = setup({ appendRevision: () => saved });
+      edit('first draft'); click('Save revision');
+      switchTo('ln-second'); edit('second unsaved draft');
+      const readsBeforeResponse = api.line.calls.count();
+      if (outcome === 'success') saved.next({ revisionId: 'saved-first' });
+      else saved.error({ status: 409 });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('input.greek').value).toBe('second unsaved draft');
+      expect(localStorage.getItem('leviathan:draft:ln-second')).toBe('second unsaved draft');
+      expect(fixture.nativeElement.querySelector('.conflict')).toBeNull();
+      expect(api.line.calls.count()).toBe(readsBeforeResponse);
+    });
+  }
+
+  it('ignores an old orientation save result after navigation', () => {
+    const response = new Subject<{ direction: string; script: string }>();
+    const { fixture, click, switchTo } = setup({ setLineOrientation: () => response });
+    click('Apply orientation'); switchTo('ln-second');
+    response.next({ direction: 'rtl', script: 'old-script' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.orientation select').value).toBe('ltr');
+    expect(fixture.nativeElement.querySelector('.orientation input').value).toBe('ln-second');
+    expect(fixture.nativeElement.textContent).not.toContain('orientation saved');
+  });
+
+  it('does not create an abbreviation annotation on the new line after an old L2 save', () => {
+    const response = new Subject<{ revisionId: string }>();
+    const { api, fixture, click, switchTo } = setup({ appendRevision: () => response });
+    const kind = fixture.nativeElement.querySelector('.annotation-form select') as HTMLSelectElement;
+    kind.value = 'Abbreviation'; kind.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const end = fixture.nativeElement.querySelectorAll('.annotation-form input[type="number"]')[1] as HTMLInputElement;
+    end.value = '1'; end.dispatchEvent(new Event('input'));
+    const expansion = fixture.nativeElement.querySelector('input[placeholder="expanded text"]') as HTMLInputElement;
+    expansion.value = 'expanded'; expansion.dispatchEvent(new Event('input'));
+    fixture.detectChanges(); click('Add'); switchTo('ln-second');
+    response.next({ revisionId: 'old-line-l2' });
+    fixture.detectChanges();
+    expect(api.addAnnotation).not.toHaveBeenCalled();
+  });
+
+  it('does not start follow-up requests after destruction', () => {
+    const initial = new Subject<ReturnType<typeof payload>>();
+    const { api, fixture } = setup({ line: () => initial });
+    fixture.destroy(); initial.next(payload('ln-first'));
+    expect(api.annotations).not.toHaveBeenCalled();
+  });
+});
+
+describe('LineEditor editorial parent semantics', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  for (const existingL2 of [false, true]) {
+    it(`uses ${existingL2 ? 'the L2 head' : 'no parent for the first L2'} when accepting an L1 alternative`, () => {
+      const expectedParent = existingL2 ? 'rev-l2' : undefined;
+      const line = jasmine.createSpy('line').and.returnValue(of({
+        line: 'ln-parent', diplomatic: 'αβ', history: [{ id: 'rev-l1', text: 'αβ', author: 'human', at: '' }],
+        revisions: [{ id: 'rev-l1', text: 'αβ', layer: 'L1Diplomatic', author: 'human', at: '' },
+          ...(existingL2 ? [{ id: 'rev-l2', text: 'αδ', layer: 'l2Editorial', author: 'human', at: '' }] : [])],
+      }));
+      // Mirrors AppendLineRevision's layer-specific parent check: an L1 parent is rejected.
+      const appendRevision = jasmine.createSpy('appendRevision').and.callFake(
+        (_line: string, _layer: string, _text: string, _author: string, parent?: string) =>
+          parent === expectedParent ? of({ revisionId: 'rev-new-l2' }) : throwError(() => ({ status: 409 })));
+      TestBed.configureTestingModule({ imports: [LineEditor], providers: [{ provide: ApiClient, useValue: {
+        line, appendRevision, providers: () => of({ providers: [] }),
+        annotations: () => of([{ id: 'ann-alt', kind: 'AlternativeReading', anchoredRevisionId: 'rev-l1',
+          range: { start: 1, end: 2 }, alternativeText: 'γ' }]),
+      } }] });
+      const fixture = TestBed.createComponent(LineEditor);
+      fixture.componentRef.setInput('lineId', 'ln-parent');
+      fixture.componentRef.setInput('authorId', 'human');
+      fixture.detectChanges();
+      const accept = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+        .find(button => button.textContent?.includes('Accept as L2'))!;
+      accept.click(); fixture.detectChanges();
+      expect(appendRevision).toHaveBeenCalledOnceWith('ln-parent', 'L2Editorial', 'αγ', 'human', expectedParent);
+      expect(line).toHaveBeenCalledTimes(2);
+    });
+  }
 });

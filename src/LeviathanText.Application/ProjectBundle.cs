@@ -4,6 +4,7 @@ using System.Text.Json;
 using LeviathanText.Contracts;
 using LeviathanText.Contracts.Serialization;
 using LeviathanText.Formats;
+using LeviathanText.Imaging;
 
 namespace LeviathanText.Application;
 
@@ -25,11 +26,50 @@ public static class ProjectBundle
         var directory = Path.GetDirectoryName(Path.GetFullPath(targetZipPath));
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
+        var destination = Path.GetFullPath(targetZipPath);
+        var pathComparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (File.Exists(destination))
+        {
+            var canonicalDestination = CanonicalPath(destination);
+            if (project.Objects.SelectMany(obj => obj.Surfaces).SelectMany(surface => surface.Captures)
+                .Any(capture => File.Exists(capture.ImageLocation)
+                    && string.Equals(CanonicalPath(capture.ImageLocation), canonicalDestination, pathComparison)))
+                throw new IOException("Bundle destination is a source capture; choose a different path.");
+        }
+
+        var staged = Path.Combine(directory!, $".lt-bundle-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            var count = WriteArchive(project, staged, includeImages);
+            var size = new FileInfo(staged).Length;
+            File.Move(staged, destination, overwrite: true);
+            return new Result(targetZipPath, count, size);
+        }
+        finally
+        {
+            if (File.Exists(staged)) File.Delete(staged);
+        }
+    }
+
+    private static string CanonicalPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        FileSystemInfo entry = Directory.Exists(full) ? new DirectoryInfo(full) : new FileInfo(full);
+        if (entry.LinkTarget is not null)
+            return CanonicalPath(entry.ResolveLinkTarget(returnFinalTarget: true)!.FullName);
+        var parent = Path.GetDirectoryName(full);
+        return parent is null ? full : Path.Combine(CanonicalPath(parent), Path.GetFileName(full));
+    }
+
+    private static int WriteArchive(NativeProject project, string targetZipPath, bool includeImages)
+    {
         var interchange = new InterchangeService(new ProjectService(ProjectStoreFree.Instance));
 
         using var stream = File.Create(targetZipPath);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
         var files = new List<string>();
+        var surfaces = project.Objects.SelectMany(o => o.Surfaces).ToList();
 
         void Add(string name, string content)
         {
@@ -47,13 +87,33 @@ public static class ProjectBundle
             files.Add(name);
         }
 
+        var renderedPdfs = new HashSet<EntityId>();
+        void AddPdf(NativeSurface surface, byte[]? imageBytes)
+        {
+            (byte[] Pdf, LossReport Report) rendered;
+            try
+            {
+                rendered = interchange.ExportSearchablePdf(project, surface.Id,
+                    includeCaptureImage: imageBytes is not null, captureBytes: imageBytes);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // A failed convenience export must not prevent the native and TEI records.
+                return;
+            }
+            AddBytes($"surfaces/{surface.Id}/searchable.pdf", rendered.Pdf);
+            Add($"surfaces/{surface.Id}/searchable-pdf-loss.txt", rendered.Report.ToString());
+            renderedPdfs.Add(surface.Id);
+        }
+
         var imageEntries = new Dictionary<EntityId, string>();
         if (includeImages)
         {
             var omitted = new List<string>();
             long totalImageBytes = 0;
-            foreach (var capture in project.Objects.SelectMany(o => o.Surfaces)
-                         .SelectMany(s => s.Captures).GroupBy(c => c.Id).Select(g => g.First()))
+            var primarySurfaces = surfaces.Where(s => s.Captures.Count > 0)
+                .ToLookup(s => s.Captures[0].Id);
+            foreach (var capture in surfaces.SelectMany(s => s.Captures).GroupBy(c => c.Id).Select(g => g.First()))
             {
                 var imagePath = capture.ImageLocation;
                 if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
@@ -61,16 +121,31 @@ public static class ProjectBundle
                     omitted.Add($"{capture.Id}: source not local/readable");
                     continue;
                 }
-                var info = new FileInfo(imagePath);
-                if (info.Length > 25 * 1024 * 1024 || totalImageBytes + info.Length > 250L * 1024 * 1024)
+                byte[] imageBytes;
+                try
                 {
-                    omitted.Add($"{capture.Id}: size limit");
+                    imageBytes = ReadValidatedImage(imagePath, 250L * 1024 * 1024 - totalImageBytes);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+                    or SixLabors.ImageSharp.UnknownImageFormatException
+                    or SixLabors.ImageSharp.InvalidImageContentException or NotSupportedException)
+                {
+                    omitted.Add($"{capture.Id}: unreadable/invalid image or size limit");
                     continue;
                 }
-                totalImageBytes += info.Length;
-                var entry = $"images/{capture.Id}{info.Extension}";
-                AddBytes(entry, File.ReadAllBytes(imagePath));
+                var checksum = capture.Frame.ImageChecksum;
+                if (string.Equals(checksum.Algorithm, "sha256", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(checksum.Digest, ImageDecoder.ChecksumOf(imageBytes).Digest, StringComparison.OrdinalIgnoreCase))
+                {
+                    omitted.Add($"{capture.Id}: source image checksum mismatch");
+                    continue;
+                }
+                totalImageBytes += imageBytes.LongLength;
+                var entry = $"images/{capture.Id}{Path.GetExtension(imagePath)}";
+                AddBytes(entry, imageBytes);
                 imageEntries[capture.Id] = entry;
+                foreach (var surface in primarySurfaces[capture.Id])
+                    AddPdf(surface, imageBytes);
             }
             if (omitted.Count > 0)
                 Add("images-omitted.txt", string.Join('\n', omitted) + "\n");
@@ -90,7 +165,7 @@ public static class ProjectBundle
         var projectEdition = EditionHtml.ExportProject(project, project.Name, surface =>
         {
             var capture = surface.Captures.FirstOrDefault();
-            return capture is not null && imageEntries.TryGetValue(capture.Id, out var entry) ? entry : null;
+            return capture is not null && imageEntries.TryGetValue(capture.Id, out var entry) ? entry : "";
         });
         Add("edition.html", projectEdition.Html);
         Add("edition-loss.txt", projectEdition.Report.ToString());
@@ -98,26 +173,17 @@ public static class ProjectBundle
         Add("review-summary.json", ContractJson.ToJson(reviews.Summarize(project)));
         Add("adjudication.csv", reviews.ExportAdjudicationCsv(project));
 
-        foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
+        foreach (var surface in surfaces)
         {
             var prefix = $"surfaces/{surface.Id}";
             Add($"{prefix}/diplomatic.txt", interchange.ExportDiplomatic(project, surface.Id).Text);
             Add($"{prefix}/tei.xml", interchange.ExportTei(project, surface.Id, $"LeviathanText export {surface.Id}"));
-            try
-            {
-                var (pdf, pdfReport) = interchange.ExportSearchablePdf(project, surface.Id);
-                AddBytes($"{prefix}/searchable.pdf", pdf);
-                Add($"{prefix}/searchable-pdf-loss.txt", pdfReport.ToString());
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // A missing/corrupt capture or missing geometry must not make the text bundle
-                // fail; the native/TEI records remain authoritative.
-            }
+            if (!renderedPdfs.Contains(surface.Id))
+                AddPdf(surface, imageBytes: null);
             var editionCapture = surface.Captures.FirstOrDefault();
             var editionImage = editionCapture is not null
                 && imageEntries.TryGetValue(editionCapture.Id, out var editionEntry)
-                ? $"../../{editionEntry}" : null;
+                ? $"../../{editionEntry}" : "";
             var edition = EditionHtml.Export(project, surface.Id, $"{project.Name} — {surface.Id}", editionImage);
             Add($"{prefix}/edition.html", edition.Html);
             Add($"{prefix}/edition-loss.txt", edition.Report.ToString());
@@ -125,7 +191,7 @@ public static class ProjectBundle
             {
                 Add($"{prefix}/alto.xml", AltoXml.Export(surface, surface.Captures[0], surface.Revisions));
                 Add($"{prefix}/hocr.html", HocrFormat.Export(surface, surface.Captures[0], surface.Revisions));
-            Add($"{prefix}/abbyy.xml", AbbyyXml.Export(surface, surface.Captures[0], surface.Revisions));
+                Add($"{prefix}/abbyy.xml", AbbyyXml.Export(surface, surface.Captures[0], surface.Revisions));
             }
         }
 
@@ -135,7 +201,7 @@ public static class ProjectBundle
             contractVersion = ContractVersion.Current,
             createdAt = DateTimeOffset.UtcNow,
             project = new { id = project.Id.ToString(), name = project.Name },
-            surfaces = project.Objects.SelectMany(o => o.Surfaces).Select(s => new
+            surfaces = surfaces.Select(s => new
             {
                 id = s.Id.ToString(),
                 kind = s.Kind,
@@ -146,6 +212,8 @@ public static class ProjectBundle
                 annotations = s.Annotations.Count,
             }),
             files,
+            imageFilesRequested = includeImages,
+            imageFilesIncluded = imageEntries.Count,
             transcriptionProfile = new
             {
                 id = Core.Unicode.GreekTextProfile.ProfileId,
@@ -158,12 +226,43 @@ public static class ProjectBundle
                 l2 = "editorial reading/accepted proposals",
             },
             note = "Lossy conversions (plain text, bounded TEI/ALTO/hOCR) report what they drop; " +
-                   "the native project.json is authoritative. Image files are NOT bundled — " +
-                   "capture paths and checksums in project.json locate them.",
+                   "the native project.json is authoritative. " + (includeImages
+                       ? "Validated source images are included under images/ and as PDF page backgrounds when available; images-omitted.txt records any omissions."
+                       : "Searchable PDFs contain text only. Source image paths and checksums remain in project.json."),
         };
         Add("manifest.json", JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
 
-        return new Result(targetZipPath, files.Count, new FileInfo(targetZipPath).Length);
+        return files.Count;
+    }
+
+    private static byte[] ReadValidatedImage(string path, long remainingBytes)
+    {
+        long limit = Math.Min(25L * 1024 * 1024, remainingBytes);
+        using var source = File.OpenRead(path);
+        if (source.Length > limit) throw new InvalidDataException("Image size limit exceeded.");
+        using var content = new MemoryStream();
+        var buffer = new byte[81920];
+        int read;
+        while ((read = source.Read(buffer)) > 0)
+        {
+            if (content.Length + read > limit) throw new InvalidDataException("Image size limit exceeded.");
+            content.Write(buffer, 0, read);
+        }
+        var bytes = content.ToArray();
+        // Validate the exact bounded byte snapshot that is copied, rather than reopening
+        // a path after validation. A renamed text file must never be a raw export channel.
+        var options = new SixLabors.ImageSharp.Formats.DecoderOptions
+        {
+            MaxFrames = 1,
+            SkipMetadata = true,
+            TargetSize = new SixLabors.ImageSharp.Size(1, 1),
+        };
+        var info = SixLabors.ImageSharp.Image.Identify(options, bytes);
+        if (info.Width <= 0 || info.Height <= 0
+            || info.Width > ImageDecoder.MaxDimension || info.Height > ImageDecoder.MaxDimension)
+            throw new InvalidDataException("Image dimensions exceed the supported limit.");
+        using var decoded = SixLabors.ImageSharp.Image.Load(options, bytes);
+        return bytes;
     }
 
     /// <summary>ProjectStore adapter for read-only exporters (never saves).</summary>

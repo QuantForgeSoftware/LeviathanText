@@ -106,6 +106,23 @@ public sealed class TeiCommandTests : IDisposable
         Assert.Equal(1, Run("validate", "tei", xml, "--strict"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Project_edition_html_accepts_out_with_optional_all(bool includeAll)
+    {
+        var projectId = RunCapturing("project", "new", "project-edition").Trim();
+        var output = PathOf("project.html");
+        string[] scope = includeAll ? ["--all"] : [];
+
+        Assert.Equal(0, Run(["export", "edition-html", projectId, .. scope, "--out", output]));
+
+        var html = File.ReadAllText(output);
+        Assert.Contains("<html", html);
+        Assert.Contains("project-edition", html);
+        Assert.Contains("No surfaces in this project.", html);
+    }
+
     [Fact]
     public void Validate_tei_can_use_an_operator_supplied_xsd()
     {

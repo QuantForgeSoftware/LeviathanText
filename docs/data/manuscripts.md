@@ -31,7 +31,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
   - Zenodo description: **120 pages, 9,285 lines, 18,809 words (6,787 unique)** `[PR]`.
   - HTR-United catalog: **120 files, 2,272 lines, 116,894 characters**, hands "less than 11 (exact)", time 1500–1530, Page-XML `[new]`.
   - Archive size 114.7 MB `[new]`.
-  - **Disposition:** the 120-page count agrees; the **9,285 vs 2,272 line** figure does not (≈4× gap). project-plan Section 5 flagged this; it is **still unresolved**. Both figures may be honest under different definitions (e.g. geometric line regions vs transcribed lines, or count of text-region objects). **MAN-01 must count actual PAGE `<TextLine>` elements before any volume target.**
+  - **Disposition:** the 120-page count agrees; the **9,285 vs 2,272 line** figure does not. The downloaded release has 2,272 PAGE `TextLine` elements and 18,986 `Word` elements. The publisher’s 9,285 figure remains unexplained.
 - **Annotation granularity:** PAGE XML text-region, text-line and word polygons with transcriptions `[PR]`. Whether abbreviations are expanded or kept visible is **unknown** `[unk]`.
 - **Rights (split):**
   - Image: **not separately stated** `[unk]`; the record carries one CC BY 4.0 grant. Source object Add. 6791 is a pre-1600 British Library manuscript (public-domain status likely `[inf]`), but BL imaging terms were **not** checked here.
@@ -39,7 +39,7 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
   - Code / weights: n/a (no code or model shipped).
 - **Attribution / conditions:** CC BY 4.0 requires attribution and a change notice for adaptations `[new]`.
 - **Parent-object lineage:** all pages belong to **one physical codex (Add. 6791)**; the two hands split at ff. 104r–174v `[new]`.
-- **Proposed use:** primary development manuscript corpus; **both** a witness-level holdout and a hand-level holdout are available inside this one source (see §5).
+- **Proposed use:** primary development manuscript corpus; keep the complete codex grouped for witness holdout. A within-codex hand holdout requires mapping archive pages to the documented folios.
 - **Unanswered checks:** actual `<TextLine>` count; image/text pairing; whether transcriptions are diplomatic or expanded (nomina sacra, abbreviations); material; BL imaging terms; per-page hand attribution.
 - **Next action:** **MAN-01** (count + label-policy audit), then **DATA-02** (lineage).
 
@@ -111,10 +111,10 @@ Every fact carries one tag. Do not promote an `[inf]` claim to a verified count 
 
 | Source | Pages (agreed) | Line figure A | Line figure B | Status |
 | --- | --- | --- | --- | --- |
-| M01 | 120 `[PR]`=`[new]` | 9,285 `[PR]` (Zenodo) | 2,272 `[new]` (HTR-United) | **unresolved** — count `<TextLine>` in MAN-01 |
+| M01 | 120 `[PR]`=`[new]` | 9,285 `[PR]` (Zenodo) | 2,272 `[new]` (HTR-United) | 2,272 actual archive `TextLine` elements |
 | M02a | 54 `[PR]` | 1,038 `[PR]` | — | plausible `[inf]`, not file-verified |
-| M02b | 40 `[PR]` | 803 `[PR]` | — | plausible `[inf]`, not file-verified |
-| M02c | 44 `[PR]` | 1,051 `[PR]` | — | plausible `[inf]`, not file-verified |
+| M02b | 40 archive filename joins | 803 `[PR]` | 803 PAGE lines | PAGE/split members verified, raster bytes pending |
+| M02c | 44 archive filename joins | 1,051 `[PR]` | 1,006 PAGE lines | PAGE/split members verified, raster bytes pending |
 
 Do **not** publish a manuscript corpus total until M01 is reconciled. The four datasets are **one population type** (later minuscule), not four independent ancient-hand populations (project-plan Section 5).
 
@@ -206,16 +206,16 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 
 - **Acquisition:** M02a v1.0 downloaded from `https://zenodo.org/api/records/5595669` to `.artifacts/datasets/m02a-v1.0/` (retrieval 2026-10-18). **Zip md5 verified** against the record (`d23306723f387845c319cb817e838571`). 111 files extracted; the Greek-lettered, non-UTF-8 zip root was remapped to `m02a/`.
 - **Pairing audit (inspected):** **54/54 image/PAGE pairs** (PNG images under `images/`, XMLs under `xml/`) — matches the record's description. `imageFilename` attributes confirmed consistent.
-- **Audited line counts:** **1038 real TextLines** (publisher figure confirmed). Text lives in the **Word layer**; the adapter assembles line text from words (assembly recorded in revision provenance). **157 lines excluded** from all splits because their labels contain literal editorial markup (`<+>`-style) — editorial interventions never become visible-text training labels (project-plan §3 invariant).
+- **Audited line counts:** **1038 real TextLines** (publisher figure confirmed). All 1,038 lines have direct `TextEquiv/Unicode` and 5,972 Word text entries. Preserve the direct line strings because a single-space word join differs on 240 lines. **157 lines excluded** from all splits because their labels contain literal editorial markup (`<+>`-style) — editorial interventions never become visible-text training labels (project-plan §3 invariant).
 - **Rights:** single record-level **CC BY 4.0**; attribution retained in the ledger.
-- **Pilot training (green test):** page-level split 571 train / 131 dev / 179 page-holdout test; CRNN/CTC 150 epochs; **page-holdout CER 0.811**; label set 129 grapheme classes (overbarred nomen-sacra composites present). The publisher's line-level `.lst` splits were deliberately **not used** (within-book line randomization, project-plan §5 warning preserved).
+- **Pilot training (green test):** page-level split 571 train / 131 dev / 179 page-holdout test; CRNN/CTC 150 epochs; **page-holdout CER 0.811**; label set 129 grapheme classes (the audit found no combining overline or macron in the direct line strings). The publisher's line-level `.lst` splits were deliberately **not used** (within-book line randomization, project-plan §5 warning preserved).
 - **Label-policy cautions (pending specialist review):** expansion-lite labels (`ἰῦ`, `χῦ`), diaeresis forms (`ϊ`), and whether label spaces reflect visible spacing are open questions recorded in `data/manifests/manuscripts/m02a.json`.
 - **Corpus status:** M02a is **audited, not training-ready**: specialist adjudication (DATA-03) pending; single-codex coverage; early-majuscule gap remains. No release claim.
 
 ## 11. M01 acquisition + cross-witness generalization gate (2026-10-19)
 
 - **Acquisition:** M01 v1.0 (`eparchos.zip`, 114.7 MB) downloaded and **md5-verified** (`e172aa8b4017436e37cf25991b5bf8b8`) to `.artifacts/datasets/m01-v1.0/` — **120/120 image/XML pairs; 2,272 TextLines (inspected)**.
-- **Register discrepancy RESOLVED:** Zenodo's "9,285 lines" evidently counts **words** (~4 words/line × 2,272); HTR-United's 2,272 is the true line count. `units_evidence` now carries the inspected numbers (corpus-manifest.md §2 convention).
+- **Register discrepancy scoped to this archive:** local PAGE has 2,272 lines, matching the HTR-United line count, and 18,986 word entries. The origin of the deposit description’s 9,285-line figure remains unresolved.
 - **Cross-witness generalization gate (the project-plan §5/§7 deliverable), measured:** trained on M02a pages only (571 lines, 150 epochs, no M01 data or tuning) → scored a deterministic 1-in-4 sample of **all 2,272 M01 lines** (568 lines): **CER 0.838** vs 0.811 within-book. Perfect-line rate 0 at this pilot scale; the 0.8+ range is near-chance, so the numbers demonstrate *transfer* more than competence — but the **measurement machinery for witness-level holdout** is proven and the gap is small in relative terms.
 - Both witnesses remain later-minuscule; early-majuscule coverage stays an explicit gap (per B's manuscripts.md §7/§8).
 
@@ -225,3 +225,7 @@ Verified field dictionary: `docs/contracts/corpus-manifest.md` SHA-256 `e504c6ab
 2. Visible-vs-expanded abbreviation label policy for the transcription profile — **A's `greek-transcription.md` §1/§2.7 already forbids expansion in L1**; the residual is the Greek specialist's sign-inventory decision (`B-REV-A-3`, now informational, not a change request).
 3. Whether the pilot must include **any** early-majuscule witness before a manuscript acceptance report may be published (recommend: disclose its absence rather than blocking).
 4. Suggested source-backed replacement for A's invented EX-1: a real M01 nomina-sacra/overbar line once MAN-02 converts the labels.
+
+## 12. MAN-01 local-deposit re-audit — 2026-11-04
+
+The [local-deposit audit](local-greek-page-intake-2026-11-04.md#m01-and-m02a-manuscripts) checks each extracted file against its frozen archive and every PAGE image join against decoded dimensions. It documents conflicting filename prefixes, direct line versus word text, diacritics, suspected editorial delimiters, previous split exposure, and outstanding collection and hand attribution. [The PAGE-only extension](local-greek-page-intake-2026-11-04.md#m02b-and-m02c-page-only-intake) verifies 803 and 1,006 direct line strings from their archive metadata. Both datasets still need raster and upstream rights checks.

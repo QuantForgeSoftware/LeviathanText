@@ -515,12 +515,15 @@ public sealed class InterchangeService(ProjectService projects)
         if (!string.IsNullOrWhiteSpace(parsed.Document?.Title)) metadata["tei:title"] = parsed.Document!.Title!;
         if (!string.IsNullOrWhiteSpace(parsed.Document?.SurfaceId)) metadata["tei:surfaceId"] = parsed.Document!.SurfaceId!;
         if (!string.IsNullOrWhiteSpace(parsed.Document?.Licence)) metadata["tei:licence"] = parsed.Document!.Licence!;
+        if (parsed.Document?.LicenceTarget is { } licenceTarget) metadata["tei:licenceTarget"] = licenceTarget;
         if (parsed.Document?.PageBreaks is { Count: > 0 } breaks)
         {
             metadata["tei:pageBreaks"] = (pageNumber is null ? breaks.Count : 1)
                 .ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:folio"] = pageNumber!;
             else if (!string.IsNullOrWhiteSpace(breaks[0].Number)) metadata["tei:folio"] = breaks[0].Number!;
+            var selectedBreak = pageNumber is null ? breaks[0] : breaks.FirstOrDefault(pb => pb.Number == pageNumber);
+            if (selectedBreak?.Break is { Length: > 0 } folioBreak) metadata["tei:folioBreak"] = folioBreak;
         }
         else if (!string.IsNullOrWhiteSpace(pageNumber)) metadata["tei:folio"] = pageNumber!;
         if (parsed.Unsupported.Count > 0) metadata["tei:unsupported"] = parsed.Unsupported.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -1069,6 +1072,14 @@ public sealed class InterchangeService(ProjectService projects)
             .Select(g => new TeiXml.TeiResponsibility("transcriber", g.Key,
                 g.Min(r => r.CreatedAt).ToString("O")))
             .ToList();
+        var folio = owner?.Metadata.GetValueOrDefault("tei:folio");
+        var folioBreak = owner?.Metadata.GetValueOrDefault("tei:folioBreak");
+        var licenceTarget = owner?.Metadata.GetValueOrDefault("tei:licenceTarget");
+        var sourceHash = owner?.Metadata.GetValueOrDefault("tei:sourceSha256");
+        if (folioBreak is null && licenceTarget is null && sourceHash is not null
+            && owner?.Attachments.FirstOrDefault(a => a.Role == "original-tei-markup"
+                && string.Equals(a.Sha256, sourceHash, StringComparison.OrdinalIgnoreCase)) is { } source)
+            (licenceTarget, folioBreak) = TeiXml.ReadRetainedSourceLinks(source.Content, folio);
 
         return TeiXml.ExportDocument(lines, title, new TeiXml.TeiExportContext(
             SurfaceId: owner?.Metadata.GetValueOrDefault("tei:surfaceId") ?? surface.Id.Suffix,
@@ -1079,9 +1090,11 @@ public sealed class InterchangeService(ProjectService projects)
             GeometryCount: surface.Lines.Count(l => l.Baseline.Count > 0 || l.Polygon.Count > 0),
             Orientations: surface.Lines.ToDictionary(l => l.Id,
                 l => new TeiXml.TeiLineOrientation(l.Id, l.Direction, l.Script)),
-            Folio: owner?.Metadata.GetValueOrDefault("tei:folio"),
+            Folio: folio,
             PageBreakCount: int.TryParse(owner?.Metadata.GetValueOrDefault("tei:pageBreaks"),
-                out var pageBreaks) ? pageBreaks : 0));
+                out var pageBreaks) ? pageBreaks : 0,
+            FolioBreak: folioBreak,
+            LicenceTarget: licenceTarget));
     }
 
     /// <summary>
@@ -1090,6 +1103,10 @@ public sealed class InterchangeService(ProjectService projects)
     /// keeps the scholarly layers and annotations distinct from this visual/search artifact.
     /// </summary>
     public (byte[] Pdf, LossReport Report) ExportSearchablePdf(NativeProject project, EntityId surfaceId)
+        => ExportSearchablePdf(project, surfaceId, includeCaptureImage: true);
+
+    internal (byte[] Pdf, LossReport Report) ExportSearchablePdf(NativeProject project, EntityId surfaceId,
+        bool includeCaptureImage, byte[]? captureBytes = null)
     {
         var surface = FindSurface(project, surfaceId);
         var capture = surface.Captures.FirstOrDefault()
@@ -1141,6 +1158,8 @@ public sealed class InterchangeService(ProjectService projects)
             .ToList();
         var entries = new List<LossEntry>
         {
+            new("capture-image", includeCaptureImage ? 0 : 1,
+                "the capture raster was excluded from the PDF"),
             new("editorial-layer", surface.Revisions.Count(r => r.Layer == TextLayer.L2Editorial),
                 "L2 editorial readings and their links are not represented in the PDF"),
             new("uncertainty", active.Count(a => a.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible or AnnotationKind.Lost),
@@ -1158,8 +1177,11 @@ public sealed class InterchangeService(ProjectService projects)
             ContractVersion = ContractVersion.Current,
             Entries = [.. entries.Where(entry => entry.Count > 0)],
         };
-        var pdf = SearchablePdf.Export(capture.ImageLocation, width, height, lines,
-            $"LeviathanText {surface.Id}");
+        var page = new SearchablePdf.Page(includeCaptureImage ? capture.ImageLocation : null, width, height, lines)
+        {
+            ImageBytes = captureBytes,
+        };
+        var pdf = SearchablePdf.ExportPages([page], $"LeviathanText {surface.Id}");
         return (pdf, report);
     }
 

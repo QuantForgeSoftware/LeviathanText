@@ -69,7 +69,9 @@ public sealed class ApiRoleTests
 
         var fixture = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..",
             "LeviathanText.Formats.Tests", "Fixtures", "sample.page.xml"));
-        var imported = await annotator.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-page",
+        Assert.Equal(HttpStatusCode.Forbidden, (await annotator.PostAsJsonAsync($"/api/v1/projects/{project!["id"]}/import-page",
+            new { pageXmlPath = fixture })).StatusCode);
+        var imported = await admin.PostAsJsonAsync($"/api/v1/projects/{project["id"]}/import-page",
             new { pageXmlPath = fixture });
         Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
         using var importedJson = System.Text.Json.JsonDocument.Parse(await imported.Content.ReadAsStringAsync());

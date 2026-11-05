@@ -54,7 +54,18 @@ public static class ImageDecoder
                 Message = "Encoded image exceeds the configured size limit.",
             });
 
-        var bytes = File.ReadAllBytes(path);
+        return DecodeBounded(File.ReadAllBytes(path), path, maxPixels);
+    }
+
+    public static ScaledImage DecodeBounded(byte[] bytes, string path, long maxPixels = 12_000_000)
+    {
+        if (bytes.LongLength > MaxEncodedBytes)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.RejectedArchive,
+                Scope = path,
+                Message = "Encoded image exceeds the configured size limit.",
+            });
         var checksum = ChecksumOf(bytes);
 
         try
@@ -300,7 +311,12 @@ public static class ImageDecoder
     {
         try
         {
-            using var image = Image.Load<Rgba32>(bytes);
+            // This API returns one bitmap. Do not decode unused TIFF/animated-image
+            // frames into memory before copying the first frame into that bitmap.
+            using var image = Image.Load<Rgba32>(new SixLabors.ImageSharp.Formats.DecoderOptions
+            {
+                MaxFrames = 1,
+            }, bytes);
             var bitmap = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
             image.ProcessPixelRows(accessor =>
             {

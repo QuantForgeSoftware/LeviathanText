@@ -4,8 +4,9 @@
  * placeholder when no editorial reading exists). Scalar totals are shown per pane so
  * wire-level combining-sequence breakage is visible immediately.
  */
-import { Component, computed, input, signal, OnInit } from '@angular/core';
-import { ApiClient } from './api-client';
+import { Component, computed, input, signal, SimpleChanges } from '@angular/core';
+import { catchError, combineLatest, of, Subscription } from 'rxjs';
+import { ApiClient, AnnotationView } from './api-client';
 import { scalarCount, scalarDiff } from './text-utils';
 
 @Component({
@@ -39,6 +40,10 @@ import { scalarCount, scalarDiff } from './text-utils';
             {{ hasEditorial() ? scalarCountOf(editorial()) + ' scalars' : 'no editorial reading yet' }}
             @if (hasEditorial() && !diff().equal) { · prefix/suffix diff, not word alignment }
           </p>
+          @if (editorialBoundaries().length > 0) {
+            <p class="boundary greek" [attr.dir]="direction() === 'rtl' || direction() === 'Rtl' ? 'rtl' : null">{{ withBoundaries(editorial(), editorialBoundaries()) }}</p>
+            <p class="hint">· proposed word boundaries (derived; witness text is unchanged)</p>
+          }
         </div>
       </div>
       <a [href]="imageLink()" target="_blank" rel="noopener">original image</a>
@@ -61,37 +66,63 @@ export class DualPane {
   protected readonly diplomatic = signal('—');
   protected readonly editorial = signal('—');
   protected readonly hasEditorial = signal(false);
-  protected readonly boundaries = signal<number[]>([]);
+  private readonly annotations = signal<AnnotationView[]>([]);
+  private readonly diplomaticRevision = signal<string | null>(null);
+  private readonly editorialRevision = signal<string | null>(null);
+  protected readonly boundaries = computed(() => this.boundariesFor(this.diplomaticRevision()));
+  protected readonly editorialBoundaries = computed(() => this.boundariesFor(this.editorialRevision()));
   protected readonly direction = signal<string | null>(null);
   protected readonly diff = computed(() => scalarDiff(this.diplomatic(), this.editorial()));
 
   private readonly api: ApiClient;
+  private request: Subscription | undefined;
 
   constructor(api: ApiClient) {
     this.api = api;
   }
 
-  ngOnInit(): void {
-    this.api.line(this.lineId()).subscribe(data => {
-      this.diplomatic.set(data.diplomatic ?? '—');
-      this.direction.set(data.direction ?? null);
-    });
-    this.api.annotations(this.lineId()).subscribe(annotations => {
-      this.boundaries.set(annotations
-        .filter(annotation => annotation.kind === 'WordBoundary' || annotation.kind === 'wordBoundary')
-        .map(annotation => annotation.range.start)
-        .sort((a, b) => a - b));
-    });
-    this.api.lineLayerHistory(this.lineId(), 'L2Editorial').subscribe(history => {
-      const latest = history.length > 0 ? history[history.length - 1].text : null;
-      this.hasEditorial.set(latest !== null);
-      this.editorial.set(latest ?? '—');
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['lineId']) return;
+    this.request?.unsubscribe();
+    this.diplomaticRevision.set(null);
+    this.editorialRevision.set(null);
+    this.annotations.set([]);
+    this.diplomatic.set('—');
+    this.editorial.set('—');
+    this.hasEditorial.set(false);
+    this.direction.set(null);
+    this.request = combineLatest({
+      line: this.api.line(this.lineId()),
+      annotations: this.api.annotations(this.lineId()).pipe(catchError(() => of([]))),
+      history: this.api.lineLayerHistory(this.lineId(), 'L2Editorial').pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ line, annotations, history }) => {
+        if (line.line !== this.lineId()) return;
+        this.diplomatic.set(line.diplomatic ?? '—');
+        this.direction.set(line.direction ?? null);
+        this.diplomaticRevision.set(line.history.at(-1)?.id ?? null);
+        const latest = history.at(-1);
+        this.hasEditorial.set(latest !== undefined);
+        this.editorial.set(latest?.text ?? '—');
+        this.editorialRevision.set(latest?.id ?? null);
+        this.annotations.set(annotations);
+      },
+      error: () => { /* Keep placeholders when the line itself is unavailable. */ },
     });
   }
 
-  protected withBoundaries(text: string): string {
+  ngOnDestroy(): void { this.request?.unsubscribe(); }
+
+  private boundariesFor(revisionId: string | null): number[] {
+    return revisionId === null ? [] : this.annotations()
+      .filter(annotation => annotation.anchoredRevisionId === revisionId
+        && (annotation.kind === 'WordBoundary' || annotation.kind === 'wordBoundary'))
+      .map(annotation => annotation.range.start).sort((a, b) => a - b);
+  }
+
+  protected withBoundaries(text: string, boundaries = this.boundaries()): string {
     const scalars = Array.from(text);
-    const positions = new Set(this.boundaries().filter(position => position > 0 && position < scalars.length));
+    const positions = new Set(boundaries.filter(position => position > 0 && position < scalars.length));
     return scalars.map((scalar, index) => positions.has(index) ? `·${scalar}` : scalar).join('');
   }
 

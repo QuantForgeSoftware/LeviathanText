@@ -110,3 +110,21 @@ digest, and carry a model card. A package that fails verification is rejected, n
 
 `dotnet list LeviathanText.slnx package --vulnerable --include-transitive` reported **no known
 vulnerable packages** at that time. Re-run before a release; this is a snapshot, not a guarantee.
+
+## Overnight macOS package rehearsal (2026-11-04)
+
+The local osx-arm64 pilot package's 175 payload files matched both its manifest
+and tar archive. The package records the base commit and dirty working tree
+separately. A baseline tar included 181 AppleDouble members outside the
+manifest. The corrected tar excludes those entries. Twelve architecture
+checks covered TorchSharp, libtorch, SkiaSharp and PDFium across CLI, API and
+worker outputs. The packaged API served the Angular shell and both scripts,
+and the packaged worker completed a no-op submitted through that API.
+Disposable install, update and rollback also passed.
+
+The local native graph supplies libtorch for macOS ARM64. The other target
+rows still require a compatible libtorch bundle and an actual host smoke.
+The package contains framework-dependent pilot binaries. Acceptance of weights
+and platform support stays separate from packaging integrity.
+
+[Overnight verification](../handoffs/overnight-todo-2026-11-05.md#recognition-and-package-checkpoints).

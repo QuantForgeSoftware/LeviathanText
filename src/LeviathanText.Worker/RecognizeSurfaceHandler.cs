@@ -48,15 +48,20 @@ public sealed class RecognizeSurfaceHandler(IProjectStore store, ImageResolver? 
                 Message = "Model package directory does not exist on this worker host.",
             });
 
-        var project = FindProjectForSurface(input.Entity)
-            ?? throw new LeviathanException(new LeviathanError
+        var project = job.BoundProjectId is { } projectId
+            ? store.LoadProject(projectId)
+            : FindProjectForSurface(input.Entity);
+        if (project is null || !project.Objects.SelectMany(o => o.Surfaces).Any(s => s.Id == input.Entity))
+            throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.InputMissing,
                 Scope = input.Entity.ToString(),
                 Message = "Surface not found in any project.",
             });
 
+        using var tensorScope = TorchSharp.torch.NewDisposeScope();
         var loaded = RecognitionModelLoader.Load(packageDirectory);
+        using var model = loaded.Model;
         var pipeline = new RecognitionPipeline(store, imageResolver);
         var outcome = pipeline.Run(project, input.Entity, new RecognitionPipeline.Options
         {
@@ -64,7 +69,8 @@ public sealed class RecognizeSurfaceHandler(IProjectStore store, ImageResolver? 
             PreprocessingProfile = loaded.PreprocessingProfile,
             ModelName = ModelNameOf(packageDirectory, loaded),
             ModelVersion = loaded.Manifest?.CheckpointDigest is { Length: >= 12 } digest ? digest[..12] : "package",
-            ModelFactory = () => loaded.Model,
+            ModelFactory = () => model,
+            LeaveModelOpen = true,
             LabelSetFactory = () => loaded.Labels,
             RunId = job.Id.Suffix,
         }, cancellationToken);

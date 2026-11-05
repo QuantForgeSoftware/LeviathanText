@@ -4,7 +4,7 @@
  * never trusts client-supplied source text. Accepting creates an L2 editorial revision;
  * L1 diplomatic text is untouched (interchange-and-api.md §2.3).
  */
-import { Component, input, signal } from '@angular/core';
+import { Component, input, signal, SimpleChanges } from '@angular/core';
 import { ApiClient } from './api-client';
 
 interface ProviderRow {
@@ -15,6 +15,12 @@ interface ProviderRow {
     maxRequests?: number;
     maxOutputTokens?: number;
   };
+}
+
+interface ProposalSource {
+  lineId: string;
+  revisionId: string;
+  range: { start: number; end: number };
 }
 
 @Component({
@@ -81,9 +87,20 @@ export class ProposalPanel {
   protected readonly message = signal('');
 
   private readonly api: ApiClient;
+  private source: ProposalSource | null = null;
+  private requestVersion = 0;
 
   constructor(api: ApiClient) {
     this.api = api;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['lineId'] || changes['revisionId']) {
+      this.requestVersion++;
+      this.clearProposal();
+      this.busy.set(false);
+      this.message.set('');
+    }
   }
 
   ngOnInit(): void {
@@ -112,16 +129,23 @@ export class ProposalPanel {
   }
 
   protected propose(): void {
+    const version = ++this.requestVersion;
+    const source: ProposalSource = {
+      lineId: this.lineId(), revisionId: this.revisionId(),
+      range: { start: this.rangeStart(), end: this.rangeEnd() },
+    };
+    this.clearProposal();
     this.busy.set(true);
     this.message.set('');
     this.api.propose({
-      targetRevisionId: this.revisionId(),
-      range: { start: this.rangeStart(), end: this.rangeEnd() },
+      targetRevisionId: source.revisionId,
+      range: source.range,
       task: this.task(),
       providerConfigRef: this.providerRef(),
       promptVersion: 'pilot-v1',
     }).subscribe({
       next: (result) => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
         const failure = (result as { failure?: { reason?: string } }).failure;
         if (failure) {
@@ -129,9 +153,15 @@ export class ProposalPanel {
           this.proposal.set(null);
           return;
         }
+        if (!this.matchesSource(result as Record<string, unknown>, source)) {
+          this.message.set('proposal source does not match; request a new proposal');
+          return;
+        }
+        this.source = source;
         this.proposal.set(result as Record<string, unknown>);
       },
       error: () => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
         this.message.set('proposal request failed (provider error or unknown configuration)');
       },
@@ -140,15 +170,19 @@ export class ProposalPanel {
 
   protected accept(): void {
     const proposal = this.proposal();
-    if (!proposal) return;
+    if (!proposal || !this.canSave(proposal)) return;
+    const version = this.requestVersion;
+    const source = this.source!;
     this.busy.set(true);
     this.api.acceptProposal(this.idOf(proposal), proposal, 'workspace-editor').subscribe({
       next: () => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
         this.message.set('accepted as L2 editorial revision');
-        this.proposal.set(null);
+        this.clearProposal();
       },
       error: () => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
         this.message.set('acceptance failed (stale target or blocked proposal)');
       },
@@ -177,23 +211,59 @@ export class ProposalPanel {
 
   protected saveAdvisory(proposal: Record<string, unknown>): void {
     const kind = this.advisoryKind(proposal);
-    if (!kind) return;
+    if (!kind || !this.canSave(proposal)) return;
+    const source = this.source!;
+    const version = this.requestVersion;
     this.busy.set(true);
-    this.api.addAnnotation(this.lineId(), {
+    this.api.addAnnotation(source.lineId, {
       kind,
-      range: { start: this.rangeStart(), end: this.rangeEnd() },
+      anchoredRevisionId: source.revisionId,
+      range: { ...source.range },
       alternativeText: this.textOf(proposal),
       description: `${kind} · ${this.providerOf(proposal)}`,
     }).subscribe({
       next: () => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
+        this.clearProposal();
         this.message.set('advisory result saved as annotation');
       },
-      error: () => {
+      error: (error: { status?: number }) => {
+        if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
-        this.message.set('could not save advisory result');
+        if (error.status === 409) {
+          this.clearProposal();
+          this.message.set('source revision changed; request a new proposal');
+        } else this.message.set('could not save advisory result');
       },
     });
+  }
+
+  private clearProposal(): void {
+    this.proposal.set(null);
+    this.source = null;
+  }
+
+  private isCurrentRequest(version: number, source: ProposalSource): boolean {
+    return version === this.requestVersion && source.lineId === this.lineId()
+      && source.revisionId === this.revisionId();
+  }
+
+  private matchesSource(proposal: Record<string, unknown>, source: ProposalSource): boolean {
+    const request = proposal?.['request'] as Record<string, unknown> | undefined;
+    const range = request?.['range'] as { start?: number; end?: number } | undefined;
+    return request?.['targetRevisionId'] === source.revisionId
+      && range?.start === source.range.start && range?.end === source.range.end;
+  }
+
+  private canSave(proposal: Record<string, unknown>): boolean {
+    if (this.busy()) return false;
+    if (proposal === this.proposal() && this.source !== null
+      && this.isCurrentRequest(this.requestVersion, this.source)
+      && this.matchesSource(proposal, this.source)) return true;
+    this.clearProposal();
+    this.message.set('source revision changed; request a new proposal');
+    return false;
   }
 
   private advisoryKind(proposal: Record<string, unknown>): string | null {

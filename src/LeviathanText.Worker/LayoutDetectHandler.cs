@@ -29,12 +29,14 @@ public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imag
                 Message = "layout.detect needs the target surface as its first input artifact.",
             });
 
-        var projectId = input.Artifact.Digest is { Length: > 0 } digest && digest.StartsWith("proj:", StringComparison.Ordinal)
-            ? (EntityId?)EntityId.Parse(digest[5..], EntityKind.Collection)
-            : FindProjectForSurface(input.Entity);
+        var projectId = job.BoundProjectId
+            ?? (input.Artifact.Digest is { Length: > 0 } digest && digest.StartsWith("proj:", StringComparison.Ordinal)
+                ? EntityId.Parse(digest[5..], EntityKind.Collection)
+                : FindProjectForSurface(input.Entity));
 
         var project = projectId is { } id ? store.LoadProject(id) : null;
-        if (project is null)
+        var target = project?.Objects.SelectMany(o => o.Surfaces).SingleOrDefault(s => s.Id == input.Entity);
+        if (project is null || target is null)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.InputMissing,
@@ -43,7 +45,6 @@ public sealed class LayoutDetectHandler(IProjectStore store, ImageResolver? imag
             });
 
         var service = new LayoutService(store, imageResolver);
-        var target = project.Objects.SelectMany(o => o.Surfaces).Single(s => s.Id == input.Entity);
         var outcome = service.Detect(project, input.Entity, model: modelResolver?.Invoke(target.Kind));
 
         return job with

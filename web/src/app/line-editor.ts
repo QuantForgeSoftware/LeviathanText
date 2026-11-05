@@ -4,8 +4,9 @@
  * undo restores the previous revision's text as a NEW revision — history is never
  * deleted). The L2 layer is written separately from L1; the surface view shows both.
  */
-import { Component, computed, input, signal } from '@angular/core';
-import { ApiClient, AnnotationView, LinePayload, RevisionPayload } from './api-client';
+import { Component, computed, input, signal, SimpleChanges } from '@angular/core';
+import { catchError, EMPTY, filter, MonoTypeOperatorFunction, Subject, takeUntil, throwError } from 'rxjs';
+import { ApiClient, AnnotationView, LinePayload } from './api-client';
 import { applyScalarEdit, confidenceSegments, markSegments, scalarCount, scalarOffsetFromUtf16 } from './text-utils';
 import { ProposalPanel } from './proposal-panel';
 
@@ -161,7 +162,7 @@ interface UndoStack {
                 @if (annotation.description) { — {{ annotation.description }} }
                 @if (annotation.alternativeText) {
                   — alt: {{ annotation.alternativeText }}
-                  @if (!isAdvisory(annotation)) {
+                  @if (!isAdvisory(annotation) && isCurrentAnnotation(annotation)) {
                     <button type="button" (click)="acceptAlternative(annotation)">Accept as L2</button>
                   }
                 }
@@ -227,7 +228,7 @@ interface UndoStack {
             [lineId]="lineId()"
             [revisionId]="revision.id"
             [rangeStart]="0"
-            [rangeEnd]="scalarTotal()" />
+            [rangeEnd]="scalarCountOf(revision.text)" />
         }
       </section>
     } @else {
@@ -264,21 +265,51 @@ export class LineEditor {
   protected readonly payload = signal<LinePayload | null>(null);
   protected readonly text = signal('');
   protected readonly caret = signal(0);
-  protected readonly history = signal<RevisionPayload[]>([]);
+  protected readonly history = signal<LinePayload['history']>([]);
   protected readonly annotations = signal<AnnotationView[]>([]);
   protected readonly direction = signal<string | null>(null);
   protected readonly script = signal('');
   protected readonly orientationStatus = signal('');
   protected readonly conflict = signal(false);
   private readonly undoStack = signal<UndoStack[]>([]);
+  private readonly lineChanged = new Subject<void>();
+  private lineVersion = 0;
 
   constructor(api: ApiClient) {
     this.api = api;
   }
 
-  ngOnInit(): void {
-    this.api.line(this.lineId()).subscribe({
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['lineId']) return;
+    this.lineVersion++;
+    this.lineChanged.next();
+    this.payload.set(null);
+    this.history.set([]);
+    this.annotations.set([]);
+    this.text.set('');
+    this.caret.set(0);
+    this.direction.set(null);
+    this.script.set('');
+    this.orientationStatus.set('');
+    this.conflict.set(false);
+    this.undoStack.set([]);
+    this.draftRestored.set(false);
+    this.formKind.set('Unclear');
+    this.formStart.set(0);
+    this.formEnd.set(0);
+    this.formDescription.set('');
+    this.formAlternative.set('');
+    this.formHandLabel.set('');
+    this.formExpansion.set('');
+    this.formSequenceId.set('');
+    this.formSequenceIndex.set(null);
+    this.formOrderBasis.set('Unknown');
+    this.selectedCorrection.set(0);
+    this.formGapExtent.set('Unknown');
+    this.formEstimatedCount.set(1);
+    this.api.line(this.lineId()).pipe(this.forCurrentLine()).subscribe({
       next: (data) => {
+        if (data.line !== this.lineId()) return;
         this.payload.set(data);
         this.history.set([...data.history]);
         this.direction.set(data.direction ?? null);
@@ -295,6 +326,27 @@ export class LineEditor {
       error: () => this.payload.set({ line: this.lineId(), diplomatic: null, history: [] }),
     });
   }
+
+  ngOnDestroy(): void {
+    this.lineVersion++;
+    this.lineChanged.next();
+    this.lineChanged.complete();
+  }
+
+  /** Reads and mutation completions belong to the view that initiated them. A server
+   * may already have committed a cancelled write; its response must not affect a new line. */
+  private forCurrentLine<T>(): MonoTypeOperatorFunction<T> {
+    const line = this.lineId();
+    const version = this.lineVersion;
+    const current = () => line === this.lineId() && version === this.lineVersion;
+    return source => source.pipe(
+      takeUntil(this.lineChanged),
+      filter(current),
+      catchError(error => current() ? throwError(() => error) : EMPTY),
+    );
+  }
+
+  private isLoadedLine(): boolean { return this.payload()?.line === this.lineId(); }
 
   protected readonly draftRestored = signal(false);
 
@@ -364,7 +416,8 @@ export class LineEditor {
   }
 
   protected applyOrientation(): void {
-    this.api.setLineOrientation(this.lineId(), this.direction(), this.script().trim() || null).subscribe({
+    if (!this.isLoadedLine()) return;
+    this.api.setLineOrientation(this.lineId(), this.direction(), this.script().trim() || null).pipe(this.forCurrentLine()).subscribe({
       next: (result) => {
         this.direction.set(result.direction ?? null);
         this.script.set(result.script ?? '');
@@ -424,7 +477,8 @@ export class LineEditor {
   }
 
   protected retractAnnotation(annotation: AnnotationView): void {
-    this.api.retractAnnotation(annotation.id, this.authorId()).subscribe({
+    if (!this.isLoadedLine()) return;
+    this.api.retractAnnotation(annotation.id, this.authorId()).pipe(this.forCurrentLine()).subscribe({
       next: () => this.loadAnnotations(),
       error: () => { /* surfaced by the API; state kept */ },
     });
@@ -436,21 +490,30 @@ export class LineEditor {
       'morphologicalAnnotation'].includes(annotation.kind);
   }
 
+  protected isCurrentAnnotation(annotation: AnnotationView): boolean {
+    const current = this.currentRevision();
+    return current !== null && annotation.anchoredRevisionId === current.id
+      && this.text() === current.text;
+  }
+
   /** Compose an L2 editorial revision from the current L1 text and an alternative span. */
   protected acceptAlternative(annotation: AnnotationView): void {
+    if (this.isAdvisory(annotation) || !this.isCurrentAnnotation(annotation)) return;
     const alternative = annotation.alternativeText;
     if (!alternative) return;
-    const parent = this.currentRevision()?.id;
+    // Editorial revisions have their own chain; an L1 parent is invalid for this write.
+    const parent = [...(this.payload()?.revisions ?? [])].reverse()
+      .find(revision => revision.layer === 'L2Editorial' || revision.layer === 'l2Editorial')?.id;
     const composed = applyScalarEdit(this.text(), annotation.range.start, annotation.range.end, alternative);
     this.api.appendRevision(this.lineId(), 'L2Editorial', composed, this.authorId(), parent)
-      .subscribe({
+      .pipe(this.forCurrentLine()).subscribe({
         next: () => this.refresh(),
         error: () => { /* surfaced by the API; state kept */ },
       });
   }
 
   protected addAnnotation(): void {
-    if (!this.canAnnotate()) return;
+    if (!this.isLoadedLine() || !this.canAnnotate()) return;
     const kind = this.formKind();
     if (kind === 'Abbreviation') {
       this.addExpansion();
@@ -468,7 +531,7 @@ export class LineEditor {
       sequenceId: kind === 'CorrectionSequence' ? this.formSequenceId() || null : null,
       sequenceIndex: kind === 'CorrectionSequence' ? this.formSequenceIndex() : null,
       orderBasis: kind === 'CorrectionSequence' ? this.formOrderBasis() : null,
-    }).subscribe({
+    }).pipe(this.forCurrentLine()).subscribe({
       next: () => {
         this.formDescription.set('');
         this.formAlternative.set('');
@@ -487,7 +550,7 @@ export class LineEditor {
     const composed = applyScalarEdit(this.text(), start, end, expansion);
     // L2 has its own chain; do not name the L1 revision as its parent.
     this.api.appendRevision(this.lineId(), 'L2Editorial', composed, this.authorId())
-      .subscribe({
+      .pipe(this.forCurrentLine()).subscribe({
         next: ({ revisionId }) => {
           this.api.addAnnotation(this.lineId(), {
             kind: 'Abbreviation',
@@ -497,7 +560,7 @@ export class LineEditor {
             expansionRevisionId: revisionId,
             expansionRange: { start, end: start + scalarCount(expansion) },
             description: this.formDescription() || null,
-          }).subscribe({
+          }).pipe(this.forCurrentLine()).subscribe({
             next: () => {
               this.formExpansion.set('');
               this.formDescription.set('');
@@ -513,12 +576,13 @@ export class LineEditor {
   protected readonly reviews = computed(() => this.payload()?.reviews ?? []);
 
   protected recordReview(outcome: 'accept' | 'correct' | 'dispute'): void {
+    if (!this.isLoadedLine()) return;
     this.api.recordReview(this.lineId(), {
       reviewer: this.authorId(),
       outcome,
       correctionText: outcome === 'correct' ? this.text() : null,
       revisionId: this.currentRevision()?.id ?? null,
-    }).subscribe({
+    }).pipe(this.forCurrentLine()).subscribe({
       next: () => this.refresh(),
       error: () => { /* surfaced by the API; state kept */ },
     });
@@ -530,6 +594,7 @@ export class LineEditor {
   });
 
   protected copyLatestL0(): void {
+    if (!this.isLoadedLine()) return;
     const l0 = this.latestL0();
     if (!l0) return;
     // Copy only: the model output becomes L1 only after a human saves a revision.
@@ -549,14 +614,19 @@ export class LineEditor {
   });
 
   protected readonly markedSegments = computed(() =>
-    markSegments(this.text(), this.annotations().map(a => ({ start: a.range.start, end: a.range.end, kind: a.kind }))));
+    markSegments(this.text(), this.annotations().filter(a => this.isCurrentAnnotation(a))
+      .map(a => ({ start: a.range.start, end: a.range.end, kind: a.kind }))));
 
   protected readonly currentRevision = computed(() => {
+    if (this.payload()?.line !== this.lineId()) return null;
     const history = this.history();
     return history.length > 0 ? history[history.length - 1] : null;
   });
 
+  protected scalarCountOf(text: string): number { return scalarCount(text); }
+
   protected onEdit(event: Event): void {
+    if (!this.isLoadedLine()) return;
     const input = event.target as HTMLInputElement;
     const previous = this.text();
     this.undoStack.update(stack => [...stack, { text: previous, revisionId: this.currentRevisionId() }]);
@@ -586,6 +656,7 @@ export class LineEditor {
   protected readonly canUndo = computed(() => this.undoStack().length > 0);
 
   protected markUnclear(): void {
+    if (!this.isLoadedLine()) return;
     const start = this.caret();
     const end = Math.min(start + 1, this.scalarTotal());
     if (start >= end) return;
@@ -593,32 +664,34 @@ export class LineEditor {
       kind: 'Unclear',
       anchoredRevisionId: this.currentRevisionId(), // binds server-side to the current revision
       range: { start, end },
-    }).subscribe({
+    }).pipe(this.forCurrentLine()).subscribe({
       next: () => this.refresh(),
       error: () => { /* surfaced by the API; the editor keeps its state */ },
     });
   }
 
   protected markWordBoundary(): void {
+    if (!this.isLoadedLine()) return;
     const position = this.caret();
     this.api.addAnnotation(this.lineId(), {
       kind: 'WordBoundary',
       anchoredRevisionId: this.currentRevisionId(),
       range: { start: position, end: position },
       description: 'L2 word-division proposal',
-    }).subscribe({
+    }).pipe(this.forCurrentLine()).subscribe({
       next: () => this.refresh(),
       error: () => { /* surfaced by the API; the editor keeps its state */ },
     });
   }
 
   protected markLost(): void {
+    if (!this.isLoadedLine()) return;
     this.api.addAnnotation(this.lineId(), {
       kind: 'Lost',
       anchoredRevisionId: this.currentRevisionId(),
       range: { start: this.caret(), end: this.caret() },
       gapExtent: 'Unknown',
-    }).subscribe({ next: () => this.refresh() });
+    }).pipe(this.forCurrentLine()).subscribe({ next: () => this.refresh() });
   }
 
   protected undo(): void {
@@ -630,9 +703,10 @@ export class LineEditor {
   }
 
   protected save(): void {
+    if (!this.isLoadedLine()) return;
     const parent = this.currentRevisionId();
     this.api.appendRevision(this.lineId(), 'L1Diplomatic', this.text(), this.authorId(), parent ?? undefined, true)
-      .subscribe({
+      .pipe(this.forCurrentLine()).subscribe({
         next: () => {
           this.conflict.set(false);
           this.clearDraft();
@@ -646,8 +720,9 @@ export class LineEditor {
 
   /** Keep the user's draft text but advance the parent revision after a 409. */
   protected reloadAfterConflict(): void {
-    this.api.line(this.lineId()).subscribe({
+    this.api.line(this.lineId()).pipe(this.forCurrentLine()).subscribe({
       next: data => {
+        if (data.line !== this.lineId()) return;
         this.payload.set(data);
         this.history.set([...data.history]);
         this.conflict.set(false);
@@ -658,8 +733,7 @@ export class LineEditor {
   }
 
   private currentRevisionId(): string | null {
-    const history = this.history();
-    return history.length > 0 ? history[history.length - 1].id : null;
+    return this.currentRevision()?.id ?? null;
   }
 
   private draftKey(): string {
@@ -692,7 +766,8 @@ export class LineEditor {
   }
 
   private refresh(): void {
-    this.api.line(this.lineId()).subscribe(data => {
+    this.api.line(this.lineId()).pipe(this.forCurrentLine()).subscribe(data => {
+      if (data.line !== this.lineId()) return;
       this.payload.set(data);
       this.text.set(data.diplomatic ?? '');
       this.history.set([...data.history]);
@@ -702,7 +777,7 @@ export class LineEditor {
   }
 
   private loadAnnotations(): void {
-    this.api.annotations(this.lineId()).subscribe({
+    this.api.annotations(this.lineId()).pipe(this.forCurrentLine()).subscribe({
       next: list => this.annotations.set(list),
       error: () => this.annotations.set([]),
     });

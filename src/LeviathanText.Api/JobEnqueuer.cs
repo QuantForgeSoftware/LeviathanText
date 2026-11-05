@@ -13,13 +13,10 @@ namespace LeviathanText.Api;
 public sealed class JobEnqueuer(LocalStore store, JobEventBus bus, IConfiguration configuration)
 {
     public JobRecord Enqueue(string type, AgentRef owner, IReadOnlyList<StageArtifact>? inputs = null,
-        string? idempotencyKey = null, int priority = 0, int maxActivePerOwner = 0)
+        string? idempotencyKey = null, int priority = 0, int maxActivePerOwner = 0, EntityId? boundProjectId = null)
     {
-        if (idempotencyKey is not null)
-        {
-            var existing = store.FindJobByIdempotencyKey(idempotencyKey);
-            if (existing is not null) return existing; // duplicate creation returns the existing job
-        }
+        JobRecord? ExistingJob() => idempotencyKey is null ? null : store.FindJobByIdempotencyKey(idempotencyKey);
+        if (ExistingJob() is { } existing) return existing;
 
         if (priority is < 0 or > 100)
             throw new LeviathanException(new LeviathanError
@@ -32,37 +29,34 @@ public sealed class JobEnqueuer(LocalStore store, JobEventBus bus, IConfiguratio
         maxActivePerOwner = maxActivePerOwner > 0
             ? maxActivePerOwner
             : configuration.GetValue<int>("LeviathanText:Jobs:MaxActivePerOwner");
-        if (maxActivePerOwner > 0)
-        {
-            int active = store.LoadJobs().Count(j => j.Owner.Id == owner.Id
-                && j.Status is JobStatus.Pending or JobStatus.Running);
-            if (active >= maxActivePerOwner)
-                throw new LeviathanException(new LeviathanError
-                {
-                    Code = ErrorCode.StageContractViolation,
-                    Scope = "jobs",
-                    Details = new Dictionary<string, string>
-                    {
-                        ["owner"] = owner.Id,
-                        ["active"] = active.ToString(),
-                        ["max"] = maxActivePerOwner.ToString(),
-                    },
-                    Message = "Per-owner active-job quota exceeded.",
-                });
-        }
-
         var job = new JobRecord
         {
             Id = new EntityId(EntityKind.Job, Guid.NewGuid().ToString("N")[..12]),
             Type = type,
             Inputs = inputs ?? [],
+            BoundProjectId = boundProjectId,
             IdempotencyKey = idempotencyKey,
             Owner = owner,
             Priority = priority,
             CreatedAt = DateTimeOffset.UtcNow,
             Status = JobStatus.Pending,
         };
-        store.SaveJob(job);
+        if (!store.TryCreateJob(job, maxActivePerOwner))
+        {
+            if (ExistingJob() is { } winner) return winner;
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = "jobs",
+                Details = new Dictionary<string, string>
+                {
+                    ["owner"] = owner.Id,
+                    ["active"] = store.CountActiveJobs(owner.Id).ToString(),
+                    ["max"] = maxActivePerOwner.ToString(),
+                },
+                Message = "Per-owner active-job quota exceeded.",
+            });
+        }
         bus.Publish(job.Id, "job.created", ContractJson.ToJson(job));
         return job;
     }
@@ -93,12 +87,17 @@ public sealed class JobEnqueuer(LocalStore store, JobEventBus bus, IConfiguratio
 
     public JobRecord Cancel(EntityId jobId)
     {
-        var job = store.LoadJob(jobId)
+        var cancelled = store.UpdateJob(jobId, current =>
+            current.Status is JobStatus.Pending or JobStatus.Running
+                ? current with { Status = JobStatus.Cancelled, Lease = null }
+                : null);
+        if (cancelled is not null)
+        {
+            bus.Publish(cancelled.Id, "job.cancelled", ContractJson.ToJson(cancelled));
+            return cancelled;
+        }
+
+        return store.LoadJob(jobId)
             ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = jobId.ToString(), Message = "Unknown job." });
-        if (job.Status is JobStatus.Succeeded or JobStatus.Failed or JobStatus.Cancelled) return job; // idempotent
-        var updated = job with { Status = JobStatus.Cancelled, Lease = null };
-        store.SaveJob(updated);
-        bus.Publish(job.Id, "job.cancelled", ContractJson.ToJson(updated));
-        return updated;
     }
 }

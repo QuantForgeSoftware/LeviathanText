@@ -12,6 +12,13 @@ public sealed class MemoryJobStore : IJobStore
     public void Save(JobRecord job) => Jobs[job.Id] = job;
 
     public JobRecord? Find(EntityId id) => Jobs.GetValueOrDefault(id);
+
+    public JobRecord? Update(EntityId id, Func<JobRecord, JobRecord?> transition)
+    {
+        if (Find(id) is not { } current || transition(current) is not { } updated) return null;
+        Save(updated);
+        return updated;
+    }
 }
 
 public sealed class RecordingHandler(string type, Func<JobRecord, JobRecord>? behavior = null) : IJobHandler
@@ -135,6 +142,73 @@ public class WorkerHostTests
         Assert.Equal(before, after); // restart safety: no duplication, no overwrite
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Replaced_attempt_cannot_finish_or_requeue_the_new_claim(bool fail)
+    {
+        var store = new MemoryJobStore();
+        var job = NewJob();
+        store.Save(job);
+        var now = new DateTimeOffset(2026, 10, 19, 0, 0, 0, TimeSpan.Zero);
+        var replacement = new WorkerHost(store, []);
+        var handler = new RecordingHandler("noop", claimed =>
+        {
+            Assert.NotNull(replacement.TryClaim(claimed, now.AddMinutes(1)));
+            if (fail) throw new InvalidOperationException("stale failure");
+            return claimed with { Progress = 1 };
+        });
+        var original = new WorkerHost(store, [handler]);
+
+        Assert.Null(original.RunNext(now: now));
+        var current = Assert.IsType<JobRecord>(store.Find(job.Id));
+        Assert.Equal(JobStatus.Running, current.Status);
+        Assert.Equal(replacement.WorkerId, current.Lease!.Worker);
+        Assert.Equal(0, current.RetriesUsed);
+        Assert.Null(current.Failure);
+    }
+
+    [Fact]
+    public void Handler_success_cannot_overwrite_concurrent_cancellation()
+    {
+        var store = new MemoryJobStore();
+        var job = NewJob();
+        store.Save(job);
+        var handler = new RecordingHandler("noop", claimed =>
+        {
+            store.Save(claimed with { Status = JobStatus.Cancelled, Lease = null });
+            return claimed with { Progress = 1 };
+        });
+
+        var finished = new WorkerHost(store, [handler]).RunNext();
+
+        Assert.Equal(JobStatus.Cancelled, finished!.Status);
+        Assert.Equal(JobStatus.Cancelled, store.Find(job.Id)!.Status);
+        Assert.Null(store.Find(job.Id)!.Progress);
+    }
+
+    [Fact]
+    public void Old_attempt_cannot_finalize_a_replacement_owned_by_the_same_worker()
+    {
+        var store = new MemoryJobStore();
+        var job = NewJob();
+        store.Save(job);
+        var now = new DateTimeOffset(2026, 10, 19, 0, 0, 0, TimeSpan.Zero);
+        WorkerHost host = null!;
+        var handler = new RecordingHandler("noop", claimed =>
+        {
+            var replacement = Assert.IsType<JobRecord>(host.TryClaim(claimed, now.AddMinutes(1)));
+            Assert.NotEqual(claimed.Lease!.ClaimId, replacement.Lease!.ClaimId);
+            return claimed;
+        });
+        host = new WorkerHost(store, [handler]);
+
+        Assert.Null(host.RunNext(now: now));
+        Assert.Equal(JobStatus.Running, store.Find(job.Id)!.Status);
+        Assert.Null(host.RunNext(now: now.AddMinutes(2)));
+        Assert.Single(handler.Executed);
+    }
+
     [Fact]
     public void Handler_failure_releases_the_lease_and_requeues_within_budget()
     {
@@ -174,16 +248,29 @@ public class WorkerHostTests
     }
 
     [Fact]
-    public void Unknown_job_type_fails_loudly_with_closed_vocabulary()
+    public void Unknown_job_type_fails_terminally_without_blocking_supported_jobs()
     {
         var store = new MemoryJobStore();
-        var host = new WorkerHost(store, [new RecordingHandler("noop")]);
-        var job = NewJob("unregistered-type");
-        store.Save(job);
+        var handler = new RecordingHandler("noop");
+        var host = new WorkerHost(store, [handler]);
+        var unknown = NewJob("unregistered-type") with { Priority = 100 };
+        var supported = NewJob();
+        store.Save(unknown);
+        store.Save(supported);
 
-        var ex = Assert.Throws<LeviathanException>(() => host.RunNext());
-        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
-        Assert.Contains("No handler", ex.Error.Message);
+        var failed = Assert.IsType<JobRecord>(host.RunNext());
+        Assert.Equal(unknown.Id, failed.Id);
+        Assert.Equal(JobStatus.Failed, failed.Status);
+        Assert.Equal(0, failed.RetriesUsed);
+        Assert.Null(failed.Lease);
+        Assert.Equal(ErrorCode.StageContractViolation, failed.Failure!.Code);
+        Assert.Equal(unknown.Type, failed.Failure.Details!["type"]);
+
+        var finished = Assert.IsType<JobRecord>(host.RunNext());
+        Assert.Equal(supported.Id, finished.Id);
+        Assert.Equal(JobStatus.Succeeded, finished.Status);
+        Assert.Equal(supported.Id, Assert.Single(handler.Executed));
+        Assert.Empty(host.ClaimableJobs());
     }
 
     private sealed class CancelItselfHandler(IJobStore store) : IJobHandler
@@ -193,7 +280,7 @@ public class WorkerHostTests
         public JobRecord Execute(JobRecord job, CancellationToken cancellationToken)
         {
             var current = store.Find(job.Id)!;
-            store.Save(current with { Status = JobStatus.Cancelled });
+            store.Save(current with { Status = JobStatus.Cancelled, Lease = null });
             throw new OperationCanceledException();
         }
     }

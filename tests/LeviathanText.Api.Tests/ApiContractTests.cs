@@ -318,6 +318,45 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         Assert.Contains("stageContractViolation", await bad.Content.ReadAsStringAsync());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Line_geometry_rejects_a_stale_polygon_or_baseline_without_writing_history(bool baselineOnly)
+    {
+        var client = NewClient();
+        var (_, lineId, surfaceId) = await ImportFixtureAsync(client, "geometry-conflict");
+        var url = $"/api/v1/lines/{lineId}/geometry";
+        var polygon = new[]
+        {
+            new { x = 5.0, y = 5.0 }, new { x = 150.0, y = 5.0 },
+            new { x = 150.0, y = 45.0 }, new { x = 5.0, y = 45.0 },
+        };
+        var baseline = new[] { new { x = 6.0, y = 40.0 }, new { x = 148.0, y = 38.0 } };
+        var expectedGeometry = new { polygon, baseline };
+        var seed = await client.PutAsJsonAsync(url, expectedGeometry);
+        Assert.Equal(HttpStatusCode.OK, seed.StatusCode); // legacy request
+
+        var acceptedPolygon = baselineOnly ? polygon : polygon.Reverse().ToArray();
+        var acceptedBaseline = baselineOnly ? baseline.Reverse().ToArray() : baseline;
+        var accepted = await client.PutAsJsonAsync(url, new
+        {
+            polygon = acceptedPolygon, baseline = acceptedBaseline, expectedGeometry,
+            authorId = "first-editor",
+        });
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var historyUrl = $"/api/v1/surfaces/{surfaceId}/geometry-history";
+        var before = await client.GetStringAsync(historyUrl);
+
+        var conflict = await client.PutAsJsonAsync(url, new
+        {
+            polygon, baseline, expectedGeometry, authorId = "stale-editor",
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        Assert.Contains("revisionConflict", await conflict.Content.ReadAsStringAsync());
+        Assert.Equal(before, await client.GetStringAsync(historyUrl));
+    }
+
     [Fact]
     public async Task Orientation_is_explicit_metadata_and_round_trips_through_the_api()
     {

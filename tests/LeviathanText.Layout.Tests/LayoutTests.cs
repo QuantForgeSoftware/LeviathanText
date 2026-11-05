@@ -51,6 +51,119 @@ public class ProjectionProfileLayoutTests
         Assert.Equal(nameof(ProjectionProfileLayout), result.Method);
     }
 
+    [Theory]
+    [InlineData(SKColorType.Gray8, 0, false, false)]
+    [InlineData(SKColorType.Gray8, 31, false, false)]
+    [InlineData(SKColorType.Gray8, 31, true, false)]
+    [InlineData(SKColorType.Gray8, 31, true, true)]
+    [InlineData(SKColorType.Bgra8888, 32, true, false)]
+    [InlineData(SKColorType.Rgba8888, 32, true, true)]
+    public void Raster_format_and_row_padding_preserve_projection(
+        SKColorType colorType, int padding, bool columns, bool rightToLeft)
+    {
+        using var expectedPage = TwoColumnRaster(SKColorType.Bgra8888, 0);
+        using var actualPage = TwoColumnRaster(colorType, padding);
+        var options = new ProjectionProfileLayout.Options
+        {
+            DetectColumns = columns,
+            RightToLeftColumns = rightToLeft,
+        };
+
+        var expected = ProjectionProfileLayout.Detect(expectedPage, options);
+        var actual = ProjectionProfileLayout.Detect(actualPage, options);
+
+        Assert.Equal(columns ? 6 : 3, expected.Lines.Count);
+        Assert.Equal(expected.Lines.ToArray(), actual.Lines.ToArray());
+        Assert.Equal(expected.Method, actual.Method);
+        Assert.Equal(expected.ParametersHash, actual.ParametersHash);
+        if (columns)
+        {
+            Assert.Equal(rightToLeft ? 152 : 25, actual.Lines[0].Left);
+            Assert.Equal(rightToLeft ? 25 : 152, actual.Lines[3].Left);
+        }
+    }
+
+    [Theory]
+    [InlineData(186)]
+    [InlineData(233)]
+    public void Midtone_gray_pixels_use_the_same_feature_threshold_as_equivalent_color(byte value)
+    {
+        using var expectedPage = new SKBitmap(new SKImageInfo(40, 40, SKColorType.Bgra8888, SKAlphaType.Opaque));
+        using var actualPage = new SKBitmap(new SKImageInfo(40, 40, SKColorType.Gray8, SKAlphaType.Opaque));
+        var tone = new SKColor(value, value, value);
+        expectedPage.Erase(tone);
+        actualPage.Erase(tone);
+
+        var expected = RowFeatureExtractor.Profile(expectedPage);
+        var actual = RowFeatureExtractor.Profile(actualPage);
+
+        Assert.Equal(expected.InkThreshold, actual.InkThreshold);
+        Assert.Equal(expected.RowDensity, actual.RowDensity);
+    }
+
+    [Theory]
+    [InlineData(SKColorType.Gray8, 0)]
+    [InlineData(SKColorType.Gray8, 31)]
+    [InlineData(SKColorType.Bgra8888, 32)]
+    [InlineData(SKColorType.Rgba8888, 32)]
+    public void Row_features_match_packed_color_for_the_same_pixels(SKColorType colorType, int padding)
+    {
+        using var expectedPage = TwoColumnRaster(SKColorType.Bgra8888, 0);
+        using var actualPage = TwoColumnRaster(colorType, padding);
+
+        var expected = RowFeatureExtractor.Profile(expectedPage);
+        var actual = RowFeatureExtractor.Profile(actualPage);
+
+        Assert.Equal(expected.Width, actual.Width);
+        Assert.Equal(expected.Height, actual.Height);
+        Assert.Equal(expected.InkThreshold, actual.InkThreshold);
+        Assert.Equal(expected.RowDensity, actual.RowDensity);
+        Assert.Equal(expected.InkRuns, actual.InkRuns);
+        Assert.Equal(expected.MaxRun, actual.MaxRun);
+    }
+
+    [Theory]
+    [InlineData(SKColorType.Gray8, 0)]
+    [InlineData(SKColorType.Gray8, 31)]
+    [InlineData(SKColorType.Bgra8888, 32)]
+    [InlineData(SKColorType.Rgba8888, 32)]
+    public void Row_feature_ink_bounds_ignore_row_padding(SKColorType colorType, int padding)
+    {
+        using var page = TwoColumnRaster(colorType, padding);
+        var bounds = RowFeatureExtractor.InkBounds(page, 20, 32, 0.6f, 10, 230);
+        Assert.Equal((25, 214, 130.0 / 220), bounds);
+    }
+
+    private static SKBitmap TwoColumnRaster(SKColorType colorType, int padding)
+    {
+        var info = new SKImageInfo(241, 188, colorType, SKAlphaType.Opaque);
+        var bitmap = new SKBitmap(info, info.RowBytes + padding);
+        var row = new byte[bitmap.RowBytes];
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            bool textRow = y is >= 20 and < 32 or >= 69 and < 81 or >= 122 and < 134;
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                bool surround = x < 8 || x >= 233 || y < 8 || y >= 180;
+                bool text = textRow && (x is >= 25 and < 92 or >= 152 and < 215);
+                byte value = surround || text ? (byte)0 : (byte)255;
+                int offset = x * info.BytesPerPixel;
+                row[offset] = value;
+                if (colorType != SKColorType.Gray8)
+                {
+                    row[offset + 1] = value;
+                    row[offset + 2] = value;
+                    row[offset + 3] = 255;
+                }
+            }
+
+            // Leave padding black so interpreting it as image pixels changes the layout.
+            System.Runtime.InteropServices.Marshal.Copy(row, 0,
+                bitmap.GetPixels() + y * bitmap.RowBytes, y + 1 == bitmap.Height ? info.RowBytes : row.Length);
+        }
+        return bitmap;
+    }
+
     [Fact]
     public void Blank_page_yields_no_lines()
     {

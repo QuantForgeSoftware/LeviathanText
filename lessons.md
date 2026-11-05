@@ -80,3 +80,50 @@ annotation on the same occurrence: an L1-only unclear span in
 span, displacing it and duplicating text on re-import. Treat target-layer annotation ranges
 as occupied and report `annotation-mapping` instead. Fuzz combining marks and zero-width
 spans, not only plain Greek strings. Added 2026-11-03.
+
+## 14. Project access does not authorize arbitrary host-file access
+
+Server-path imports and directory jobs need an administrator boundary before touching the
+filesystem. An image export must validate the exact bounded bytes it copies, not the path
+extension or an earlier read. Test both denied imports and authorized valid-image exports
+through the API. Added 2026-11-04 after the bundle disclosure correction.
+
+## 15. UI coordinates and asynchronous results belong to a source revision
+
+Capture the line, revision and scalar range when requesting AI output; preserve that source
+when saving. Render marks only on their anchored layer/revision. Reused editor components
+must reset on input changes and reject late responses, including return-to-the-same-line
+races. Test real API payload shapes and L1/L2 parent rules. Added 2026-11-04.
+
+## 16. A responding port does not establish ownership of a service
+
+Before a diagnostic script sends mutations, establish readiness from its own spawned
+process and fresh listener announcement. Exercise occupied-port, stale-log and healthy
+controls against disposable stores; clean up only the processes the script owns. Added
+2026-11-04 after the worker-profiler correction.
+
+## 17. A VLM model name does not add image evidence to a text-only request
+
+The owner's VLM route is LM Studio (2026-11-04). Plan explicit image transport, pin the
+model and matching vision projector, and verify that the installed runtime consumes images
+before comparing Greek recognition. Keep inference benchmarking separate from training
+authorization and preserve pending specialist decisions; no text-only fallback may be
+reported as visual recognition.
+
+## 18. Audit fitting inside tests before claiming a no-training verification run
+
+An existing CLI alphabet test performs one synthetic epoch even though its name emphasizes
+split integrity. Two VLM-session regression invocations excluded the diagnostics training
+test but missed this second fitting test (2026-11-04). Search every invoked test's actual
+entry points, not a truncated filename/name listing. Explicitly exclude all fitting tests
+when training is out of scope, retain any accidental executions, and distinguish synthetic
+fixture fits from collection/VLM training in the handoff. Never report an unqualified
+"no training" result after a fitting test has run.
+
+## 19. Admission and publication checks belong to the operation they protect
+
+A quota check on a paged listing can undercount and races with insertion.
+Enforce the count and admission in one database write. Export to a staged
+file before replacing an existing result, and measure the completed archive.
+Test late editor replies across every mutation and acknowledge submitted
+snapshots. Review findings added 2026-11-05.

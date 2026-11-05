@@ -50,6 +50,46 @@ public sealed class MigrationImportTests : IDisposable
         Assert.Contains("page1.xml", csv);
     }
 
+    [Fact]
+    public void Imports_bounded_abbyy_with_original_markup_and_marks_detached_page_images()
+    {
+        const string abbyy = """
+            <document xmlns="http://www.abbyy.com/FineReader_xml/FineReader10-schema-v1.xml">
+              <page width="40" height="24"><block id="r"><text><par>
+                <line l="2" t="4" r="34" b="20" baseline="17"><formatting>
+                  <charParams l="2" t="4" r="15" b="20">α</charParams>
+                  <charParams l="16" t="4" r="34" b="20">β</charParams>
+                </formatting></line>
+              </par></text></block></page>
+            </document>
+            """;
+        File.WriteAllText(Path.Combine(_root, "abbyy.xml"), abbyy);
+        using (var bitmap = new SKBitmap(40, 24))
+        using (var data = SKImage.FromBitmap(bitmap).Encode(SKEncodedImageFormat.Png, 100))
+        using (var stream = File.Create(Path.Combine(_root, "abbyy.png")))
+            data.SaveTo(stream);
+        File.WriteAllText(Path.Combine(_root, "detached.xml"), """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="missing.png" imageWidth="40" imageHeight="24"/>
+            </PcGts>
+            """);
+
+        var store = new InMemoryStore();
+        var projects = new ProjectService(store);
+        var (projectId, rows) = MigrationImport.Import(projects, new InterchangeService(projects), _root, "bounded");
+
+        Assert.Equal(2, rows.Count);
+        var migrated = Assert.Single(rows, row => row.Kind == "abbyy-xml");
+        Assert.Equal("imported", migrated.Status);
+        var project = store.LoadProject(projectId)!;
+        var obj = Assert.Single(project.Objects, obj => obj.Id.ToString() == migrated.ObjectId);
+        Assert.Equal(abbyy, Assert.Single(obj.Attachments).Content);
+        Assert.Equal("αβ", Assert.Single(Assert.Single(obj.Surfaces).Revisions).Text);
+        var detached = Assert.Single(rows, row => row.Kind == "page-xml");
+        Assert.Equal("imported", detached.Status);
+        Assert.Contains("capture image unresolved", detached.Note);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);

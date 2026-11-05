@@ -2,6 +2,8 @@ using System.Net;
 using System.Text;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
+using LeviathanText.Imaging;
+using SkiaSharp;
 
 namespace LeviathanText.Application;
 
@@ -12,9 +14,23 @@ namespace LeviathanText.Application;
 /// </summary>
 public static class EditionHtml
 {
+    // Bounds apply independently to encoded input and embedded PNG bytes. Project exports
+    // share both budgets; local previews are limited to four million pixels.
+    private const long MaxImageBytes = 25L * 1024 * 1024;
+    private const long MaxProjectImageBytes = 250L * 1024 * 1024;
+    private const long MaxPreviewPixels = 4_000_000;
+
     public sealed record Result(string Html, LossReport Report);
 
+    /// <summary>
+    /// Local captures become bounded PNG previews; HTTP(S) references are retained without
+    /// fetching. A non-null image override replaces that behavior; an empty override omits it.
+    /// </summary>
     public static Result Export(NativeProject project, EntityId surfaceId, string title, string? imageSource = null)
+        => ExportSurface(project, surfaceId, title, imageSource, new ImageBudget());
+
+    private static Result ExportSurface(NativeProject project, EntityId surfaceId, string title,
+        string? imageSource, ImageBudget imageBudget)
     {
         var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
             ?? throw new LeviathanException(new LeviathanError
@@ -48,9 +64,9 @@ public static class EditionHtml
         html.AppendLine("<body>");
         html.AppendLine($"<h1>{Encode(title)}</h1>");
         html.AppendLine("<div class=\"surface\"><figure>");
-        var image = capture is null ? null : SafeImageSource(imageSource ?? capture.ImageLocation);
-        if (image is not null)
-            html.AppendLine($"<img src=\"{Encode(image)}\" alt=\"source capture\">");
+        var image = PresentImage(capture, imageSource, imageBudget);
+        if (image.Source is not null)
+            html.AppendLine($"<img src=\"{Encode(image.Source)}\" alt=\"source capture\">");
         else
             html.AppendLine("<p class=\"editorial\">No capture attached.</p>");
         html.AppendLine("</figure><main><ol class=\"lines\">");
@@ -112,6 +128,9 @@ public static class EditionHtml
                 "lines without a diplomatic revision are omitted"),
             new("apparatus-entries", apparatusEntries,
                 "apparatus text is escaped plain text; structured links remain in the native/TEI records"),
+            new("image-omitted", image.Omission is null ? 0 : 1, image.Omission ?? ""),
+            new("image-preview", image.Scaled ? 1 : 0,
+                "capture was downsampled to a bounded preview; original image remains authoritative"),
         };
         var report = new LossReport
         {
@@ -126,8 +145,10 @@ public static class EditionHtml
     public static Result ExportProject(NativeProject project, string title, Func<NativeSurface, string?>? imageSource = null)
     {
         var sections = new List<Result>();
+        var imageBudget = new ImageBudget();
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
-            sections.Add(Export(project, surface.Id, $"{title} — {surface.Id}", imageSource?.Invoke(surface)));
+            sections.Add(ExportSurface(project, surface.Id, $"{title} — {surface.Id}",
+                imageSource?.Invoke(surface), imageBudget));
         if (sections.Count == 0)
         {
             var empty = new LossReport
@@ -165,11 +186,92 @@ public static class EditionHtml
 
     private static string Apparatus(Annotation annotation) => annotation.Kind switch
     {
-        AnnotationKind.AlternativeReading => annotation.AlternativeText ?? annotation.Description ?? "",
+        AnnotationKind.AlternativeReading or AnnotationKind.Translation or AnnotationKind.StructuredExtraction
+            or AnnotationKind.LexicalAnnotation or AnnotationKind.MorphologicalAnnotation
+            => annotation.AlternativeText ?? annotation.Description ?? "",
         AnnotationKind.Abbreviation => annotation.ExpansionText ?? annotation.Description ?? "",
         AnnotationKind.DifferentHand => annotation.HandLabel ?? annotation.Description ?? "",
         _ => annotation.Description ?? annotation.HandLabel ?? "",
     };
+
+    private sealed class ImageBudget
+    {
+        public long InputBytes { get; set; }
+        public long EmbeddedBytes { get; set; }
+    }
+
+    private sealed record ImagePresentation(string? Source, string? Omission = null, bool Scaled = false);
+
+    private static ImagePresentation PresentImage(NativeCapture? capture, string? imageSource, ImageBudget budget)
+    {
+        if (capture is null) return new(null);
+        if (imageSource is not null)
+        {
+            var source = SafeImageSource(imageSource);
+            return new(source, source is null ? "capture omitted by export options or an unsupported image reference" : null);
+        }
+        if (Uri.TryCreate(capture.ImageLocation, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https")
+            return new(capture.ImageLocation);
+
+        var snapshotPath = Path.Combine(Path.GetTempPath(), $"lt-edition-preview-{Guid.NewGuid():N}");
+        try
+        {
+            // Decode a bounded snapshot, so a changing source cannot bypass the byte limit
+            // between a metadata check and the decoder reading the file again.
+            using (var input = File.OpenRead(capture.ImageLocation))
+            {
+                if (input.Length > MaxImageBytes || input.Length > MaxProjectImageBytes - budget.InputBytes)
+                    return new(null, "capture omitted by the 25 MiB image or 250 MiB project input limit");
+                using var snapshot = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write);
+                var buffer = new byte[81920];
+                long copied = 0;
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    copied += read;
+                    budget.InputBytes += read;
+                    if (copied > MaxImageBytes || budget.InputBytes > MaxProjectImageBytes)
+                        return new(null, "capture omitted by the 25 MiB image or 250 MiB project input limit");
+                    snapshot.Write(buffer, 0, read);
+                }
+            }
+
+            var dimensions = ImageDecoder.Dimensions(snapshotPath);
+            if (dimensions.Width > ImageDecoder.MaxDimension || dimensions.Height > ImageDecoder.MaxDimension)
+                return new(null, "capture dimensions exceed the supported preview limit");
+            using var decoded = ImageDecoder.DecodeBounded(snapshotPath, MaxPreviewPixels);
+            // Some codecs round their supported scale up; enforce the presentation bound
+            // after decoding as well, while preserving the original aspect ratio.
+            var pixels = (long)decoded.Bitmap.Width * decoded.Bitmap.Height;
+            var factor = Math.Min(1, Math.Sqrt((double)MaxPreviewPixels / pixels));
+            using var resized = pixels > MaxPreviewPixels
+                ? decoded.Bitmap.Resize(new SKImageInfo(
+                    Math.Max(1, (int)(decoded.Bitmap.Width * factor)),
+                    Math.Max(1, (int)(decoded.Bitmap.Height * factor))), new SKSamplingOptions(SKFilterMode.Linear))
+                : null;
+            if (pixels > MaxPreviewPixels && resized is null)
+                return new(null, "capture could not be resized for the preview");
+            using var encoded = (resized ?? decoded.Bitmap).Encode(SKEncodedImageFormat.Png, 100);
+            if (encoded is null || encoded.Size > MaxImageBytes
+                || encoded.Size > MaxProjectImageBytes - budget.EmbeddedBytes)
+                return new(null, "capture omitted by the 25 MiB image or 250 MiB project PNG limit");
+            budget.EmbeddedBytes += encoded.Size;
+            return new("data:image/png;base64," + Convert.ToBase64String(encoded.ToArray()),
+                Scaled: decoded.Bitmap.Width != decoded.OriginalWidth
+                    || decoded.Bitmap.Height != decoded.OriginalHeight || resized is not null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+            or NotSupportedException or LeviathanException)
+        {
+            return new(null, "capture is unavailable, unreadable, or not a supported image");
+        }
+        finally
+        {
+            try { File.Delete(snapshotPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
 
     private static string? SafeImageSource(string? source)
     {

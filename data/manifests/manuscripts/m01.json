@@ -5,7 +5,7 @@
   "changeLog": [
     {
       "date": "2026-10-19",
-      "change": "M01 acquired (114.7 MB zip, md5-verified); audited: 120/120 image/XML pairs, 2272 TextLines (discrepancy resolved: Zenodo's 9285 counted words). Cross-witness pilot M02a->M01 measured.",
+      "change": "M01 acquired (114.7 MB zip, md5-verified); audited: 120/120 image/XML pairs, 2272 TextLines; the publisher description gives an unreconciled 9285. Cross-witness pilot M02a->M01 measured.",
       "evidence": ["https://zenodo.org/api/records/4095301"]
     }
   ],
@@ -20,19 +20,19 @@
       "language_period": "Greek, Eparchos scribe; c.1500-1530 (later minuscule)",
       "witness_dating": { "range": "1500-1530", "basis": "publisher record" },
       "units_evidence": {
-        "counts": { "pages": 120, "xml": 120, "text_lines": 2272 },
-        "provenance": "inspected — RESOLVES THE REGISTER DISCREPANCY: 2272 (HTR-United) is the line count; Zenodo's 9285 evidently counts words (~4 words/line)"
+        "counts": { "pages": 120, "xml": 120, "text_lines": 2272, "word_elements": 18986 },
+        "provenance": "inspected PAGE release: 2272 line nodes; publisher description reports an unexplained 9285"
       },
       "paired_line_counts": 2272,
-      "paired_char_counts": "unverified",
+      "paired_char_counts": 112679,
       "license_image": "cc-by-4.0",
       "license_text": "cc-by-4.0",
       "license_annotation": "cc-by-4.0",
       "license_code": "unverified",
       "license_weights": "unverified",
       "license_evidence": "Zenodo rendered license: cc-by-4.0 (accessed 2026-10-18)",
-      "attribution": "EPARCHOS v1.0 (Biblioteca Apostolica Vaticana Add. 6791; two hands); CC BY 4.0",
-      "conditions_exceptions": [],
+      "attribution": "EPARCHOS v1.0 by Aleksandros Papazoglou, Ioannis Pratikakis, Kleopatra Markou and Lazaros Tsochatzidis; CC BY 4.0; publisher identifies British Museum Addit. 6791",
+      "conditions_exceptions": ["record-level grant; verify exact upstream capture attribution and terms before redistributing derivatives", "75 raster basenames start 6791 and 45 start 6971; preserve exact names pending folio concordance"],
       "allowed_intended_use": "dev",
       "unresolved_questions": [
         "hand-level split: two hands named in the catalog; hand attribution metadata not yet mapped to pages",
@@ -45,7 +45,7 @@
         "checksum_algorithm": "md5 (zip-level)",
         "verified": true
       },
-      "splits": { "assignment": "unused so far; propose hand/witness holdouts (never random line split)", "split_hash": null },
+      "splits": { "assignment": "exposed through the historical M02a-to-M01 comparison; use fresh witnesses for confirmation", "split_hash": null },
       "notes": [
         "cross-witness generalization gate (with M02a): within-book 0.811 vs M02a->M01 0.838 (1-in-4 sample, 568 lines) — modest measured gap; perfect-line rate 0 at this scale; interpretation caution applies (0.8+ is near-chance territory)"
       ]

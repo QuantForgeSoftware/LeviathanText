@@ -1,3 +1,4 @@
+using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -33,7 +34,7 @@ public static class TeiXml
 
     public sealed record TeiResponsibility(string? Role, string? Name, string? When);
 
-    public sealed record TeiPageBreak(string? Number, string? Type);
+    public sealed record TeiPageBreak(string? Number, string? Type, string? Break = null);
 
     public sealed record TeiLineInfo(
         EntityId LineId,
@@ -55,7 +56,8 @@ public static class TeiXml
         IReadOnlyList<TeiResponsibility> Responsibilities,
         IReadOnlyList<string> Languages,
         IReadOnlyList<TeiLineInfo> Lines,
-        IReadOnlyList<TeiPageBreak>? PageBreaks = null);
+        IReadOnlyList<TeiPageBreak>? PageBreaks = null,
+        string? LicenceTarget = null);
 
     public sealed record TeiImportResult(
         IReadOnlyList<TextRevision> Revisions,
@@ -78,7 +80,9 @@ public static class TeiXml
         int GeometryCount = 0,
         IReadOnlyDictionary<EntityId, TeiLineOrientation>? Orientations = null,
         string? Folio = null,
-        int PageBreakCount = 0);
+        int PageBreakCount = 0,
+        string? FolioBreak = null,
+        string? LicenceTarget = null);
 
     public sealed record TeiExportLine(
         EntityId LineId,
@@ -137,7 +141,8 @@ public static class TeiXml
         var body = new XElement(Tei + "body");
         if (!string.IsNullOrWhiteSpace(context.Folio))
             body.Add(new XElement(Tei + "pb", new XAttribute("n", context.Folio!),
-                new XAttribute("type", "folio")));
+                new XAttribute("type", "folio"),
+                context.FolioBreak is { Length: > 0 } folioBreak ? new XAttribute("break", folioBreak) : null));
         body.Add(edition);
         var text = new XElement(Tei + "text", body);
         var tei = new XElement(Tei + "TEI", header);
@@ -183,9 +188,12 @@ public static class TeiXml
 
         var publicationStmt = new XElement(Tei + "publicationStmt",
             new XElement(Tei + "p", "LeviathanText native export; bounded TEI/EpiDoc profile"));
-        if (!string.IsNullOrWhiteSpace(context.Licence))
+        var licenceTarget = IsWebLicenceTarget(context.LicenceTarget) ? context.LicenceTarget : null;
+        if (!string.IsNullOrWhiteSpace(context.Licence) || licenceTarget is not null)
             publicationStmt.Add(new XElement(Tei + "availability",
-                new XElement(Tei + "licence", context.Licence)));
+                new XElement(Tei + "licence",
+                    licenceTarget is not null ? new XAttribute("target", licenceTarget) : null,
+                    context.Licence)));
 
         var fileDesc = new XElement(Tei + "fileDesc", titleStmt, publicationStmt);
         var sourceDesc = new XElement(Tei + "sourceDesc",
@@ -269,6 +277,15 @@ public static class TeiXml
             var mapped = MapAnnotation(annotation, line, baseRevision, losses, occupiedTargetRanges);
             if (mapped is not null) renderable.Add(mapped);
         }
+        var conflictingProjections = renderable.Where(projected => projected.SuppliedProjection
+            && renderable.Any(other => !ReferenceEquals(projected, other) && Overlaps(projected.Range, other.Range)))
+            .ToArray();
+        foreach (var projected in conflictingProjections)
+        {
+            renderable.Remove(projected);
+            losses.Add(new LossEntry("annotation-mapping", 1,
+                $"annotation {projected.Source.Id} ({projected.Source.Kind}) maps onto another rendered annotation"));
+        }
 
         ab.Add(Render(baseRevision.Text, renderable, losses));
 
@@ -279,7 +296,8 @@ public static class TeiXml
         return ab;
     }
 
-    private sealed record RenderAnnotation(Annotation Source, ScalarRange Range, string? Inner, bool Milestone);
+    private sealed record RenderAnnotation(Annotation Source, ScalarRange Range, string? Inner, bool Milestone,
+        bool SuppliedProjection = false);
 
     private static RenderAnnotation? MapAnnotation(
         Annotation annotation, TeiExportLine line, TextRevision baseRevision, List<LossEntry> losses,
@@ -354,8 +372,19 @@ public static class TeiXml
         // A repeated reading is located by its surrounding text when that context is unique;
         // truly ambiguous locations are still reported instead of being attached to the first
         // matching letters.
-        var located = FindContextualScalarIndex(baseRevision.Text, sourceText,
-            anchored.Text, annotation.Range.Start, annotation.Range.End);
+        int? located = null;
+        bool projected = false;
+        bool exactSuppliedLayers = false;
+        if (baseRevision == line.L2
+            && annotation.Kind is AnnotationKind.Unclear or AnnotationKind.Illegible)
+        {
+            located = FindSuppliedProjectionStart(anchored.Text, baseRevision, annotation.Range,
+                line.Annotations, out exactSuppliedLayers);
+            projected = located.HasValue;
+        }
+        if (!exactSuppliedLayers)
+            located = FindContextualScalarIndex(baseRevision.Text, sourceText,
+                anchored.Text, annotation.Range.Start, annotation.Range.End);
         if (located is not { } start)
         {
             losses.Add(new LossEntry("annotation-mapping", 1,
@@ -371,7 +400,8 @@ public static class TeiXml
         }
         return new RenderAnnotation(annotation, mappedRange, null,
             annotation.Kind is AnnotationKind.DifferentHand or AnnotationKind.Added or AnnotationKind.Erased
-                && annotation.Range.IsEmpty);
+                && annotation.Range.IsEmpty,
+            SuppliedProjection: projected);
     }
 
     private static List<object> Render(string text, List<RenderAnnotation> annotations, List<LossEntry> losses)
@@ -621,6 +651,10 @@ public static class TeiXml
         var unsupported = new List<PageXml.ImportIssue>();
         var lineInfo = new List<TeiLineInfo>();
         var unsupportedCounts = new Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)>(StringComparer.Ordinal);
+        var licenceTargets = ReadLicenceTargets(doc);
+        if (licenceTargets.Count > 1)
+            ReportUnsupported(unsupportedCounts, "licence-target", PageXml.IssueSeverity.Loss,
+                "multiple distinct licence targets cannot be represented by the bounded licence field; retain the original notice");
         if (provenance.PageBreaks.Any(pb => string.IsNullOrWhiteSpace(pb.Number)))
             ReportUnsupported(unsupportedCounts, "page-break-without-number", PageXml.IssueSeverity.Note,
                 "a <pb> has no @n; the folio/page label cannot be recorded");
@@ -751,7 +785,8 @@ public static class TeiXml
             provenance.Responsibilities,
             provenance.Languages,
             lineInfo,
-            provenance.PageBreaks);
+            provenance.PageBreaks,
+            licenceTargets.Count == 1 ? licenceTargets[0] : null);
 
         return new TeiImportResult(
             revisions,
@@ -1343,11 +1378,68 @@ public static class TeiXml
         foreach (var attribute in new[] { body.Attribute(Xml + "lang"), edition.Attribute(Xml + "lang") })
             if (attribute is not null && !languages.Contains(attribute.Value)) languages.Add(attribute.Value);
 
-        var pageBreaks = body.DescendantsAndSelf(Tei + "pb")
-            .Select(pb => new TeiPageBreak((string?)pb.Attribute("n"), (string?)pb.Attribute("type")))
-            .ToList();
+        var pageBreaks = ReadPageBreaks(body).ToList();
 
         return new Provenance(title, surfaceId, graphics, idnos, licence, responsibilities, languages, pageBreaks);
+    }
+
+    /// <summary>Recover source attributes from a bounded original attachment in a legacy project.</summary>
+    public static (string? LicenceTarget, string? FolioBreak) ReadRetainedSourceLinks(string xml, string? folio)
+    {
+        if (System.Text.Encoding.UTF8.GetByteCount(xml) > MaxAttachmentBytes) return default;
+        try
+        {
+            using var text = new StringReader(xml);
+            using var reader = XmlReader.Create(text, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+            var document = XDocument.Load(reader);
+            var body = document.Descendants(Tei + "body").FirstOrDefault();
+            var pageBreak = folio is not null && body is not null
+                ? ReadPageBreaks(body).FirstOrDefault(pb => pb.Number == folio)
+                : null;
+            return (ReadLicenceTarget(document), pageBreak?.Break);
+        }
+        catch (XmlException)
+        {
+            return default;
+        }
+    }
+
+    private static IEnumerable<TeiPageBreak> ReadPageBreaks(XElement body) =>
+        body.Descendants(Tei + "pb").Select(pb => new TeiPageBreak(
+            (string?)pb.Attribute("n"), (string?)pb.Attribute("type"), (string?)pb.Attribute("break")));
+
+    private static string? ReadLicenceTarget(XDocument document)
+    {
+        var targets = ReadLicenceTargets(document);
+        return targets.Count == 1 ? targets[0] : null;
+    }
+
+    private static IReadOnlyList<string?> ReadLicenceTargets(XDocument document)
+    {
+        var availability = document.Descendants(Tei + "publicationStmt").Elements(Tei + "availability").ToList();
+        return availability.Elements(Tei + "licence").Select(licence => (string?)licence.Attribute("target"))
+            .Concat(availability.Elements(Tei + "p").SelectMany(ReadEscapedLicenceTargets))
+            .Where(IsWebLicenceTarget).Distinct(StringComparer.Ordinal).Take(2).ToList();
+    }
+
+    private static bool IsWebLicenceTarget(string? target) =>
+        Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http";
+
+    private static IEnumerable<string?> ReadEscapedLicenceTargets(XElement paragraph)
+    {
+        // NTVMR source TEI includes an escaped HTML licence link within prose.
+        var markup = paragraph.Value.Trim();
+        if (!markup.Contains("<a ", StringComparison.Ordinal)) return [];
+        try
+        {
+            return XElement.Parse($"<links>{markup}</links>").Descendants("a")
+                .Where(link => (string?)link.Attribute("rel") == "license")
+                .Select(link => (string?)link.Attribute("href"));
+        }
+        catch (XmlException)
+        {
+            return [];
+        }
     }
 
     /// <summary>Real EpiDoc graphics use values such as "5520px"; missing units are also valid.</summary>
@@ -1453,6 +1545,53 @@ public static class TeiXml
         mapped.IsEmpty
             ? occupied.Start <= mapped.Start && mapped.Start < occupied.End
             : occupied.Start < mapped.End && mapped.Start < occupied.End;
+
+    // Supplies can prove the entire layer difference, making their scalar projection
+    // authoritative over a repeated-text context match. A proved but discontiguous span
+    // must stay unresolved instead of being attached to another occurrence.
+    private static int? FindSuppliedProjectionStart(string diplomatic, TextRevision editorial,
+        ScalarRange sourceRange, IReadOnlyList<Annotation> annotations, out bool exactLayers)
+    {
+        exactLayers = false;
+        var supplies = annotations.Where(a => a.AnchoredRevisionId == editorial.Id
+                && a.Kind == AnnotationKind.SuppliedEditorial && !a.Range.IsEmpty)
+            .Select(a => a.Range).OrderBy(range => range.Start).ToArray();
+        if (supplies.Length == 0) return null;
+
+        var scalars = editorial.Text.EnumerateRunes().ToArray();
+        int previousEnd = 0;
+        foreach (var range in supplies)
+        {
+            if (range.Start < previousEnd || range.End > scalars.Length) return null;
+            previousEnd = range.End;
+        }
+
+        var kept = new List<int>(scalars.Length);
+        int nextSupply = 0;
+        for (int i = 0; i < scalars.Length; i++)
+        {
+            if (nextSupply < supplies.Length && i == supplies[nextSupply].End) nextSupply++;
+            if (nextSupply < supplies.Length && i >= supplies[nextSupply].Start) continue;
+            // Import normalizes consecutive and edge whitespace independently per layer.
+            if (Rune.IsWhiteSpace(scalars[i]) && (kept.Count == 0 || Rune.IsWhiteSpace(scalars[kept[^1]])))
+                continue;
+            kept.Add(i);
+        }
+        if (kept.Count > 0 && Rune.IsWhiteSpace(scalars[kept[^1]])) kept.RemoveAt(kept.Count - 1);
+
+        var projection = string.Concat(kept.Select(i => Rune.IsWhiteSpace(scalars[i]) ? " " : scalars[i].ToString()));
+        if (!string.Equals(projection, diplomatic, StringComparison.Ordinal)) return null;
+        exactLayers = true;
+        if (sourceRange.End > kept.Count) return null;
+
+        int start = kept[sourceRange.Start];
+        int length = sourceRange.End - sourceRange.Start;
+        if (kept[sourceRange.End - 1] != start + length - 1) return null;
+        // A collapsed whitespace run can represent several editorial boundaries.
+        for (int i = start; i < start + length; i++)
+            if (Rune.IsWhiteSpace(scalars[i])) return null;
+        return start;
+    }
 
     private static int? FindUniqueScalarIndex(string haystack, string needle)
     {

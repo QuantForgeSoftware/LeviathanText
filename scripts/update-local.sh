@@ -34,7 +34,5 @@ trap 'echo "update failed; restoring previous install" >&2; restore' ERR
 echo "== install candidate =="
 "$ROOT/scripts/install-local.sh" "$PREFIX"
 
-echo "== verify =="
-"$PREFIX/bin/leviathan" project list >/dev/null
 trap - ERR
 echo "PASS: updated $PREFIX (rollback: scripts/rollback-local.sh $PREFIX)"

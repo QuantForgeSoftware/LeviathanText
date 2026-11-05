@@ -24,6 +24,9 @@ public sealed class RecognitionPipeline
         public required Func<CrnnModel> ModelFactory { get; init; }
         public required Func<LabelSet> LabelSetFactory { get; init; }
 
+        /// <summary>The caller owns the returned model and uses it sequentially across surfaces.</summary>
+        public bool LeaveModelOpen { get; init; }
+
         /// <summary>Package-declared preparation; null retains legacy ink-positive grayscale.</summary>
         public LinePreprocessingProfile? PreprocessingProfile { get; init; }
 
@@ -85,7 +88,8 @@ public sealed class RecognitionPipeline
         }
 
         var labels = options.LabelSetFactory();
-        using var model = options.ModelFactory();
+        var model = options.ModelFactory();
+        using var ownedModel = options.LeaveModelOpen ? null : model;
         var preprocessing = options.PreprocessingProfile ?? LinePreprocessingProfile.LegacyInkPositive(model.InputHeightPixels);
         preprocessing.Validate(model.InputHeightPixels);
         preprocessing.RequireStandardGeometry();

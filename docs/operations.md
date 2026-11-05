@@ -83,6 +83,13 @@ changing that field. Set
 `LeviathanText:Jobs:MaxActivePerOwner` to cap pending+running jobs per owner; `0` is
 unlimited. Idempotent duplicate creation still returns the existing job.
 
+For the disposable worker/import resource probe, build the Debug API and worker, then run
+`PORT=0 scripts/profile-worker-import.sh 20 /abs/disposable-probe-output`. `PORT=0` uses an
+OS-assigned loopback port; a fixed port is also supported. The script waits for its own
+process's fresh listener announcement and refuses an occupied port before sending API
+requests. Its exit handler stops only its API/worker children. Each run needs a dedicated
+output directory: the probe replaces the store and generated PAGE fixtures there.
+
 ## Data-ledger audit
 
 ```bash
@@ -231,6 +238,17 @@ and optional spend caps. Credentials are read from the named environment variabl
 time, never stored in proposal records. No hosted-provider accuracy or availability claim is
 made; use the local scripted/Ollama smoke paths for verification.
 
+The standalone `benchmark vlm-validate`, `benchmark vlm` and `benchmark vlm-score`
+commands provide explicit PNG image input to a local LM Studio `/v1` endpoint. They use
+frozen manifests and fresh artifact paths without opening the project database or accepting
+outputs into a text layer. Follow the [LM Studio benchmark runbook](evaluation/vlm-lmstudio-runbook.md)
+for model/projector receipts, genuine R0-assisted inputs, bounded runs, interruption and
+offline scoring. Naming a VLM in the existing text-only proposal configuration does not
+send an image. Benchmark `Completed` means transport completion; Greek correctness,
+format compliance and image grounding still need separate checks. The
+[November 4 session handoff](handoffs/vlm-session-2026-11-04.md) records the exploratory
+results and remaining review requirements; no model was promoted.
+
 ## Exports
 
 - `export diplomatic` — plain text with a mandatory loss report on stderr.
@@ -246,6 +264,14 @@ made; use the local scripted/Ollama smoke paths for verification.
   the project view also downloads it.
 - `export edition-html <projectId> <surfaceId> [--out <html>]` — one surface with L1, optional L2
   and a line-by-line apparatus; presentation only, with a loss report.
+  Standalone/API editions embed local captures as PNG previews (at most 4 million pixels).
+  Encoded input and preview PNG limits are independently 25 MiB per image and 250 MiB per
+  project; oversize, corrupt or unavailable images are omitted with a loss entry. Original
+  dimensions must fit the existing 12,000-pixel dimension limit. PNG/TIFF decoding can
+  temporarily allocate a full first-frame bitmap before resizing; the preview bound is not
+  a process-memory guarantee. HTTP(S) image references are retained without fetching them.
+  Saved translation, extraction, lexical and morphological payloads appear as escaped
+  apparatus text. Add `?report=true` to the edition API route for HTML plus the loss report.
 - `export word-boundaries <projectId> [--out <csv>]` — proposed L2 boundary positions with
   source context; also `GET /projects/{id}/word-boundaries`. It never edits witness text.
 - `export searchable-pdf <projectId> <surfaceId> <out.pdf>` — one surface; add `--all` with a
@@ -256,9 +282,14 @@ made; use the local scripted/Ollama smoke paths for verification.
 - Legacy import also accepts `abbyy` FineReader XML alongside ALTO and hOCR.
 - `export training` — L1-only labels, restorations excluded, uncertainty spans listed.
 - `export bundle [--images]` — zip with native JSON, training export, profile report, integrity/overlap audit,
-  surface/line/fragment crosswalks, annotation CSVs, per-surface formats/searchable PDFs/edition HTML, a whole-project edition.html and
-  manifest. `--images` / `?images=true` adds local source images up to 25 MiB each and a
-  250 MiB total cap; unreadable/oversize images are listed in `images-omitted.txt`.
+  surface/line/fragment crosswalks, annotation CSVs, per-surface formats, searchable PDFs,
+  edition HTML, a whole-project edition and a manifest. PDFs in the default bundle display
+  placed diplomatic text without a raster background. `--images` / `?images=true` adds local source images up to
+  25 MiB each and a 250 MiB total cap. The copied bytes must decode within the dimension
+  limit and match a recorded SHA-256 when present. PDF backgrounds use the same verified
+  bytes. Rejected images are listed in `images-omitted.txt`.
+  Bundled edition HTML links to included images by relative path; it omits previews when
+  images are excluded or rejected. The native project retains original paths/checksums.
 - `export lines` — line-level CSV (ids, layer, annotation count, text) for external review.
 - `export crosswalk <projectId> [--lines] [--out <csv>]` — read-only surface map, or a per-line
   map with native/source ids and revision; also `GET /projects/{id}/crosswalk[?lines=true]`.
@@ -374,8 +405,9 @@ importing, comparing products and any Kraken checkout inspection remain separate
 leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out ledger.csv]
 ```
 
-Creates a new project and imports discovered PAGE/TEI/ALTO/hOCR documents with sibling-image
-resolution. Rows record `imported`/`skipped`/`failed`, object/surface ids and a note; missing
+Creates a new project and imports discovered PAGE/TEI/ALTO/hOCR and bounded FineReader 10
+ABBYY documents with local image resolution. Detached PAGE records retain markup and
+explicitly report unresolved capture images. Rows record `imported`/`skipped`/`failed`, object/surface ids and a note; missing
 images or parse failures are reported, never guessed. The source tree is not modified.
 
 ## TEI/EpiDoc bootstrap (layered profile)
@@ -484,8 +516,13 @@ Deleting a project is destructive and requires an explicit flag:
 `DELETE /api/v1/projects/{id}`. Back up first.
 
 Backup uses `VACUUM INTO` (consistent snapshot), copies the image cache and writes a
-checksum manifest. Restore verifies the database **and every image** before writing; a
-corrupt set leaves no partial target.
+checksum manifest. Give each backup a new directory. The completed snapshot is published
+after the copies and manifest are ready. Stop services before a coordinated database and
+image-cache snapshot. Local capture files outside the adjacent cache need their own backup.
+Restore verifies staged copies of the SQLite database and every listed image before
+publishing. It places the database after the image replacements and rolls those changes
+back on an ordinary publication error. Use a fresh target directory for a rehearsal and
+keep both services stopped for coordinated recovery.
 
 ## Shared deployment (opt-in)
 
@@ -506,11 +543,18 @@ LeviathanText__Auth__ApiKey=… dotnet run --project src/LeviathanText.Api
 ```
 
 Requests send `Authorization: Bearer <key>`, `X-Api-Key: <key>`, or (for SSE) `?api_key=…`.
-Roles: **reader** (GET only), **annotator** (import/edit/jobs/exports), **reviewer**
-(+ review decisions), **admin** (+ user management and project deletion). The configured key is
+Roles: **reader** (GET only), **annotator** (text import/edit/ordinary jobs/exports), **reviewer**
+(+ review decisions), **admin** (+ server-file imports, user management and project deletion). The configured key is
 an admin bootstrap credential and never replaces account management. `Auth:ReadOnly=true`
 blocks all mutations regardless of role. Without a bootstrap key and without accounts the API
 runs local-only and logs a warning.
+
+Server-filesystem import routes (`import-page`, `import-image`, `import-pdf`, `import-tei`,
+`import-epidoc`, `import-legacy`, `import-iiif`) and `import.dir` jobs require an administrator.
+Project membership does not grant access to arbitrary server paths. Administrators ingest
+the source files, then authorized project users can work with and export the resulting
+images. Data-only `import-line-text` and ordinary jobs retain their existing permissions.
+Local-only mode and CLI imports keep their existing operator access.
 
 Admins can also manage accounts over HTTP (`GET/POST /api/v1/users`,
 `POST /api/v1/users/{id}/disable|rotate`) or from the workspace **Accounts (admin)** panel;
@@ -530,6 +574,18 @@ leviathan --store pilot.db project member remove <projectId> <userId>
 
 Membership covers project routes and indirect entity routes (`/lines`, `/surfaces`, `/regions`,
 `/annotations`); admins bypass it.
+
+Project and surface jobs also require membership in their target when this policy is enabled.
+The API checks membership before enqueueing and records the authorized project on a surface job
+so the worker uses the same target. An unqualified entity ID that matches multiple projects returns
+HTTP 403 for non-admin indirect requests and surface job submissions. Explicit project-scoped
+routes can still identify the intended project. [Verification](evaluation/job-project-membership-2026-11-04.md).
+
+With project membership enabled, job lists, reads, cancellation and event subscriptions
+also check the job's resolved project. Same-project peers can share those jobs. Jobs with
+missing or ambiguous project targets are withheld from non-admin callers. A creator's
+retry with the same idempotency key returns the original job. Another authenticated
+non-admin creator using that key receives a generic HTTP 409. [Review](handoffs/overnight-review-2026-11-05.md).
 
 **Invitation tokens:** admins can issue one-time, expiring project invitations:
 
@@ -610,3 +666,19 @@ exist; invitation email delivery, a session UI and edit locks are not implemente
 - Annotation ranges are checked against the anchored revision: spans beyond the text, empty
   spans (except lost markers, which may be a position) and estimated gaps without a count are
   rejected. A lost marker without an extent defaults to `Unknown`.
+
+### Compare PAGE line geometry offline
+
+```bash
+leviathan layout compare truth.page.xml candidate.page.xml --metric vertical-iou --threshold 0.5
+leviathan layout compare truth.page.xml candidate.page.xml --metric center-distance --threshold 4
+```
+
+Both files must declare the same image filename and positive dimensions. The command reads
+only the two PAGE files and records their SHA-256 digests. Vertical IoU matches polygon
+bands. Center distance uses those bands or baseline bounds when the polygon is absent,
+with a tolerance in source pixels. Bounds are rounded outward. Invalid or unplaced lines
+fail the comparison. The scores describe vertical, single-frame geometry. Validate actual
+raster identity and reading order separately before using the result for acceptance.
+For empty inputs, center-distance reports perfect empty-to-empty matching. Vertical IoU
+retains the layout report convention of zero precision and recall for that case.

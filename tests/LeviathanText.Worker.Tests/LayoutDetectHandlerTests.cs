@@ -77,6 +77,26 @@ public sealed class LayoutDetectHandlerTests : IDisposable
     };
 
     [Fact]
+    public void Bound_layout_job_uses_the_authorized_project_even_with_a_duplicate_surface()
+    {
+        using var store = new LocalStore(_db);
+        var (project, surfaceId) = Seed(store);
+        var decoy = project with { Id = new EntityId(EntityKind.Collection, "decoy"), Name = "a-decoy" };
+        store.SaveProject(decoy);
+
+        var handler = new LayoutDetectHandler(store);
+        var executed = handler.Execute(LayoutJob(surfaceId) with { BoundProjectId = project.Id }, CancellationToken.None);
+
+        Assert.Equal("2", Assert.Single(executed.Outputs).Artifact.Digest);
+        Assert.Equal(2, store.LoadProject(project.Id)!.Objects[0].Surfaces[0].Lines.Count);
+        Assert.Empty(store.LoadProject(decoy.Id)!.Objects[0].Surfaces[0].Lines);
+        var missing = LayoutJob(surfaceId) with { BoundProjectId = new EntityId(EntityKind.Collection, "missing") };
+        var error = Assert.Throws<LeviathanException>(() => handler.Execute(missing, CancellationToken.None));
+        Assert.Equal(ErrorCode.InputMissing, error.Error.Code);
+        Assert.Empty(store.LoadProject(decoy.Id)!.Objects[0].Surfaces[0].Lines);
+    }
+
+    [Fact]
     public void Runs_detection_and_finalizes_with_an_output_artifact()
     {
         using var store = new LocalStore(_db);

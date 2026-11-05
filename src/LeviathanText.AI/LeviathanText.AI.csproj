@@ -3,6 +3,9 @@
     <RootNamespace>LeviathanText.AI</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
     <ProjectReference Include="../LeviathanText.Core/LeviathanText.Core.csproj" />
     <ProjectReference Include="../LeviathanText.Evaluation/LeviathanText.Evaluation.csproj" />

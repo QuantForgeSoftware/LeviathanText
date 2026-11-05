@@ -1,0 +1,61 @@
+{
+  "schema": "leviathantext.corpus-manifest",
+  "schemaContractVersion": "C0-0.4-draft",
+  "manifestVersion": "manifest-v1",
+  "changeLog": [
+    {
+      "date": "2026-11-04",
+      "change": "Verified 40 archive PNG name joins and 803 direct PAGE line strings. PNG payloads not retrieved.",
+      "evidence": [
+        "https://zenodo.org/api/records/5578136"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "M02b",
+      "source_version": "1.0",
+      "url_doi": "https://doi.org/10.5281/zenodo.5578136",
+      "retrieval_date": "2026-11-04",
+      "content_checksums": "selected PAGE and split members verified by ZIP CRC and pinned by SHA-256 in the local metadata receipt",
+      "material_track": "manuscript",
+      "language_period": "Greek; text register and contents need specialist confirmation",
+      "witness_dating": {
+        "range": "16th century",
+        "basis": "publisher record"
+      },
+      "units_evidence": {
+        "counts": {
+          "png_member_names": 40,
+          "page_xml": 40,
+          "publisher_lines": 803,
+          "text_lines": 803,
+          "line_scalars": 27248,
+          "word_elements": 4851
+        },
+        "provenance": "inspected metadata and PAGE; publisher line count retained separately"
+      },
+      "paired_line_counts": "unverified",
+      "license_image": "unverified",
+      "license_text": "cc-by-4.0",
+      "license_annotation": "cc-by-4.0",
+      "license_code": "unverified",
+      "license_weights": "unverified",
+      "license_evidence": "https://zenodo.org/api/records/5578136 metadata.license.id cc-by-4.0 checked 2026-11-04",
+      "attribution": "Ioannis Pratikakis, Aleksandros Papazoglou, Symeon Symeonidis and Lazaros Tsochatzidis, Stavronikita Monastery Greek handwritten document Collection no.79, v1.0",
+      "conditions_exceptions": [
+        "record-level CC BY 4.0; original capture attribution and item-level grants unverified"
+      ],
+      "allowed_intended_use": "reference-only",
+      "unresolved_questions": [
+        "raster identity and byte verification",
+        "holding-institution image terms",
+        "visible-text review, including abbreviation, spacing, marks and decorative initials"
+      ],
+      "splits": {
+        "assignment": "unassigned; publisher line splits overlap every page and physical leaf, so keep whole codex together",
+        "split_hash": null
+      }
+    }
+  ]
+}

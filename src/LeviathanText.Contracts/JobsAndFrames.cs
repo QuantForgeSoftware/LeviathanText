@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace LeviathanText.Contracts;
 
 /// <summary>
@@ -45,12 +47,15 @@ public enum JobStatus
     Cancelled,
 }
 
-/// <summary>Timed worker lease; expiry releases the job for retry.</summary>
+/// <summary>Timed worker lease identifying an execution attempt.</summary>
 public sealed record LeaseInfo
 {
     public required EntityId Worker { get; init; }
     public required DateTimeOffset ExpiresAt { get; init; }
     public DateTimeOffset? LastHeartbeat { get; init; }
+
+    /// <summary>Attempt identity, absent on older persisted leases.</summary>
+    public string? ClaimId { get; init; }
 }
 
 /// <summary>Durable job record (domain-and-pipeline.md §5; interchange-and-api.md §2.2).</summary>
@@ -62,6 +67,10 @@ public sealed record JobRecord
     public required string Type { get; init; }
 
     public required IReadOnlyList<StageArtifact> Inputs { get; init; }
+
+    /// <summary>The exact authorized project for a queued surface operation.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EntityId? BoundProjectId { get; init; }
 
     /// <summary>Client-supplied key for idempotent creation; duplicate creation returns the existing job.</summary>
     public string? IdempotencyKey { get; init; }
