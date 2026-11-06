@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Evaluation;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -21,7 +22,7 @@ public class TrainingEndToEndTests
         return dir;
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Train_SelectsBestCheckpoint_ThenReloadsAndRecognizes()
     {
         var dir = NewDirectory();
@@ -77,7 +78,7 @@ public class TrainingEndToEndTests
         Assert.True(cer < 0.10, $"reloaded model training CER = {cer}");
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Fit_ResumesFromCheckpoint_ContinuingTheSchedule()
     {
         var dir = NewDirectory();

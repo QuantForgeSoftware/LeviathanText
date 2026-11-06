@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -12,7 +13,7 @@ namespace LeviathanText.Pilot.Tests;
 /// </summary>
 public sealed class P01PilotTests
 {
-    private static readonly string DataDir = FindDataDir();
+    private static string DataDir => FindDataDir();
 
     private static string FindDataDir()
     {
@@ -27,7 +28,7 @@ public sealed class P01PilotTests
 
     private static Checksum NoChecksum() => new() { Algorithm = "unavailable", Digest = "pending" };
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void All_27_page_xmls_import_as_diplomatic_lines()
     {
         Skip.IfNot(DataPresent, "P01 dataset not downloaded; skipping pilot integration test.");
@@ -54,7 +55,7 @@ public sealed class P01PilotTests
         Assert.Equal(0, totalEmptyText); // no empty diplomatic texts among paired lines
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Page_and_image_files_pair_by_name()
     {
         Skip.IfNot(DataPresent, "P01 dataset not downloaded.");
@@ -71,7 +72,7 @@ public sealed class P01PilotTests
         Assert.All(unannotated, id => Assert.Matches("5943[6-9]|59440", id));
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Extracted_real_line_crops_match_the_declared_geometry()
     {
         Skip.IfNot(DataPresent, "P01 dataset not downloaded.");

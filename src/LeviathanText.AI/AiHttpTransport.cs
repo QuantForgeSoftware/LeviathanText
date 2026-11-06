@@ -20,7 +20,7 @@ public sealed class AiHttpTransport
     private readonly IAiCredentialSource _credentials;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly AiSpendBudget? _budget;
-    private int _logicalRequests;
+    private long _logicalRequests;
 
     public AiHttpTransport(
         AiProviderSettings settings,
@@ -56,12 +56,15 @@ public sealed class AiHttpTransport
         return new Uri(new Uri(text), relative);
     }
 
-    /// <summary>Conservative worst-case reservation before a request leaves the machine.</summary>
+    /// <summary>Legacy estimate preview; dispatch reservations hold the actual allowance.</summary>
     public void EnsureBudget(int promptCharacters)
     {
         var estimatedInputTokens = Math.Max(1, promptCharacters / 4) + 16;
         _budget?.EnsureAffordable(estimatedInputTokens, _settings.MaxOutputTokens);
     }
+
+    public AiSpendBudget.Reservation? CreateBudgetReservation(int promptUtf8Bytes) =>
+        _budget?.CreateReservation(checked(Math.Max(1, promptUtf8Bytes) + 16), _settings.MaxOutputTokens);
 
     public void Charge(int inputTokens, int outputTokens) => _budget?.Charge(inputTokens, outputTokens);
 
@@ -71,76 +74,119 @@ public sealed class AiHttpTransport
     /// </summary>
     public async Task<string> SendJsonAsync(
         Func<HttpRequestMessage> requestFactory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AiSpendBudget.Reservation? budget = null)
     {
-        ArgumentNullException.ThrowIfNull(requestFactory);
+        using var response = await SendJsonWithContextAsync(requestFactory, cancellationToken, budget).ConfigureAwait(false);
+        return response.Body;
+    }
 
-        if (_settings.MaxRequests > 0
-            && Interlocked.Increment(ref _logicalRequests) > _settings.MaxRequests)
-            throw new AiProviderException(
-                AiFailureReasons.RequestBudgetExceeded,
-                detail: $"The configured limit of {_settings.MaxRequests} provider calls has been reached.");
-
-        for (var attempt = 1; ; attempt++)
+    /// <summary>Owns per-call redaction credentials until post-response parsing has finished.</summary>
+    public sealed class JsonResponse : IDisposable
+    {
+        private readonly AiCredentialRedactionContext _credentials;
+        private string? _body;
+        internal JsonResponse(string body, AiCredentialRedactionContext credentials)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(_settings.Timeout);
-            HttpResponseMessage? response = null;
-            TimeSpan? retryAfter = null;
-
-            try
-            {
-                using var request = requestFactory();
-                ApplyAuthorization(request);
-
-                response = await _client
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
-                    .ConfigureAwait(false);
-
-                if (response.IsSuccessStatusCode)
-                    return await ReadBoundedAsync(response.Content, _settings.MaxResponseBytes, timeoutCts.Token).ConfigureAwait(false);
-
-                retryAfter = RetryAfter(response);
-
-                if (IsRetryable(response.StatusCode) && attempt < _settings.MaxAttempts)
-                {
-                    await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                var excerpt = await TryExcerptAsync(response.Content, timeoutCts.Token).ConfigureAwait(false);
-                throw new AiProviderException(ReasonFor(response.StatusCode), excerpt);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                if (attempt < _settings.MaxAttempts)
-                {
-                    await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                throw new AiProviderException(AiFailureReasons.Timeout);
-            }
-            catch (HttpRequestException ex)
-            {
-                if (attempt < _settings.MaxAttempts)
-                {
-                    await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                throw new AiProviderException(AiFailureReasons.ProviderUnavailable, inner: ex);
-            }
-            finally
-            {
-                response?.Dispose();
-            }
+            _body = body;
+            _credentials = credentials;
+        }
+        public string Body => _body ?? throw new ObjectDisposedException(nameof(JsonResponse));
+        public string? SanitizeForRecord(string? text) => _credentials.SanitizeForRecord(text);
+        internal bool ContainsCredential(string text) => _credentials.ContainsCredential(text);
+        public void Dispose()
+        {
+            _body = null;
+            _credentials.Dispose();
         }
     }
 
-    private void ApplyAuthorization(HttpRequestMessage request)
+    /// <summary>Preserves only this logical call's exact attempt credentials for bounded error redaction.</summary>
+    public async Task<JsonResponse> SendJsonWithContextAsync(
+        Func<HttpRequestMessage> requestFactory,
+        CancellationToken cancellationToken = default,
+        AiSpendBudget.Reservation? budget = null)
     {
-        if (string.IsNullOrWhiteSpace(_settings.CredentialEnvironmentVariable)) return;
+        ArgumentNullException.ThrowIfNull(requestFactory);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var credentials = new AiCredentialRedactionContext();
+        try
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(_settings.Timeout);
+                HttpResponseMessage? response = null;
+                TimeSpan? retryAfter = null;
+
+                try
+                {
+                    using var request = requestFactory();
+                    credentials.Remember(ApplyAuthorization(request));
+                    timeoutCts.Token.ThrowIfCancellationRequested();
+                    budget?.ReserveAttempt();
+                    timeoutCts.Token.ThrowIfCancellationRequested();
+                    if (attempt == 1 && _settings.MaxRequests > 0
+                        && Interlocked.Increment(ref _logicalRequests) > _settings.MaxRequests)
+                        throw new AiProviderException(AiFailureReasons.RequestBudgetExceeded,
+                            detail: $"The configured limit of {_settings.MaxRequests} provider calls has been reached.");
+                    budget?.MarkDispatched();
+
+                    response = await _client
+                        .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
+                        .ConfigureAwait(false);
+
+                    if (response.IsSuccessStatusCode)
+                        return new JsonResponse(await ReadBoundedAsync(response.Content, _settings.MaxResponseBytes, timeoutCts.Token).ConfigureAwait(false), credentials);
+
+                    retryAfter = RetryAfter(response);
+
+                    if (IsRetryable(response.StatusCode) && attempt < _settings.MaxAttempts)
+                    {
+                        await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    var excerpt = await TryExcerptAsync(response.Content, credentials, timeoutCts.Token).ConfigureAwait(false);
+                    throw new AiProviderException(ReasonFor(response.StatusCode), excerpt);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    if (attempt < _settings.MaxAttempts)
+                    {
+                        await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    throw new AiProviderException(AiFailureReasons.Timeout);
+                }
+                catch (HttpRequestException ex)
+                {
+                    if (attempt < _settings.MaxAttempts)
+                    {
+                        await _delay(Backoff(attempt, retryAfter), cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    throw new AiProviderException(AiFailureReasons.ProviderUnavailable, inner: ex);
+                }
+                finally
+                {
+                    response?.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            credentials.Dispose();
+            throw;
+        }
+    }
+
+    private string? ApplyAuthorization(HttpRequestMessage request)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.CredentialEnvironmentVariable)) return null;
 
         var secret = _credentials.Resolve(_settings.CredentialEnvironmentVariable);
         if (string.IsNullOrWhiteSpace(secret))
@@ -151,6 +197,7 @@ public sealed class AiHttpTransport
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
         if (!string.IsNullOrWhiteSpace(_settings.Organization))
             request.Headers.TryAddWithoutValidation("OpenAI-Organization", _settings.Organization);
+        return secret;
     }
 
     private async Task<string> ReadBoundedAsync(HttpContent content, int maxBytes, CancellationToken cancellationToken)
@@ -176,35 +223,32 @@ public sealed class AiHttpTransport
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
-    private async Task<string?> TryExcerptAsync(HttpContent content, CancellationToken cancellationToken)
+    private async Task<string?> TryExcerptAsync(HttpContent content, AiCredentialRedactionContext credentials, CancellationToken cancellationToken)
     {
         try
         {
+            if (credentials.HasCredentials && content.Headers.ContentLength is > ErrorExcerptBytes)
+                return "[redacted]";
             if (content.Headers.ContentLength is { } declared && declared > 8 * 1024 * 1024) return null;
 
             await using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            var buffer = new byte[ErrorExcerptBytes];
-            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            return SanitizeForRecord(Encoding.UTF8.GetString(buffer, 0, read));
+            var buffer = new byte[ErrorExcerptBytes + 1];
+            int total = 0;
+            while (total < buffer.Length)
+            {
+                var read = await stream.ReadAsync(buffer.AsMemory(total), cancellationToken).ConfigureAwait(false);
+                if (read == 0) break;
+                total += read;
+            }
+            // A bounded prefix can cut through a credential. Do not guess which
+            // fragments are safe; suppress credential-bearing truncated responses.
+            if (credentials.HasCredentials && total > ErrorExcerptBytes) return "[redacted]";
+            return credentials.SanitizeForRecord(Encoding.UTF8.GetString(buffer, 0, Math.Min(total, ErrorExcerptBytes)));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
         }
-    }
-
-    internal string? SanitizeForRecord(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return null;
-
-        var cleaned = new string(text.Where(c => !char.IsControl(c) || c is '\n' or '\t').ToArray());
-        var secret = string.IsNullOrWhiteSpace(_settings.CredentialEnvironmentVariable)
-            ? null
-            : _credentials.Resolve(_settings.CredentialEnvironmentVariable);
-        if (!string.IsNullOrEmpty(secret) && secret.Length >= 4)
-            cleaned = cleaned.Replace(secret, "[redacted]", StringComparison.Ordinal);
-
-        return cleaned.Length <= 240 ? cleaned : cleaned[..240];
     }
 
     private TimeSpan Backoff(int attempt, TimeSpan? retryAfter)

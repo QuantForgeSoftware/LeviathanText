@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiClient } from './api-client';
@@ -14,7 +15,7 @@ describe('ProjectHealthPanel', () => {
     };
     TestBed.configureTestingModule({
       imports: [ProjectHealthPanel],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ projectId: 'col-1' }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(ProjectHealthPanel);
     fixture.componentRef.setInput('projectId', 'col-1');

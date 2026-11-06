@@ -12,6 +12,8 @@ public enum BulkAcceptanceBlocker
     TargetSuperseded,
     ConflictsWithEarlierInBatch,
     UnsupportedTask,
+    UnknownIssuedProposal,
+    EditorialConflict,
 }
 
 /// <summary>Dry-run verdict for one proposal in a batch.</summary>

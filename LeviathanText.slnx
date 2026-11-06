@@ -29,6 +29,7 @@
     <Project Path="tests/LeviathanText.Layout.Tests/LeviathanText.Layout.Tests.csproj" />
     <Project Path="tests/LeviathanText.ML.Tests/LeviathanText.ML.Tests.csproj" />
     <Project Path="tests/LeviathanText.Pilot.Tests/LeviathanText.Pilot.Tests.csproj" />
+    <Project Path="tests/LeviathanText.TestPolicy.Tests/LeviathanText.TestPolicy.Tests.csproj" />
     <Project Path="tests/LeviathanText.Worker.Tests/LeviathanText.Worker.Tests.csproj" />
   </Folder>
 </Solution>

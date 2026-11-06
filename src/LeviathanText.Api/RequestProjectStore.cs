@@ -8,8 +8,31 @@ namespace LeviathanText.Api;
 internal sealed class RequestProjectStore(LocalStore store) : IProjectStore
 {
     private EntityId? _projectId;
+    private WriteAuthorization? _writeAuthorization;
+    private Action? _beforeWrite;
 
-    public void Bind(EntityId projectId) => _projectId = projectId;
+    private sealed record WriteAuthorization(string? ActorId, bool RequireMembership, string? ExpectedKeyHash);
+
+    public void Bind(EntityId projectId, Action? beforeWrite = null)
+    {
+        _projectId = projectId;
+        _writeAuthorization = null;
+        _beforeWrite = beforeWrite;
+    }
+
+    public void BindAuthorized(EntityId projectId, string? actorId, bool requireMembership,
+        string? expectedKeyHash = null, Action? beforeWrite = null)
+    {
+        _projectId = projectId;
+        _writeAuthorization = new(actorId, requireMembership, expectedKeyHash);
+        _beforeWrite = beforeWrite;
+    }
+
+    internal void RefreshMembershipRequirement(bool requireMembership)
+    {
+        if (_writeAuthorization is { } authorization)
+            _writeAuthorization = authorization with { RequireMembership = requireMembership };
+    }
 
     public NativeProject? LoadProject(EntityId id) => InScope(id) ? store.LoadProject(id) : null;
 
@@ -22,6 +45,13 @@ internal sealed class RequestProjectStore(LocalStore store) : IProjectStore
     public long SaveProject(NativeProject project)
     {
         RequireScope(project.Id);
+        // Live configuration refresh stays outside the store lock/SQLite transaction.
+        _beforeWrite?.Invoke();
+        if (_writeAuthorization is { } authorization)
+        {
+            try { return store.SaveProjectAuthorized(project, authorization.ActorId, authorization.RequireMembership, authorization.ExpectedKeyHash); }
+            catch (ProjectWriteAccessDeniedException denied) { throw new NativeAiAccessDeniedException(denied); }
+        }
         return store.SaveProject(project);
     }
 

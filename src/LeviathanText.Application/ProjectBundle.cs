@@ -87,6 +87,51 @@ public static class ProjectBundle
             files.Add(name);
         }
 
+        // Persisted legacy identity ambiguity must not select a first image/surface
+        // or create duplicate ZIP paths. Keep native recovery possible without
+        // invoking any convenience exporter or opening image payloads.
+        var ambiguities = surfaces.GroupBy(surface => surface.Id).Where(group => group.Count() > 1)
+            .Select(group => new { kind = "surface-id", id = group.Key.ToString(), count = group.Count() })
+            .Concat(surfaces.SelectMany(surface => surface.Captures).GroupBy(capture => capture.Id)
+                .Where(group => group.Count() > 1)
+                .Select(group => new { kind = "capture-id", id = group.Key.ToString(), count = group.Count() }))
+            .OrderBy(reason => reason.kind, StringComparer.Ordinal).ThenBy(reason => reason.id, StringComparer.Ordinal)
+            .ToArray();
+        if (ambiguities.Length > 0)
+        {
+            Add("project.json", NativeJson.Save(project));
+            Add("integrity.json", ProjectIntegrity.ToJson(ProjectIntegrity.Audit(project)));
+            Add("exports-omitted.json", JsonSerializer.Serialize(new
+            {
+                schema = "leviathan.bundle-omissions.v1", reasons = ambiguities,
+                omitted = "All convenience exports and image payloads are omitted because surface/capture identity is ambiguous.",
+                native = "project.json retains the complete supplied native project; resolve ambiguity explicitly on a copy.",
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            Add("manifest.json", JsonSerializer.Serialize(new
+            {
+                format = "leviathantext-bundle", contractVersion = ContractVersion.Current,
+                createdAt = DateTimeOffset.UtcNow,
+                project = new { id = project.Id.ToString(), name = project.Name },
+                surfaces = surfaces.Select(surface => new
+                {
+                    id = surface.Id.ToString(), kind = surface.Kind, captures = surface.Captures.Count,
+                    regions = surface.Regions.Count, lines = surface.Lines.Count,
+                    revisions = surface.Revisions.Count, annotations = surface.Annotations.Count,
+                }),
+                files, imageFilesRequested = includeImages, imageFilesIncluded = 0,
+                transcriptionProfile = new { id = Core.Unicode.GreekTextProfile.ProfileId, version = Core.Unicode.GreekTextProfile.Version },
+                layers = new
+                {
+                    l0 = "raw model output; never an edition", l1 = "diplomatic transcription (visible text)",
+                    l2 = "editorial reading/accepted proposals",
+                },
+                exportMode = "native-rescue", exportReasons = ambiguities,
+                note = "Only native project, integrity and omission records are included. No image payloads were opened; " +
+                    "derived exports require explicit identity repair on a copy. This ZIP is not a SQLite restore snapshot.",
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            return files.Count;
+        }
+
         var renderedPdfs = new HashSet<EntityId>();
         void AddPdf(NativeSurface surface, byte[]? imageBytes)
         {

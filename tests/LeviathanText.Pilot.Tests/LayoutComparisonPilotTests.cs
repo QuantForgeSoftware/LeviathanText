@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -23,21 +24,23 @@ public sealed class LayoutComparisonPilotTests(ITestOutputHelper output)
         return dir?.FullName;
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void CompareAutomaticVsImportedLayout_OnBothTracks()
     {
         var root = FindRepoRoot();
         Skip.IfNot(root is not null, "repo root not found");
 
+        var p01Dir = Path.Combine(root!, ".artifacts", "datasets", "p01-v0.9");
+        var m02aXml = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a", "xml");
+        Skip.IfNot(Directory.Exists(p01Dir) || Directory.Exists(m02aXml), "no datasets downloaded");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(CompareAutomaticVsImportedLayout_OnBothTracks), root!);
         var witnesses = new List<(string, IReadOnlyList<DetectedLine>, IReadOnlyList<(int, int)>)>();
 
         // Papyri: P01 files (jpg next to xml).
-        var p01Dir = Path.Combine(root, ".artifacts", "datasets", "p01-v0.9");
         if (Directory.Exists(p01Dir))
             witnesses.AddRange(CompareTrack(p01Dir, ".jpg", "p01", pagesToSample: 6));
 
         // Manuscripts: M02a pages (png under images/).
-        var m02aXml = Path.Combine(root, ".artifacts", "datasets", "m02a-v1.0", "m02a", "xml");
         if (Directory.Exists(m02aXml))
             witnesses.AddRange(CompareTrack(m02aXml, ".png", "m02a", pagesToSample: 6));
 
@@ -60,7 +63,7 @@ public sealed class LayoutComparisonPilotTests(ITestOutputHelper output)
 
             Status: measurement baseline only; per-hand/capture strata and full acceptance thresholds await Phase 0 completion.
             """;
-        var path = Path.Combine(root, "docs", "evaluation", "layout-comparison.md");
+        var path = Path.Combine(experimentDirectory, "layout-comparison.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, markdown);
         output.WriteLine($"wrote {path}: precision {summary.MeanPrecision:0.###}, recall {summary.MeanRecall:0.###}");

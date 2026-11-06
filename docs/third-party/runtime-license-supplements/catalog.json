@@ -1,0 +1,529 @@
+{
+  "schemaVersion": 1,
+  "evidenceDate": "2026-11-05",
+  "purpose": "Supplemental public upstream license evidence for exact published NuGet versions; separate from archive-embedded collector output",
+  "attestation": false,
+  "legalRedistributionApproval": false,
+  "nativeSbomComplete": false,
+  "packageSignaturesVerified": false,
+  "automaticallyClearsCollectorReviewFlags": false,
+  "frameworkAndToolchainIncluded": false,
+  "packages": [
+    {
+      "id": "Google.Protobuf",
+      "version": "3.21.9",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "BSD-3-Clause"
+      },
+      "nugetNuspecSha256": "d63d43b4693152003993c507be137d532b44b38ae6ce18447c1ebaf394a6f85b",
+      "nugetLicenseUrl": "https://licenses.nuget.org/BSD-3-Clause",
+      "repositoryMetadata": {
+        "commit": "d96db0e9d8ef9e9c754ee1ffac58654969f3b662",
+        "type": "git",
+        "url": "https://github.com/protocolbuffers/protobuf.git"
+      },
+      "copyrightFromNuspec": "Copyright 2015, Google Inc.",
+      "supplementalEvidence": [
+        "upstream/google-protobuf-3.21.9-LICENSE"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "cf66c5d4b2eba4f2d2be0ea3d87058aa0ed2710374c88e447b0445e55859ef74",
+      "nugetPackageArchiveBytes": 1208111
+    },
+    {
+      "id": "Microsoft.Data.Sqlite.Core",
+      "version": "10.0.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "MIT"
+      },
+      "nugetNuspecSha256": "cae22388d3e0d116841a8285d4a6b922156c4bdb30b890687d40813f290767a6",
+      "nugetLicenseUrl": "https://licenses.nuget.org/MIT",
+      "repositoryMetadata": {
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+        "type": "git",
+        "url": "https://github.com/dotnet/dotnet"
+      },
+      "copyrightFromNuspec": "© Microsoft Corporation. All rights reserved.",
+      "supplementalEvidence": [
+        "upstream/dotnet-10.0.13-LICENSE.TXT"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "661e6696b35e88a5cdceb1ac223dafa303a5af27c7df8bee22156c0ddc5ee0d7",
+      "nugetPackageArchiveBytes": 208444
+    },
+    {
+      "id": "Microsoft.Data.Sqlite",
+      "version": "10.0.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "MIT"
+      },
+      "nugetNuspecSha256": "14548e9e520e10f9dc16261c64a59606731d962ffe8a90043fcf96dc33ffac40",
+      "nugetLicenseUrl": "https://licenses.nuget.org/MIT",
+      "repositoryMetadata": {
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+        "type": "git",
+        "url": "https://github.com/dotnet/dotnet"
+      },
+      "copyrightFromNuspec": "© Microsoft Corporation. All rights reserved.",
+      "supplementalEvidence": [
+        "upstream/dotnet-10.0.13-LICENSE.TXT"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "15c57bde54275ed30d1273ac9691bc6d9b7e47cfbd61278cea575121ff7acd3a",
+      "nugetPackageArchiveBytes": 30465
+    },
+    {
+      "id": "PDFtoImage",
+      "version": "5.4.0",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "MIT"
+      },
+      "nugetNuspecSha256": "60f9886ed2a9d1a07df0cd02e72e9d902672d7e954da1fefb674971d9c4ab9d7",
+      "nugetLicenseUrl": "https://licenses.nuget.org/MIT",
+      "repositoryMetadata": {
+        "commit": "5948628cb2cf7d070c7fd28b1b4496db39e3afcd",
+        "type": "git",
+        "url": "https://github.com/sungaila/PDFtoImage.git"
+      },
+      "copyrightFromNuspec": null,
+      "supplementalEvidence": [
+        "upstream/pdftoimage-5.4.0-LICENSE"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "386096ddc60df7501f1c76742b3a06cedc635b06f67804a892d0d84a44b4ea6b",
+      "nugetPackageArchiveBytes": 557805
+    },
+    {
+      "id": "PdfPig",
+      "version": "0.1.15",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "a6a2448619c29ceabfd926cffaeae6a8021dba85550a9559bc4655347c34a3e3",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "commit": "f131f642976936e06ee91cb19d3ed728f9dd18b6",
+        "type": "git",
+        "url": "https://github.com/UglyToad/PdfPig"
+      },
+      "copyrightFromNuspec": null,
+      "supplementalEvidence": [
+        "upstream/pdfpig-0.1.15-LICENSE"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "d35768b69f86cd06ca14b849b8df3673fd9d2de3014c391e7c1e69e6b21c59c8",
+      "nugetPackageArchiveBytes": 11867960
+    },
+    {
+      "id": "SQLitePCLRaw.bundle_e_sqlite3",
+      "version": "2.1.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "f04f469c99056d21b928d6677ae2cd6db582fa0228ce934741ecefa2fae3c09d",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "type": "git",
+        "url": "https://github.com/ericsink/SQLitePCL.raw"
+      },
+      "copyrightFromNuspec": "Copyright 2014-2024 SourceGear, LLC",
+      "supplementalEvidence": [],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "UNRESOLVED: nuspec has no repository commit; exact 2.1.13 tag not found",
+      "remainingGaps": [
+        "exact-version-source-commit",
+        "exact-version-upstream-license-and-notice-text"
+      ],
+      "checkedAbsentTagUrls": [
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/v2.1.13",
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/2.1.13"
+      ],
+      "nugetPackageArchiveSha256": "89a216f8059d09cabcb45ab75ac2f180b733323c27d41cf9a981dc5f5b5c6c0f",
+      "nugetPackageArchiveBytes": 34062
+    },
+    {
+      "id": "SQLitePCLRaw.core",
+      "version": "2.1.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "8e410ff52c26114c7c3124cf3e77d663abbd9ec49801324ed1bc1aa7ea1c91ae",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "type": "git",
+        "url": "https://github.com/ericsink/SQLitePCL.raw"
+      },
+      "copyrightFromNuspec": "Copyright 2014-2024 SourceGear, LLC",
+      "supplementalEvidence": [],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "UNRESOLVED: nuspec has no repository commit; exact 2.1.13 tag not found",
+      "remainingGaps": [
+        "exact-version-source-commit",
+        "exact-version-upstream-license-and-notice-text"
+      ],
+      "checkedAbsentTagUrls": [
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/v2.1.13",
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/2.1.13"
+      ],
+      "nugetPackageArchiveSha256": "d93d5f7ab3f864c47722a2d90048c31a1aac743e153d87b9f4a07589ee2f9daf",
+      "nugetPackageArchiveBytes": 36010
+    },
+    {
+      "id": "SQLitePCLRaw.lib.e_sqlite3",
+      "version": "2.1.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "5e0800665aeb09107c3b45e1162109efb9b83dbaad987a4eca5d686d34769e86",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "type": "git",
+        "url": "https://github.com/ericsink/SQLitePCL.raw"
+      },
+      "copyrightFromNuspec": "Copyright 2014-2024 SourceGear, LLC",
+      "supplementalEvidence": [],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "UNRESOLVED: nuspec has no repository commit; exact 2.1.13 tag not found",
+      "remainingGaps": [
+        "exact-version-source-commit",
+        "exact-version-upstream-license-and-notice-text"
+      ],
+      "checkedAbsentTagUrls": [
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/v2.1.13",
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/2.1.13"
+      ],
+      "nugetPackageArchiveSha256": "d07d13b4779123cfa56b3348b504d57a2ab6fc10c764fb6e2c9d787987e39201",
+      "nugetPackageArchiveBytes": 18762900
+    },
+    {
+      "id": "SQLitePCLRaw.provider.e_sqlite3",
+      "version": "2.1.13",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "d31fbb24bed1097f15170bc81b1de4832213f9d50deab423ec8c7aa16995b1c7",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "type": "git",
+        "url": "https://github.com/ericsink/SQLitePCL.raw"
+      },
+      "copyrightFromNuspec": "Copyright 2014-2024 SourceGear, LLC",
+      "supplementalEvidence": [],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "UNRESOLVED: nuspec has no repository commit; exact 2.1.13 tag not found",
+      "remainingGaps": [
+        "exact-version-source-commit",
+        "exact-version-upstream-license-and-notice-text"
+      ],
+      "checkedAbsentTagUrls": [
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/v2.1.13",
+        "https://api.github.com/repos/ericsink/SQLitePCL.raw/git/ref/tags/2.1.13"
+      ],
+      "nugetPackageArchiveSha256": "513ef2ba5d01c14d1e8032d9d2ca2c8985df7ec7d351f0e40917476114ac1f9c",
+      "nugetPackageArchiveBytes": 60221
+    },
+    {
+      "id": "SharpZipLib",
+      "version": "1.4.0",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "MIT"
+      },
+      "nugetNuspecSha256": "8f0fb27cc18cd3e90923feb4326642fc8a86798e4809ec48d7bc9df55e2e6da5",
+      "nugetLicenseUrl": "https://licenses.nuget.org/MIT",
+      "repositoryMetadata": {
+        "commit": "cea8b0dc154c71040ff74d731ff55c451e8dc59d",
+        "type": "git",
+        "url": "https://github.com/icsharpcode/SharpZipLib"
+      },
+      "copyrightFromNuspec": "Copyright © 2000-2022 SharpZipLib Contributors",
+      "supplementalEvidence": [
+        "upstream/sharpziplib-1.4.0-LICENSE.txt"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "nugetPackageArchiveSha256": "649ce5b0c1dca037a76f0f699d38a6d61c6591785e057ad0d7a0ca8bfb3b14e9",
+      "nugetPackageArchiveBytes": 726743
+    },
+    {
+      "id": "bblanchon.PDFium.macOS",
+      "version": "152.0.7961",
+      "declaredNuGetLicense": {
+        "type": "expression",
+        "value": "Apache-2.0"
+      },
+      "nugetNuspecSha256": "52ec7b18ea41240cffcd15187ada2d6599fa0d58a7c7c14864b635c3909c0696",
+      "nugetLicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+      "repositoryMetadata": {
+        "branch": "master",
+        "commit": "c6529b58791d142002f819beb46e370e668797d7",
+        "type": "git",
+        "url": "https://github.com/bblanchon/pdfium-binaries.git"
+      },
+      "copyrightFromNuspec": "Copyright © Benoît Blanchon 2017-2025",
+      "supplementalEvidence": [
+        "upstream/pdfium-build-LICENSE",
+        "pdfium-152.0.7961-osx-arm64/LICENSE",
+        "pdfium-152.0.7961-osx-arm64/VERSION",
+        "pdfium-152.0.7961-osx-arm64/licenses/llvm-libc.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/fast_float.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/icu.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/libjpeg_turbo.md",
+        "pdfium-152.0.7961-osx-arm64/licenses/freetype.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/pdfium.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/libtiff.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/libjpeg_turbo.ijg",
+        "pdfium-152.0.7961-osx-arm64/licenses/abseil.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/lcms.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/simdutf.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/agg23.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/libopenjpeg.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/zlib.txt",
+        "pdfium-152.0.7961-osx-arm64/licenses/libpng.txt"
+      ],
+      "legalRedistributionApproval": false,
+      "nativeSbomComplete": false,
+      "sourceBinding": "repository commit recorded in exact NuGet nuspec; public license retrieved from that commit",
+      "remainingGaps": [
+        "native-component-completeness-review",
+        "Reconcile NuGet Apache-2.0 metadata, vendor MIT build-package license and PDFium BSD/component notices; no grant selected here."
+      ],
+      "nativeEvidence": {
+        "rid": "osx-arm64",
+        "releaseTag": "chromium/7961",
+        "releaseUrl": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium%2F7961",
+        "releaseTagCommit": "c6529b58791d142002f819beb46e370e668797d7",
+        "assetId": 483237332,
+        "assetUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+        "assetBytes": 3429737,
+        "assetSha256": "1193a771e0bd934530afa3df73a0d44551d8f4078442e290054e6dd38ded960f",
+        "assetDigestMatchedPrimaryReleaseMetadata": true,
+        "nativeArchiveMember": "lib/libpdfium.dylib",
+        "nugetNativeMember": "runtimes/osx-arm64/native/libpdfium.dylib",
+        "nativeBytes": 7151568,
+        "nativeSha256": "c2f68f87106da4f0cb6d6a90a7aad9644b3c1cb92a3463dbdc8f39449aec3869",
+        "nativeMatchesExactNuGetArchiveMember": true,
+        "nativeBinaryCopied": false,
+        "nativeBinaryExecuted": false
+      },
+      "nugetPackageArchiveSha256": "9ff20172459afd58b6e21419c74ec0ddaa3e64c2681cf55e97d588b75719f84e",
+      "nugetPackageArchiveBytes": 6872231
+    }
+  ],
+  "files": [
+    {
+      "path": "upstream/google-protobuf-3.21.9-LICENSE",
+      "bytes": 1732,
+      "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+      "sourceUrl": "https://raw.githubusercontent.com/protocolbuffers/protobuf/d96db0e9d8ef9e9c754ee1ffac58654969f3b662/LICENSE",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "upstream/dotnet-10.0.13-LICENSE.TXT",
+      "bytes": 1115,
+      "sha256": "ae48df11a335dc1a615f4f938b69cba73bcf4485c4f97af49b38efb0f216353b",
+      "sourceUrl": "https://raw.githubusercontent.com/dotnet/dotnet/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/LICENSE.TXT",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "upstream/pdftoimage-5.4.0-LICENSE",
+      "bytes": 1076,
+      "sha256": "96689e585089de537595e7c70ac6774155785e09f0290ab84c0357341f80e689",
+      "sourceUrl": "https://raw.githubusercontent.com/sungaila/PDFtoImage/5948628cb2cf7d070c7fd28b1b4496db39e3afcd/LICENSE",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "upstream/pdfpig-0.1.15-LICENSE",
+      "bytes": 14227,
+      "sha256": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409",
+      "sourceUrl": "https://raw.githubusercontent.com/UglyToad/PdfPig/f131f642976936e06ee91cb19d3ed728f9dd18b6/LICENSE",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "upstream/sharpziplib-1.4.0-LICENSE.txt",
+      "bytes": 1072,
+      "sha256": "d7fbbc16f871bf24fa5624c7eaf945054b778985f32676dcacba41fddca61133",
+      "sourceUrl": "https://raw.githubusercontent.com/icsharpcode/SharpZipLib/cea8b0dc154c71040ff74d731ff55c451e8dc59d/LICENSE.txt",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "upstream/pdfium-build-LICENSE",
+      "bytes": 1068,
+      "sha256": "493abc10084b58f97dce3fac1654624e1a25788f17180fe8925786c266cd2416",
+      "sourceUrl": "https://raw.githubusercontent.com/bblanchon/pdfium-binaries/c6529b58791d142002f819beb46e370e668797d7/LICENSE",
+      "sourceKind": "fixed-commit-upstream-repository-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/LICENSE",
+      "bytes": 1177,
+      "sha256": "ba26c1263131696b86c10496b5066b918a20b7161822a80c274d0080105f6c93",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "LICENSE",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/VERSION",
+      "bytes": 37,
+      "sha256": "d2ee2383762e1df52855ab8eaa83bb17074b6a49dacc425d16c95cd2b1a51832",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "VERSION",
+      "sourceKind": "fixed-release-version-metadata"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/llvm-libc.txt",
+      "bytes": 15140,
+      "sha256": "ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/llvm-libc.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/fast_float.txt",
+      "bytes": 1079,
+      "sha256": "e562f3f974ced7e69dd1db77b820b36bcf8f30377f1aa105723fba449c53c4e6",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/fast_float.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/icu.txt",
+      "bytes": 27718,
+      "sha256": "e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/icu.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/libjpeg_turbo.md",
+      "bytes": 5620,
+      "sha256": "96f5b328adbb78eeaaec6980d73fd558cb1e4d62560ed615646bc3cf5e532430",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/libjpeg_turbo.md",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/freetype.txt",
+      "bytes": 6741,
+      "sha256": "f4b133e25df1f86ad3ffea453aa0e613f0474f34778dbbb3e437e7b2724937d8",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/freetype.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/pdfium.txt",
+      "bytes": 12896,
+      "sha256": "1fe9dea718fbd75cf149adaf4d8a22a4335604d964ddb76d1b45383dec8668c9",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/pdfium.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/libtiff.txt",
+      "bytes": 1139,
+      "sha256": "92b72ba97e6c2749c2a94bc0ef646b47080217f1e772a482b33cf5a5f98a6506",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/libtiff.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/libjpeg_turbo.ijg",
+      "bytes": 12799,
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/libjpeg_turbo.ijg",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/abseil.txt",
+      "bytes": 11361,
+      "sha256": "c79a7fea0e3cac04cd43f20e7b648e5a0ff8fa5344e644b0ee09ca1162b62747",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/abseil.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/lcms.txt",
+      "bytes": 1353,
+      "sha256": "7312b68c5b25e9bf2b828706fb4e29588f22705112f411fd42e1f7d84c3d139a",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/lcms.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/simdutf.txt",
+      "bytes": 1059,
+      "sha256": "fc8dbc04e03ad4efc08a647ffe7f995b811a95bc04c0e85a56d5277c6593fa5f",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/simdutf.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/agg23.txt",
+      "bytes": 725,
+      "sha256": "c110d3ea2ad77467ce0dcff7d3337e6c8be8049a5103f4b9bd5fd911a77972e5",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/agg23.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/libopenjpeg.txt",
+      "bytes": 1794,
+      "sha256": "c5ab0890a737c2dfa7ba675036554f6d17741d98629b0c2a145354d00617e6b2",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/libopenjpeg.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/zlib.txt",
+      "bytes": 1332,
+      "sha256": "33fd641c9f3b0e0be64bc78fea9e94807674cdd70c48477599226cb8956565fe",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/zlib.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    },
+    {
+      "path": "pdfium-152.0.7961-osx-arm64/licenses/libpng.txt",
+      "bytes": 5345,
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526",
+      "sourceUrl": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7961/pdfium-mac-arm64.tgz",
+      "archiveMember": "licenses/libpng.txt",
+      "sourceKind": "fixed-release-vendor-archive-license"
+    }
+  ],
+  "remainingExactVersionGaps": [
+    "SQLitePCLRaw.bundle_e_sqlite3/2.1.13",
+    "SQLitePCLRaw.core/2.1.13",
+    "SQLitePCLRaw.lib.e_sqlite3/2.1.13",
+    "SQLitePCLRaw.provider.e_sqlite3/2.1.13"
+  ],
+  "researchInventoryAnchor": {
+    "sourceReceipt": ".artifacts/runtime-notice-published-audit/runtime-packages.json",
+    "sha256": "9a26e314a986af3982cc099c9ee498977d672582d4943ebb7fd069ca4472fb62",
+    "scope": "Historical research input used to select missing-notice package versions; NOT a binding to a final packaged runtime inventory.",
+    "finalPackageVerificationRequired": "Match each package ID/version, nuspec digest/repository metadata and raw archive digest independently; component-manifest hashes and the complete inventory document may differ."
+  }
+}

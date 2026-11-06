@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -15,11 +16,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01LearningRateTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Compare_learning_rates()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping learning-rate A/B.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Compare_learning_rates), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir, targetHeight: 16);
         var vocabulary = snapshot.Train.Concat(snapshot.Dev)
@@ -29,7 +31,7 @@ public sealed class P01LearningRateTests(ITestOutputHelper output)
         var labels = new LabelSet(vocabulary);
 
         var results = new[] { 1e-3, 3e-3, 5e-3 }
-            .Select(learningRate => TrainAndEvaluate(snapshot, labels, learningRate))
+            .Select(learningRate => TrainAndEvaluate(experimentDirectory, snapshot, labels, learningRate))
             .ToArray();
 
         var summary = new StringBuilder();
@@ -46,16 +48,16 @@ public sealed class P01LearningRateTests(ITestOutputHelper output)
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-learning-rate.txt"), text);
 
         Assert.All(results, r => Assert.True(r.Cer < 1.0, "every run must beat the empty baseline"));
     }
 
-    private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, double learningRate)
+    private static Result TrainAndEvaluate(string experimentDirectory, P01LineDataset.Snapshot snapshot, LabelSet labels, double learningRate)
     {
-        var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-lr-{learningRate}", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, $"lt-lr-{learningRate}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Text.Json;
 using LeviathanText.Training;
 using LeviathanText.Recognition;
@@ -11,7 +12,7 @@ public sealed class TrainingDiagnosticsCommandTests : IDisposable
 
     public TrainingDiagnosticsCommandTests() => Directory.CreateDirectory(_root);
 
-    [Theory]
+    [FittingTheory]
     [InlineData("--diagnostics-every", "-1")]
     [InlineData("--diagnostics-every", "oops")]
     [InlineData("--diagnostics-samples", "101")]
@@ -21,7 +22,7 @@ public sealed class TrainingDiagnosticsCommandTests : IDisposable
             "train", "lines", Path.Combine(_root, "does-not-exist"), name, value]));
     }
 
-    [Fact]
+    [FittingFact]
     public void Train_command_packages_requested_diagnostics()
     {
         TorchSharp.torch.set_num_threads(1);

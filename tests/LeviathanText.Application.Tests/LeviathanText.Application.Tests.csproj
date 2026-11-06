@@ -28,4 +28,8 @@
     <ProjectReference Include="..\..\src\LeviathanText.Infrastructure\LeviathanText.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/FittingTestAttributes.cs" Link="TestSupport/FittingTestAttributes.cs" />
+  </ItemGroup>
+
 </Project>

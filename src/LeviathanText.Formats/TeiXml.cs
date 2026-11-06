@@ -57,7 +57,8 @@ public static class TeiXml
         IReadOnlyList<string> Languages,
         IReadOnlyList<TeiLineInfo> Lines,
         IReadOnlyList<TeiPageBreak>? PageBreaks = null,
-        string? LicenceTarget = null);
+        string? LicenceTarget = null,
+        IReadOnlyList<string>? DeclaredLanguages = null);
 
     public sealed record TeiImportResult(
         IReadOnlyList<TextRevision> Revisions,
@@ -82,7 +83,8 @@ public static class TeiXml
         string? Folio = null,
         int PageBreakCount = 0,
         string? FolioBreak = null,
-        string? LicenceTarget = null);
+        string? LicenceTarget = null,
+        IReadOnlyList<string>? DeclaredLanguages = null);
 
     public sealed record TeiExportLine(
         EntityId LineId,
@@ -207,6 +209,11 @@ public static class TeiXml
         fileDesc.Add(sourceDesc);
 
         var header = new XElement(Tei + "teiHeader", fileDesc);
+        var declaredLanguages = CheckedDeclaredLanguages(context.DeclaredLanguages);
+        if (declaredLanguages.Count > 0)
+            header.Add(new XElement(Tei + "profileDesc",
+                new XElement(Tei + "langUsage", declaredLanguages.Select(language =>
+                    new XElement(Tei + "language", new XAttribute("ident", language))))));
         if (context.Responsibilities is { Count: > 0 })
             header.Add(new XElement(Tei + "revisionDesc",
                 new XElement(Tei + "listChange",
@@ -248,12 +255,22 @@ public static class TeiXml
             ab.Add(new XAttribute("n", number));
         if (TagValue(info, "part") is { } part) ab.Add(new XAttribute("part", part));
         AddOrientation(ab, info);
-        ab.Add(new XElement(Tei + "lb"));
+        if (info?.Languages.Count > 1)
+            losses.Add(new LossEntry("line-languages", info.Languages.Count - 1,
+                "the bounded TEI line has one xml:lang; additional contributing languages remain in source-context metadata when supplied"));
+        // Dedicated source-context payloads are base64 JSON: no whitespace token loss
+        // in native line tags, and no reinterpretation of original verse identities.
+        if (ReadSourceContext(info?.Tags ?? []) is { } sourceContext)
+            ab.Add(new XAttribute("data-tei-source-context", sourceContext));
+        ab.Add(new XElement(Tei + "lb",
+            TagValue(info, "tei-lb-break") is { } continuity ? new XAttribute("break", continuity) : null));
 
         var baseRevision = line.L2 ?? line.L1;
         if (baseRevision is null)
         {
             ab.Add(new XComment("not-yet-transcribed"));
+            losses.Add(new LossEntry("diplomatic-layer", 1,
+                $"line {line.LineId}: the bounded profile cannot preserve an absent L1 reading separately from an explicit empty reading; retain the native project or bundle"));
             return ab;
         }
 
@@ -288,6 +305,20 @@ public static class TeiXml
         }
 
         ab.Add(Render(baseRevision.Text, renderable, losses));
+
+        if (line.L2 is not null)
+        {
+            // Plain editorial text is not reversible visible-text evidence. Check
+            // the generated profile's actual layer semantics rather than assuming
+            // that the presence of some source annotations covers every L2 edit.
+            var reconstructed = new SegmentBuilder().Build(ab.Nodes(), line.LineId, []);
+            if (line.L1 is null || reconstructed.L1 != line.L1.Text)
+                losses.Add(new LossEntry("diplomatic-layer", 1,
+                    $"line {line.LineId}: generated markup does not preserve the native L1 text or layer presence; retain the native project or bundle"));
+            if (!reconstructed.HasL2 || reconstructed.L2 != line.L2.Text)
+                losses.Add(new LossEntry("editorial-layer", 1,
+                    $"line {line.LineId}: generated markup does not reconstruct the explicit native L2 layer; retain the native project or bundle"));
+        }
 
         // An L1-only export that has an L2 revision is lossy: say so explicitly.
         if (line.L2 is null && lineAnnotations.Any(a => a.Kind == AnnotationKind.SuppliedEditorial))
@@ -637,14 +668,18 @@ public static class TeiXml
 
         var body = doc.Descendants(Tei + "body").FirstOrDefault()
             ?? throw new InvalidDataException("Missing TEI body.");
-        var edition = body.DescendantsAndSelf(Tei + "div")
+        var editionCandidates = body.DescendantsAndSelf(Tei + "div").Where(d => !IsIgnoredEditorial(d)).ToList();
+        var edition = editionCandidates
                 .FirstOrDefault(d => (string?)d.Attribute("type") == "edition"
                     && (string?)d.Attribute("subtype") == "primary")
-            ?? body.DescendantsAndSelf(Tei + "div")
-                .FirstOrDefault(d => (string?)d.Attribute("type") == "edition")
-            ?? body.DescendantsAndSelf(Tei + "div").FirstOrDefault()
+            ?? editionCandidates.FirstOrDefault(d => (string?)d.Attribute("type") == "edition")
+            ?? editionCandidates.FirstOrDefault()
             ?? throw new InvalidDataException("No edition div found.");
 
+        // Supplied context is untrusted provenance, never an identity/reading authority.
+        // Validate even the logical-ab fallback, not just generated physical metadata.
+        foreach (var attribute in edition.DescendantsAndSelf().Where(e => !IsIgnoredEditorial(e)).Attributes("data-tei-source-context"))
+            ValidateSourceContext(attribute.Value);
         var provenance = ReadProvenance(doc, body, edition);
         var revisions = new List<TextRevision>();
         var annotations = new List<Annotation>();
@@ -666,7 +701,7 @@ public static class TeiXml
         var positions = bodyOrder.Select((element, index) => (element, index))
             .ToDictionary(pair => pair.element, pair => pair.index);
         var pageBreakPositions = bodyOrder
-            .Where(element => element.Name == Tei + "pb")
+            .Where(element => element.Name == Tei + "pb" && !IsIgnoredEditorial(element))
             .Select(element => (Position: positions[element], Number: (string?)element.Attribute("n")))
             .ToList();
 
@@ -680,72 +715,76 @@ public static class TeiXml
             ReportUnsupported(unsupportedCounts, "duplicate-xml-id", PageXml.IssueSeverity.Loss,
                 $"duplicate @xml:id value(s) were uniquified: {string.Join(", ", duplicateIds.Take(5))}");
 
-        foreach (var ab in edition.DescendantsAndSelf(Tei + "ab"))
+        var leadingMilestone = bodyOrder.Take(positions[edition]).LastOrDefault(e =>
+            (e.Name == Tei + "lb" || e.Name == Tei + "pb") && !IsIgnoredEditorial(e));
+        bool physicalLines = edition.Descendants(Tei + "lb").Any(e => !IsIgnoredEditorial(e));
+        var segments = physicalLines
+            ? SplitPhysicalSegments(edition, leadingMilestone?.Name == Tei + "lb" ? leadingMilestone : null, unsupportedCounts)
+            : edition.DescendantsAndSelf(Tei + "ab").Where(e => !IsIgnoredEditorial(e)).SelectMany(SplitSegments);
+        foreach (var segment in segments)
         {
+            var ab = segment.Ab;
             var direction = ParseDirection(ab);
             var script = ParseScript(ab);
-            var languages = ParseLanguages(ab);
-            int abPosition = positions[ab];
-            var precedingBreaks = pageBreakPositions.Where(pb => pb.Position < abPosition).ToList();
+            var languages = segment.Languages ?? ParseRetainedLanguages(segment.Nodes, ab);
+            int sourcePosition = positions[segment.Start ?? ab];
+            var precedingBreaks = pageBreakPositions.Where(pb => pb.Position <= sourcePosition).ToList();
             int pageIndex = precedingBreaks.Count;
             string? pageNumber = precedingBreaks.LastOrDefault().Number;
-            foreach (var segment in SplitSegments(ab))
-            {
-                lineIndex++;
-                var suffix = StableSuffix(segment.XmlId, importToken, lineIndex, usedIds);
-                var lineId = new EntityId(EntityKind.Line, suffix);
-                var info = new TeiLineInfo(
-                    lineId,
-                    segment.Number ?? ParseLineNumber(ab),
-                    segment.XmlId,
-                    direction,
-                    script,
-                    languages,
-                    ParseTags(ab),
-                    pageIndex,
-                    pageNumber);
-                lineInfo.Add(info);
+            lineIndex++;
+            var suffix = StableSuffix(segment.XmlId, importToken, lineIndex, usedIds);
+            var lineId = new EntityId(EntityKind.Line, suffix);
+            var info = new TeiLineInfo(
+                lineId,
+                segment.Number,
+                segment.XmlId,
+                direction,
+                script,
+                languages,
+                segment.Tags.Keys.ToList(),
+                pageIndex,
+                pageNumber);
+            lineInfo.Add(info);
 
-                var built = new SegmentBuilder()
-                    .Build(segment.Nodes, lineId, unsupportedCounts);
-                var l1 = new TextRevision
+            var built = new SegmentBuilder()
+                .Build(segment.Nodes, lineId, unsupportedCounts);
+            var l1 = new TextRevision
+            {
+                Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l1"),
+                ScopeId = lineId,
+                Layer = TextLayer.L1Diplomatic,
+                Author = new AgentRef { Id = "tei-import", IsModel = false },
+                CreatedAt = DateTimeOffset.UtcNow,
+                Text = built.L1,
+            };
+            revisions.Add(l1);
+
+            TextRevision? l2 = null;
+            if (built.HasL2)
+            {
+                l2 = new TextRevision
                 {
-                    Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l1"),
+                    Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l2"),
                     ScopeId = lineId,
-                    Layer = TextLayer.L1Diplomatic,
+                    Layer = TextLayer.L2Editorial,
                     Author = new AgentRef { Id = "tei-import", IsModel = false },
                     CreatedAt = DateTimeOffset.UtcNow,
-                    Text = built.L1,
+                    Text = built.L2,
                 };
-                revisions.Add(l1);
+                revisions.Add(l2);
+            }
 
-                TextRevision? l2 = null;
-                if (built.HasL2)
+            // Bind each annotation to the revision whose offsets it addresses.
+            foreach (var pending in built.Annotations)
+            {
+                var anchored = pending.Layer == TextLayer.L2Editorial && l2 is not null ? l2 : l1;
+                annotations.Add(pending.Annotation with
                 {
-                    l2 = new TextRevision
-                    {
-                        Id = new EntityId(EntityKind.TranscriptionRevision, $"rev-{suffix}-l2"),
-                        ScopeId = lineId,
-                        Layer = TextLayer.L2Editorial,
-                        Author = new AgentRef { Id = "tei-import", IsModel = false },
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Text = built.L2,
-                    };
-                    revisions.Add(l2);
-                }
-
-                // Bind each annotation to the revision whose offsets it addresses.
-                foreach (var pending in built.Annotations)
-                {
-                    var anchored = pending.Layer == TextLayer.L2Editorial && l2 is not null ? l2 : l1;
-                    annotations.Add(pending.Annotation with
-                    {
-                        AnchoredRevisionId = anchored.Id,
-                        ExpansionRevisionId = pending.Annotation.ExpansionRange is not null && l2 is not null
-                            ? l2.Id
-                            : pending.Annotation.ExpansionRevisionId,
-                    });
-                }
+                    AnchoredRevisionId = anchored.Id,
+                    ExpansionRevisionId = pending.Annotation.ExpansionRange is not null && l2 is not null
+                        ? l2.Id
+                        : pending.Annotation.ExpansionRevisionId,
+                });
             }
         }
 
@@ -755,6 +794,14 @@ public static class TeiXml
         foreach (var element in body.Descendants())
         {
             if (element.AncestorsAndSelf(Tei + "ab").Any()) continue;
+            if (IsIgnoredEditorial(element))
+            {
+                if (IsEditorialRoot(element) && !element.Ancestors().Any(IsEditorialRoot)
+                    && (!physicalLines || !element.Ancestors().Contains(edition)))
+                    ReportUnsupported(unsupportedCounts, element.Name.LocalName, PageXml.IssueSeverity.Note,
+                        "editorial note/reference skipped (not visible text)");
+                continue;
+            }
             switch (element.Name.LocalName)
             {
                 case "div":
@@ -786,7 +833,8 @@ public static class TeiXml
             provenance.Languages,
             lineInfo,
             provenance.PageBreaks,
-            licenceTargets.Count == 1 ? licenceTargets[0] : null);
+            licenceTargets.Count == 1 ? licenceTargets[0] : null,
+            provenance.DeclaredLanguages);
 
         return new TeiImportResult(
             revisions,
@@ -803,7 +851,173 @@ public static class TeiXml
         List<XNode> Nodes,
         XElement Ab,
         bool BreakNo,
-        Dictionary<string, string> Tags);
+        Dictionary<string, string> Tags,
+        XElement? Start = null,
+        IReadOnlyList<string>? Languages = null);
+
+    // Physical lines span logical verse blocks. Clone inline fragments around each
+    // milestone, then reuse the single existing reading/annotation builder.
+    private static IReadOnlyList<Segment> SplitPhysicalSegments(XElement edition, XElement? leadingMilestone,
+        Dictionary<string, (int Count, PageXml.IssueSeverity Severity, string Detail)> unsupported)
+    {
+        var alternatives = new HashSet<string>(StringComparer.Ordinal)
+            { "choice", "app", "orig", "reg", "sic", "corr", "rdg", "lem", "abbr", "expan" };
+        var ambiguous = edition.Descendants().FirstOrDefault(e => (e.Name == Tei + "lb" || e.Name == Tei + "pb")
+            && !IsIgnoredEditorial(e) && e.Ancestors().TakeWhile(a => a != edition).Any(a => alternatives.Contains(a.Name.LocalName)));
+        if (ambiguous is not null)
+            throw new InvalidDataException("A physical line milestone inside a TEI alternative reading cannot be mapped safely to L1/L2 rows.");
+
+        var result = new List<Segment>();
+        var nodes = new List<XNode>();
+        var wrappers = new List<XElement>();
+        var clones = new Dictionary<XElement, XElement>();
+        var contexts = new List<XElement>();
+        var languageSources = new List<XElement>();
+        XElement? ab = null, firstAb = null, start = leadingMilestone, milestone = leadingMilestone;
+        bool declared = leadingMilestone is not null;
+        int? number = leadingMilestone is null ? null : ParseLineNumber(leadingMilestone);
+        string? xmlId = (string?)leadingMilestone?.Attribute(Xml + "id");
+
+        void Context(XElement? source)
+        {
+            if (source is null) return;
+            firstAb ??= source;
+            if (!contexts.Contains(source)) contexts.Add(source);
+        }
+        void Add(XNode node, XElement source)
+        {
+            if (HasVisibleContent(node))
+            {
+                Context(ab);
+                // An opaque inline clone can contain nearer language scopes.
+                // Read its original retained text parents, keeping only a
+                // line-level language union across L1/L2 branches. Editorial
+                // notes/references never contribute to the visible reading.
+                var textScopes = node is XText ? new[] { source } : RetainedLanguageScopes(source);
+                foreach (var languageSource in textScopes)
+                    if (!languageSources.Contains(languageSource)) languageSources.Add(languageSource);
+                start ??= source;
+            }
+            XContainer? parent = null;
+            foreach (var wrapper in wrappers)
+            {
+                if (!clones.TryGetValue(wrapper, out var clone))
+                {
+                    clone = new XElement(wrapper.Name, wrapper.Attributes());
+                    clones.Add(wrapper, clone);
+                    if (parent is null) nodes.Add(clone); else parent.Add(clone);
+                }
+                parent = clone;
+            }
+            if (parent is null) nodes.Add(node); else parent.Add(node);
+        }
+        void Flush()
+        {
+            var visible = nodes.Any(HasVisibleContent);
+            if (!visible && !(declared && (number is not null || xmlId is not null)))
+            {
+                foreach (var editorial in nodes.OfType<XElement>().SelectMany(e => e.DescendantsAndSelf())
+                    .Where(e => IsEditorialRoot(e) && !e.Ancestors().Any(IsEditorialRoot)))
+                    ReportUnsupported(unsupported, editorial.Name.LocalName, PageXml.IssueSeverity.Note,
+                        "editorial note/reference skipped (not visible text)");
+                return;
+            }
+            var owner = firstAb ?? milestone?.Ancestors(Tei + "ab").FirstOrDefault() ?? edition;
+            var tags = contexts.SelectMany(ParseTags).Distinct(StringComparer.Ordinal)
+                .ToDictionary(t => t, t => t, StringComparer.Ordinal);
+            // Native exports already carry the original context; do not replace it
+            // with the synthetic one-ab-per-row serialization on reimport.
+            if (ReadSourceContext(tags.Keys) is null)
+            {
+                var sourceContext = contexts.Select(c => new
+                {
+                    XmlId = (string?)c.Attribute(Xml + "id"), Number = (string?)c.Attribute("n"),
+                    Part = (string?)c.Attribute("part"),
+                    Attributes = c.Attributes().ToDictionary(a => a.Name.ToString(), a => a.Value),
+                    Containers = c.Ancestors(Tei + "div").Reverse().Select(d => new
+                    { Type = (string?)d.Attribute("type"), Number = (string?)d.Attribute("n"), XmlId = (string?)d.Attribute(Xml + "id") }).ToArray(),
+                }).ToArray();
+                var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    MilestoneNumber = (string?)milestone?.Attribute("n"),
+                    MilestoneXmlId = (string?)milestone?.Attribute(Xml + "id"),
+                    MilestoneBreak = (string?)milestone?.Attribute("break"),
+                    Blocks = sourceContext,
+                })));
+                if (encoded.Length > 65536)
+                    throw new InvalidDataException("TEI physical-line source context exceeds the bounded 64-KiB metadata payload.");
+                tags.Add("tei-source-context=" + encoded, encoded);
+            }
+            if ((string?)milestone?.Attribute("break") is { } continuity)
+                tags.TryAdd("tei-lb-break=" + continuity, continuity);
+            if (milestone is null && visible)
+                ReportUnsupported(unsupported, "physical-line-without-milestone", PageXml.IssueSeverity.Note,
+                    "unmarked physical prefix retained; no leading lb identity is asserted");
+            // Bare edition rows have no ab context. Resolve from the original
+            // retained content scope (or the original milestone for empty rows),
+            // never from detached clones or a guessed edition-level language.
+            var languages = (languageSources.Count > 0 ? languageSources : [milestone ?? owner])
+                .SelectMany(ParseLanguages).Distinct(StringComparer.Ordinal).ToList();
+            result.Add(new Segment(number, xmlId, [.. nodes], owner, false, tags, start ?? owner, languages));
+        }
+        void Reset(XElement marker, bool lineMarker)
+        {
+            Flush();
+            nodes = []; clones.Clear(); contexts.Clear(); languageSources.Clear(); firstAb = null;
+            start = marker; milestone = lineMarker ? marker : null;
+            declared = lineMarker;
+            number = lineMarker ? ParseLineNumber(marker) : null;
+            xmlId = lineMarker ? (string?)marker.Attribute(Xml + "id") : null;
+            // Canonical native line exports use an anonymous leading lb and declare
+            // the physical identity on their enclosing ab.
+            if (lineMarker && ab is not null && marker.Parent == ab
+                && !marker.NodesBeforeSelf().Any(HasVisibleContent))
+            {
+                number ??= ParseLineNumber(ab);
+                xmlId ??= (string?)ab.Attribute(Xml + "id");
+            }
+            Context(ab);
+        }
+        void Walk(XNode node)
+        {
+            if (node is XText text)
+            {
+                // Indentation between block containers is structural, whereas word
+                // spaces within an ab/inline wrapper retain the builder's policy.
+                if (ab is null && string.IsNullOrWhiteSpace(text.Value)) return;
+                Add(new XText(text.Value), text.Parent!);
+                return;
+            }
+            if (node is not XElement element) return;
+            if (IsEditorialRoot(element))
+            {
+                ReportUnsupported(unsupported, element.Name.LocalName, PageXml.IssueSeverity.Note,
+                    "editorial note/reference skipped (not visible text)");
+                return;
+            }
+            if (element.Name == Tei + "lb") { Reset(element, true); return; }
+            if (element.Name == Tei + "pb") { Reset(element, false); return; }
+            if (element.Name == Tei + "ab" || element.Name == Tei + "div")
+            {
+                var previous = ab;
+                if (element.Name == Tei + "ab") ab = element;
+                foreach (var child in element.Nodes()) Walk(child);
+                ab = previous;
+                return;
+            }
+            if (!element.Descendants().Any(e => (e.Name == Tei + "lb" || e.Name == Tei + "pb") && !IsIgnoredEditorial(e)))
+            {
+                Add(new XElement(element), element);
+                return;
+            }
+            wrappers.Add(element);
+            foreach (var child in element.Nodes()) Walk(child);
+            wrappers.RemoveAt(wrappers.Count - 1);
+        }
+        foreach (var node in edition.Nodes()) Walk(node);
+        Flush();
+        return result;
+    }
 
     private static IEnumerable<Segment> SplitSegments(XElement ab)
     {
@@ -857,11 +1071,20 @@ public static class TeiXml
         foreach (var segment in Flush()) yield return segment;
     }
 
+    // SegmentBuilder skips these complete subtrees. Hidden editorial milestones
+    // must not activate physical mode, select an identity/folio, or cause refusal.
+    private static bool IsEditorialRoot(XElement element) =>
+        element.Name.LocalName is "note" or "bibl" or "ref";
+
+    private static bool IsIgnoredEditorial(XElement element) =>
+        element.AncestorsAndSelf().Any(IsEditorialRoot);
+
     private static bool HasVisibleContent(XNode node) => node switch
     {
         XText text => !string.IsNullOrWhiteSpace(text.Value),
-        XElement element => element.Name != Tei + "lb" && (!string.IsNullOrWhiteSpace(element.Value)
-            || element.Name.LocalName is "gap" or "addSpan" or "delSpan" or "handShift" or "supplied"),
+        XElement element => !IsEditorialRoot(element) && element.Name != Tei + "lb"
+            && (element.Nodes().Any(HasVisibleContent)
+                || element.Name.LocalName is "gap" or "addSpan" or "delSpan" or "handShift" or "supplied"),
         _ => false,
     };
 
@@ -1333,7 +1556,8 @@ public static class TeiXml
         string? Licence,
         IReadOnlyList<TeiResponsibility> Responsibilities,
         IReadOnlyList<string> Languages,
-        IReadOnlyList<TeiPageBreak> PageBreaks);
+        IReadOnlyList<TeiPageBreak> PageBreaks,
+        IReadOnlyList<string> DeclaredLanguages);
 
     private static Provenance ReadProvenance(XDocument doc, XElement body, XElement edition)
     {
@@ -1374,13 +1598,18 @@ public static class TeiXml
         var surfaceId = doc.Descendants(Tei + "surface").Select(s => (string?)s.Attribute(Xml + "id"))
             .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
-        var languages = new List<string>();
-        foreach (var attribute in new[] { body.Attribute(Xml + "lang"), edition.Attribute(Xml + "lang") })
-            if (attribute is not null && !languages.Contains(attribute.Value)) languages.Add(attribute.Value);
+        // Header declarations are document metadata, never an effective language
+        // fallback for a line. Only the bounded, direct TEI header path qualifies.
+        var declaredLanguages = CheckedDeclaredLanguages(doc.Root?.Element(Tei + "teiHeader")?
+            .Element(Tei + "profileDesc")?.Elements(Tei + "langUsage").Elements(Tei + "language")
+            .Select(language => (string?)language.Attribute("ident")
+                ?? throw new InvalidDataException("A declared TEI language requires an ident.")));
+        var languages = declaredLanguages.Concat(ParseLanguages(body)).Concat(ParseLanguages(edition))
+            .Distinct(StringComparer.Ordinal).ToList();
 
         var pageBreaks = ReadPageBreaks(body).ToList();
 
-        return new Provenance(title, surfaceId, graphics, idnos, licence, responsibilities, languages, pageBreaks);
+        return new Provenance(title, surfaceId, graphics, idnos, licence, responsibilities, languages, pageBreaks, declaredLanguages);
     }
 
     /// <summary>Recover source attributes from a bounded original attachment in a legacy project.</summary>
@@ -1405,7 +1634,7 @@ public static class TeiXml
     }
 
     private static IEnumerable<TeiPageBreak> ReadPageBreaks(XElement body) =>
-        body.Descendants(Tei + "pb").Select(pb => new TeiPageBreak(
+        body.Descendants(Tei + "pb").Where(pb => !IsIgnoredEditorial(pb)).Select(pb => new TeiPageBreak(
             (string?)pb.Attribute("n"), (string?)pb.Attribute("type"), (string?)pb.Attribute("break")));
 
     private static string? ReadLicenceTarget(XDocument document)
@@ -1503,8 +1732,55 @@ public static class TeiXml
         return null;
     }
 
-    private static IReadOnlyList<string> ParseLanguages(XElement ab) =>
-        ab.Attribute(Xml + "lang") is { } lang ? [lang.Value] : [];
+    private static IReadOnlyList<string> ParseLanguages(XElement element)
+    {
+        var language = element.AncestorsAndSelf().Select(ancestor => ancestor.Attribute(Xml + "lang"))
+            .FirstOrDefault(attribute => attribute is not null);
+        // An explicit empty xml:lang cancels inheritance; do not skip past it.
+        return language is not null && language.Value.Length > 0 ? [language.Value] : [];
+    }
+
+    private static XElement[] RetainedLanguageScopes(XNode node)
+    {
+        if (node is XText text)
+            return !string.IsNullOrWhiteSpace(text.Value) && text.Parent is not null
+                && !IsIgnoredEditorial(text.Parent) ? [text.Parent] : [];
+        if (node is not XElement element || IsIgnoredEditorial(element)) return [];
+        var scopes = element.DescendantNodes().OfType<XText>()
+            .Where(value => !string.IsNullOrWhiteSpace(value.Value)
+                && value.Parent is not null && !IsIgnoredEditorial(value.Parent))
+            .Select(value => value.Parent!).ToArray();
+        return scopes.Length > 0 ? scopes : HasVisibleContent(element) ? [element] : [];
+    }
+
+    private static IReadOnlyList<string> ParseRetainedLanguages(IEnumerable<XNode> nodes, XElement fallback)
+    {
+        var scopes = nodes.SelectMany(RetainedLanguageScopes).ToArray();
+        return (scopes.Length > 0 ? scopes : [fallback]).SelectMany(ParseLanguages)
+            .Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>Validate bounded declared-language metadata without inferring or normalizing codes.</summary>
+    public static IReadOnlyList<string> CheckedDeclaredLanguages(IEnumerable<string>? languages)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var language in languages ?? [])
+        {
+            if (string.IsNullOrEmpty(language) || language.Length > 256)
+                throw new InvalidDataException("Declared TEI language codes must contain between 1 and 256 UTF-16 units.");
+            try { XmlConvert.VerifyXmlChars(language); }
+            catch (XmlException error)
+            {
+                throw new InvalidDataException("Declared TEI language codes must contain valid XML characters.", error);
+            }
+            if (!seen.Add(language)) continue;
+            if (result.Count == 128)
+                throw new InvalidDataException("TEI declared language metadata exceeds 128 distinct codes.");
+            result.Add(language);
+        }
+        return result;
+    }
 
     private static IReadOnlyList<string> ParseTags(XElement ab)
     {
@@ -1517,6 +1793,35 @@ public static class TeiXml
             tags.Add($"n={n}");
         if ((string?)ab.Attribute("part") is { Length: > 0 } part) tags.Add($"part={part}");
         return tags;
+    }
+
+    private static string? ReadSourceContext(IEnumerable<string> tags)
+    {
+        const string prefix = "tei-source-context=";
+        var values = tags.Where(t => t.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(t => t[prefix.Length..]).Distinct(StringComparer.Ordinal).ToList();
+        foreach (var value in values) ValidateSourceContext(value);
+        if (values.Count > 1)
+            throw new InvalidDataException("Distinct supplied TEI source contexts cannot be combined on one physical row without losing provenance.");
+        return values.SingleOrDefault();
+    }
+
+    private static void ValidateSourceContext(string encoded)
+    {
+        if (encoded.Length > 65536)
+            throw new InvalidDataException("TEI physical-line source context exceeds the bounded 64-KiB metadata payload.");
+        if (encoded.Any(char.IsWhiteSpace))
+            throw new InvalidDataException("TEI source context must be whitespace-free base64 JSON metadata.");
+        try
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(Convert.FromBase64String(encoded));
+            if (json.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                throw new InvalidDataException("TEI source context must contain a JSON object.");
+        }
+        catch (Exception error) when (error is FormatException or System.Text.Json.JsonException)
+        {
+            throw new InvalidDataException("TEI source context is invalid base64 JSON metadata.", error);
+        }
     }
 
     private static string? TagValue(TeiLineInfo? info, string key)

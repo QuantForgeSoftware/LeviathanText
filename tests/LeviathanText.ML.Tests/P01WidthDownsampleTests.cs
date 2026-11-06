@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -19,11 +20,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01WidthDownsampleTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Reducing_width_downsample_improves_reachability_and_should_not_hurt_cer()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping width-downsample A/B.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Reducing_width_downsample_improves_reachability_and_should_not_hurt_cer), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir);
         var vocabulary = snapshot.Train.Concat(snapshot.Dev)
@@ -32,8 +34,8 @@ public sealed class P01WidthDownsampleTests(ITestOutputHelper output)
             .ToList();
         var labels = new LabelSet(vocabulary);
 
-        var factorFour = TrainAndEvaluate(snapshot, labels, widthDownsampleFactor: 4);
-        var factorTwo = TrainAndEvaluate(snapshot, labels, widthDownsampleFactor: 2);
+        var factorFour = TrainAndEvaluate(experimentDirectory, snapshot, labels, widthDownsampleFactor: 4);
+        var factorTwo = TrainAndEvaluate(experimentDirectory, snapshot, labels, widthDownsampleFactor: 2);
 
         var summary = new StringBuilder();
         summary.AppendLine("P01 v0.9 width-downsample A/B, dev split (pilot-scale, non-adjudicated labels)");
@@ -51,7 +53,7 @@ public sealed class P01WidthDownsampleTests(ITestOutputHelper output)
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-width-downsample.txt"), text);
 
@@ -59,9 +61,9 @@ public sealed class P01WidthDownsampleTests(ITestOutputHelper output)
         Assert.True(factorTwo.Reachable >= factorFour.Reachable, "width/2 must not reduce reachability");
     }
 
-    private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, int widthDownsampleFactor)
+    private static Result TrainAndEvaluate(string experimentDirectory, P01LineDataset.Snapshot snapshot, LabelSet labels, int widthDownsampleFactor)
     {
-        var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-width{widthDownsampleFactor}", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, $"lt-width{widthDownsampleFactor}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,

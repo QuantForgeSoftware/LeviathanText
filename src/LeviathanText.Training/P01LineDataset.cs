@@ -6,6 +6,13 @@ using SkiaSharp;
 
 namespace LeviathanText.Training;
 
+/// <summary>Explicit admitted label partitions; not an authorization mechanism.</summary>
+public enum DatasetPartitionAccess
+{
+    TrainDev,
+    TrainDevAndLocked,
+}
+
 /// <summary>
 /// Real-corpus pilot dataset: loads the md5-verified P01 Zenon Papyri HTR dataset
 /// (Zenodo 6565706, v0.9, CC BY 4.0) from the artifact store, crops each PAGE TextLine
@@ -25,7 +32,11 @@ public static class P01LineDataset
         IReadOnlyList<LabeledLine> TestLocked,
         IReadOnlyList<string> UnannotatedImages,
         int TotalLines,
-        IReadOnlyDictionary<string, string> WitnessSplitMap);
+        IReadOnlyDictionary<string, string> WitnessSplitMap)
+    {
+        /// <summary>Null for manually constructed/legacy snapshots. An empty unloaded split is not a measured zero.</summary>
+        public DatasetPartitionAccess? LoadedPartitions { get; init; }
+    }
 
     /// <summary>
     /// Load a PAGE/image corpus directory (works for any track; image extension differs —
@@ -37,11 +48,43 @@ public static class P01LineDataset
 
     public static Snapshot Load(string datasetDirectory, string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6,
         int? targetHeight = null, LinePreprocessingProfile? preprocessingProfile = null)
+        => LoadPartitions(datasetDirectory, DatasetPartitionAccess.TrainDev, imageExtension, testEveryNth, devEveryNth,
+            targetHeight, preprocessingProfile);
+
+    /// <summary>
+    /// Loads only explicitly admitted partitions. TrainDev never reads reserved XML content or decodes reserved images.
+    /// WitnessSplitMap still describes all paired witnesses; TotalLines counts admitted lines only.
+    /// Callers must independently authorize real corpus and reserved evaluation access.
+    /// </summary>
+    public static Snapshot LoadPartitions(string datasetDirectory, DatasetPartitionAccess access,
+        string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6,
+        int? targetHeight = null, LinePreprocessingProfile? preprocessingProfile = null) =>
+        LoadWithIo(datasetDirectory, access, DatasetIo.Physical, imageExtension, testEveryNth, devEveryNth, targetHeight,
+            preprocessingProfile);
+
+    // Per-call seam, never a mutable global hook. Discovery/pairing methods inspect metadata only.
+    internal sealed record DatasetIo(
+        Func<string, bool> DirectoryExists,
+        Func<string, string, string[]> GetFiles,
+        Func<string, bool> FileExists,
+        Func<string, string> ReadXml,
+        Func<string, ImageDecoder.DecodedImage> Decode)
     {
+        internal static DatasetIo Physical { get; } = new(Directory.Exists, Directory.GetFiles, File.Exists,
+            File.ReadAllText, ImageDecoder.Decode);
+    }
+
+    internal static Snapshot LoadWithIo(string datasetDirectory, DatasetPartitionAccess access, DatasetIo io,
+        string imageExtension = ".jpg", int testEveryNth = 5, int devEveryNth = 6,
+        int? targetHeight = null, LinePreprocessingProfile? preprocessingProfile = null)
+    {
+        if (!Enum.IsDefined(access)) throw new ArgumentOutOfRangeException(nameof(access));
+        if (testEveryNth <= 0) throw new ArgumentOutOfRangeException(nameof(testEveryNth));
+        if (devEveryNth <= 0) throw new ArgumentOutOfRangeException(nameof(devEveryNth));
         var profile = preprocessingProfile ?? LinePreprocessingProfile.P01Otsu(targetHeight ?? CrnnModel.InputHeight);
         profile.Validate(targetHeight);
         profile.RequireStandardGeometry();
-        if (!Directory.Exists(datasetDirectory))
+        if (!io.DirectoryExists(datasetDirectory))
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.InputMissing,
@@ -49,7 +92,7 @@ public static class P01LineDataset
                 Message = "P01 artifact directory not found.",
             });
 
-        var xmlFiles = Directory.GetFiles(datasetDirectory, "*.xml")
+        var xmlFiles = io.GetFiles(datasetDirectory, "*.xml")
             .OrderBy(f => f, StringComparer.Ordinal).ToList();
         if (xmlFiles.Count == 0)
             throw new InvalidDataException($"No PAGE XML files under {datasetDirectory}.");
@@ -64,15 +107,20 @@ public static class P01LineDataset
         {
             var xmlPath = xmlFiles[i];
             var baseName = Path.GetFileNameWithoutExtension(xmlPath);
-            var imagePath = ResolveImagePath(datasetDirectory, baseName, imageExtension);
+            var imagePath = ResolveImagePath(datasetDirectory, baseName, imageExtension, io.FileExists);
             if (imagePath is null)
                 continue; // XML without image: recorded in the manifest, not used here
 
             string split = i % testEveryNth == 0 ? "test" : i % devEveryNth == 1 ? "dev" : "train";
             witnessSplit[baseName] = split;
 
-            var imported = PageXml.Import(File.ReadAllText(xmlPath), new EntityId(EntityKind.Capture, "cap"), noChecksum);
-            using var decoded = ImageDecoder.Decode(imagePath);
+            // Decide using the ORIGINAL ordinal XML index, including missing-image entries.
+            // Pairing metadata is retained, but reserved content never crosses the admission boundary.
+            if (split == "test" && access == DatasetPartitionAccess.TrainDev)
+                continue;
+
+            var imported = PageXml.Import(io.ReadXml(xmlPath), new EntityId(EntityKind.Capture, "cap"), noChecksum);
+            using var decoded = io.Decode(imagePath);
 
             var revisionById = imported.Revisions.ToDictionary(r => r.Id);
             foreach (var line in imported.Lines)
@@ -121,18 +169,18 @@ public static class P01LineDataset
             }
         }
 
-        var unannotated = Directory.GetFiles(datasetDirectory, "*" + imageExtension)
+        var unannotated = io.GetFiles(datasetDirectory, "*" + imageExtension)
             .Select(Path.GetFileNameWithoutExtension)
-            .Where(name => name is not null && !File.Exists(Path.Combine(datasetDirectory, name + ".xml")))
+            .Where(name => name is not null && !io.FileExists(Path.Combine(datasetDirectory, name + ".xml")))
             .Select(name => name!)
             .ToList();
 
         int total = train.Count + dev.Count + test.Count;
-        return new Snapshot(train, dev, test, unannotated, total, witnessSplit);
+        return new Snapshot(train, dev, test, unannotated, total, witnessSplit) { LoadedPartitions = access };
     }
 
     /// <summary>Find the image for a PAGE file: next to the XML, or in sibling/child images|image directories (Transkribus conventions vary).</summary>
-    private static string? ResolveImagePath(string datasetDirectory, string baseName, string imageExtension)
+    private static string? ResolveImagePath(string datasetDirectory, string baseName, string imageExtension, Func<string, bool> fileExists)
     {
         string[] candidates =
         {
@@ -142,7 +190,7 @@ public static class P01LineDataset
             Path.Combine(Path.GetDirectoryName(datasetDirectory)!, "images", baseName + imageExtension),
             Path.Combine(Path.GetDirectoryName(datasetDirectory)!, "image", baseName + imageExtension),
         };
-        return candidates.FirstOrDefault(File.Exists);
+        return candidates.FirstOrDefault(fileExists);
     }
 
     /// <summary>Legacy helper retained for callers; the pixel implementation uses this same shared algorithm.</summary>

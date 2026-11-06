@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Text.Json.Nodes;
 using LeviathanText.Contracts;
 using LeviathanText.Imaging;
@@ -41,7 +42,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         File.WriteAllText(path, json.ToJsonString());
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData("p01-otsu")]
     [InlineData("ink-positive-grayscale")]
     [InlineData("luminance-grayscale")]
@@ -77,7 +78,7 @@ public sealed class PreprocessingPackageTests : IDisposable
               </Page>
             </PcGts>
             """);
-        var snapshot = P01LineDataset.Load(dataDirectory, ".png", preprocessingProfile: loaded.DatasetPreprocessingProfile);
+        var snapshot = P01LineDataset.LoadPartitions(dataDirectory, DatasetPartitionAccess.TrainDevAndLocked, ".png", preprocessingProfile: loaded.DatasetPreprocessingProfile);
         var training = Assert.Single(snapshot.TestLocked).Image;
         using var decoded = ImageDecoder.Decode(Path.Combine(dataDirectory, "page.png"));
         var crop = LineCropper.Extract(decoded.Bitmap, [new(12, 10), new(82, 10), new(82, 34), new(12, 34)]);
@@ -92,7 +93,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         }
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Legacy_package_does_not_guess_recipe_from_description_and_raw_tensor_loading_is_preserved()
     {
         var package = Package(null, height: 32);
@@ -112,7 +113,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Single(loaded.CreateRecognizer().Recognize([pixels]));
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Checkpoint_only_package_retains_explicit_profile()
     {
         var profile = LinePreprocessingProfile.Luminance(32);
@@ -125,7 +126,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Equal(profile, loaded.DatasetPreprocessingProfile);
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData("Version", "9")]
     [InlineData("Recipe", "unknown")]
     [InlineData("Geometry", "unknown")]
@@ -140,7 +141,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Contains("preprocessing", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Missing_required_profile_field_is_not_a_legacy_fallback()
     {
         var package = Package(LinePreprocessingProfile.P01Otsu());
@@ -149,7 +150,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Equal(ErrorCode.ModelIncompatible, error.Error.Code);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Typed_package_cannot_claim_legacy_format_that_old_runtimes_would_misinterpret()
     {
         var package = Package(LinePreprocessingProfile.P01Otsu());
@@ -159,7 +160,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Contains("format 2", error.Message);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Resume_rejects_changed_or_unspecified_profile_and_preserves_matching_profile()
     {
         var profile = LinePreprocessingProfile.P01Otsu(32);
@@ -176,7 +177,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.NotEqual(config.ComputeHash(), (config with { PreprocessingProfile = LinePreprocessingProfile.Luminance(32) }).ComputeHash());
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Writer_rejects_profile_conflict_before_creating_output_package()
     {
         var package = Package(LinePreprocessingProfile.P01Otsu());
@@ -187,7 +188,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.False(Directory.Exists(destination));
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Writer_checks_manifest_height_when_profile_is_inherited_from_checkpoint()
     {
         var package = Package(LinePreprocessingProfile.P01Otsu(32));
@@ -203,7 +204,7 @@ public sealed class PreprocessingPackageTests : IDisposable
         Assert.Equal(LinePreprocessingProfile.P01Otsu(32), loaded.PreprocessingProfile);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Writer_rejects_an_unsupported_package_format_before_copying()
     {
         var package = Package(LinePreprocessingProfile.P01Otsu());
@@ -235,7 +236,7 @@ public sealed class PreprocessingPackageTests : IDisposable
               </Page>
             </PcGts>
             """);
-        var image = Assert.Single(P01LineDataset.Load(data, ".png", targetHeight: 8).TestLocked).Image;
+        var image = Assert.Single(P01LineDataset.LoadPartitions(data, DatasetPartitionAccess.TrainDevAndLocked, ".png", targetHeight: 8).TestLocked).Image;
         Assert.Equal(0, image.BackgroundValue);
         for (int y = 0; y < 8; y++) Assert.Equal(new float[] { 1, 1, 1, 0, 0, 0, 0, 0 }, image.Pixels.Skip(y * 8).Take(8));
     }

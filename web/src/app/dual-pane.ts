@@ -6,6 +6,7 @@
  */
 import { Component, computed, input, signal, SimpleChanges } from '@angular/core';
 import { catchError, combineLatest, of, Subscription } from 'rxjs';
+import { WorkspaceComponentScope } from './workspace-component-scope';
 import { ApiClient, AnnotationView } from './api-client';
 import { scalarCount, scalarDiff } from './text-utils';
 
@@ -13,7 +14,7 @@ import { scalarCount, scalarDiff } from './text-utils';
   selector: 'app-dual-pane',
   standalone: true,
   template: `
-    <section>
+    <section data-workspace-protected [hidden]="!workspaceAvailable()" [attr.inert]="!workspaceAvailable() ? '' : null">
       <h3>Line <code>{{ lineId() }}</code></h3>
       <div class="panes">
         <div class="pane">
@@ -46,7 +47,7 @@ import { scalarCount, scalarDiff } from './text-utils';
           }
         </div>
       </div>
-      <a [href]="imageLink()" target="_blank" rel="noopener">original image</a>
+      @if (imageLink()) { <a [href]="imageLink()" target="_blank" rel="noopener">Open capture preview</a> }
     </section>
   `,
   styles: [`
@@ -62,6 +63,7 @@ import { scalarCount, scalarDiff } from './text-utils';
 export class DualPane {
   lineId = input.required<string>();
   imageLink = input.required<string>();
+  refreshToken = input(0);
 
   protected readonly diplomatic = signal('—');
   protected readonly editorial = signal('—');
@@ -74,15 +76,31 @@ export class DualPane {
   protected readonly direction = signal<string | null>(null);
   protected readonly diff = computed(() => scalarDiff(this.diplomatic(), this.editorial()));
 
-  private readonly api: ApiClient;
+  private readonly baseApi: ApiClient;
+  private readonly scope: WorkspaceComponentScope;
+  private ready = false;
+  protected workspaceAvailable(): boolean { return this.scope.active(); }
+  private get api(): ApiClient { const lineId = this.lineId(); return this.scope.request(this.baseApi, undefined, () => this.lineId() === lineId); }
   private request: Subscription | undefined;
+  private loadVersion = 0;
 
   constructor(api: ApiClient) {
-    this.api = api;
+    this.baseApi = api;
+    this.scope = new WorkspaceComponentScope(state => {
+      this.loadVersion++; this.request?.unsubscribe();
+      if (this.ready && state.status === 'active') this.load();
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['lineId']) return;
+    if (!changes['lineId'] && !changes['refreshToken']) return;
+    this.ready = true; this.load();
+  }
+
+  private load(): void {
+    if (!this.workspaceAvailable()) return;
+    const version = ++this.loadVersion;
+    const lineId = this.lineId();
     this.request?.unsubscribe();
     this.diplomaticRevision.set(null);
     this.editorialRevision.set(null);
@@ -92,12 +110,12 @@ export class DualPane {
     this.hasEditorial.set(false);
     this.direction.set(null);
     this.request = combineLatest({
-      line: this.api.line(this.lineId()),
+      line: this.api.lineFresh(this.lineId()),
       annotations: this.api.annotations(this.lineId()).pipe(catchError(() => of([]))),
       history: this.api.lineLayerHistory(this.lineId(), 'L2Editorial').pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ line, annotations, history }) => {
-        if (line.line !== this.lineId()) return;
+        if (version !== this.loadVersion || lineId !== this.lineId() || line.line !== lineId) return;
         this.diplomatic.set(line.diplomatic ?? '—');
         this.direction.set(line.direction ?? null);
         this.diplomaticRevision.set(line.history.at(-1)?.id ?? null);
@@ -111,7 +129,7 @@ export class DualPane {
     });
   }
 
-  ngOnDestroy(): void { this.request?.unsubscribe(); }
+  ngOnDestroy(): void { this.loadVersion++; this.request?.unsubscribe(); }
 
   private boundariesFor(revisionId: string | null): number[] {
     return revisionId === null ? [] : this.annotations()

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using LeviathanText.Contracts;
 
 namespace LeviathanText.Formats;
@@ -211,6 +212,7 @@ public enum TextDirection
 public sealed record NativeRegion
 {
     public required EntityId Id { get; init; }
+    [JsonConverter(typeof(UnplacedEntityReferenceJsonConverter))]
     public required EntityId FrameRef { get; init; }
 
     /// <summary>Polygon points in the frame's pixel coordinates; empty polygon = geometry absent (explicit).</summary>
@@ -238,7 +240,9 @@ public sealed record NativeRegion
 public sealed record NativeLine
 {
     public required EntityId Id { get; init; }
+    [JsonConverter(typeof(UnplacedEntityReferenceJsonConverter))]
     public required EntityId RegionId { get; init; }
+    [JsonConverter(typeof(UnplacedEntityReferenceJsonConverter))]
     public required EntityId FrameRef { get; init; }
 
     /// <summary>Baseline points (may be empty when geometry is absent/unavailable).</summary>

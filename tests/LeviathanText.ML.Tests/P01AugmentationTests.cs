@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -16,11 +17,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01AugmentationTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Compare_training_with_and_without_augmentation()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping augmentation A/B.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Compare_training_with_and_without_augmentation), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir, targetHeight: 16);
         var snapshot32 = P01LineDataset.Load(dataDir, targetHeight: 32);
@@ -30,16 +32,16 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
             .ToList();
         var labels = new LabelSet(vocabulary);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         var splitHash = TrainingRunManifestWriter.SplitHash(snapshot.WitnessSplitMap.Select(kv => $"{kv.Key}={kv.Value}"));
 
-        var baseline = TrainAndEvaluate(snapshot, labels, augment: false);
-        var augmented = TrainAndEvaluate(snapshot, labels, augment: true,
+        var baseline = TrainAndEvaluate(experimentDirectory, snapshot, labels, augment: false);
+        var augmented = TrainAndEvaluate(experimentDirectory, snapshot, labels, augment: true,
             packageDirectory: Path.Combine(artifactDir, "model-p01-h16-aug"),
             splitHash: splitHash,
-            testLockedLines: snapshot.TestLocked.Count);
-        var augmented32 = TrainAndEvaluate(snapshot32, labels, augment: true);
+            testLockedLines: null);
+        var augmented32 = TrainAndEvaluate(experimentDirectory, snapshot32, labels, augment: true);
 
         var summary = new StringBuilder();
         summary.AppendLine("P01 v0.9 training-augmentation A/B, dev split (pilot-scale, non-adjudicated labels)");
@@ -68,14 +70,15 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
     }
 
     private static Result TrainAndEvaluate(
+        string experimentDirectory,
         P01LineDataset.Snapshot snapshot,
         LabelSet labels,
         bool augment,
         string? packageDirectory = null,
         string? splitHash = null,
-        int testLockedLines = 0)
+        int? testLockedLines = null)
     {
-        var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-aug-{augment}", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, $"lt-aug-{augment}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,
@@ -104,7 +107,8 @@ public sealed class P01AugmentationTests(ITestOutputHelper output)
                 trainLines: snapshot.Train.Count,
                 devLines: snapshot.Dev.Count,
                 testLockedLines: testLockedLines,
-                splitHash: splitHash ?? string.Empty);
+                splitHash: splitHash ?? string.Empty,
+                loadedPartitions: snapshot.LoadedPartitions);
             ModelPackageWriter.Write(
                 packageDirectory, checkpointDir, config.ModelName, manifest,
                 "Best measured P01 dev configuration (height 16, width 4, augmentation on). Pilot-scale; labels not adjudicated; not a release model.");

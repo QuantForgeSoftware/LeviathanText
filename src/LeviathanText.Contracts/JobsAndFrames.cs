@@ -68,7 +68,7 @@ public sealed record JobRecord
 
     public required IReadOnlyList<StageArtifact> Inputs { get; init; }
 
-    /// <summary>The exact authorized project for a queued surface operation.</summary>
+    /// <summary>The exact project authorized by opt-in membership admission. Workers recheck this binding before dispatch.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EntityId? BoundProjectId { get; init; }
 

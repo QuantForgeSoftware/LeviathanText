@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -19,11 +20,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01InputHeightTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Height_32_restores_text_and_time_resolution()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping input-height A/B.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Height_32_restores_text_and_time_resolution), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot16 = P01LineDataset.Load(dataDir, targetHeight: 16);
         var snapshot32 = P01LineDataset.Load(dataDir, targetHeight: 32);
@@ -36,9 +38,9 @@ public sealed class P01InputHeightTests(ITestOutputHelper output)
 
         var results = new[]
         {
-            TrainAndEvaluate(snapshot16, labels, inputHeight: 16, widthDownsampleFactor: 4),
-            TrainAndEvaluate(snapshot32, labels, inputHeight: 32, widthDownsampleFactor: 4),
-            TrainAndEvaluate(snapshot32, labels, inputHeight: 32, widthDownsampleFactor: 2),
+            TrainAndEvaluate(experimentDirectory, snapshot16, labels, inputHeight: 16, widthDownsampleFactor: 4),
+            TrainAndEvaluate(experimentDirectory, snapshot32, labels, inputHeight: 32, widthDownsampleFactor: 4),
+            TrainAndEvaluate(experimentDirectory, snapshot32, labels, inputHeight: 32, widthDownsampleFactor: 2),
         };
 
         var summary = new StringBuilder();
@@ -57,7 +59,7 @@ public sealed class P01InputHeightTests(ITestOutputHelper output)
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-input-height.txt"), text);
 
@@ -65,9 +67,9 @@ public sealed class P01InputHeightTests(ITestOutputHelper output)
         Assert.True(results[1].Reachable >= results[0].Reachable, "height 32 must not reduce reachability");
     }
 
-    private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, int inputHeight, int widthDownsampleFactor)
+    private static Result TrainAndEvaluate(string experimentDirectory, P01LineDataset.Snapshot snapshot, LabelSet labels, int inputHeight, int widthDownsampleFactor)
     {
-        var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-h{inputHeight}-w{widthDownsampleFactor}", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, $"lt-h{inputHeight}-w{widthDownsampleFactor}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,

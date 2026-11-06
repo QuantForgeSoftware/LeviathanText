@@ -1060,3 +1060,509 @@ races and line-order targets, Gray8 threshold equivalence, and TEI uncertainty
 projection and license-loss accounting. Combined verification passed the
 zero-warning Release build, 1,131 selected C# tests, 93 Angular tests and six
 script tests, with one existing C# skip. Fitting fixtures were excluded.
+
+### Specialist-independent execution through 13:00 CST — 2026-11-05
+
+Starting from 4138126, parallel work covers project-job and event-stream
+reauthorization, an optional worker job budget with measured process-recycling
+bounds, and a finite interchange validation slice. The integrator owns explicit
+capture relocation for restored projects, requiring recorded SHA-256 or a
+readable original byte source, preserved native IDs/text/geometry, and durable
+relocation provenance in the same saved project. Use generated fixtures and
+existing authorized checkpoints for engineering evidence. Keep scholarly
+adjudication, new accuracy training and model promotion behind their gates.
+Reserve time for independent review, integrated tests, packaging and final
+archiving before 13:00 CST (19:00 UTC).
+
+A second finite collaboration slice makes review summaries and adjudication exports
+revision-specific: prior decisions remain in history, while current acceptance,
+disagreement and reviewer counts must refer to the currently selected L1 revision.
+A correction's origin is counted separately from review of the corrected text.
+
+The integrator also owns the line editor's same-line pending-response guard:
+acknowledge the submitted text only, keep any later edits and crash-recovery draft,
+serialize revision submissions through reconciliation, and refuse review acceptance
+of an unsaved displayed draft. Use delayed HTTP observables to demonstrate the
+lost-edit failure before correction. General metadata refreshes must retain drafts.
+
+Provider resource controls are another independent engineering slice: the singleton
+registry currently constructs a fresh adapter per lookup, resetting configured call
+and spend counters; spend preflight also does not reserve concurrent requests.
+Retain one thread-safe adapter per registry configuration, atomically reserve an
+estimated allowance for every outbound attempt, settle reported final usage and
+conservatively account for unknown failed attempts. Keep accounting process/session
+scoped and distinguish configured estimates from actual provider billing. Exercise
+registry lookup, concurrent calls, retries, malformed responses and missing usage
+with in-process HTTP doubles; make no hosted calls or price assumptions.
+
+External-worker progress needs a concrete end-to-end check: the current SSE event
+bus is API-process-local, while standalone workers update SQLite directly. The
+integrator will make active SSE streams observe the authoritative persisted job at
+a bounded interval, emit status snapshots without inventing durable event IDs, and
+close after an observed terminal state. Preserve membership reauthorization before
+replay/delivery/idle observations, preserve advisory bus replay and add cursor
+validation. Test independent store writers and already-completed jobs after an API
+restart; do not claim a durable intermediate-event log.
+
+The native AI workspace integration discovered during shared-attribution review is
+now an explicit specialist-independent slice. The missing single acceptance route,
+JSON string wrapping and demonstration RevisionChain must be replaced in production
+routes by persisted native-project source resolution, server-issued proposal records
+and atomic provenance-bearing L2 acceptance. Parallel ownership and acceptance tests
+are frozen in docs/tasks/native-ai-workspace-2026-11-05.md. No real model call is needed
+for this work; use generated fixtures and provider doubles. Preserve source layers,
+account/membership boundaries and all scholarly acceptance gates.
+
+The integrator will replace the README's indiscriminate test command with an
+explicit, reproducible engineering-verification entry point. Its registered suite
+list excludes all six audited fitting classes and the ML/pilot training projects;
+new test classes in the selected projects are still included. Preserve full fitting
+suites as a separately authorized workflow. Add process-level checks that the wrapper
+cannot silently drop its exclusions or overwrite earlier receipts. A CI example may
+be prepared for maintainer review without activating hosting settings or publishing.
+
+The native AI end-to-end export check also exposed unlinked L2 text being emitted
+as apparent L1 by bounded TEI. The integrator owns a targeted loss-report guard:
+reconstruct the generated line's two textual layers with the existing bounded parser
+and report any mismatch explicitly. Do not invent scholarly span mappings or claim
+lossless export of unlinked edits. The native AI service will add exact source-linked
+editorial annotations for supported acceptances and keep unprovable cases blocked.
+
+Packaging review found that README referenced an absent docs/release/packaging.md,
+and root KNOWN-ISSUES retained source-relative evidence links. Include the existing
+documentation tree (not the ignored corpus/artifact store) and rebase the root
+known-issues links. Verify packaged schema/docs and hashes in the final artifact.
+
+Current release-readiness audits found six advisories on pinned ImageSharp3.1.11 and
+22npm entries (five high) in the frontend toolchain. A owns vendor-verified compatible
+ImageSharp patch selection; root owns semver-compatible npm lock updates, coordinated
+with B's browser checks. Retain before/after metadata, verify affected image/AI/UI
+behavior, and keep frozen resource snapshots immutable. No automatic major upgrade,
+new model execution or unsupported-platform claim is inferred.
+
+The integrated current-source Release engineering gate passes1,512 C# cases with
+one pre-existing live-Ollama skip; the build has no warnings/errors. The149 Angular
+cases and production build also pass. Script fixture tests pass12/12 with the
+necessary disposable loopback permission. These are engineering checks excluding
+six fitting classes, not recognition-quality or release-security acceptance.
+
+The next bounded NT-20 engineering task is shared layout-model ownership. Specify
+one native network shared by threshold views, idempotent wrapper disposal and
+last-owner network release; prove an alias survives another wrapper's disposal,
+reject disposed-wrapper use, preserve failed-load cleanup and serialize disposal
+against active inference/save operations. Exercise only random untrained fixture
+packages and fixed predictions, never fitting. Wire API singleton/worker/CLI owners
+to dispose their wrappers. Separate wrapper-lifetime proof from the unresolved
+upstream native retention. Frozen resource experiments retain their older binaries.
+
+The compatible npm patch refresh removed high-severity findings, then isolated
+CLI-scoped glob/minimatch overrides closed the remaining16 moderate entries.
+Actual consumer parity,149 browser tests and production builds pass on both
+Node22 and26; the main toolchain now audits clean. Keep the override scoped to
+its audited majors and remove it when upstream declares patched dependencies.
+ImageSharp remains a separate security release blocker; the owner has been asked
+for licensing/replacement direction and no enforcement bypass is permitted.
+
+A reentrant subscriber can publish an event while another subscriber has not yet
+received the outer event, despite the per-job Monitor lock. B will reproduce and
+repair only this ordered-delivery gap with a FIFO publication drain, preserving
+subscriber snapshots and explicit callback-failure behavior. Production SSE uses
+nonreentrant channel callbacks; this is bus contract hardening, not evidence of a
+new observed browser failure.
+
+Next measured optimization: native AI bulk resolution currently rereads and
+reparses each native project separately for every requested proposal (up to128).
+A will register a generated resolver-only before/after benchmark and preserve
+single-target, explicit-project, missing, duplicate, ambiguous and unauthorized
+semantics. A one-pass candidate may index only requested IDs while scanning each
+project once, retaining only bounded matches rather than loading all projects at
+once. Do not replace the authoritative native service validation or transactional
+permission guard. Require measured read/latency improvement and semantic controls
+before adoption; avoid a new persistent cache or schema/index migration.
+
+MAN-01 may advance through a bounded raster-integrity audit of the two existing
+CC BY4.0-declared M02b/c publisher deposits. Root will preserve fresh publisher
+metadata and complete archive checksums, verify every selected PNG against ZIP CRC
+and PAGE dimensions, and detect exact byte/pixel duplicates across the archived
+manuscript sets. Keep original source strings and geometry untouched. Acquiring
+research audit copies does not clear upstream photograph rights for redistribution,
+ratify labels, assign new splits or expose a fresh evaluation through inference.
+Keep all84 pages source-exposed/intake-only and whole witnesses together. No model
+loading, prediction or training is part of this work.
+
+A structural P46 crosswalk identifies an actual TEI import defect: physical `lb`
+markers nested in words or carrying `break=no` are folded, while verse `ab`
+boundaries create spurious rows. R's correction design and fail-before fixtures
+are approved at docs/tasks/tei-physical-lines-2026-11-05.md. Correct new imports to
+source-order physical milestones; retain logical-ab fallback only when no physical
+milestones exist, explicit contexts and safe refusal for cross-line alternatives.
+Do not alter stored projects, source packets, prior training targets, frozen
+rehearsals or review states. Matching source counts is not scholarly acceptance
+and is not established as the cause of earlier recognition error rates.
+
+Independent editor review found and reproduced a pre-existing same-line annotation
+read race. A's latest-request guard prevents an older list/error from resurrecting
+withdrawn alternatives or clearing a newer list. Both new controls and all151
+Angular cases pass with the production build. The already frozen runtime package
+predates this UI-only correction; its subsequent generated API stability probe
+therefore claims backend coverage, not latest browser behavior.
+
+The generated native-AI process probe is registered at
+.artifacts/native-ai-process-soak-v1:1,000 issue/explicit-accept cycles at9-second
+start cadence, one restart after500, fixed9,600-second wall cap, owned loopback
+provider double only. Preserve original L1/source attachments/account provenance,
+all receipts and exact counts through growth/restart. It runs after both frozen
+worker comparisons finish and never calls LM Studio or a real provider/model.
+
+Imaging review also found the general `Decode` path checking Skia dimensions only
+after allocating the bitmap, unlike its bounded-preview path. Root will add
+header preflight and ensure rejected decoded bitmaps are disposed, with generated
+oversized-header/invalid-pixel fail-before cases and a valid boundary control.
+This is independent of the ImageSharp replacement research and does not claim a
+universal image-memory ceiling or remove the TIFF security blocker.
+
+A final independent utility audit will address the remaining generic LabelCodec
+backlog without integrating it into trained models. B owns fail-before tests for
+UTF-16 splitting of supplementary characters, mutable caller/public mappings,
+empty/non-progress mappings and multi-unit merge label collisions. Preserve
+existing valid prefix-free cases and reject incompatible retained-unit merges
+rather than inventing a checkpoint mapping. Run only the explicitly named pure
+codec tests from the ML project; never execute that whole fitting project. R/root
+will review the merge contract before adoption. No weights or training labels change.
+
+Package inspection found that the actual framework-dependent runtime contains16
+NuGet packages but ships only this project's LICENSE/NOTICE, omitting upstream
+license/third-party-notice files available in the restored package cache. Root
+will add an offline, deterministic runtime-package inventory and copy those exact
+public notice files into the package before hashing/tarring it. Use only published
+runtime `.deps.json` package entries; validate paths/symlinks and refuse overwrite.
+Record nuspec license expressions, source metadata, hashes and unresolved notice
+coverage without treating package-level metadata as a complete native SBOM or
+legal redistribution approval. No remote license fetching, private key discovery
+or SPDX-text substitution. Tests cover preservation, traversal, symlink escape,
+missing metadata and fresh-output behavior. Keep ImageSharp and native-notice
+release-review gates open where evidence is incomplete.
+
+A's upstream-license research matches the exact PDFium native NuGet binary to an
+immutable vendor release archive and recovers16 accompanying license/notice files.
+Six managed package licenses are tied to nuspec repository commits. Promote those
+public texts and a source/hash catalog under docs/third-party, preserving their own
+terms and metadata discrepancies. They remain separate dated evidence: the offline
+runtime inventory keeps its conservative review flags, four SQLitePCL package
+versions lack an exact fixed-version source-license mapping, and no complete native
+SBOM/legal attestation is inferred. Package verification must include the catalog
+and exact copied bytes; no build-time remote fetch or third-party code is added.
+
+Read-only GitHub GET evidence now confirms the public repository's main branch at
+4138126 is unprotected, with no rulesets or registered Actions workflows. No remote
+settings were changed. This is a confirmed enforcement gap rather than merely an
+unverified state; policy and an inactive CI example do not impose required checks.
+Reviewer/DCO/trusted-check activation remains owner-governed under the hosting
+runbook, including the sole-maintainer review/bypass policy decision.
+
+The actual final-CLI P46 replay confirms81 new physical rows and preservation of
+old85-row projects, but exposes a pre-existing structured-language loss: explicit
+header langUsage/grc and inherited text@xml:lang=grc survive only in the source
+attachment; current native typed languages/export are empty. B owns a bounded
+metadata correction, with generated fail-before tests and R's independent review.
+Respect nearest explicit xml:lang, including an empty inheritance reset; keep
+header-declared languages distinct from effective line language and never infer
+language from glyphs. Preserve document declarations through native metadata and
+export within the bounded profile. No old project/label migration or Greek
+classification is implied. Reopen the product freeze only for this correction,
+then rerun the central gate and register a fresh package after source stabilizes.
+The436-file package remains verified historical evidence, not the corrected artifact.
+
+Verification incident follow-up: a parallel agent omitted the required exclusion
+filter in three Application and three API suite invocations. Those commands ran
+generated layout fixtures (three40-epoch and three30-epoch fits), outside the
+assigned non-fitting scope; no corpus/VLM training, accepted labels or promotion
+resulted. Preserve exact logs and disclose this in the handoff and packaged docs.
+The separate corrected-source engineering gate passes1,672 cases plus one existing
+live-Ollama skip with the audited exclusions and zero build warnings/errors.
+
+MID-35 adds discovery-time, test-only FittingFact/FittingTheory attributes to every
+case in the six audited classes. Skip unless LEVIATHANTEXT_RUN_FITTING is exactly1,
+before class construction (the API fixture trains in its constructor). A owns the
+shared helper, four affected test projects and regressions; root reviews sentinel
+default-skip/explicit-opt-in behavior without fitting. Keep the engineering filter
+as defense in depth. This does not guard every mixed-ML or real-corpus Pilot class;
+those projects remain excluded except the two pure codec classes. No production
+runtime change, model, label, benchmark or new fitting run is part of this guard.
+Repackage corrected documentation after verifying it, retaining older artifacts.
+
+INS-01a advances Classical-period metadata preparation without scholarly decisions:
+A will expand the existing15 conservative I01 candidates fully bounded500–323BCE
+into a source-hashed object/date/material/edition/graphic/rights ledger. Read at
+most15 official IIIF manifest metadata records; download no image, extract no
+pixels and make no provider/model call. Distinguish edition terms, photograph
+permissions and date chronology from Greek dialect/register. Preserve draft and
+unresolved states, item notice conflicts, exact receipts and original source bytes.
+This supplies a permissions/reviewer queue, not accepted image-aligned training data.
+
+After the1,000-cycle native-AI soak, source inspection identifies an unbounded
+managed root independent of the unresolved native-leak attribution: the singleton
+JobEventBus retains full proposal.created payloads keyed by source revision, despite
+no public proposal-event endpoint or browser consumer. MID-36 permits one narrow
+source-freeze exception: A removes these unused proposal created/failed job-bus
+publications and the controller's dependency, preserving durable native records,
+HTTP results and every actual job-event replay/subscription behavior. Add generated
+HTTP fail-before regressions and rerun filtered API/central gates before packaging.
+Do not bound/delete real job history or claim this explains the observed hundreds
+of MiB; fixed-size versus growing-history allocation/GC/RSS validation stays PERF-02.
+
+**Verified integration snapshot, November5 before the13:00CST handoff:**
+final non-fitting Release gate1,684passed plus one existing live-provider skip,
+zero build warnings/errors; frontend151passes/build and26script regressions.
+The final local osx-arm64 package has451manifest files, passes actual native AI,
+PNG, language/P46, CLI/API/UI/worker and update/rollback checks, and preserves
+all320registered input hashes,104packet files and the operator's default store.
+The earlier1,000-cycle process run completes with restart/source/receipt checks
+and clean exits, but its479/708MiB peaks keep resource acceptance open.
+MID-36 removes a demonstrated unused managed log root; no total-RSS/native fix is
+claimed. Forty-two verified checklist slices are archived in completed.md;
+remaining action is in todo.md, including permissive Imaging replacement,
+fitting/corpus/locked-test boundaries, resource/polling and job-retention work.
+Greek review, rights, fresh confirmation, model/VLM acceptance, hosting enforcement
+and broader deployment remain open. All new changes are uncommitted. The
+[detailed project state](docs/handoffs/project-state-2026-11-05.md) records the
+six accidental generated-fixture fits and corrective default guard explicitly;
+the work period is not described as entirely training-free.
+
+Late UI-01 review adds a concrete blocker after the final package build: local
+capture filesystem paths are serialized unchanged and used as browser image URLs.
+An owned generated-PNG check against that published API returns404 for the path,
+while /ui/ returns200. No product source was changed and no actual browser
+success is claimed. The [parallel capture-delivery brief](docs/tasks/local-capture-browser-delivery-2026-11-05.md)
+assigns API/frame/resource ownership separately from client/blob/browser validation,
+with independent security review. Implement authorized capture-ID delivery, source
+identity/geometry preservation and explicit EXIF/TIFF/preview transforms before
+calling the local full-surface workspace complete. This does not invalidate the
+recorded archive/CLI/API checks; it prevents treating them as broader UI acceptance.
+
+## UI-01 implementation assignment — 2026-11-05
+
+The owner explicitly authorizes the UI-01 fix, parallel work and regression tests;
+no fitting/training is authorized. A owns capture delivery Application/API DTO,
+resource admission and authorization tests; B owns Angular authenticated blob
+retrieval/lifecycle, capture/frame rendering and browser regressions; R independently
+reviews security/frame behavior and runs generated HTTP/headless-browser acceptance.
+Root integrates, runs the filtered engineering gate and reconciles todo/completed.
+Existing uncommitted changes and frozen historical artifacts are preserved.
+
+Approved contract: capture-ID-scoped GET
+`projects/{p}/surfaces/{s}/captures/{c}/display` descriptor and `/display/image`
+PNG. A versioned descriptor carries explicit source-frame ID, original raw source
+size, recorded checksum availability/verification, separately observed source
+checksum, derivative identity/checksum, preview size and independent exact scaleX/Y.
+The image GET uses If-Match against the descriptor derivative ID (412 on mismatch).
+No filesystem paths or client-selected source URI enter delivery requests, no
+filesystem-root static alias and no native project/source/geometry writes occur.
+
+Initial local PNG/JPEG policy: Skia raw stored pixel coordinates, normalized PNG
+without EXIF orientation, at most16MiB encoded input/16MP/12000pixels per dimension,
+preview at most2048pixels per edge/4MP, output at most16MiB, one concurrent decoder.
+Check source hashes/dimensions and trustworthy header limits before raster allocation.
+Cancellation is checked around native work; no hard mid-native CPU-time bound is
+claimed. TIFF remains an explicit actionable refusal rather than entering the
+unresolved full-frame fallback. Remote delivery is deferred without creating a
+proxy or leaking credentials; existing direct remote viewing must not silently
+regress, and incompatible/unverified frames cannot be edited as aligned geometry.
+
+Authorization follows current project membership/account/local-mode policy and
+is rechecked after expensive work before exposing buffered bytes. The client fetches
+through authenticated HttpClient, creates/revokes blob URLs, cancels and ignores
+stale visits/responses on navigation/key changes, and never sends keys to remote
+image URLs. SVG overlays and edits stay in original source coordinates; previews
+never replace native dimensions. Multiple captures show only frame-compatible
+geometry. Capture-only surfaces require no layout or recognition first.
+
+Acceptance includes meaningful fail-before tests, exact generated PNG/JPEG bytes/
+frame and all8EXIF orientation controls, refusal/resource/checksum/race/auth tests,
+actual generated capture-only HTTP delivery, frontend regressions and isolated
+actual headless browser rendering/edit/save/reload/proposal acceptance where the
+installed browser supports it. No user browser profile, real provider, corpus
+labels, model training or LM Studio setting/model change is part of this assignment.
+
+
+**UI-01 verified completion — November5 follow-up:** the final non-fitting Release
+selection passes1,756 cases plus one existing live-provider skip with zero build
+warnings/errors; Angular169cases and production build pass on Node22. Independent
+HTTP18/18 and actual API-default-/ui Chromium16/16 pass, including source-unit
+geometry save/reload, capture switching and L2 refresh retaining an unsaved L1 draft.
+Both alias-dimension before failures, cached frame-adoption failure and default
+hosting asset404 were corrected. Source bytes/native captures are not changed by
+delivery; explicit generated geometry actions remain in source coordinates. No
+training, new corpus accuracy study, LM Studio call, commit or push occurred.
+UI-01 is archived; UI-02/GEO-01 retain bounded-format and explicit secondary-frame
+API extensions. [Consolidated evidence](docs/evaluation/ui01-capture-delivery-2026-11-05.md).
+
+## Overnight engineering assignment — November5–6, 2026
+
+The owner authorizes maximum useful parallel work through **November6 05:00CST
+(11:00UTC)**, starting November5 15:46CST. The previous no-training instruction
+persists. No fitting, real-provider/LM Studio activity, new corpus accuracy search,
+Greek decisions, rights approval, institutional contact, commit/push or publication
+is part of this assignment. Preserve all current uncommitted work and historical
+artifacts. `.artifacts/overnight-2026-11-05/registration.json` pins initial source,
+ownership and deadline. Archive only measured/verified completed slices at cycle end.
+
+Parallel first wave: A owns SEC-01 Imaging backend/dependency prototypes; R owns
+independent pinned baseline/candidate format/resource/license evaluation; B owns
+TEST-01 discovery capability gates and safe dataset partition loading. Root owns
+GEO-01 capture-aware geometry API/client integration and subsequent JOB-01/PERF-02
+work, disjoint from those files. Each owner uses isolated build outputs, preserves
+negative evidence and proposes shared interfaces before editing another owner's
+files. Exact six fitting exclusions plus the two pure codec classes remain the
+engineering selection; no mixed ML/Pilot wholesale run is allowed.
+
+SEC-01 retains all demonstrated Skia and fallback formats, first-directory/raw-frame
+and checksum/pixel behavior. No candidate adoption until exact license/dependency,
+compatibility and resource changes are independently reviewed. An advisory-free
+graph alone is insufficient. TIFF bounds must precede raster/metadata allocation
+where claimed; no new unbounded fallback or unsupported-format removal is hidden.
+
+TEST-01 separates fitting/corpus/locked capabilities, skips before setup and ensures
+train/dev loading never opens locked contents by default. Pure utility selection
+remains unchanged; positive opt-in proofs use harmless sentinels/recording loaders,
+never actual fitting or reserved labels. Deliberate public-loader safe defaults and
+consumer migration require root's contract review.
+
+GEO-01 first adds explicit capture/frame targeting for new line/region geometry,
+exact region/frame and source-bound validation, optimistic guards and generated
+API/frontend tests. Existing calls remain compatible where unambiguous; no
+coordinate inference or cross-frame merges. Only then remove UI-01's temporary
+primary-new-line restrictions. Broader mixed-frame ordering needs explicit subset
+semantics with full-order preservation and stale-state guards before enabling it.
+
+Later waves may register the existing PERF-01 worker comparison, profile native-AI
+history growth and bound job replay/slow-client retention, with source-frozen
+controls and owned-process cleanup. Resource comparisons use generated inputs or
+already authorized inference-only checkpoints without reading reference labels;
+no model-quality or upstream-native-leak acceptance is inferred. Final integration
+requires filtered C#/frontend checks, independent review and concrete runtime
+proofs. Owner-dependent governance/scholarly gates remain open.
+
+
+### Overnight milestone — November 5, 22:39 UTC
+
+TEST-01 and GEO-01 are complete and archived with their original task wording.
+The filtered engineering gate passed1820 C# cases and18 intentional skips;
+Angular174 cases and the independently API-hosted18-case capture-geometry browser
+proof passed. No fitting, real corpus labels, provider calls or publication occurred.
+See [capture geometry](docs/evaluation/capture-geometry-2026-11-05.md) and
+[test boundaries](docs/evaluation/fitting-and-corpus-test-boundaries-2026-11-05.md).
+Safe train/dev loading and nullable unloaded reserved counts are intentional API
+behavior changes; legacy model JSON integer counts remain readable. GEO-02 retains
+existing-line source-binding work; creation/order success does not close it.
+
+JOB-01 is now implementing the [registered bounded event contract](docs/tasks/bounded-job-events-2026-11-05.md).
+Two generated controls failed against the frozen old bus (10000 retained events
+and idle-stream retention), before bounded counts/gaps were implemented. Final
+resource/security/HTTP verification and independent review remain pending.
+SEC-01 is still isolated: independently reproduced BigTIFF big-endian refusal and
+associated16-bit alpha differences block adoption. A minimal pinned-source permissive
+fork is a proof only; archive validation, performance and licensing integration
+remain open. Work continues until November6,05:00 CST; no training is authorized.
+
+
+### Overnight milestone — November 6, 00:31 UTC
+
+GEO-02 is complete and archived after its independent source review,198 frontend
+passes,14 actual generated browser/API checks and the current no-fitting gate:
+1935 C# passes,18 intentional skips,zero failures. Compilation reports zero
+warnings/errors. A prior Roslyn exit139 is preserved; unchanged source passed a
+serial retry without an established crash cause. The narrow returned-pixel budget
+backport passes14 cases; no dependency replacement is implied.
+
+An independently found raw-recognition identity defect now has five fail-before
+cases and eight identity regressions plus seven preprocessing controls passing:
+long line prefixes no longer collapse into duplicate L0 IDs, valid long job IDs
+fit native identity bounds, and unambiguous historical retry identity is retained.
+Ambiguous histories receive a typed refusal without persistence. [Evidence](docs/evaluation/recognition-revision-identity-2026-11-05.md).
+
+JOB-01 has70 focused backend/12 client controls and the central gate. Independent
+managed retention plateaus are demonstrated; publication has a disclosed small
+absolute cost. Eight fresh durable SQLite comparison processes verify full record
+parity but show substantial shared-host variation, not universal throughput
+acceptance. [Current evidence](docs/evaluation/bounded-job-events-2026-11-05.md).
+
+SEC-01's224 primary resource visits preserve exact registered output/source
+identity. TIFF Decode/Band CPU/allocation improves substantially, but full-frame
+RSS is nonuniform and TIFF archive validation materially regresses time/allocation/
+RSS. The archive migration and ImageSharp removal remain blocked; a streaming
+validator is only a proposed next candidate. Associated16 source-equivalence
+exceptions are approved with independent holdouts; gray-alpha remains explicitly
+deferred. The production dependency still has six known advisories.
+
+PERF-01 has a fresh current109-file worker baseline and a one-line candidate,
+with the sole DLL/PDB difference and35 generated semantic controls passing per
+variant. PERF-02's isolated request-local index passes93 parity cases per variant
+and41 service/30 HTTP controls; complete API instrumentation, canonicalization and
+registered long-run evidence are still pending. Neither candidate is adopted from
+preparation evidence. Work continues to November6,05:00 CST with no fitting,
+natural quality scoring, provider/LM Studio requests, commit or publication.
+
+### Overnight continuation — November5–6,2026
+
+Work continues in parallel until November6 at05:00 America/Chicago (11:00UTC), without training, specialist-label acceptance or real VLM/provider calls. Root integrates shared code and the board; independent owners maintain decoder prototypes, resource evaluation and the native-AI index comparison. Current main verification is1938 C# engineering passes/18 intentional skips and218 frontend passes. The retry-safe worker polling change is integrated with explicit negative recovery evidence preserved; the owner-scoped response-cache correction is integrated while whole-workspace/draft reauthorization remains open.
+
+A separately sealed native-AI24-visit experiment began02:36:37UTC. Its1GiB sampled RSS cap,1800-second per-visit cap,1000 operations at one-second cadence, immutable10:00UTC deadline and cleanup reserve are fixed before execution. Other owners perform source review/preparation only during that measurement window; source changes are not verified or adopted merely because they are prepared. Detailed results and limits remain in the linked evaluation records and todo.md.
+
+Source-only review during that campaign also identified two authenticated download links that bypass Angular's auth interceptor. The separate [export correction](docs/tasks/authenticated-export-downloads-2026-11-06.md) assigns disjoint page/view ownership and callback/HTTP acceptance. The proposed additive [principal discriminator](docs/tasks/principal-discriminator-contract-2026-11-05.md) is independently reviewed but isolated and untested; it is an enabling seam, not whole-workspace draft ownership. A [parallel workspace brief](docs/tasks/workspace-principal-draft-boundary-2026-11-06.md) preserves that larger boundary and its data-loss risks.
+
+### Workspace continuity follow-up — 2026-11-06
+
+After the retained-parser measurement window, implement the AUTH-UI-01 boundary in parallel from the existing workspace principal/draft brief. Root owns the additive principal namespace API, shared contract, integration and central gates. Instance A owns new coordinator/types/recovery-store modules; instance B (assigned after its current diagnostics) owns preserved editor/workspace integration. Independent evaluator reviews authorization, stale callbacks and draft preservation before adoption. Source-only preparation is allowed during resource quiet; no builds or generated workloads overlap measurements.
+
+Namespace policy: expose an optional canonical nonempty UUID from explicit `LeviathanText:Auth:WorkspaceNamespace` configuration on fresh persisted-account `/me` replies. It is a nonsecret operator-assigned deployment/store namespace, never a credential/name/path-derived value and never auto-generated per request. Missing/malformed configuration yields no durable ownership capability. Local/bootstrap have no durable account namespace. This additive API grants no membership and changes no authentication policy or database schema. An operator must use a distinct UUID for unrelated stores/deployments; cloning a store with independent ownership requires changing it.
+
+New owner-scoped recovery requires the complete namespace/account/project/line identity and stores text plus true base atomically. Preserve all existing ownerless legacy bytes without automatic import/reassignment/deletion. Missing namespace may keep the only mounted draft but must not manufacture durable ownership. Credential/access changes immediately suspend presentation, actions and background effects, with pending writes explicitly uncertain. Same-account resumption requires current network-only `/me` and selected-project confirmation; local/bootstrap/different account transitions quarantine prior work. Do not mark the full task complete from helper tests alone: require coherent before/after component tests, actual browser evidence, full frontend/production and safe backend gates.
+
+
+### Continuation checkpoint — November6 07:15UTC
+
+Current integrated frontend passes550 tests and the production Angular build. Actual default-API UI browser proof passes14/14 with a generated two-account name-reuse fixture, exact retained text/undo/geometry/order and late acknowledged-save preservation; all593 frozen inputs and owned-process cleanup close. The actual request storm from an accidentally tracked credential effect remains preserved as a failed earlier run and is fixed by a bounded reproduced regression. Historical fixture migrations retain original source/assertions and explicitly document stronger ownership/unknown-receipt semantics; they are not a claim that old cached access or duplicate retry behavior remains allowed.
+
+Continue three independent engineering tracks before the05:00CT deadline: (1) isolated A21 archive-resource qualification after223 exact compatibility controls, preserving the older slowdown and all source/mode/flag oracles; (2) a fixed generated native-storage and actual-editor responsiveness/capacity study with honest persistence failures and no journal deletion; (3) opt-in worker automatic renewal using the existing ClaimId, bounded one-attempt CAS and an independently owned peer connection. Instance R prepares engine/adapter/renewal source in an isolated mirror; instance B owns independent actual blocked-handler/stale-claim/process tests, while instance A owns the journal study. Root owns shared contracts, actual metric quiet approvals, integration and final gates. No fitting, corpus scoring, real model/provider calls, commit/push, publication or machine settings are authorized by these engineering experiments. Full workspace task closure still depends on explicit unknown-receipt/legacy/branch/compaction/durable-geometry workflows; preserving an unresolved draft is not resolution.
+
+### Unplaced native reference recovery — NATIVE-REF01
+
+A generated journal-study fixture reproduced an existing data-preservation defect: NativeJson.Save writes default optional NativeLine.RegionId/FrameRef as `col-`, but NativeJson.Load rejects it. ProjectIntegrity explicitly permits default unplaced references; no invented region/capture should be assigned to repair them. Root owns an isolated narrow converter/test change for NativeLine.RegionId, NativeLine.FrameRef and NativeRegion.FrameRef only: JSON null represents default, exact legacy `col-` is recoverable absence in these three fields, and every valid ID remains unchanged. Required identities, global EntityId.Parse/JSON strictness, required field presence, malformed near-misses and source geometry remain unchanged. Capture actual Save→Load failures and source immutability first, then test legacy recovery and repeated canonical roundtrip, store reopen/backup behavior and required-ID refusals before main integration. No automatic database rewrite or source-image/frame assignment is authorized. Keep current measurement packages frozen; prepare in an isolated mirror while those packages run.
+
+
+### 2026-11-06 07:46 UTC continuation
+
+The full Angular suite passes550 and the actual API/Chrome workspace proof passes14. The next finite workstream is the sealed journal baseline (four nativeStorage cohorts and128 trusted editor events), independently reviewed with exact owned cleanup. All other CPU workloads pause during observation; source/test preparation continues in parallel. Native unplaced-reference baseline9FAIL52PASS now has an isolated narrow61PASS correction, pending independent LocalStore/backup proof and main integration. Worker automatic renewal has16 independently authored controlled passes; actual independently observed SQLite process proof is still being registered. Main default renewal stays off. After journal closure, transport owner A proceeds on AUTH-SSE-01 from the header-authenticated stream brief; root and R retain integration/independent-review ownership. No training, real providers, reserved-label scoring or hosting/commit changes.
+
+
+### Recovery and native ownership follow-up contracts
+
+The authoritative mutation receipt brief is proposed and unimplemented. It binds stable account/namespace, exact target/payload and operation UUID, requires atomic revision+receipt publication with a reviewed schema migration, and keeps absent/legacy receipts unknown. It splits backend transaction work from independent client/lost-response verification. No current uncertain write is replayed or cleared. The exceptional bitmap ownership brief separately scopes inner factory failures, forbids unsafe OOM stress and requires honest labeling when only extracted control flow can reproduce a failure. These are future gates, not closures of current source/retention or scientific limitations.
+
+## November6 final integration checkpoint (working until05:00CT)
+
+Current safe engineering-v9 passes2204 C# tests with18 intentional skips and zero build warnings/errors; current whole Angular suite passes639. Production initial assets total506787 bytes against the unchanged500000-byte warning budget. The current API-hosted browser validates38 functional checks and1118 unchanged registered inputs, including protected raw jobs list/snapshot failures and stale-request credential pinning. Current GET401/403 invalidates shared authority; Reader enqueue403 is local, and enqueue401 invalidates authority. All browser-owned processes/stores are closed with explicit restart-escalation evidence.
+
+Bounded DERIV-02a destination cleanup and AUTH-JOBS-RAW-01 are archived;188 completed checklist entries are recorded. Broader DERIV-02 native/platform/resource qualification remains open. Worker renewal stays opt-in/default disabled; no unsupported rollout or hard native-wait guarantee is inferred.
+
+The matched journal v5 experiment completes all8 visits/328 attempts but fails its preregistered512-scalar load gate (9.50% improvement versus10% required). Main journal source remains unchanged. Both bundle candidates also miss the unchanged initial-size gate; neither is adopted. ImageSharp replacement remains isolated:223 compatibility cases pass, but representative wall cost, resource/security/provenance and platform gates remain unresolved. No further fitting occurs after the engineering capability guard; earlier accidental synthetic-fixture fits and incomplete temporary-store cleanup are disclosed in the detailed state report. No manuscript training, scholarly scoring, real provider/LM Studio calls, hosting changes, commits or pushes occur in this work window. All81 Greek-specialist decisions remain pending.
+
+The authoritative detailed snapshot and next priorities are [project-state-2026-11-06.md](docs/handoffs/project-state-2026-11-06.md). Preserve raw failed runs and cleanup receipts; do not turn preparation, extracted controls, requested-GC observations or historical counts into broader acceptance claims.
+
+Final read-only review adds AUTH-RECOVERY-03 for untracked manual annotation/L2 outcomes, partial abbreviation commits and newer-form clearing. No broad unknown-write closure is claimed. A narrow engineering-runner fix now overrides inherited live-provider opt-in; two recording-double regressions, current TestPolicy18/17skip and Python7/7 pass separately from full v9. The completed archive contains189 entries. See the detailed report for the earlier accidental synthetic fitting disclosure and current exact scope.
+
+Final bounded FORM-ACK-01 delivery preserves newer different form values across older successful annotation/abbreviation acknowledgements (actual original2FAIL+2controls → identical4PASS). Full643 frontend cases, production507074B initial assets and fresh38-check API/browser replay with1119 unchanged inputs pass; unchanged500000 budget warning remains7074B. Archive now190. This closes only value-equality form preservation, not manual uncertainty/partial-commit/shared-mutex/ABA receipt gates. Production source is frozen for final audits; no new runtime starts after10:45UTC.
+
+Timebox closed November6 at05:00CT/11:00UTC. Final source/documentation audits complete; no runtime remains active. See the closed detailed project state and final verification receipt for exact scopes. No additional task is marked complete merely because the timebox ended. Changes remain uncommitted/unpushed.
+
+## November6 uncommitted-change review and correction
+
+New owner instruction: review the full uncommitted batch, fix discovered issues with regression coverage, work in parallel, and do not train. Root owns frontend authorization/cache/request/recovery/geometry/surface review, shared integration and boards. Instance A owns LineEditor/ProposalPanel review and bounded data-preservation corrections; Instance B owns API authorization, jobs/worker and AI transports; Instance R owns persistence, formats, imaging and application data/geometry corrections. These scopes are disjoint; shared changes must be coordinated before editing. Review includes untracked production sources, not only Git's tracked diff. Preserve existing work and before-failure evidence; no commits, provider calls, scientific scoring or training. Serialize shared .NET builds; use the audited engineering entry point or inspected exact focused class allowlists with all four experiment/live-provider flags off. Root runs current integrated checks after fixes, then records findings, acceptance and remaining limitations in todo/completed and a new review handoff.
+
+
+### November6 review acceptance
+
+The uncommitted-review correction is verified: engineering-v2 passes2288 selected C# cases with18 intentional skips and0 build warnings/errors; final whole frontend680/680, Python27/27, actual npm consumer checks and production AOT build pass. Current initial frontend assets total517251B against the unchanged500000B warning budget. No current hosted-browser replay is inferred from the earlier05:00CT38-check proof: this review uses actual API/SQLite regression tests and current component/composed DOM tests. The full [review handoff](docs/handoffs/uncommitted-review-2026-11-06.md) records fixed findings and qualified before evidence.
+
+Manual-operation admission/recovery is a bounded partial delivery under AUTH-RECOVERY-03: recoverable original-scope ancillary evidence blocks replay, partial L2 IDs are preserved, and shortcuts refuse differing/unknown L2 history. Existing merge=true with null parent supplies expected-empty concurrency; known parents use strict append to preserve scalar link ranges. There is no general receipt lookup/adjudication, atomic two-request expansion, durable proposal packet or universal unsubmitted-form recovery. Restore null-container validation is read-only and scoped; additional required scalar/object/reference integrity remains NATIVE-VERIFY-03. Scientific training, real providers and specialist adjudication were not performed. All changes remain uncommitted and unpushed.

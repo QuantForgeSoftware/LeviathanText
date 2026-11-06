@@ -32,11 +32,47 @@ John Baima leads the official project under [GOVERNANCE.md](GOVERNANCE.md). Code
 
 ```bash
 dotnet restore
-dotnet build LeviathanText.slnx -c Release   # 0 errors, 0 warnings expected
-dotnet test LeviathanText.slnx               # all suites green
+scripts/verify-engineering.sh              # build + selected non-fitting C# suites
 ```
 
-The dataset-backed pilot tests are skipped automatically when the artifact store is absent; nothing else in the suite depends on data.
+The engineering command records logs, TRX results and its exact filter in a fresh
+receipt directory (`--results <new-directory>` selects it; `--no-build` reuses an
+existing Release build). It explicitly disables fitting/corpus/locked flags and inherited live Ollama opt-in,
+excludes the six audited fitting classes and all pilot workflows, and includes
+the pure managed test-policy and output-reservation controls.
+The mixed ML project runs only two explicitly audited pure LabelCodec classes;
+its model/training tests are not selected. Some inference/lifecycle tests load generated or existing
+fixtures; the live Ollama test is forced off by this entry point. This is functional evidence,
+not a Greek accuracy or complete-suite acceptance claim.
+
+Audited generated fitting and real-corpus ML/Pilot entry points now use independent
+discovery-time capabilities: exact `LEVIATHANTEXT_RUN_FITTING=1`,
+`LEVIATHANTEXT_RUN_CORPUS=1` and `LEVIATHANTEXT_RUN_LOCKED=1` for the capabilities
+each selected method needs. Disabled tests skip before constructors and theory
+data providers. These flags do not grant authorization; the source audit is not a
+compiler-proved guarantee for every future test. Explicit experiments also require
+`LEVIATHANTEXT_TEST_OUTPUT_DIR`, an existing physical absolute container under
+`.artifacts/experiments` or OS temp; each run reserves a fresh child and never
+reuses historical reports/models. Pilot fixture copying is corpus-opt-in at build
+time; default builds do not erase files copied by an earlier opt-in build.
+
+`P01LineDataset.Load` now loads train/dev contents only. Reserved contents require
+explicit `LoadPartitions(..., DatasetPartitionAccess.TrainDevAndLocked, ...)` and
+separate authorization. A reserved count of `null` means not loaded, distinct from
+a measured zero; old manifests with integer counts remain readable.
+
+`dotnet test LeviathanText.slnx` includes synthetic fitting and dataset-backed pilot
+entry points when their capabilities are enabled; it is not the audited engineering
+selection above. Enable fitting and dataset capabilities only for an authorized experiment. For the Angular workspace, run `npm ci`, `npm run build`
+and `npm test -- --watch=false --browsers=ChromeHeadless` in `web/`.
+Run `npm run verify:consumers` there to exercise the actual Angular CLI dependency
+consumers covered by the bounded glob/minimatch security overrides, using offline
+generated fixtures. The script cleans its own temporary directory; pass
+`-- --results-dir /absolute/new-directory` to retain results in a fresh directory.
+See [the security update evidence](docs/evaluation/npm-security-update-2026-11-05.md).
+Development script
+checks use `python3 -B -m unittest discover -s scripts/tests`; Python is not a product
+runtime dependency.
 
 ## CLI (local, offline)
 
@@ -88,8 +124,9 @@ dotnet run --project src/LeviathanText.Api
 #       GET /jobs (recent, ?status=), GET /jobs/{id}, GET /jobs/{id}/events (SSE with cursor replay)
 
 # Shared deployment (opt-in): set LeviathanText:Auth:ApiKey (Bearer or X-Api-Key required
-# under /api/v1); LeviathanText:Auth:ReadOnly=true blocks mutations. Without a key the API
-# is local-only (no accounts/roles/audit) and must not be exposed.
+# under /api/v1); LeviathanText:Auth:ReadOnly=true blocks mutations. Local fallback applies
+# only when no bootstrap key AND no stored users exist; do not expose local fallback.
+# Account deployments: see docs/operations.md for stable workspace ownership configuration.
 ```
 
 ## Web workspace
@@ -125,3 +162,9 @@ See [docs/evaluation/pilot-p01-report.md](docs/evaluation/pilot-p01-report.md). 
 - [docs/data/](docs/data/) — per-track source cards, license registers, and acquisition/audit records
 - [docs/evaluation/acceptance-plan.md](docs/evaluation/acceptance-plan.md) — evaluation design and acceptance-sheet template
 - [docs/handoffs/](docs/handoffs/) — instance handoffs
+
+Local capture viewing uses authenticated, bounded PNG/JPEG previews without
+rewriting original captures or geometry. See the [UI-01 frame/format contract](docs/evaluation/ui01-capture-delivery-2026-11-05.md).
+Production Angular builds default to `/ui/`, matching the API's default `WebPath`;
+custom hosting paths require a matching `--base-href /your-path/` production build.
+Development `ng serve` retains its root path.

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -11,7 +12,7 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public class CheckpointIntegrityTests
 {
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Loading_with_a_different_label_set_fails_as_model_incompatible()
     {
         var dir = Path.Combine(Path.GetTempPath(), "lt-checkpoint-integrity", Guid.NewGuid().ToString("N"));

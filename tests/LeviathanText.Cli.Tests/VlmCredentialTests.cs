@@ -3,8 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace LeviathanText.Cli.Tests;
 
@@ -16,7 +15,11 @@ public sealed class VlmCredentialTests : IDisposable
     public VlmCredentialTests() => Directory.CreateDirectory(_root);
     private string Manifest()
     {
-        using var image = new Image<L8>(2, 1, new L8(255)); var path = Path.Combine(_root, "image.png"); image.SaveAsPng(path);
+        using var image = new SKBitmap(2, 1, SKColorType.Gray8, SKAlphaType.Opaque);
+        image.Erase(SKColors.White);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        var path = Path.Combine(_root, "image.png");
+        File.WriteAllBytes(path, png.ToArray());
         string manifest = Path.Combine(_root, "manifest.json");
         File.WriteAllText(manifest, JsonSerializer.Serialize(new
         {

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
@@ -34,7 +35,7 @@ public sealed class ManuscriptAutoLayoutRecognitionTests(ITestOutputHelper outpu
             [.. _projects.Select(kv => (EntityId.Parse(kv.Key), NativeJson.Load(kv.Value).Name))];
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Manuscript_page_gets_layout_then_recognition()
     {
         var root = FindRepoRoot();

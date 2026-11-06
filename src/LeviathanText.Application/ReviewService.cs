@@ -60,6 +60,11 @@ public sealed class ReviewService(IProjectStore store)
                 Scope = revisionId.ToString(),
                 Message = "The line's current revision is missing from the surface.",
             });
+        var current = surface.Revisions.Where(revision => revision.Id == revisionId).Take(2).ToArray();
+        if (current.Length != 1 || current[0].ScopeId != lineId || current[0].Layer != TextLayer.L1Diplomatic
+            || project.Objects.SelectMany(obj => obj.Surfaces).SelectMany(page => page.Revisions)
+                .Count(revision => revision.Id == revisionId) != 1)
+            throw InvalidTarget(revisionId, "The current diplomatic revision is ambiguous or belongs to another line/layer; no review was recorded.");
         if (reviewedRevisionId is { } requested && requested != revisionId)
             throw new LeviathanException(new LeviathanError
             {
@@ -129,6 +134,11 @@ public sealed class ReviewService(IProjectStore store)
         return (foundProject, updatedSurface, decision, correction);
     }
 
+    /// <summary>
+    /// Review status describes only the current diplomatic revision. Correction counts
+    /// describe provenance of that revision, independently of reviews of its new text.
+    /// Historical decisions remain in the append-only surface ledger.
+    /// </summary>
     public Summary Summarize(NativeProject project, EntityId? surfaceId = null)
     {
         var lines = new List<LineReview>();
@@ -145,10 +155,7 @@ public sealed class ReviewService(IProjectStore store)
                     continue;
                 transcribed++;
 
-                var decisions = surface.ReviewDecisions
-                    .Where(d => d.LineId == line.Id)
-                    .OrderBy(d => d.At).ThenBy(d => d.Id, StringComparer.Ordinal)
-                    .ToList();
+                var decisions = CurrentDecisions(surface, line.Id, rid);
                 var reviewers = decisions.Select(d => d.Reviewer).Distinct(StringComparer.Ordinal).ToList();
                 var outcomes = decisions.Select(d => d.Outcome).ToList();
                 var latest = decisions.Count == 0 ? (ReviewOutcome?)null : decisions[^1].Outcome;
@@ -160,7 +167,8 @@ public sealed class ReviewService(IProjectStore store)
                 if (isDouble) doubleReviewed++;
                 if (isDisputed) disputed++;
                 if (latest == ReviewOutcome.Accept) accepted++;
-                if (latest == ReviewOutcome.Correct) corrected++;
+                if (surface.ReviewDecisions.Any(d => d.LineId == line.Id &&
+                    d.Outcome == ReviewOutcome.Correct && d.CorrectedRevisionId == rid)) corrected++;
                 if (disagreement) needsAdjudication++;
 
                 lines.Add(new LineReview(line.Id, surface.Id, current.Text, decisions.Count,
@@ -171,7 +179,7 @@ public sealed class ReviewService(IProjectStore store)
         return new Summary(transcribed, reviewed, doubleReviewed, disputed, accepted, corrected, needsAdjudication, lines);
     }
 
-    /// <summary>Adjudication CSV: only lines whose reviewers disagree, with every decision.</summary>
+    /// <summary>Adjudication CSV: only current-revision disagreements, with their current-revision decisions.</summary>
     public string ExportAdjudicationCsv(NativeProject project)
     {
         var summary = Summarize(project);
@@ -180,12 +188,10 @@ public sealed class ReviewService(IProjectStore store)
 
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces))
         {
-            var revisions = surface.Revisions.ToDictionary(r => r.Id);
             foreach (var review in summary.Lines.Where(l => l.SurfaceId == surface.Id && l.NeedsAdjudication))
             {
-                var decisions = surface.ReviewDecisions
-                    .Where(d => d.LineId == review.LineId)
-                    .OrderBy(d => d.At)
+                var revisionId = surface.Lines.Single(line => line.Id == review.LineId).DiplomaticRevisionId!.Value;
+                var decisions = CurrentDecisions(surface, review.LineId, revisionId)
                     .Select(d => $"{d.Reviewer}={d.Outcome}" + (string.IsNullOrEmpty(d.Note) ? "" : $"({d.Note})"))
                     .ToList();
                 var text = review.Text;
@@ -201,6 +207,10 @@ public sealed class ReviewService(IProjectStore store)
         return builder.ToString();
     }
 
+    private static List<ReviewDecision> CurrentDecisions(NativeSurface surface, EntityId lineId, EntityId revisionId) =>
+        surface.ReviewDecisions.Where(d => d.LineId == lineId && d.RevisionId == revisionId)
+            .OrderBy(d => d.At).ThenBy(d => d.Id, StringComparer.Ordinal).ToList();
+
     private static string Escape(string value) =>
         value.Contains('"') || value.Contains(',') || value.Contains('\n') || value.Contains('\r')
             ? '"' + value.Replace("\"", "\"\"") + '"'
@@ -209,11 +219,17 @@ public sealed class ReviewService(IProjectStore store)
     private static (NativeProject Project, NativeSurface Surface, NativeLine Line) FindLine(
         NativeProject project, EntityId lineId)
     {
-        foreach (var obj in project.Objects)
-            foreach (var surface in obj.Surfaces)
-                foreach (var line in surface.Lines)
-                    if (line.Id == lineId)
-                        return (project, surface, line);
+        var matches = project.Objects.SelectMany(obj => obj.Surfaces)
+            .SelectMany(surface => surface.Lines.Where(line => line.Id == lineId).Select(line => (Surface: surface, Line: line)))
+            .Take(2).ToArray();
+        if (matches.Length > 1)
+            throw InvalidTarget(lineId, "The line identity is ambiguous; no review was recorded.");
+        if (matches.Length == 1)
+        {
+            if (project.Objects.SelectMany(obj => obj.Surfaces).Count(surface => surface.Id == matches[0].Surface.Id) != 1)
+                throw InvalidTarget(matches[0].Surface.Id, "The surface identity is ambiguous; no review was recorded.");
+            return (project, matches[0].Surface, matches[0].Line);
+        }
         throw new LeviathanException(new LeviathanError
         {
             Code = ErrorCode.InputMissing,
@@ -221,6 +237,12 @@ public sealed class ReviewService(IProjectStore store)
             Message = "No such line in the project.",
         });
     }
+
+    private static LeviathanException InvalidTarget(EntityId id, string message) => new(new LeviathanError
+    {
+        Code = ErrorCode.StageContractViolation, Scope = id.ToString(), Message = message,
+        Details = new Dictionary<string, string> { ["reason"] = "ambiguous-review-target" },
+    });
 
     private static NativeProject WithSurface(NativeProject project, NativeSurface surface) =>
         project with

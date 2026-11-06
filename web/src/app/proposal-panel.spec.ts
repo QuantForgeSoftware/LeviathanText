@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ApiClient } from './api-client';
@@ -17,7 +18,7 @@ function setup() {
   const response = new Subject<ReturnType<typeof advisory>>();
   const addAnnotation = jasmine.createSpy('addAnnotation').and.returnValue(of({ annotationId: 'ann-saved' }));
   const propose = jasmine.createSpy('propose').and.returnValue(response);
-  TestBed.configureTestingModule({ imports: [ProposalPanel], providers: [{ provide: ApiClient, useValue: {
+  TestBed.configureTestingModule({ imports: [ProposalPanel], providers: [provideWorkspaceTestAccess(), { provide: ApiClient, useValue: {
     providers: () => of({ providers: [{ configRef: 'test', settings: { modelId: 'test-model' } }] }),
     propose, addAnnotation,
   } }] });

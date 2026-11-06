@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Evaluation;
@@ -33,14 +34,14 @@ public sealed class ManuscriptPilotTests(ITestOutputHelper output)
     private static bool MarkupContaminated(string text) =>
         text.Contains('<') || text.Contains('>') || text.Contains('&') || text.Contains('[') || text.Contains(']');
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Ingest_Train_AndScore_OnPageHoldout()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "M02a dataset not downloaded.");
 
         var xmlDir = Path.Combine(dataDir, "xml");
-        var snapshot = P01LineDataset.Load(xmlDir, imageExtension: ".png");
+        var snapshot = P01LineDataset.LoadPartitions(xmlDir, DatasetPartitionAccess.TrainDevAndLocked, imageExtension: ".png");
 
         // Filter markup-contaminated labels out of ALL splits (they stay excluded, not hidden).
         var train = snapshot.Train.Where(l => !MarkupContaminated(l.Text)).ToList();
@@ -86,7 +87,7 @@ public sealed class ManuscriptPilotTests(ITestOutputHelper output)
         Assert.True(cer < 1.0, $"page-holdout CER {cer:0.###} must beat the empty baseline");
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void CrossWitness_Generalization_TrainOnM02a_ScoreM01()
     {
         var m02aDir = FindDataDir(); // m02a root
@@ -116,7 +117,7 @@ public sealed class ManuscriptPilotTests(ITestOutputHelper output)
         var trainer = new CtcTrainer(model, labels, config);
         trainer.Fit(train, dev);
 
-        var m01 = P01LineDataset.Load(m01Dir, imageExtension: ".png");
+        var m01 = P01LineDataset.LoadPartitions(m01Dir, DatasetPartitionAccess.TrainDevAndLocked, imageExtension: ".png");
         var all = m01.TestLocked.Concat(m01.Dev).Concat(m01.Train).ToList();
         var sample = all.Where((_, i) => i % 4 == 0).ToList();
         var results = new TorchLineRecognizer(model, labels).Recognize([.. sample.Select(l => l.Image)]);

@@ -1,6 +1,7 @@
 # Kraken test parity matrix
 
-Date: 2026-10-21. Source: local Kraken checkout at `bb487219e7d8289274443d1ad0989efb4924dc2a`.
+Inventory captured: 2026-10-21. Engineering reconciliation: 2026-11-05. Source: local
+Kraken checkout at `bb487219e7d8289274443d1ad0989efb4924dc2a`.
 
 This is a behavioral parity plan, not a claim that every Kraken test is applicable. Tests are reimplemented as C#/xUnit scenarios; no Python test code, fixtures or implementation are copied. Kraken is Apache-2.0.
 
@@ -8,36 +9,64 @@ This is a behavioral parity plan, not a claim that every Kraken test is applicab
 
 | Module | Tests | Status | Leviathan target |
 | --- | ---: | --- | --- |
-| `test_align.py` | 9 | feature-gap | forced alignment / region assignment |
+| `test_align.py` | 9 | partial | CTC forced alignment with baseline-OCR records, cuts/confidence and region identity; full source API/display-order equivalence unverified |
 | `test_arrow_dataset.py` | 8 | not-applicable | Kraken Apache Arrow dataset backend; out of local C# scope |
 | `test_binarization.py` | 3 | partial | image preprocessing thresholds/BW handling |
-| `test_cli.py` | 11 | replicate | CLI output modes, segmentation/recognition failures |
+| `test_cli.py` | 11 | partial | independent CLI segmentation/recognition/output/failure tests; no reference-application comparison |
 | `test_codec.py` | 11 | partial | label codec strictness/unknown labels |
-| `test_container.py` | 16 | partial | baseline ↔ bbox geometry + direction |
-| `test_dataset.py` | 15 | partial | class-map filtering/merging and target rasterization; image transforms/loader remain |
+| `test_container.py` | 16 | partial | baseline/bbox direction/topline/degenerate helpers + hOCR boundary-first/baseline-fallback export; full import/UI conversion and all shared-field casts not established |
+| `test_dataset.py` | 15 | partial | class maps, target rasterization, channel-major transforms and PAGE/image baseline loader with explicit missing-input issues; complete source scenario mapping remains |
 | `test_ketos_arch.py` | 25 | not-applicable | Kraken architecture registry/Torch checkpoint internals |
-| `test_ketos_training.py` | 3 | feature-gap | C# training smoke equivalents |
+| `test_ketos_training.py` | 3 | partial | C# recognition training/resume and opt-in learned line detector exist; learned hierarchical reading-order training missing |
 | `test_layers.py` | 12 | not-applicable | PyTorch layer implementations |
 | `test_lineest.py` | 3 | partial | bounded centroid dewarper; full center-normalizer parity remains |
-| `test_loaders.py` | 20 | replicate | model package/version/weights validation |
-| `test_merging.py` | 2 | feature-gap | line merge/resize behavior |
-| `test_models.py` | 1 | replicate | invalid model rejection |
+| `test_loaders.py` | 20 | partial | native package/version/task/weights validation and roundtrips; foreign formats/precision equivalence not established |
+| `test_merging.py` | 2 | partial | native label-set resize/merge modes; no claim of foreign checkpoint/architecture merge compatibility |
+| `test_models.py` | 1 | partial | invalid native model/package rejection; Kraken model loading intentionally unsupported |
 | `test_newpolygons.py` | 24 | not-applicable | legacy Kraken model/polygon compatibility; no Kraken weights |
 | `test_pageseg.py` | 2 | partial | bi-level bbox contract; full page-seg model remains |
 | `test_plugins.py` | 1 | not-applicable | Python entry-point discovery; no first-party Python |
 | `test_readingorder.py` | 15 | partial | geometric reading order + topological sort |
-| `test_repo.py` | 3 | partial | strict registry index parsing/HTTP fetch; download UI/trust remain |
-| `test_rpred.py` | 37 | partial | record ordering primitive; cuts/bbox/baseline records and full BiDi remain |
+| `test_repo.py` | 3 | partial | strict catalog parsing, checksum-required download, redirect/host/path trust boundaries, CLI + admin API/UI pull; public weights/rights review remain |
+| `test_rpred.py` | 37 | partial | geometry-bearing recognition/alignment records, grapheme cuts/confidence and bounded slicing/order reversal; full Unicode BiDi/RTL models unverified |
 | `test_segmentation_metrics.py` | 5 | partial | detection metrics empty/extra/tolerance/aggregate, plus [offline paired PAGE comparisons](../operations.md#compare-page-line-geometry-offline) |
-| `test_serialization.py` | 4 | partial | PAGE/ALTO/hOCR/ABBYY serialization and bounded FineReader 10 migration |
-| `test_tasks.py` | 34 | partial | recognition/forced-alignment wrappers; segmentation/task API and RTL models remain |
+| `test_serialization.py` | 4 | partial | bounded PAGE/ALTO/hOCR/ABBYY adapters; FineReader10 baseline/space preservation and explicit import losses; official ABBYY schema conformance unverified |
+| `test_tasks.py` | 34 | partial | recognition/forced-alignment and projection segmentation wrappers; learned task integration exists, full source API/RTL acceptance unverified |
 | `test_train_utils.py` | 2 | partial | failure/cancellation checkpoints; Lightning callback parity not applicable |
 | `test_vgsl.py` | 7 | not-applicable | Kraken VGSL model format; Leviathan uses its own package |
 | `test_xml.py` | 32 | partial | PAGE/ALTO parsing edge cases |
 
 **Total: 305 tests across 26 modules.**
 
-Status vocabulary: `partial` = core scenarios implemented, integration/remaining cases open; `replicate` = behavioral scenarios can be written now; `feature-gap` = requires new capability first; `not-applicable` = Python/Torch/Kraken-internal or intentionally different architecture.
+Status vocabulary: `partial` = named portable behaviors have native implementation/tests,
+with remaining scenarios or acceptance open; `not-applicable` = Python/Torch/Kraken-internal
+or intentionally different architecture. A partial row does not assert that all tests in
+the module pass or have one-to-one equivalents. The 305 count is the frozen reference
+inventory, not a count of Leviathan tests or completed parity assertions.
+
+## Portable engineering evidence
+
+These links identify current native behavior rather than certify equivalence to the
+reference implementation. Synthetic regression fixtures establish contracts; they do not
+establish performance on unreviewed Greek manuscripts, papyri or inscriptions.
+
+| Reference area | Native implementation/test evidence | Remaining boundary |
+| --- | --- | --- |
+| Alignment/tasks | [forced-alignment task records](../../tests/LeviathanText.Application.Tests/ForcedAlignmentTaskTests.cs), [task wrappers](../../tests/LeviathanText.Application.Tests/TaskModelTests.cs), [projection segmentation task](../../tests/LeviathanText.Application.Tests/SegmentationTaskModelTests.cs) | no full RTL model/API comparison or learned hierarchical reading-order task |
+| CLI | [CLI test suite](../../tests/LeviathanText.Cli.Tests), [offline geometry comparison](../operations.md#compare-page-line-geometry-offline) | scenario-level source comparison remains; migration/import smokes are not recognition acceptance |
+| Codec/merge | [codec tests](../../tests/LeviathanText.ML.Tests/LabelCodecTests.cs), [resize/merge tests](../../tests/LeviathanText.ML.Tests/LabelSetMergerTests.cs) | independent native labels/packages; no foreign checkpoint merge contract |
+| Geometry | [five helper tests](../../tests/LeviathanText.Formats.Tests/LineGeometryParityTests.cs), [hOCR adapter regressions](../evaluation/hocr-baseline-bounds-2026-11-05.md), [geometry stale-save evidence](../evaluation/geometry-stale-save-2026-11-04.md) | export fallback and guarded editing do not prove every import/container cast, preserved field or UI conversion |
+| Dataset/transforms | [class map/rasterization tests](../../tests/LeviathanText.ML.Tests/SegmentationDatasetTests.cs), [input transforms](../../tests/LeviathanText.ML.Tests/LineInputTransformTests.cs), [PAGE/image loader](../../tests/LeviathanText.ML.Tests/BaselineDatasetTests.cs), [shared preprocessing contract](../evaluation/preprocessing-contract.md) | full source case mapping and representative collection/resource validation remain |
+| Training/loaders | [recognition fit/resume tests](../../tests/LeviathanText.ML.Tests/TrainingEndToEndTests.cs), [package tests](../../tests/LeviathanText.ML.Tests/ModelPackageTests.cs), [task-filtered catalog](../../tests/LeviathanText.ML.Tests/ModelPackageCatalogTests.cs), [migration boundary](../evaluation/model-migration-boundary-2026-11-04.md) | linked fitting tests were not rerun for this document reconciliation; GPU/distributed and foreign formats remain outside demonstrated scope |
+| Imaging/layout/order | [dewarper tests](../../tests/LeviathanText.Imaging.Tests/LineDewarperTests.cs), [reading-order helpers](../../tests/LeviathanText.Layout.Tests/ReadingOrderParityTests.cs), [column limits](../evaluation/layout-columns.md), [layout comparison](../evaluation/layout-comparison.md) | center-normalizer equivalence, curved/merged gutters and learned hierarchy remain open |
+| Registry/trust | [registry tests](../../tests/LeviathanText.Application.Tests/ModelRegistryTests.cs), [trust policy](../../tests/LeviathanText.Application.Tests/RegistryTrustPolicyTests.cs), [API](../../tests/LeviathanText.Api.Tests/ApiRegistryTests.cs), [CLI](../../tests/LeviathanText.Cli.Tests/RegistryCommandTests.cs) | trust plumbing does not grant redistribution rights or supply approved public weights |
+| Recognition records | [record tests](../../tests/LeviathanText.ML.Tests/RecognitionRecordTests.cs), [forced-alignment cuts](../../tests/LeviathanText.Application.Tests/ForcedAlignmentTaskTests.cs) | reversal is bounded grapheme reordering, not a Unicode BiDi implementation; inferred slice boxes are not measured glyph boxes |
+| XML/serialization | [Formats tests](../../tests/LeviathanText.Formats.Tests), [TEI profile/schema tests](../../tests/LeviathanText.Formats.Tests/TeiProfileTests.cs), [ABBYY review](../evaluation/abbyy-import-preservation-2026-11-05.md) | bounded profiles only; full external schema/version and scholarly roundtrips remain open |
+
+The November 5 ABBYY increment passed the complete Formats suite (124 tests) at that
+snapshot, as recorded in its handoff. Counts in dated reports remain historical and
+are not summed as a current integrated-suite total. For release and real-data gates,
+see the [capability matrix](../release/parity.md) and [known limits](../release/known-issues.md).
 
 ## Full inventory
 

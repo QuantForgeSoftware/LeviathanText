@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
@@ -175,13 +176,14 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
         };
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Page_cer_includes_layout_misses_across_seeds()
     {
         var root = FindRepoRoot();
         Skip.IfNot(root is not null, "repo root not found");
         var m02a = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a");
         Skip.IfNot(Directory.Exists(m02a), "M02a not available");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Page_cer_includes_layout_misses_across_seeds), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(Path.Combine(m02a, "xml"), imageExtension: ".png");
         bool Contaminated(string text) => text.Any(c => c is '<' or '>' or '&' or '[' or ']');
@@ -315,7 +317,7 @@ public sealed class PageEndToEndPilotTests(ITestOutputHelper output)
             and more seeds are required before attributing page-level differences to layout.
             Multi-column/curved layouts remain unsupported.
             """;
-        var path = Path.Combine(root!, "docs", "evaluation", "end-to-end-page-cer.md");
+        var path = Path.Combine(experimentDirectory, "end-to-end-page-cer.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, markdown);
         output.WriteLine($"mean page CER {meanPage:0.###}; mean box control {meanBox:0.###}");

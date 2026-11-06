@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using SkiaSharp;
 
 namespace LeviathanText.Layout.Tests;
@@ -29,7 +30,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         return path;
     }
 
-    [Fact]
+    [FittingFact]
     public void Trains_on_synthetic_bands_and_detects_them()
     {
         var pages = new List<LayoutTrainingPage>();
@@ -66,7 +67,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.Contains(tops, t => Math.Abs(t - 270) <= 22);
     }
 
-    [Fact]
+    [FittingFact]
     public void Augmented_training_still_learns_synthetic_bands()
     {
         var pages = new List<LayoutTrainingPage>();
@@ -89,7 +90,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.True(result.Lines.Count <= 4);
     }
 
-    [Fact]
+    [FittingFact]
     public void Save_and_load_roundtrip_reproduces_detection()
     {
         using var page = Page(240, 300, (40, 70), (150, 180));
@@ -120,7 +121,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.Contains("SHA-256", card);
     }
 
-    [Fact]
+    [FittingFact]
     public void Tampered_weights_are_rejected_by_the_recorded_digest()
     {
         using var page = Page(240, 300, (40, 70));
@@ -137,7 +138,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.Contains("digest", ex.Message);
     }
 
-    [Fact]
+    [FittingFact]
     public void Training_data_digest_is_order_independent_and_band_sensitive()
     {
         var first = new LayoutTrainingPage("a", "/tmp/a.png", [(10, 20), (30, 40)]);
@@ -154,7 +155,7 @@ public sealed class PatchLayoutModelTests : IDisposable
             PatchLayoutModel.DataDigestOf([first with { Bands = [(10, 25)] }, second]));
     }
 
-    [Fact]
+    [FittingFact]
     public void Incompatible_architecture_is_rejected()
     {
         var dir = Path.Combine(_dir, "bad");
@@ -165,7 +166,7 @@ public sealed class PatchLayoutModelTests : IDisposable
         Assert.Contains("not compatible", ex.Message);
     }
 
-    [Fact]
+    [FittingFact]
     public void Threshold_can_be_changed_without_retraining()
     {
         using var page = Page(240, 300, (40, 70));

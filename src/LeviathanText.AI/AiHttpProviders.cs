@@ -51,23 +51,22 @@ public sealed class AiHttpProvider : IRawAiProvider
                 AiFailureReasons.PromptTooLarge,
                 detail: $"Prompt is {promptCharacters} characters; the configured limit is {_settings.MaxPromptCharacters}.");
 
-        _transport.EnsureBudget(promptCharacters);
+        using var budget = _transport.CreateBudgetReservation(
+            checked(Encoding.UTF8.GetByteCount(prompt.System) + Encoding.UTF8.GetByteCount(prompt.User)));
 
         var uri = _settings.Protocol == AiWireProtocol.OpenAiChatCompletions
             ? AiHttpTransport.Combine(_settings.Endpoint, "chat/completions")
             : AiHttpTransport.Combine(_settings.Endpoint, "api/chat");
 
         var payload = BuildPayload(prompt);
-        var body = await _transport
-            .SendJsonAsync(() => new HttpRequestMessage(HttpMethod.Post, uri)
+        using var response = await _transport
+            .SendJsonWithContextAsync(() => new HttpRequestMessage(HttpMethod.Post, uri)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json"),
-            }, cancellationToken)
+            }, cancellationToken, budget)
             .ConfigureAwait(false);
 
-        var (content, inputTokens, outputTokens) = Parse(body, promptCharacters);
-        _transport.Charge(inputTokens, outputTokens);
-        return content;
+        return Parse(response, budget);
     }
 
     private string BuildPayload(AiPrompt prompt)
@@ -109,31 +108,16 @@ public sealed class AiHttpProvider : IRawAiProvider
         return payload;
     }
 
-    private (string Content, int InputTokens, int OutputTokens) Parse(string json, int promptCharacters)
+    private string Parse(AiHttpTransport.JsonResponse response, AiSpendBudget.Reservation? budget)
     {
+        var json = response.Body;
         try
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
 
-            var contentElement = _settings.Protocol == AiWireProtocol.OpenAiChatCompletions
-                ? ReadOpenAiContent(root)
-                : ReadOllamaContent(root);
-
-            if (contentElement.ValueKind != JsonValueKind.String)
-                throw new JsonException("The response content is not a string.");
-
-            var content = contentElement.GetString() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(content)
-                && root.TryGetProperty("done_reason", out var doneReason)
-                && doneReason.ValueKind == JsonValueKind.String
-                && string.Equals(doneReason.GetString(), "length", StringComparison.Ordinal))
-                throw new AiProviderException(
-                    AiFailureReasons.ResponseTruncated,
-                    _transport.SanitizeForRecord(json),
-                    detail: "The model stopped at the token limit before emitting replacement text (thinking budget may be exhausted).");
-            var inputTokens = EstimateTokens(promptCharacters);
-            var outputTokens = EstimateTokens(content.Length);
+            int? inputTokens = null;
+            int? outputTokens = null;
 
             if (_settings.Protocol == AiWireProtocol.OpenAiChatCompletions)
             {
@@ -149,13 +133,36 @@ public sealed class AiHttpProvider : IRawAiProvider
                 outputTokens = ReadInt(root, "eval_count") ?? outputTokens;
             }
 
-            return (content, inputTokens, outputTokens);
+            // Usage is evidence even when the content cannot become a proposal.
+            budget?.Settle(inputTokens, outputTokens);
+
+            var contentElement = _settings.Protocol == AiWireProtocol.OpenAiChatCompletions
+                ? ReadOpenAiContent(root)
+                : ReadOllamaContent(root);
+
+            if (contentElement.ValueKind != JsonValueKind.String)
+                throw new JsonException("The response content is not a string.");
+
+            var content = contentElement.GetString() ?? string.Empty;
+            if (response.ContainsCredential(content))
+                throw new AiProviderException(AiFailureReasons.MalformedResponse, "[redacted]",
+                    detail: "The provider response echoed an authorization credential and cannot become proposal text.");
+            if (string.IsNullOrWhiteSpace(content)
+                && root.TryGetProperty("done_reason", out var doneReason)
+                && doneReason.ValueKind == JsonValueKind.String
+                && string.Equals(doneReason.GetString(), "length", StringComparison.Ordinal))
+                throw new AiProviderException(
+                    AiFailureReasons.ResponseTruncated,
+                    response.SanitizeForRecord(json),
+                    detail: "The model stopped at the token limit before emitting replacement text (thinking budget may be exhausted).");
+
+            return content;
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
         {
             throw new AiProviderException(
                 AiFailureReasons.MalformedResponse,
-                _transport.SanitizeForRecord(json),
+                response.SanitizeForRecord(json),
                 inner: ex);
         }
     }
@@ -189,9 +196,6 @@ public sealed class AiHttpProvider : IRawAiProvider
 
         throw new JsonException("Missing Ollama message content.");
     }
-
-    private static int EstimateTokens(int characters) =>
-        Math.Max(1, (int)Math.Ceiling(characters / 4.0));
 
     private static int? ReadInt(JsonElement element, string name)
     {
@@ -237,9 +241,10 @@ public sealed class AiHttpModelCatalog : IAiModelCatalog
             ? AiHttpTransport.Combine(_settings.Endpoint, "models")
             : AiHttpTransport.Combine(_settings.Endpoint, "api/tags");
 
-        var json = await _transport
-            .SendJsonAsync(() => new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken)
+        using var response = await _transport
+            .SendJsonWithContextAsync(() => new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken)
             .ConfigureAwait(false);
+        var json = response.Body;
 
         try
         {
@@ -259,7 +264,7 @@ public sealed class AiHttpModelCatalog : IAiModelCatalog
         {
             throw new AiProviderException(
                 AiFailureReasons.MalformedResponse,
-                _transport.SanitizeForRecord(json),
+                response.SanitizeForRecord(json),
                 inner: ex);
         }
     }

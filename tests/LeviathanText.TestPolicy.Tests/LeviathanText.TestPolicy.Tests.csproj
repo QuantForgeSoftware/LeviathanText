@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/ExperimentOutput.cs" Link="Shared/ExperimentOutput.cs" />
+    <Compile Include="../Shared/TestCapabilityAttributes.cs" Link="Shared/TestCapabilityAttributes.cs" />
+    <Compile Include="../Shared/SkippableCapabilityAttributes.cs" Link="Shared/SkippableCapabilityAttributes.cs" />
+    <Compile Include="../Shared/FittingTestAttributes.cs" Link="Shared/FittingTestAttributes.cs" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.85" />
+  </ItemGroup>
+</Project>

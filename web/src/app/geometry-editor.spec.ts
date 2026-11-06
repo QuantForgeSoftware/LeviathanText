@@ -4,12 +4,14 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { of } from 'rxjs';
 import { ApiClient, GeometryLine } from './api-client';
 import { GeometryEditor } from './geometry-editor';
+import { prepareGeometryDisplay, markGeometryImageLoaded } from './capture-display.fixture';
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 
 describe('GeometryEditor', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [GeometryEditor],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideWorkspaceTestAccess({ projectId: 'col1' }), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
   });
 
@@ -38,27 +40,28 @@ describe('GeometryEditor', () => {
 
 describe('GeometryEditor (undo)', () => {
   it('restores the snapshot pushed before an edit', () => {
-    const line = { id: 'ln1', regionId: 'reg1', polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }], baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }] };
+    const line = { id: 'ln1', regionId: 'reg1', frameRef: 'cap1', polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }], baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }] };
     const stub = {
-      loadProject: () => of({
+      loadProjectFresh: () => of({
         id: 'col1', name: 'p',
-        objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', readingOrderIndex: 0 }], captures: [] }] }],
+        objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', frameRef: 'cap1', readingOrderIndex: 0 }], captures: [] }] }],
       }),
       updateLineGeometry: () => of({}),
-      updateReadingOrder: () => of({}),
-      updateLineOrder: () => of({}),
+      updateCaptureReadingOrder: () => of({}),
+      updateCaptureLineOrder: () => of({}),
       geometryHistory: () => of([]),
       unplacedLines: () => of([]),
     };
     TestBed.configureTestingModule({
       imports: [GeometryEditor],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ projectId: 'col1' }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(GeometryEditor);
     fixture.componentRef.setInput('projectId', 'col1');
     fixture.componentRef.setInput('surfaceId', 'surf1');
-    fixture.componentRef.setInput('imageUrl', '');
+    prepareGeometryDisplay(fixture);
     fixture.detectChanges();
+    markGeometryImageLoaded(fixture);
 
     const anyComponent = fixture.componentInstance as unknown as {
       lines: { (): typeof line[]; set: (value: typeof line[]) => void };
@@ -79,25 +82,26 @@ describe('GeometryEditor (undo)', () => {
 
 describe('GeometryEditor (read-only view)', () => {
   it('emits the line id on click and does not start a drag', () => {
-    const line = { id: 'ln1', regionId: 'reg1', polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }], baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }] };
+    const line = { id: 'ln1', regionId: 'reg1', frameRef: 'cap1', polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }], baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }] };
     const stub = {
-      loadProject: () => of({
+      loadProjectFresh: () => of({
         id: 'col1', name: 'p',
-        objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', readingOrderIndex: 0 }], captures: [] }] }],
+        objects: [{ id: 'obj1', surfaces: [{ id: 'surf1', kind: 'page', lines: [line], regions: [{ id: 'reg1', frameRef: 'cap1', readingOrderIndex: 0 }], captures: [] }] }],
       }),
       geometryHistory: () => of([]),
       unplacedLines: () => of([]),
     };
     TestBed.configureTestingModule({
       imports: [GeometryEditor],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ projectId: 'col1' }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(GeometryEditor);
     fixture.componentRef.setInput('projectId', 'col1');
     fixture.componentRef.setInput('surfaceId', 'surf1');
-    fixture.componentRef.setInput('imageUrl', '');
+    prepareGeometryDisplay(fixture);
     fixture.componentRef.setInput('readOnly', true);
     fixture.detectChanges();
+    markGeometryImageLoaded(fixture);
 
     const selected: string[] = [];
     fixture.componentInstance.lineSelected.subscribe(id => selected.push(id));
@@ -111,7 +115,7 @@ describe('GeometryEditor (read-only view)', () => {
 
 describe('GeometryEditor guarded geometry saves', () => {
   const first: GeometryLine = {
-    id: 'ln1', regionId: 'reg1',
+    id: 'ln1', regionId: 'reg1', frameRef: 'cap1',
     polygon: [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }],
     baseline: [{ x: 10, y: 19 }, { x: 20, y: 19 }],
   };
@@ -123,10 +127,10 @@ describe('GeometryEditor guarded geometry saves', () => {
     baseline: line.baseline.map(p => ({ x: p.x + dx, y: p.y })),
   });
 
-  function setup(initial: GeometryLine[] = [first, second], regions = [{ id: 'reg1', readingOrderIndex: 0 }]) {
+  async function setup(initial: GeometryLine[] = [first, second], regions: { id: string; readingOrderIndex: number | null }[] = [{ id: 'reg1', readingOrderIndex: 0 }]) {
     TestBed.configureTestingModule({
       imports: [GeometryEditor],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideWorkspaceTestAccess({ projectId: 'col1' }), provideHttpClient(), provideHttpClientTesting()],
     });
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(GeometryEditor);
@@ -144,7 +148,7 @@ describe('GeometryEditor guarded geometry saves', () => {
       move(regionId: string, delta: number): void;
       moveLine(lineId: string, delta: number): void;
       lineOrderDirty(): boolean;
-      regions: { (): { id: string; readingOrderIndex: number }[]; set(value: { id: string; readingOrderIndex: number }[]): void };
+      regions: { (): { id: string; readingOrderIndex: number | null }[]; set(value: { id: string; readingOrderIndex: number | null }[]): void };
       orderDirty(): boolean;
       selectUnplaced(lineId: string): void;
       createLine(rect: { x: number; y: number; width: number; height: number }): void;
@@ -155,33 +159,36 @@ describe('GeometryEditor guarded geometry saves', () => {
       onMove(event: PointerEvent): void;
       onUp(): void;
     };
-    function load(projectId: string, surfaceId: string, lines: GeometryLine[]) {
+    async function load(projectId: string, surfaceId: string, lines: GeometryLine[]) {
       fixture.componentRef.setInput('projectId', projectId);
       fixture.componentRef.setInput('surfaceId', surfaceId);
-      fixture.componentRef.setInput('imageUrl', '');
+      prepareGeometryDisplay(fixture, projectId, surfaceId);
       fixture.detectChanges();
+      if (projectId !== 'col1') { http.expectNone(`/api/v1/projects/${projectId}`); return; }
       http.expectOne(`/api/v1/projects/${projectId}`).flush({
         id: projectId, name: 'test',
         objects: [{ id: 'obj1', surfaces: [{
-          id: surfaceId, kind: 'page', lines, regions, captures: [],
+          id: surfaceId, kind: 'page', lines, regions: regions.map(region => ({ ...region, frameRef: 'cap1' })), captures: [{ id: 'cap1' }],
         }] }],
       });
       http.expectOne(`/api/v1/surfaces/${surfaceId}/geometry-history`).flush([]);
       http.expectOne(`/api/v1/surfaces/${surfaceId}/unplaced-lines`).flush([]);
+      markGeometryImageLoaded(fixture);
     }
-    load('col1', 'surf1', initial);
+    await load('col1', 'surf1', initial);
     return { fixture, component, http, load };
   }
 
-  it('submits the exact loaded base and preserves the draft on 409', () => {
-    const { component, http } = setup();
+  it('submits the exact loaded base and preserves the draft on 409', async () => {
+    const { component, http } = await setup();
     const draft = moved(first, 5);
     component.lines.set([draft, second]);
     component.selectedId.set(first.id);
     component.saveGeometry();
 
-    const request = http.expectOne('/api/v1/lines/ln1/geometry');
+    const request = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln1/geometry');
     expect(request.request.method).toBe('PUT');
+    expect(request.request.headers.get('If-Match')).toBe('\"' + 'b'.repeat(64) + '\"');
     expect(request.request.body).toEqual({ ...points(draft), expectedGeometry: points(first) });
     request.flush({ code: 'revisionConflict' }, { status: 409, statusText: 'Conflict' });
 
@@ -191,15 +198,15 @@ describe('GeometryEditor guarded geometry saves', () => {
     http.verify();
   });
 
-  it('acknowledges only the submitted line state and keeps concurrent local drafts', () => {
-    const { component, http } = setup();
+  it('acknowledges only the submitted line state and keeps concurrent local drafts', async () => {
+    const { component, http } = await setup();
     const submitted = moved(first, 5);
     const later = moved(first, 8);
     const other = moved(second, 3);
     component.lines.set([submitted, other]);
     component.selectedId.set(first.id);
     component.saveGeometry();
-    const firstSave = http.expectOne('/api/v1/lines/ln1/geometry');
+    const firstSave = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln1/geometry');
 
     component.lines.set([later, other]);
     component.selectedId.set(second.id);
@@ -208,46 +215,50 @@ describe('GeometryEditor guarded geometry saves', () => {
     expect(component.lines()).toEqual([later, other]);
     expect(component.dirty()).toBe(true);
     component.saveGeometry();
-    const secondSave = http.expectOne('/api/v1/lines/ln2/geometry');
+    const secondSave = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln2/geometry');
     expect(secondSave.request.body.expectedGeometry).toEqual(points(second));
     secondSave.flush({ lineId: second.id, ...points(other) });
 
     expect(component.dirty()).toBe(true);
     component.selectedId.set(first.id);
     component.saveGeometry();
-    const retry = http.expectOne('/api/v1/lines/ln1/geometry');
+    const retry = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln1/geometry');
     expect(retry.request.body.expectedGeometry).toEqual(points(submitted));
     retry.flush({ lineId: first.id, ...points(later) });
     expect(component.dirty()).toBe(false);
     http.verify();
   });
 
-  it('ignores a save reply after leaving and returning to the same surface', () => {
-    const { component, http, load } = setup();
+  it('quarantines a pending save on attempted scope change and retains the old draft', async () => {
+    const { component, http, load } = await setup();
     const submitted = moved(first, 5);
-    component.lines.set([submitted, second]);
-    component.selectedId.set(first.id);
-    component.saveGeometry();
-    const delayed = http.expectOne('/api/v1/lines/ln1/geometry');
-
-    load('col2', 'surf2', [second]);
-    const reloaded = moved(first, 20);
-    load('col1', 'surf1', [reloaded, second]);
+    component.lines.set([submitted, second]); component.selectedId.set(first.id); component.saveGeometry();
+    const delayed = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln1/geometry');
+    await load('col2', 'surf2', [second]);
+    expect(component.lines()).toEqual([submitted, second]);
+    expect(component.dirty()).toBeTrue();
+    component.saveGeometry(); http.expectNone('/api/v1/projects/col2');
     delayed.flush({ lineId: first.id, ...points(submitted) });
-
-    expect(component.lines()).toEqual([reloaded, second]);
-    expect(component.dirty()).toBe(false);
-    expect(component.actionStatus()).toBe('');
+    expect(component.lines()).toEqual([submitted, second]);
+    expect(component.dirty()).toBeTrue();
     http.verify();
   });
 
-  it('keeps a drawn box when another editor already placed the line', () => {
+  it('allows clean navigation to another surface within the same authorized project', async () => {
+    const { component, http, load } = await setup();
+    await load('col1', 'surf-clean', [second]);
+    expect(component.lines()).toEqual([second]);
+    expect(component.dirty()).toBeFalse();
+    http.verify();
+  });
+
+  it('keeps a drawn box when another editor already placed the line', async () => {
     const unplaced: GeometryLine = { ...first, polygon: [], baseline: [] };
-    const { component, http } = setup([unplaced]);
+    const { component, http } = await setup([unplaced]);
     component.selectUnplaced(first.id);
     component.createLine({ x: 12, y: 15, width: 10, height: 10 });
 
-    const request = http.expectOne('/api/v1/lines/ln1/geometry');
+    const request = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines/ln1/geometry');
     expect(request.request.body.expectedGeometry).toEqual(points(unplaced));
     request.flush({ code: 'revisionConflict' }, { status: 409, statusText: 'Conflict' });
 
@@ -258,10 +269,10 @@ describe('GeometryEditor guarded geometry saves', () => {
   });
 
   for (const action of ['add', 'split', 'merge', 'delete'] as const) {
-    it(`ignores a delayed ${action} response after changing surfaces`, () => {
-      const { component, http, load } = setup();
+    it(`retains a pending ${action} packet and old frame after attempted scope change`, async () => {
+      const { component, http, load } = await setup();
       component.selectedId.set(first.id);
-      const requestUrl = action === 'add' ? '/api/v1/surfaces/surf1/lines'
+      const requestUrl = action === 'add' ? '/api/v1/projects/col1/surfaces/surf1/captures/cap1/lines'
         : action === 'split' ? '/api/v1/lines/ln1/split'
         : action === 'merge' ? '/api/v1/lines/ln1/merge' : '/api/v1/lines/ln1';
       if (action === 'add') component.createLine({ x: 1, y: 2, width: 10, height: 10 });
@@ -270,75 +281,124 @@ describe('GeometryEditor guarded geometry saves', () => {
       if (action === 'delete') component.deleteSelected();
       const delayed = http.expectOne(requestUrl);
 
-      load('col2', 'surf2', [first, second]);
-      const draft = moved(first, 9);
-      component.lines.set([draft, second]);
+      await load('col2', 'surf2', [first, second]);
+      const retained = component.lines();
+      const pending = (component as unknown as { pendingStructureWrite: unknown }).pendingStructureWrite;
       delayed.flush({ lineId: first.id });
 
       http.expectNone('/api/v1/projects/col2');
-      expect(component.lines()[0]).toEqual(draft);
-      expect(component.dirty()).toBe(true);
-      expect(component.actionStatus()).toBe('');
+      expect(component.lines()).toEqual(retained);
+      expect((component as unknown as { pendingStructureWrite: unknown }).pendingStructureWrite).toEqual(pending);
+      expect(pending).not.toBeNull();
+      expect((component as unknown as { changingStructure(): boolean }).changingStructure()).toBeTrue();
+      component.deleteSelected(); http.expectNone('/api/v1/lines/ln1');
       http.verify();
     });
   }
 
-  it('keeps line-order edits made while a save is pending', () => {
-    const { component, http } = setup();
+  it('keeps line-order edits made while a save is pending', async () => {
+    const { component, http } = await setup();
     component.moveLine(first.id, 1);
     component.saveLineOrder();
-    const save = http.expectOne('/api/v1/regions/reg1/line-order');
+    const save = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/regions/reg1/line-order');
     expect(save.request.body.lineIds).toEqual([second.id, first.id]);
+    expect(save.request.body.expectedRegionLineIds).toEqual([first.id, second.id]);
     component.moveLine(first.id, -1);
     save.flush({});
 
     expect(component.lineOrderDirty()).toBe(true);
     component.saveLineOrder();
-    const next = http.expectOne('/api/v1/regions/reg1/line-order');
+    const next = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/regions/reg1/line-order');
     expect(next.request.body.lineIds).toEqual([first.id, second.id]);
+    expect(next.request.body.expectedRegionLineIds).toEqual([second.id, first.id]);
     next.flush({});
     expect(component.lineOrderDirty()).toBe(false);
     http.verify();
   });
 
-  it('keeps region-order edits made while a save is pending', () => {
-    const { component, http } = setup();
-    component.regions.set([{ id: 'reg1', readingOrderIndex: 0 }, { id: 'reg2', readingOrderIndex: 1 }]);
+  it('keeps region-order edits made while a save is pending', async () => {
+    const { component, http } = await setup([first, second], [{ id: 'reg1', readingOrderIndex: 0 }, { id: 'reg2', readingOrderIndex: 1 }]);
     component.move('reg1', 1);
     component.saveOrder();
-    const save = http.expectOne('/api/v1/surfaces/surf1/reading-order');
+    const save = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order');
     expect(save.request.body.regionIds).toEqual(['reg2', 'reg1']);
+    expect(save.request.body.expectedSurfaceRegionIds).toEqual(['reg1', 'reg2']);
     component.move('reg1', -1);
     save.flush({});
 
     expect(component.orderDirty()).toBe(true);
     component.saveOrder();
-    const next = http.expectOne('/api/v1/surfaces/surf1/reading-order');
+    const next = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order');
     expect(next.request.body.regionIds).toEqual(['reg1', 'reg2']);
+    expect(next.request.body.expectedSurfaceRegionIds).toEqual(['reg2', 'reg1']);
     next.flush({});
     expect(component.orderDirty()).toBe(false);
     http.verify();
   });
 
-  it('keeps line-order writes attached to their loaded region after region reordering', () => {
-    const { component, http } = setup([first, second], [
+  it('retains a stale line-order draft and its original snapshot after HTTP409', async () => {
+    const { component, http } = await setup();
+    component.moveLine(first.id, 1); component.saveLineOrder();
+    const save = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/regions/reg1/line-order');
+    expect(save.request.body.expectedRegionLineIds).toEqual([first.id, second.id]);
+    save.flush({}, { status: 409, statusText: 'Conflict' });
+    expect(component.lineOrderDirty()).toBeTrue();
+    expect(component.actionStatus()).toContain('draft is retained; reload and reconcile');
+    component.saveLineOrder();
+    const retry = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/regions/reg1/line-order');
+    expect(retry.request.body.expectedRegionLineIds).toEqual([first.id, second.id]);
+    expect(retry.request.body.lineIds).toEqual([second.id, first.id]);
+    retry.flush({}); http.verify();
+  });
+
+  it('retains a stale region-order draft and its original snapshot after HTTP409', async () => {
+    const { component, http } = await setup([first, second], [{ id: 'reg1', readingOrderIndex: 0 }, { id: 'reg2', readingOrderIndex: 1 }]);
+    component.move('reg1', 1); component.saveOrder();
+    const save = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order');
+    expect(save.request.body.expectedSurfaceRegionIds).toEqual(['reg1', 'reg2']);
+    save.flush({}, { status: 409, statusText: 'Conflict' });
+    expect(component.orderDirty()).toBeTrue();
+    expect(component.actionStatus()).toContain('draft is retained; reload and reconcile');
+    component.saveOrder();
+    const retry = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order');
+    expect(retry.request.body.expectedSurfaceRegionIds).toEqual(['reg1', 'reg2']);
+    expect(retry.request.body.regionIds).toEqual(['reg2', 'reg1']);
+    retry.flush({}); http.verify();
+  });
+
+  it('uses null-first region order and stable native ties in the expected snapshot', async () => {
+    const { component, http } = await setup([first, second], [
+      { id: 'reg1', readingOrderIndex: 0 },
+      { id: 'reg-unset', readingOrderIndex: null },
+      { id: 'reg-tied', readingOrderIndex: 0 },
+    ]);
+    expect(component.regions().map(region => region.id)).toEqual(['reg-unset', 'reg1', 'reg-tied']);
+    component.move('reg1', 1); component.saveOrder();
+    const save = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order');
+    expect(save.request.body.expectedSurfaceRegionIds).toEqual(['reg-unset', 'reg1', 'reg-tied']);
+    expect(save.request.body.regionIds).toEqual(['reg-unset', 'reg-tied', 'reg1']);
+    save.flush({}); http.verify();
+  });
+
+  it('keeps line-order writes attached to their loaded region after region reordering', async () => {
+    const { component, http } = await setup([first, second], [
       { id: 'reg1', readingOrderIndex: 0 }, { id: 'reg2', readingOrderIndex: 1 },
     ]);
     component.move('reg1', 1);
     component.saveOrder();
-    http.expectOne('/api/v1/surfaces/surf1/reading-order').flush({});
+    http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/reading-order').flush({});
 
     component.moveLine(first.id, 1);
     component.saveLineOrder();
 
-    const order = http.expectOne('/api/v1/regions/reg1/line-order');
+    const order = http.expectOne('/api/v1/projects/col1/surfaces/surf1/captures/cap1/regions/reg1/line-order');
     expect(order.request.body.lineIds).toEqual([second.id, first.id]);
     order.flush({});
     http.verify();
   });
 
-  it('requires saving or resetting local geometry before a structural edit', () => {
-    const { component, http } = setup();
+  it('requires saving or resetting local geometry before a structural edit', async () => {
+    const { component, http } = await setup();
     const draft = moved(first, 5);
     component.lines.set([draft, second]);
     component.selectedId.set(first.id);
@@ -351,8 +411,8 @@ describe('GeometryEditor guarded geometry saves', () => {
     http.verify();
   });
 
-  it('holds geometry edits while a structural request is pending and releases them on failure', () => {
-    const { component, http } = setup();
+  it('holds geometry edits while a structural request is pending and releases them on failure', async () => {
+    const { component, http } = await setup();
     component.width.set(100);
     component.height.set(100);
     component.selectedId.set(first.id);
@@ -377,8 +437,8 @@ describe('GeometryEditor guarded geometry saves', () => {
     return { target, clientX: x, clientY: y, stopPropagation() {} } as unknown as PointerEvent;
   }
 
-  it('resizes all four handles while leaving their opposite corners fixed', () => {
-    const { component, http } = setup();
+  it('resizes all four handles while leaving their opposite corners fixed', async () => {
+    const { component, http } = await setup();
     component.width.set(100);
     component.height.set(100);
     const cases = [
@@ -404,8 +464,8 @@ describe('GeometryEditor guarded geometry saves', () => {
     http.verify();
   });
 
-  it('clamps resize at the image edges and before crossing the opposite corner', () => {
-    const { component, http } = setup();
+  it('clamps resize at the image edges and before crossing the opposite corner', async () => {
+    const { component, http } = await setup();
     component.width.set(100);
     component.height.set(100);
     component.onResizeDown(pointer(10, 10), first, 0);

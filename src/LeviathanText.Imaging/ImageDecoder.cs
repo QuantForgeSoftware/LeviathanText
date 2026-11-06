@@ -45,6 +45,7 @@ public static class ImageDecoder
                 Scope = path,
                 Message = "Image file not found.",
             });
+        ValidatePixelBudget(maxPixels, path);
         if (file.Length > MaxEncodedBytes)
             throw new LeviathanException(new LeviathanError
             {
@@ -58,7 +59,11 @@ public static class ImageDecoder
     }
 
     public static ScaledImage DecodeBounded(byte[] bytes, string path, long maxPixels = 12_000_000)
+        => DecodeBoundedCore(bytes, path, maxPixels, null);
+
+    internal static ScaledImage DecodeBoundedCore(byte[] bytes, string path, long maxPixels, BitmapConstructionProbe? probe)
     {
+        ValidatePixelBudget(maxPixels, path);
         if (bytes.LongLength > MaxEncodedBytes)
             throw new LeviathanException(new LeviathanError
             {
@@ -73,7 +78,7 @@ public static class ImageDecoder
             using var codec = SKCodec.Create(new MemoryStream(bytes));
             if (codec is null)
             {
-                var fallback = TryDecodeWithImageSharp(bytes)
+                var fallback = TryDecodeWithImageSharp(bytes, path)
                     ?? throw new LeviathanException(new LeviathanError
                     {
                         Code = ErrorCode.RejectedArchive,
@@ -87,9 +92,15 @@ public static class ImageDecoder
                 float factor = (float)Math.Sqrt((double)maxPixels / fallbackPixels);
                 int targetW = Math.Max(1, (int)Math.Round(fallback.Width * factor));
                 int targetH = Math.Max(1, (int)Math.Round(fallback.Height * factor));
-                var scaledFallback = fallback.Resize(new SKImageInfo(targetW, targetH), new SKSamplingOptions(SKFilterMode.Linear));
-                fallback.Dispose();
-                return new ScaledImage(scaledFallback, originalWidth, originalHeight, checksum);
+                if ((long)targetW * targetH > maxPixels)
+                    (targetW, targetH) = IntegerFit(originalWidth, originalHeight, maxPixels);
+                try
+                {
+                    var scaledFallback = fallback.Resize(new SKImageInfo(targetW, targetH), new SKSamplingOptions(SKFilterMode.Linear))
+                        ?? throw new InvalidDataException("Fallback image could not be resampled.");
+                    return new ScaledImage(scaledFallback, originalWidth, originalHeight, checksum);
+                }
+                finally { fallback.Dispose(); }
             }
 
             var info = codec.Info;
@@ -123,21 +134,48 @@ public static class ImageDecoder
             {
                 // Codec-level scaling (JPEG/WebP): the full bitmap never exists.
                 var scaled = new SKBitmap(dimensions.Width, dimensions.Height, info.ColorType, info.AlphaType);
-                var result = codec.GetPixels(scaled.Info, scaled.GetPixels());
-                if (result is not SKCodecResult.Success and not SKCodecResult.IncompleteInput)
+                bool scaledTransferred = false;
+                try
                 {
-                    scaled.Dispose();
-                    throw new LeviathanException(new LeviathanError
+                    probe?.Invoke(BitmapConstructionStage.DestinationAllocated, scaled, null);
+                    var result = codec.GetPixels(scaled.Info, scaled.GetPixels());
+                    if (result is not SKCodecResult.Success and not SKCodecResult.IncompleteInput)
                     {
-                        Code = ErrorCode.RejectedArchive,
-                        Scope = path,
-                        Details = new Dictionary<string, string> { ["reason"] = "scaled-decode-failed", ["result"] = result.ToString() },
-                        Message = "Scaled decode failed for this image.",
-                    });
+                        throw new LeviathanException(new LeviathanError
+                        {
+                            Code = ErrorCode.RejectedArchive,
+                            Scope = path,
+                            Details = new Dictionary<string, string> { ["reason"] = "scaled-decode-failed", ["result"] = result.ToString() },
+                            Message = "Scaled decode failed for this image.",
+                        });
+                    }
+                    if (result == SKCodecResult.IncompleteInput)
+                        scaled.Erase(SKColors.Black);
+                    probe?.Invoke(BitmapConstructionStage.NativeInitialized, scaled, null);
+                    if ((long)scaled.Width * scaled.Height > maxPixels)
+                    {
+                        var (fitWidth, fitHeight) = IntegerFit(info.Width, info.Height, maxPixels);
+                        var fitted = scaled.Resize(new SKImageInfo(fitWidth, fitHeight, scaled.ColorType, scaled.AlphaType),
+                            new SKSamplingOptions(SKFilterMode.Linear))
+                            ?? throw new InvalidDataException("Native image intermediate could not be resampled.");
+                        bool fittedTransferred = false;
+                        try
+                        {
+                            probe?.Invoke(BitmapConstructionStage.DestinationAllocated, fitted, null);
+                            probe?.Invoke(BitmapConstructionStage.NativeInitialized, fitted, null);
+                            var fittedResult = new ScaledImage(fitted, info.Width, info.Height, checksum);
+                            probe?.Invoke(BitmapConstructionStage.BeforePublish, fitted, null);
+                            fittedTransferred = true;
+                            return fittedResult;
+                        }
+                        finally { if (!fittedTransferred) fitted.Dispose(); }
+                    }
+                    var scaledResult = new ScaledImage(scaled, info.Width, info.Height, checksum);
+                    probe?.Invoke(BitmapConstructionStage.BeforePublish, scaled, null);
+                    scaledTransferred = true;
+                    return scaledResult;
                 }
-                if (result == SKCodecResult.IncompleteInput)
-                    scaled.Erase(SKColors.Black);
-                return new ScaledImage(scaled, info.Width, info.Height, checksum);
+                finally { if (!scaledTransferred) scaled.Dispose(); }
             }
 
             // Formats without codec-level scaling (e.g. PNG in this build): decode full and
@@ -145,6 +183,8 @@ public static class ImageDecoder
             // temporary full decode is bounded only by MaxDimension — a documented limit.
             int targetWidth = Math.Max(1, (int)Math.Round(info.Width * (double)desired));
             int targetHeight = Math.Max(1, (int)Math.Round(info.Height * (double)desired));
+            if ((long)targetWidth * targetHeight > maxPixels)
+                (targetWidth, targetHeight) = IntegerFit(info.Width, info.Height, maxPixels);
             using var decodedFull = SKBitmap.Decode(new MemoryStream(bytes))
                 ?? throw new LeviathanException(new LeviathanError
                 {
@@ -153,14 +193,25 @@ public static class ImageDecoder
                     Message = "Image could not be decoded.",
                 });
             var resampled = new SKBitmap(targetWidth, targetHeight, info.ColorType, info.AlphaType);
-            using (var canvas = new SKCanvas(resampled))
+            bool resampledTransferred = false;
+            try
             {
-                canvas.DrawBitmap(decodedFull,
-                    new SKRect(0, 0, decodedFull.Width, decodedFull.Height),
-                    new SKRect(0, 0, targetWidth, targetHeight),
-                    new SKSamplingOptions(SKFilterMode.Linear));
+                probe?.Invoke(BitmapConstructionStage.DestinationAllocated, resampled, null);
+                using (var canvas = new SKCanvas(resampled))
+                {
+                    probe?.Invoke(BitmapConstructionStage.CanvasCreated, resampled, canvas);
+                    canvas.DrawBitmap(decodedFull,
+                        new SKRect(0, 0, decodedFull.Width, decodedFull.Height),
+                        new SKRect(0, 0, targetWidth, targetHeight),
+                        new SKSamplingOptions(SKFilterMode.Linear));
+                    probe?.Invoke(BitmapConstructionStage.NativeInitialized, resampled, canvas);
+                }
+                var resampledResult = new ScaledImage(resampled, info.Width, info.Height, checksum);
+                probe?.Invoke(BitmapConstructionStage.BeforePublish, resampled, null);
+                resampledTransferred = true;
+                return resampledResult;
             }
-            return new ScaledImage(resampled, info.Width, info.Height, checksum);
+            finally { if (!resampledTransferred) resampled.Dispose(); }
         }
         catch (LeviathanException) { throw; }
         catch (Exception ex)
@@ -173,6 +224,30 @@ public static class ImageDecoder
                 Message = "Image format is not supported by the current imaging backend.",
             });
         }
+    }
+
+    private static void ValidatePixelBudget(long maxPixels, string path)
+    {
+        if (maxPixels <= 0)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation, Scope = path,
+                Details = new Dictionary<string, string> { ["reason"] = "invalid-pixel-budget" },
+                Message = "The decoded pixel budget must be positive.",
+            });
+    }
+
+    private static (int Width, int Height) IntegerFit(int width, int height, long budget)
+    {
+        double scale = Math.Min(1, Math.Sqrt((double)budget / ((long)width * height)));
+        int fitWidth = Math.Clamp((int)Math.Floor(width * scale), 1, width);
+        int fitHeight = Math.Clamp((int)Math.Floor(height * scale), 1, height);
+        if ((long)fitWidth * fitHeight > budget)
+        {
+            if (fitWidth >= fitHeight) fitWidth = (int)Math.Max(1, Math.Min(fitWidth, budget / fitHeight));
+            else fitHeight = (int)Math.Max(1, Math.Min(fitHeight, budget / fitWidth));
+        }
+        return (fitWidth, fitHeight);
     }
 
     public static DecodedImage Decode(string path)
@@ -208,14 +283,25 @@ public static class ImageDecoder
         SKBitmap? bitmap = null;
         try
         {
+            using var input = new MemoryStream(bytes, writable: false);
+            using var codec = SKCodec.Create(input);
+            if (codec is not null && (codec.Info.Width > MaxDimension || codec.Info.Height > MaxDimension))
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RejectedArchive,
+                    Scope = path,
+                    Details = new Dictionary<string, string> { ["width"] = codec.Info.Width.ToString(), ["height"] = codec.Info.Height.ToString() },
+                    Message = "Image dimensions exceed the configured limit.",
+                });
             bitmap = SKBitmap.Decode(bytes);
         }
+        catch (LeviathanException) { throw; }
         catch (Exception)
         {
             // Some codecs are missing in a given SkiaSharp build (e.g. TIFF).
             // Try the bounded ImageSharp fallback below.
         }
-        bitmap ??= TryDecodeWithImageSharp(bytes);
+        bitmap ??= TryDecodeWithImageSharp(bytes, path);
         if (bitmap is null)
             throw new LeviathanException(new LeviathanError
             {
@@ -225,13 +311,17 @@ public static class ImageDecoder
                 Message = "Image format is not supported by the current imaging backend.",
             });
         if (bitmap.Width > MaxDimension || bitmap.Height > MaxDimension)
+        {
+            int width = bitmap.Width, height = bitmap.Height;
+            bitmap.Dispose();
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.RejectedArchive,
                 Scope = path,
-                Details = new Dictionary<string, string> { ["width"] = bitmap.Width.ToString(), ["height"] = bitmap.Height.ToString() },
+                Details = new Dictionary<string, string> { ["width"] = width.ToString(), ["height"] = height.ToString() },
                 Message = "Image dimensions exceed the configured limit.",
             });
+        }
 
         return new DecodedImage(bitmap, checksum, bytes.Length);
     }
@@ -243,6 +333,9 @@ public static class ImageDecoder
     /// large JPEG pages, not a general tiling backend.
     /// </summary>
     public static SKBitmap DecodeBand(string path, int top, int height)
+        => DecodeBandCore(path, top, height, null);
+
+    internal static SKBitmap DecodeBandCore(string path, int top, int height, BitmapConstructionProbe? probe)
     {
         var (width, pageHeight) = Dimensions(path);
         top = Math.Clamp(top, 0, Math.Max(0, pageHeight - 1));
@@ -274,9 +367,20 @@ public static class ImageDecoder
                     {
                         var bandInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
                         var band = new SKBitmap(bandInfo);
-                        var rows = codec.GetScanlines(band.GetPixels(), height, band.RowBytes);
-                        if (rows == height) return band;
-                        band.Dispose();
+                        bool bandTransferred = false;
+                        try
+                        {
+                            probe?.Invoke(BitmapConstructionStage.DestinationAllocated, band, null);
+                            var rows = codec.GetScanlines(band.GetPixels(), height, band.RowBytes);
+                            probe?.Invoke(BitmapConstructionStage.NativeInitialized, band, null);
+                            if (rows == height)
+                            {
+                                probe?.Invoke(BitmapConstructionStage.BeforePublish, band, null);
+                                bandTransferred = true;
+                                return band;
+                            }
+                        }
+                        finally { if (!bandTransferred) band.Dispose(); }
                     }
                 }
             }
@@ -284,8 +388,17 @@ public static class ImageDecoder
 
         using var decoded = Decode(path);
         var subset = new SKBitmap();
-        decoded.Bitmap.ExtractSubset(subset, new SKRectI(0, top, Math.Min(width, decoded.Bitmap.Width), Math.Min(top + height, decoded.Bitmap.Height)));
-        return subset;
+        bool subsetTransferred = false;
+        try
+        {
+            probe?.Invoke(BitmapConstructionStage.DestinationAllocated, subset, null);
+            decoded.Bitmap.ExtractSubset(subset, new SKRectI(0, top, Math.Min(width, decoded.Bitmap.Width), Math.Min(top + height, decoded.Bitmap.Height)));
+            probe?.Invoke(BitmapConstructionStage.NativeInitialized, subset, null);
+            probe?.Invoke(BitmapConstructionStage.BeforePublish, subset, null);
+            subsetTransferred = true;
+            return subset;
+        }
+        finally { if (!subsetTransferred) subset.Dispose(); }
     }
 
     /// <summary>Read image dimensions without retaining the decoded bitmap.</summary>
@@ -307,10 +420,23 @@ public static class ImageDecoder
         });
     }
 
-    private static SKBitmap? TryDecodeWithImageSharp(ReadOnlySpan<byte> bytes)
+    private static SKBitmap? TryDecodeWithImageSharp(ReadOnlySpan<byte> bytes, string path)
     {
         try
         {
+            // Apply the same source-dimension limit before fallback raster allocation.
+            // A tiny requested preview does not authorize decoding an oversized source.
+            var info = Image.Identify(new SixLabors.ImageSharp.Formats.DecoderOptions
+            {
+                MaxFrames = 1, SkipMetadata = true,
+            }, bytes);
+            if (info.Width <= 0 || info.Height <= 0 || info.Width > MaxDimension || info.Height > MaxDimension)
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.RejectedArchive, Scope = path,
+                    Details = new Dictionary<string, string> { ["width"] = info.Width.ToString(), ["height"] = info.Height.ToString() },
+                    Message = "Image dimensions exceed the configured limit.",
+                });
             // This API returns one bitmap. Do not decode unused TIFF/animated-image
             // frames into memory before copying the first frame into that bitmap.
             using var image = Image.Load<Rgba32>(new SixLabors.ImageSharp.Formats.DecoderOptions
@@ -318,20 +444,58 @@ public static class ImageDecoder
                 MaxFrames = 1,
             }, bytes);
             var bitmap = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-            image.ProcessPixelRows(accessor =>
+            try
             {
-                for (int y = 0; y < accessor.Height; y++)
+                if (bitmap.ColorType == SKColorType.Bgra8888 && bitmap.AlphaType == SKAlphaType.Premul)
                 {
-                    var row = accessor.GetRowSpan(y);
-                    for (int x = 0; x < row.Length; x++)
+                    using var pixels = bitmap.PeekPixels();
+                    if (pixels is not null)
                     {
-                        var p = row[x];
-                        bitmap.SetPixel(x, y, new SKColor(p.R, p.G, p.B, p.A));
+                        image.ProcessPixelRows(accessor =>
+                        {
+                            var destination = pixels.GetPixelSpan<byte>();
+                            int rowBytes = pixels.RowBytes;
+                            int minimumRow = checked(image.Width * 4);
+                            int requiredBytes = checked((image.Height - 1) * rowBytes + minimumRow);
+                            if (rowBytes < minimumRow || destination.Length < requiredBytes)
+                                throw new InvalidDataException("Fallback destination pixel view is incomplete.");
+                            for (int y = 0; y < accessor.Height; y++)
+                            {
+                                var row = accessor.GetRowSpan(y);
+                                int offset = checked(y * rowBytes);
+                                for (int x = 0; x < row.Length; x++)
+                                {
+                                    var p = row[x];
+                                    var value = SKPMColor.PreMultiply(new SKColor(p.R, p.G, p.B, p.A));
+                                    destination[offset++] = value.Blue;
+                                    destination[offset++] = value.Green;
+                                    destination[offset++] = value.Red;
+                                    destination[offset++] = value.Alpha;
+                                }
+                            }
+                        });
+                        return bitmap;
                     }
                 }
-            });
-            return bitmap;
+                // Preserve the established transfer for any other destination
+                // representation or unavailable direct pixel view.
+                image.ProcessPixelRows(accessor =>
+                {
+                    for (int y = 0; y < accessor.Height; y++)
+                    {
+                        var row = accessor.GetRowSpan(y);
+                        for (int x = 0; x < row.Length; x++)
+                        {
+                            var p = row[x];
+                            bitmap.SetPixel(x, y, new SKColor(p.R, p.G, p.B, p.A));
+                        }
+                    }
+                });
+                return bitmap;
+            }
+            catch { bitmap.Dispose(); throw; }
         }
+        catch (LeviathanException) { throw; }
         catch (Exception)
         {
             return null;
@@ -416,33 +580,62 @@ public static class DerivativeFactory
         string TransformChain);
 
     public static DerivativeResult Apply(SKBitmap source, IReadOnlyList<ImageTransform> transforms)
+        => ApplyCore(source, transforms, ApplyTransform);
+
+    internal static DerivativeResult ApplyCore(SKBitmap source, IReadOnlyList<ImageTransform> transforms,
+        Func<SKBitmap, ImageTransform, SKBitmap> applyTransform)
     {
         var bitmap = source;
+        bool ownsBitmap = false;
         var applied = new List<ImageTransform>();
-        foreach (var transform in transforms)
+        try
         {
-            bitmap = transform switch
+            foreach (var transform in transforms)
             {
-                ImageTransform.Crop crop => CropBitmap(bitmap, crop),
-                ImageTransform.Deskew deskew => DeskewBitmap(bitmap, deskew),
-                ImageTransform.NonlinearDewarp => throw new LeviathanException(new LeviathanError
-                {
-                    Code = ErrorCode.StageContractViolation,
-                    Scope = "imaging",
-                    RemedyHint = RemedyHint.None,
-                    Message = "Nonlinear dewarp is recorded as a transform but has no implementation yet; refusing to fake it.",
-                }),
-                _ => throw new InvalidOperationException(transform.Description),
-            };
-            applied.Add(transform);
+                var next = applyTransform(bitmap, transform);
+                var previous = bitmap;
+                bool ownedPrevious = ownsBitmap;
+                bitmap = next;
+                ownsBitmap = !ReferenceEquals(bitmap, source);
+                if (ownedPrevious && !ReferenceEquals(previous, next)) previous.Dispose();
+                applied.Add(transform);
+            }
+            // Construct metadata/result before relinquishing ownership: a later
+            // failure must still release the final owned intermediate.
+            var result = new DerivativeResult(bitmap, applied, string.Join(">", applied.Select(t => t.Description)));
+            ownsBitmap = false;
+            return result;
         }
-        return new DerivativeResult(bitmap, applied, string.Join(">", applied.Select(t => t.Description)));
+        finally
+        {
+            if (ownsBitmap) bitmap.Dispose();
+        }
     }
 
-    private static SKBitmap CropBitmap(SKBitmap source, ImageTransform.Crop crop)
+    internal static DerivativeResult ApplyWithBitmapProbe(SKBitmap source, IReadOnlyList<ImageTransform> transforms,
+        BitmapConstructionProbe? probe) => ApplyCore(source, transforms, (bitmap, transform) => ApplyTransformCore(bitmap, transform, probe));
+
+    private static SKBitmap ApplyTransform(SKBitmap bitmap, ImageTransform transform) => ApplyTransformCore(bitmap, transform, null);
+
+    private static SKBitmap ApplyTransformCore(SKBitmap bitmap, ImageTransform transform, BitmapConstructionProbe? probe) => transform switch
+    {
+        ImageTransform.Crop crop => CropBitmap(bitmap, crop, probe),
+        ImageTransform.Deskew deskew => DeskewBitmap(bitmap, deskew, probe),
+        ImageTransform.NonlinearDewarp => throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation,
+            Scope = "imaging",
+            RemedyHint = RemedyHint.None,
+            Message = "Nonlinear dewarp is recorded as a transform but has no implementation yet; refusing to fake it.",
+        }),
+        _ => throw new InvalidOperationException(transform.Description),
+    };
+
+    private static SKBitmap CropBitmap(SKBitmap source, ImageTransform.Crop crop, BitmapConstructionProbe? probe)
     {
         if (crop.Left < 0 || crop.Top < 0 || crop.Width <= 0 || crop.Height <= 0
-            || crop.Left + crop.Width > source.Width || crop.Top + crop.Height > source.Height)
+            || crop.Left > source.Width || crop.Top > source.Height
+            || crop.Width > source.Width - crop.Left || crop.Height > source.Height - crop.Top)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
@@ -456,19 +649,43 @@ public static class DerivativeFactory
             });
 
         var result = new SKBitmap(crop.Width, crop.Height);
-        using var canvas = new SKCanvas(result);
-        canvas.DrawBitmap(source, new SKPoint(-crop.Left, -crop.Top), new SKSamplingOptions(SKFilterMode.Nearest));
-        return result;
+        bool transferred = false;
+        try
+        {
+            probe?.Invoke(BitmapConstructionStage.DestinationAllocated, result, null);
+            using (var canvas = new SKCanvas(result))
+            {
+                probe?.Invoke(BitmapConstructionStage.CanvasCreated, result, canvas);
+                canvas.DrawBitmap(source, new SKPoint(-crop.Left, -crop.Top), new SKSamplingOptions(SKFilterMode.Nearest));
+                probe?.Invoke(BitmapConstructionStage.NativeInitialized, result, canvas);
+                probe?.Invoke(BitmapConstructionStage.BeforePublish, result, canvas);
+            }
+            transferred = true;
+            return result;
+        }
+        finally { if (!transferred) result.Dispose(); }
     }
 
-    private static SKBitmap DeskewBitmap(SKBitmap source, ImageTransform.Deskew deskew)
+    private static SKBitmap DeskewBitmap(SKBitmap source, ImageTransform.Deskew deskew, BitmapConstructionProbe? probe)
     {
         var rotated = new SKBitmap(source.Width, source.Height);
-        using var canvas = new SKCanvas(rotated);
-        canvas.Translate(source.Width / 2f, source.Height / 2f);
-        canvas.RotateDegrees((float)deskew.AngleDegrees);
-        canvas.Translate(-source.Width / 2f, -source.Height / 2f);
-        canvas.DrawBitmap(source, new SKPoint(0, 0), new SKSamplingOptions(SKFilterMode.Linear));
-        return rotated;
+        bool transferred = false;
+        try
+        {
+            probe?.Invoke(BitmapConstructionStage.DestinationAllocated, rotated, null);
+            using (var canvas = new SKCanvas(rotated))
+            {
+                probe?.Invoke(BitmapConstructionStage.CanvasCreated, rotated, canvas);
+                canvas.Translate(source.Width / 2f, source.Height / 2f);
+                canvas.RotateDegrees((float)deskew.AngleDegrees);
+                canvas.Translate(-source.Width / 2f, -source.Height / 2f);
+                canvas.DrawBitmap(source, new SKPoint(0, 0), new SKSamplingOptions(SKFilterMode.Linear));
+                probe?.Invoke(BitmapConstructionStage.NativeInitialized, rotated, canvas);
+                probe?.Invoke(BitmapConstructionStage.BeforePublish, rotated, canvas);
+            }
+            transferred = true;
+            return rotated;
+        }
+        finally { if (!transferred) rotated.Dispose(); }
     }
 }

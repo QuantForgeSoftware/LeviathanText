@@ -238,13 +238,14 @@ public class WorkerHostTests
         store.Save(job);
         var claimed = host.TryClaim(job);
 
-        var renewed = host.Heartbeat(job.Id);
+        var capturedClaim = claimed!.Lease!.ClaimId!;
+        var renewed = host.HeartbeatAttempt(job.Id, capturedClaim, claimed.Lease.LastHeartbeat!.Value.AddSeconds(1));
         Assert.NotNull(renewed);
         Assert.True(renewed!.Lease!.ExpiresAt > claimed!.Lease!.ExpiresAt);
 
         // Another worker's heartbeat is refused.
         var other = new WorkerHost(store, []);
-        Assert.Null(other.Heartbeat(job.Id));
+        Assert.Null(other.HeartbeatAttempt(job.Id, capturedClaim));
     }
 
     [Fact]

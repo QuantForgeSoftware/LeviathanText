@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Formats;
 using LeviathanText.Recognition;
@@ -26,13 +27,14 @@ public sealed class LabelHygienePilotTests(ITestOutputHelper output)
     private static bool OutsideProfile(string text) =>
         GreekTextProfile.Inspect(text).Issues.Any(i => i.Category == GreekTextProfile.Category.Other);
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Excluding_out_of_profile_lines_is_measured_on_dev()
     {
         var root = FindRepoRoot();
         Skip.IfNot(root is not null, "repo root not found");
         var dataDir = Path.Combine(root!, ".artifacts", "datasets", "p01-v0.9");
         Skip.IfNot(Directory.Exists(dataDir), "P01 artifacts not available");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Excluding_out_of_profile_lines_is_measured_on_dev), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir);
         var excluded = snapshot.Train.Count(l => OutsideProfile(l.Text));
@@ -47,7 +49,7 @@ public sealed class LabelHygienePilotTests(ITestOutputHelper output)
 
         double Train(string name, IReadOnlyList<LabeledLine> train, IReadOnlyList<LabeledLine> dev)
         {
-            var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-hygiene-{Guid.NewGuid():N}");
+            var checkpointDir = Path.Combine(experimentDirectory, $"lt-hygiene-{Guid.NewGuid():N}");
             var config = new TrainingConfig
             {
                 Epochs = 60, BatchSize = 8, LearningRate = 3e-3, Seed = 99,
@@ -86,7 +88,7 @@ public sealed class LabelHygienePilotTests(ITestOutputHelper output)
             to exclude markup-contaminated labels by default once a second corpus confirms the
             direction.
             """;
-        var path = Path.Combine(root!, "docs", "evaluation", "label-hygiene.md");
+        var path = Path.Combine(experimentDirectory, "label-hygiene.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, markdown);
     }

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using Xunit;
@@ -24,7 +25,7 @@ public sealed class TrainerLifetimeTests
         GC.Collect();
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Dispose_releases_optimizer_state_immediately_and_preserves_caller_resources()
     {
         set_num_threads(1);
@@ -52,7 +53,7 @@ public sealed class TrainerLifetimeTests
         GC.KeepAlive(trainer);
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData("TrainEpoch")]
     [InlineData("Evaluate")]
     [InlineData("EvaluateDetailed")]
@@ -99,7 +100,7 @@ public sealed class TrainerLifetimeTests
         }
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Disposed_Fit_does_not_create_its_output_directory()
     {
         string directory = Path.Combine(Path.GetTempPath(), "lt-trainer-lifetime", Guid.NewGuid().ToString("N"));
@@ -118,7 +119,7 @@ public sealed class TrainerLifetimeTests
         }
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void A_new_trainer_can_resume_on_the_callers_model_after_old_trainer_disposal()
     {
         set_num_threads(1);

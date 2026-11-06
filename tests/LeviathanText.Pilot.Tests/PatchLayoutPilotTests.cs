@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
@@ -12,7 +13,7 @@ namespace LeviathanText.Pilot.Tests;
 /// <summary>
 /// Learned layout (patch/row CNN) vs the projection baseline on REAL pages. Trains on M02a
 /// train pages, selects the decode threshold on M02a dev pages, and reports held-out M02a
-/// plus out-of-domain P01 separately. Writes docs/evaluation/layout-patch-learning.md and a
+/// plus out-of-domain P01 separately. Historical report: docs/evaluation/layout-patch-learning.md and a
 /// model package under .artifacts/models/ for later end-to-end use.
 /// </summary>
 public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
@@ -47,7 +48,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
             Path.Combine(Path.GetDirectoryName(xml)!, Path.GetFileNameWithoutExtension(xml) + extension),
         }.FirstOrDefault(File.Exists);
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Patch_cnn_is_measured_against_projection_on_held_out_pages()
     {
         var root = FindRepoRoot();
@@ -55,6 +56,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
         var m02a = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a");
         var p01 = Path.Combine(root!, ".artifacts", "datasets", "p01-v0.9");
         Skip.IfNot(Directory.Exists(m02a), "M02a not available");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Patch_cnn_is_measured_against_projection_on_held_out_pages), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var train = new List<LayoutTrainingPage>();
         var dev = new List<(string Name, SKBitmap Page, List<(int Top, int Bottom)> Truth)>();
@@ -198,7 +200,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                              $"projection: P={projectionSummary.MeanPrecision:0.###} R={projectionSummary.MeanRecall:0.###}");
 
             // Save the package for later integration/evaluation (ignored build artifact).
-            var package = Path.Combine(root!, ".artifacts", "models", "layout-patch-v1");
+            var package = Path.Combine(experimentDirectory, "models", "layout-patch-v1");
             tuned.Save(package);
 
             var markdown = $"""
@@ -209,7 +211,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 - Training: {train.Count} M02a train pages (page-level split); threshold selected on {dev.Count} M02a dev pages; **test pages never trained on**
                 - Held-out: {test.Count} pages (M02a test i%5==0 + {p01Test.Count} P01 test pages, reported separately as out-of-domain)
                 - Matching: vertical-band IoU ≥ {learnedSummary.IouThreshold:0.##}; confidence: none (detector has no calibrated probability claim)
-                - Training wall time: {stopwatch.Elapsed.TotalSeconds:0.0}s on the pilot CPU; package: `.artifacts/models/layout-patch-v1`
+                - Training wall time: {stopwatch.Elapsed.TotalSeconds:0.0}s on the pilot CPU; package: `{package}`
                 - Threshold selection table (dev only):
 
                 | Threshold | Precision | Recall | F1 |
@@ -287,7 +289,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                         GroundTruth: (IReadOnlyList<(int Top, int Bottom)>)page.Truth)).ToList();
                 var p01Learned = LayoutComparison.Compare(p01LearnedRows);
                 var p01Projection = LayoutComparison.Compare(p01ProjectionRows);
-                p01Tuned.Save(Path.Combine(root!, ".artifacts", "models", "layout-patch-p01-v1"));
+                p01Tuned.Save(Path.Combine(experimentDirectory, "models", "layout-patch-p01-v1"));
 
                 // Same seed/epochs, augmentation on: does it help the papyrus variant?
                 var p01AugModel = PatchLayoutModel.Train(p01Train, p01Options with { AugmentTraining = true },
@@ -322,7 +324,7 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
 
                     - Training: {p01Train.Count} P01 train pages; threshold selected on {p01Dev.Count} dev pages; evaluation on {p01Test.Count} P01 test pages
                     - Selected threshold: **{p01Best.Threshold:0.00}** (dev P={p01Best.Precision:0.###}, R={p01Best.Recall:0.###})
-                    - Package: `.artifacts/models/layout-patch-p01-v1`
+                    - Package: `{Path.Combine(experimentDirectory, "models", "layout-patch-p01-v1")}`
 
                     | Detector | Precision | Recall |
                     | --- | --- | --- |
@@ -457,11 +459,11 @@ public sealed class PatchLayoutPilotTests(ITestOutputHelper output)
                 }
             }
 
-            var report = Path.Combine(root!, "docs", "evaluation", "layout-patch-learning.md");
+            var report = Path.Combine(experimentDirectory, "layout-patch-learning.md");
             Directory.CreateDirectory(Path.GetDirectoryName(report)!);
             File.WriteAllText(report, markdown);
 
-            Assert.True(true, "measurement complete; see docs/evaluation/layout-patch-learning.md");
+            Assert.True(true, "measurement complete; see the reserved experiment directory");
         }
         finally
         {

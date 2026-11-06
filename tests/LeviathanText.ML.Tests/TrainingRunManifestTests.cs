@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using Xunit;
@@ -19,7 +20,7 @@ public class TrainingRunManifestTests
         return dir;
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Manifest_captures_architecture_split_and_checkpoint_digest()
     {
         var dir = NewDirectory();

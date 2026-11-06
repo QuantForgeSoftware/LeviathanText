@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -24,7 +25,7 @@ public sealed class LearnedLayoutPilotTests(ITestOutputHelper output)
         return dir?.FullName;
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Learned_vs_projection_on_held_out_pages()
     {
         var root = FindRepoRoot();
@@ -33,6 +34,7 @@ public sealed class LearnedLayoutPilotTests(ITestOutputHelper output)
         var m02a = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a");
         var p01 = Path.Combine(root!, ".artifacts", "datasets", "p01-v0.9");
         Skip.IfNot(Directory.Exists(m02a) || Directory.Exists(p01), "no datasets downloaded");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Learned_vs_projection_on_held_out_pages), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         // 1) Build training examples from M02a training/dev pages (file-level split).
         var training = new List<LearnedLineDetector.TrainingExample>();
@@ -130,7 +132,7 @@ public sealed class LearnedLayoutPilotTests(ITestOutputHelper output)
                 harness and split discipline. Multi-column, curved and rotated layouts remain
                 unsupported and must not be presented as solved.
                 """;
-            var reportPath = Path.Combine(root!, "docs", "evaluation", "layout-learned-comparison.md");
+            var reportPath = Path.Combine(experimentDirectory, "layout-learned-comparison.md");
             Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
             File.WriteAllText(reportPath, markdown);
             output.WriteLine($"learned: P={learnedSummary.MeanPrecision:0.###} R={learnedSummary.MeanRecall:0.###}; " +

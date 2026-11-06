@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Evaluation;
@@ -18,11 +19,12 @@ namespace LeviathanText.Pilot.Tests;
 /// </summary>
 public sealed class P01RealTrainingTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void TrainsOnRealLines_ThenReloadsAndDecodes()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping real-data gate increment.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(TrainsOnRealLines_ThenReloadsAndDecodes), Path.GetFullPath(Path.Combine(dataDir, "..", "..", "..")));
 
         var snapshot = P01LineDataset.Load(dataDir);
         Assert.True(snapshot.TotalLines > 200, $"expected pilot-scale train data, got {snapshot.TotalLines}");
@@ -34,7 +36,7 @@ public sealed class P01RealTrainingTests(ITestOutputHelper output)
             .ToList();
         var labels = new LabelSet(vocabulary);
 
-        var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-p01-pilot", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, "lt-p01-pilot", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,
@@ -72,11 +74,11 @@ public sealed class P01RealTrainingTests(ITestOutputHelper output)
             $"reload parity failed: best {run.BestValidationCer} vs reloaded {reloadedCer}");
 
         // Record the pilot numbers (human evidence; not a threshold).
-        var summary = $"P01 pilot v0.9: train={snapshot.Train.Count} dev={snapshot.Dev.Count} test={snapshot.TestLocked.Count} (locked); " +
+        var summary = $"P01 pilot v0.9: train={snapshot.Train.Count} dev={snapshot.Dev.Count} locked=not loaded (TrainDev); " +
                       $"epochs={run.History.Count}; trainLoss {run.History[0].TrainLoss:0.###}->{run.History[^1].TrainLoss:0.###}; " +
                       $"best dev CER={run.BestValidationCer:0.###}; reloaded dev CER={reloadedCer:0.###}; vocab={vocabulary.Count}";
-        Directory.CreateDirectory(".artifacts/pilot");
-        File.WriteAllText(".artifacts/pilot/p01-training-summary.txt", summary);
+        Directory.CreateDirectory(experimentDirectory);
+        File.WriteAllText(Path.Combine(experimentDirectory, "p01-training-summary.txt"), summary);
         output.WriteLine(summary);
     }
 

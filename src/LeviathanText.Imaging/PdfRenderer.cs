@@ -86,8 +86,16 @@ public static class PdfRenderer
                     });
             }
 
-            Directory.CreateDirectory(outputDirectory);
             var stem = SafeStem(Path.GetFileNameWithoutExtension(pdfPath));
+            var targets = Enumerable.Range(1, count)
+                .Select(page => Path.Combine(outputDirectory, $"{stem}-page-{page:0000}.png")).ToArray();
+            // Check every predictable destination before rendering even the first page.
+            // Exclusive creation below also protects against later competing writers.
+            foreach (var target in targets)
+                if (Path.Exists(target) || new FileInfo(target).LinkTarget is not null)
+                    throw OutputRefusal(target, "pdf-output-exists",
+                        "PDF page destination already exists. Choose a new output directory; existing files are never replaced.");
+            Directory.CreateDirectory(outputDirectory);
             var pages = new List<RenderedPage>(count);
 
             for (int page = 0; page < count; page++)
@@ -101,9 +109,9 @@ public static class PdfRenderer
                         Message = "Rendered PDF page could not be encoded as PNG.",
                     });
 
-                var imagePath = Path.Combine(outputDirectory, $"{stem}-page-{page + 1:0000}.png");
+                var imagePath = targets[page];
                 var imageBytes = encoded.ToArray();
-                File.WriteAllBytes(imagePath, imageBytes);
+                PublishNewPage(imagePath, imageBytes);
                 pages.Add(new RenderedPage(page + 1, imagePath, bitmap.Width, bitmap.Height,
                     ImageDecoder.ChecksumOf(imageBytes)));
             }
@@ -126,6 +134,27 @@ public static class PdfRenderer
         }
     }
 #pragma warning restore CA1416
+
+    // This operation owns only the newly created stream. Never delete a pathname
+    // on failure: another writer could have replaced it, and earlier derivatives
+    // may already be in use. Partial/new files can remain after a later failure.
+    private static void PublishNewPage(string targetPath, byte[] imageBytes)
+    {
+        FileStream output;
+        try { output = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.Read); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            throw OutputRefusal(targetPath, "pdf-output-not-created",
+                "Could not create a new PDF page destination. Choose a new writable output directory; existing files are never replaced.");
+        }
+        using (output) output.Write(imageBytes);
+    }
+
+    private static LeviathanException OutputRefusal(string path, string reason, string message) => new(new LeviathanError
+    {
+        Code = ErrorCode.StageContractViolation, Scope = path,
+        Details = new Dictionary<string, string> { ["reason"] = reason }, Message = message,
+    });
 
     private static string SafeStem(string stem)
     {

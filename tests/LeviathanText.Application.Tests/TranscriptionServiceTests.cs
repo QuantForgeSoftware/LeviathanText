@@ -144,9 +144,11 @@ public sealed class TranscriptionServiceTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Automatic_merge_refuses_a_concurrent_first_revision(bool raceDuringSave)
+    [InlineData(false, TextLayer.L1Diplomatic)]
+    [InlineData(true, TextLayer.L1Diplomatic)]
+    [InlineData(false, TextLayer.L2Editorial)]
+    [InlineData(true, TextLayer.L2Editorial)]
+    public void Automatic_merge_refuses_a_concurrent_first_revision(bool raceDuringSave, TextLayer layer)
     {
         var empty = SampleProjectBuilder.Build();
         var originalSurface = empty.Objects[0].Surfaces[0];
@@ -164,7 +166,7 @@ public sealed class TranscriptionServiceTests
         var firstService = new TranscriptionService(store);
         TextRevision? firstRevision = null;
         void FirstWriter() => firstRevision = firstService.AppendLineRevisionMerged(
-            initialSnapshot, line.Id, TextLayer.L1Diplomatic, "α", Editor, null).Revision;
+            initialSnapshot, line.Id, layer, "α", Editor, null).Revision;
         IProjectStore secondStore = store;
         if (raceDuringSave)
             secondStore = new InterleavingProjectStore(store, FirstWriter);
@@ -173,13 +175,15 @@ public sealed class TranscriptionServiceTests
 
         var exception = Assert.Throws<LeviathanException>(() =>
             new TranscriptionService(secondStore).AppendLineRevisionMerged(
-                initialSnapshot, line.Id, TextLayer.L1Diplomatic, "β", Editor, null));
+                initialSnapshot, line.Id, layer, "β", Editor, null));
 
         Assert.Equal(ErrorCode.RevisionConflict, exception.Error.Code);
         Assert.Equal("none", exception.Error.Details!["requestedParent"]);
         var persisted = store.LoadProject(empty.Id)!.Objects[0].Surfaces[0];
         Assert.Equal("α", Assert.Single(persisted.Revisions).Text);
-        Assert.Equal(firstRevision!.Id, persisted.Lines[0].DiplomaticRevisionId);
+        Assert.Equal(layer, Assert.Single(persisted.Revisions).Layer);
+        if (layer == TextLayer.L1Diplomatic) Assert.Equal(firstRevision!.Id, persisted.Lines[0].DiplomaticRevisionId);
+        else Assert.Null(persisted.Lines[0].DiplomaticRevisionId);
     }
 
     [Theory]

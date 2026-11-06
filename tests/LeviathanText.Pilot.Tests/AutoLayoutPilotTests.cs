@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
@@ -20,7 +21,7 @@ public sealed class AutoLayoutPilotTests(ITestOutputHelper output)
         return dir?.FullName;
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Detect_layout_on_a_real_page_and_refuse_overwrite()
     {
         var root = FindRepoRoot();

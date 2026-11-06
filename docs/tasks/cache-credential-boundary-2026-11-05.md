@@ -1,0 +1,23 @@
+# Read-only cache credential boundary
+
+Root reproduced10failures and2passing controls in `offline-cache-authorization.spec.ts` against the existing implementation. In particular, authoritative401/403/404/500 responses become cached successes, and late responses can refill the unscoped cache after a credential change. Existing setter-only and cross-tab changes do not invalidate these requests. This is separate from already loaded workspace/draft presentation, described in [the workspace review](../evaluation/workspace-credential-review-2026-11-05.md).
+
+Implement the narrow cache correction without clearing source drafts or changing saved documents:
+
+- Extract cache-storage functions into a dependency-only module so auth can invalidate read-only caches without a circular import; preserve existing public exports.
+- Use a separate versioned storage namespace. Ignore/remove old unbound cache entries; legacy tabs cannot refill the new namespace. Keep same-credential cached reads usable after reload. This is browser read-only cache migration, not deletion of source data or recovery drafts.
+- Advance an imperative cache credential generation and clear read-only caches for shared-setter and relevant cross-tab storage changes. Keep reactive existing auth signals compatible; do not double-trigger current component storage listeners or retain key history.
+- Capture generation at subscription, reject old-generation emissions/errors before cache write/fallback, and never normalize an authoritative HTTP response into offline success.401/403/404 invalidate cached authority. Transport status0 remains supported. Existing non-HTTP observable-error fallback remains compatible, within the same generation; do not claim it distinguishes arbitrary non-HTTP errors.
+- Retain exact existing public cache entrypoints and same-credential success/offline behavior. Preserve original draft keys and API-key storage. No plaintext keys, hashes or paths become cache namespace names.
+
+Run the unchanged existing cache/auth tests plus the12new regressions, then the full frontend suite/production build after the active measurement quiet window releases. Preserve the10fail-before/2control receipt. Workspace generation/cancellation, stable principal identity and owner-scoped draft recovery remain separate work; passing this cache boundary must not be reported as fixing all credential transitions.
+
+## Verified implementation and scope
+
+The implemented v3 storage envelope binds each cached HTTP response to SHA-256 owner metadata and a shared, random, nonsecret authority revision. The namespace remains independent of source documents and recovery drafts. Captured request credentials are pinned on the three actual cached HTTP requests through HttpContext; the interceptor removes contradictory authorization headers for these requests. Current-key equality, local generation and shared revision checks fence late results, including queued storage-event windows and updated-setter ABA transitions. Authoritative401/403/404 fences are established synchronously before awaiting owner binding. If WebCrypto binding is unavailable, network reads remain usable and persistent HTTP caching/fallback is disabled. This is cache isolation, not encryption or a defense against scripts already controlling the origin.
+
+Root preserved the original12-case baseline:10 failures and2 passing controls. Later source reviews produced additional regressions; those are not falsely counted as original fail-before cases. The final focused suite passes24 cases (18 authorization,3 existing cache,3 auth), and the full frontend suite passes218 on Chrome Headless147.0.7727.15. Three legacy component fixtures now await the real public cached-read emission rather than assuming synchronous completion after an HTTP flush; all95 original assertion lines remain unchanged. Receipts are under `.artifacts/overnight-2026-11-05/` (`cache-authorization-before.log`, `cache-authorization-after-3.log`, `frontend-cache-full-2.log`). Production Angular build is still pending after the coordinated resource quiet window.
+
+The independent review and its intermediate negative findings remain preserved. Whole-workspace presentation, draft ownership, stable principal identity, deferred CSV/download intent and other raw HTTP callbacks remain open. This patch does not reauthorize an already loaded editor or transfer a recovery record to a new account.
+
+The subsequent production build passes after moving the Jasmine fixture into the `.spec.ts` test-only file set. Current main passes363 frontend cases, including composed client/interceptor coverage and the separate intent/export fixes. The additive principal seam is verified but whole-workspace/draft reauthorization remains open.

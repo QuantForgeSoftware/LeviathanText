@@ -5,14 +5,138 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LeviathanText.AI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace LeviathanText.AI.Tests;
 
 public sealed class VisionHttpProviderTests
 {
+    [Fact]
+    public async Task Complete_authenticated_token_limit_response_preserves_nonsecret_text_and_metadata()
+    {
+        var handler = new Handler((_, _) => Task.FromResult(Json("λόγος", "length")));
+        using var provider = new VisionHttpProvider(Settings() with { CredentialEnvironmentVariable = "TEST_KEY" },
+            handler, new StaticCredentialSource(new Dictionary<string, string> { ["TEST_KEY"] = "private-unrelated-key" }));
+
+        var result = await provider.InferAsync(Request());
+
+        Assert.Equal(VisionInferenceStatus.Truncated, result.Status);
+        Assert.Equal("λόγος", result.Text);
+        Assert.Equal("length", result.FinishReason);
+        Assert.Equal("synthetic-vision", result.ResponseModelId);
+        Assert.True(result.RawResponseComplete);
+        Assert.False(result.CredentialsRedacted);
+    }
+
+    [Theory]
+    [InlineData("limit", false, true)]
+    [InlineData("limit", true, true)]
+    [InlineData("timeout", false, true)]
+    [InlineData("timeout", true, true)]
+    [InlineData("cancel", false, true)]
+    [InlineData("cancel", true, true)]
+    [InlineData("disconnect", false, true)]
+    [InlineData("disconnect", true, true)]
+    [InlineData("invalid-utf8", false, true)]
+    [InlineData("invalid-utf8", true, true)]
+    [InlineData("disconnect", false, false)]
+    public async Task Incomplete_authenticated_capture_suppresses_fragments_but_preserves_failure_evidence(
+        string failure, bool encoded, bool authenticated)
+    {
+        const string key = "private-response-credential", fragment = "private-resp";
+        var wireFragment = encoded ? string.Concat(fragment.Select(c => $"\\u{(int)c:x4}")) : fragment;
+        var metadata = "data: " + JsonSerializer.Serialize(new
+        {
+            model = fragment,
+            choices = new[] { new { delta = new { content = "α" }, finish_reason = "stop" } },
+            usage = new { prompt_tokens = 31, completion_tokens = 4 },
+        }) + "\n\n";
+        var prefix = metadata + "data: {\"choices\":[{\"delta\":{\"content\":\"";
+        var padding = failure == "limit" ? new string('q', 1024 - Encoding.UTF8.GetByteCount(prefix + wireFragment)) : "";
+        var raw = prefix + padding + wireFragment;
+        var bytes = Encoding.UTF8.GetBytes(raw);
+        if (failure == "limit") bytes = bytes.Concat(Encoding.UTF8.GetBytes("-remaining-key-suffix-and-body")).ToArray();
+        if (failure == "invalid-utf8") bytes = bytes.Concat(new byte[] { 0xff }).ToArray();
+        using var cts = new CancellationTokenSource();
+        var stream = new ChunkStream(bytes, 32,
+            stall: failure is "timeout" or "cancel", fail: failure == "disconnect",
+            onExhausted: failure == "cancel" ? () => cts.Cancel() : null);
+        var handler = new Handler((_, _) => Task.FromResult(Sse(stream)));
+        using var provider = new VisionHttpProvider(Settings() with
+        {
+            CredentialEnvironmentVariable = authenticated ? "TEST_KEY" : null,
+            Timeout = TimeSpan.FromMilliseconds(failure == "timeout" ? 200 : 3000),
+            MaxResponseBytes = 1024,
+        }, handler, new StaticCredentialSource(new Dictionary<string, string> { ["TEST_KEY"] = key }));
+
+        var result = await provider.InferAsync(Request(), cts.Token);
+
+        Assert.Equal(failure switch
+        {
+            "limit" => VisionInferenceStatus.ResponseTooLarge,
+            "timeout" => VisionInferenceStatus.Timeout,
+            "cancel" => VisionInferenceStatus.Cancelled,
+            "invalid-utf8" => VisionInferenceStatus.InvalidOutput,
+            _ => VisionInferenceStatus.TransportError,
+        }, result.Status);
+        var captured = failure == "limit" ? bytes[..1024] : bytes;
+        Assert.Equal(captured.Length, result.CapturedResponseBytes);
+        Assert.Equal(Hash(captured), result.RawResponseSha256);
+        Assert.False(result.RawResponseComplete);
+        Assert.Equal(200, result.HttpStatusCode);
+        Assert.Equal(31, result.InputTokens);
+        Assert.Equal(4, result.OutputTokens);
+        Assert.NotNull(result.FirstByteMilliseconds);
+        Assert.NotNull(result.FirstTokenMilliseconds);
+        Assert.True(result.RequestBytes > 0);
+        if (authenticated)
+        {
+            Assert.True(result.CredentialsRedacted);
+            Assert.Equal("", result.Text);
+            Assert.Equal("[redacted: incomplete authenticated response]", result.RawResponse);
+            Assert.Null(result.ResponseModelId);
+            Assert.Null(result.FinishReason);
+            Assert.DoesNotContain(fragment, JsonSerializer.Serialize(result));
+            Assert.DoesNotContain(wireFragment, JsonSerializer.Serialize(result));
+        }
+        else
+        {
+            Assert.False(result.CredentialsRedacted);
+            Assert.Equal(raw, result.RawResponse);
+            Assert.Equal("α" + fragment, result.Text);
+            Assert.Equal(fragment, result.ResponseModelId);
+            Assert.Equal("stop", result.FinishReason);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Rotation_during_vision_response_preserves_the_used_key_for_post_parse_redaction(bool malformed)
+    {
+        const string oldKey = "vision-request-private", nextKey = "vision-next-private";
+        var values = new Dictionary<string, string> { ["TEST_KEY"] = oldKey };
+        var handler = new Handler((_, _) =>
+        {
+            values["TEST_KEY"] = nextKey;
+            return Task.FromResult(malformed
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"echo\":\"" + oldKey + "\"}", Encoding.UTF8, "application/json"),
+                }
+                : Json(oldKey));
+        });
+        using var provider = new VisionHttpProvider(Settings() with { CredentialEnvironmentVariable = "TEST_KEY" },
+            handler, new StaticCredentialSource(values));
+
+        var result = await provider.InferAsync(Request());
+
+        Assert.Equal(malformed ? VisionInferenceStatus.InvalidOutput : VisionInferenceStatus.Completed, result.Status);
+        Assert.True(result.CredentialsRedacted);
+        Assert.DoesNotContain(oldKey, JsonSerializer.Serialize(result));
+        Assert.Equal("Bearer " + oldKey, Assert.Single(handler.Authorization));
+    }
+
     private static AiProviderSettings Settings() => new()
     {
         ProviderId = "lm-studio-test", ModelId = "synthetic-vision", Host = AiProviderHost.Local,
@@ -22,7 +146,7 @@ public sealed class VisionHttpProviderTests
 
     private static byte[] Png(byte value = 255, int width = 16, int height = 8)
     {
-        using var image = new Image<L8>(width, height, new L8(value));
+        using var image = new SkiaFixture(width, height, value);
         using var output = new MemoryStream();
         image.SaveAsPng(output);
         return output.ToArray();
@@ -107,8 +231,8 @@ public sealed class VisionHttpProviderTests
         {
             using var json = JsonDocument.Parse(body);
             var uri = json.RootElement.GetProperty("messages")[1].GetProperty("content")[1].GetProperty("image_url").GetProperty("url").GetString()!;
-            using var image = Image.Load<L8>(Convert.FromBase64String(uri["data:image/png;base64,".Length..]));
-            observed.Add(image[0, 0].PackedValue);
+            using var image = SkiaSharp.SKBitmap.Decode(Convert.FromBase64String(uri["data:image/png;base64,".Length..]));
+            observed.Add(image.GetPixel(0, 0).Red);
         }
         Assert.Equal(new byte[] { 0, 127, 255 }, observed);
     }
@@ -126,7 +250,7 @@ public sealed class VisionHttpProviderTests
         Assert.Throws<InvalidDataException>(() => VisionImage.FromPng(tooManyPixels, Hash(tooManyPixels)));
         var broken = bytes[..35];
         Assert.Throws<InvalidDataException>(() => VisionImage.FromPng(broken, Hash(broken)));
-        using var image = new Image<L8>(4, 4);
+        using var image = new SkiaFixture(4, 4);
         using var jpeg = new MemoryStream();
         image.SaveAsJpeg(jpeg);
         Assert.Throws<InvalidDataException>(() => VisionImage.FromPng(jpeg.ToArray(), Hash(jpeg.ToArray())));
@@ -528,7 +652,8 @@ public sealed class VisionHttpProviderTests
         }
     }
 
-    private sealed class ChunkStream(byte[] bytes, int chunkSize, bool stall = false, bool fail = false) : Stream
+    private sealed class ChunkStream(byte[] bytes, int chunkSize, bool stall = false, bool fail = false,
+        Action? onExhausted = null) : Stream
     {
         private int _offset;
         public override bool CanRead => true;
@@ -540,6 +665,7 @@ public sealed class VisionHttpProviderTests
         {
             if (_offset == bytes.Length)
             {
+                onExhausted?.Invoke();
                 if (stall) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 if (fail) throw new IOException("Synthetic broken connection.");
                 return 0;

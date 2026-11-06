@@ -24,6 +24,42 @@ public sealed class GeometryService(IProjectStore store)
         string author = "manual-editor", LineGeometrySnapshot? expectedGeometry = null)
     {
         Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
+        return SetLineGeometryCore(project, lineId, validatedPolygon, validatedBaseline, author, expectedGeometry, null);
+    }
+
+    /// <summary>Update existing geometry only in the exact capture/raw frame whose display was observed.</summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Line) SetLineGeometryInCapture(
+        NativeProject project, EntityId surfaceId, EntityId captureId, CaptureDisplayDescriptor display,
+        EntityId lineId, IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline,
+        LineGeometrySnapshot expectedGeometry, string author = "manual-editor")
+    {
+        var capture = RequireDisplayFrame(project, surfaceId, captureId, display);
+        var matches = project.Objects.SelectMany(obj => obj.Surfaces)
+            .SelectMany(surface => surface.Lines.Where(line => line.Id == lineId).Select(line => (Surface: surface, Line: line)))
+            .ToArray();
+        if (matches.Length != 1)
+            throw InvalidFrame(lineId, "The line identity is missing or ambiguous; repair its native registration before editing.");
+        var target = matches[0];
+        if (target.Surface.Id != surfaceId || target.Line.FrameRef != capture.Frame.ImageRef)
+            throw InvalidFrame(lineId, "The line does not belong to the selected surface and raw source frame.");
+        var regions = target.Surface.Regions.Where(region => region.Id == target.Line.RegionId).ToArray();
+        if (regions.Length != 1 || regions[0].FrameRef != capture.Frame.ImageRef)
+            throw InvalidFrame(lineId, "The line's region registration is inconsistent with this capture. Repair its native registration before editing.");
+        if (expectedGeometry is null)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation, Scope = lineId.ToString(),
+                Message = "Capture-bound edits require the exact loaded geometry as an expected snapshot.",
+            });
+        Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
+        RequireRawBounds(surfaceId, display, validatedPolygon, validatedBaseline);
+        return SetLineGeometryCore(project, lineId, validatedPolygon, validatedBaseline, author, expectedGeometry, display);
+    }
+
+    private (NativeProject Project, NativeSurface Surface, NativeLine Line) SetLineGeometryCore(
+        NativeProject project, EntityId lineId, IReadOnlyList<PointD> validatedPolygon, IReadOnlyList<PointD> validatedBaseline,
+        string author, LineGeometrySnapshot? expectedGeometry, CaptureDisplayDescriptor? display)
+    {
         var (foundProject, surface, line) = FindLine(project, lineId);
         if (expectedGeometry is not null)
         {
@@ -63,6 +99,7 @@ public sealed class GeometryService(IProjectStore store)
                     LineId = lineId,
                     Before = before,
                     After = after,
+                    Note = CaptureDisplayEvidence(display),
                 },
             ],
         };
@@ -113,15 +150,7 @@ public sealed class GeometryService(IProjectStore store)
         NativeProject project, EntityId regionId, TextDirection? direction, string? script,
         string author = "api")
     {
-        var surface = project.Objects.SelectMany(o => o.Surfaces)
-            .FirstOrDefault(s => s.Regions.Any(r => r.Id == regionId))
-            ?? throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.InputMissing,
-                Scope = regionId.ToString(),
-                Message = "No such region in the project.",
-            });
-        var region = surface.Regions.Single(r => r.Id == regionId);
+        var (surface, region) = FindRegion(project, regionId);
         var validatedScript = ValidateScript(script);
 
         var before = OrientationJson(region.Direction, region.Script);
@@ -158,39 +187,71 @@ public sealed class GeometryService(IProjectStore store)
         NativeProject project, EntityId surfaceId,
         IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline, EntityId? regionId = null,
         string author = "manual-editor")
+        => AddLineCore(project, surfaceId, polygon, baseline, regionId, author, null);
+
+    /// <summary>Create geometry in the exact raw frame whose bounded display the editor loaded.</summary>
+    public (NativeProject Project, NativeSurface Surface, NativeLine Line) AddLineInCapture(
+        NativeProject project, EntityId surfaceId, EntityId captureId, CaptureDisplayDescriptor display,
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline,
+        IReadOnlyList<EntityId> expectedLineIds, IReadOnlyList<EntityId> expectedRegionIds,
+        EntityId? regionId = null, string author = "manual-editor")
+    {
+        RequireDisplayFrame(project, surfaceId, captureId, display);
+        var (_, surface) = FindSurface(project, surfaceId);
+        if (expectedLineIds is null || expectedRegionIds is null)
+            throw InvalidFrame(surfaceId, "The loaded surface line and region sequences are required.");
+        RequireExpectedOrder(surface.Lines.Select(l => l.Id).ToArray(), expectedLineIds, surfaceId);
+        RequireExpectedOrder(surface.Regions.Select(r => r.Id).ToArray(), expectedRegionIds, surfaceId);
+        Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
+        RequireRawBounds(surfaceId, display, validatedPolygon, validatedBaseline);
+        return AddLineCore(project, surfaceId, validatedPolygon, validatedBaseline, regionId, author, display);
+    }
+
+    private (NativeProject Project, NativeSurface Surface, NativeLine Line) AddLineCore(
+        NativeProject project, EntityId surfaceId,
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline, EntityId? regionId,
+        string author, CaptureDisplayDescriptor? display)
     {
         Validate(polygon, baseline, out var validatedPolygon, out var validatedBaseline);
         var (foundProject, surface) = FindSurface(project, surfaceId);
+        var targetFrame = display is not null
+            ? EntityId.Parse(display.SourceFrameRef)
+            : surface.Captures.FirstOrDefault()?.Frame.ImageRef;
 
         NativeRegion? region = null;
         if (regionId is { } requested)
         {
-            region = surface.Regions.FirstOrDefault(r => r.Id == requested)
+            var matches = surface.Regions.Where(r => r.Id == requested).ToArray();
+            if (matches.Length > 1) throw InvalidFrame(requested, "The selected region identity is ambiguous.");
+            region = matches.FirstOrDefault()
                 ?? throw new LeviathanException(new LeviathanError
                 {
                     Code = ErrorCode.InputMissing,
                     Scope = requested.ToString(),
                     Message = "No such region on the surface.",
                 });
+            if (display is not null && region.FrameRef != targetFrame)
+                throw InvalidFrame(requested, "The selected region belongs to a different source frame.");
         }
 
         if (region is null)
         {
-            region = surface.Regions.Count > 0
-                ? surface.Regions.OrderBy(r => r.ReadingOrderIndex).First()
-                : new NativeRegion
+            if (targetFrame is null)
+                throw InvalidFrame(surfaceId, "New geometry requires an explicit source frame.");
+            region = surface.Regions.Where(r => r.FrameRef == targetFrame).OrderBy(r => r.ReadingOrderIndex).FirstOrDefault()
+                ?? new NativeRegion
                 {
                     Id = new EntityId(EntityKind.Region, Guid.NewGuid().ToString("N")[..12]),
-                    FrameRef = surface.Captures.FirstOrDefault()?.Id ?? default,
+                    FrameRef = targetFrame.Value,
                     Polygon =
                     [
                         new PointD(0, 0),
-                        new PointD(polygon.Max(p => p.X), 0),
-                        new PointD(polygon.Max(p => p.X), polygon.Max(p => p.Y)),
-                        new PointD(0, polygon.Max(p => p.Y)),
+                        new PointD(display?.SourceWidth ?? polygon.Max(p => p.X), 0),
+                        new PointD(display?.SourceWidth ?? polygon.Max(p => p.X), display?.SourceHeight ?? polygon.Max(p => p.Y)),
+                        new PointD(0, display?.SourceHeight ?? polygon.Max(p => p.Y)),
                     ],
                     LayoutSource = LayoutSource.Manual,
-                    ReadingOrderIndex = 0,
+                    ReadingOrderIndex = surface.Regions.Count == 0 ? 0 : checked(surface.Regions.Max(r => r.ReadingOrderIndex ?? -1) + 1),
                 };
         }
 
@@ -221,6 +282,7 @@ public sealed class GeometryService(IProjectStore store)
                     LineId = line.Id,
                     RegionId = region.Id,
                     After = GeometryJson(validatedPolygon, validatedBaseline),
+                    Note = CaptureDisplayEvidence(display),
                 },
             ],
         };
@@ -228,6 +290,37 @@ public sealed class GeometryService(IProjectStore store)
         foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, line);
     }
+
+    private static LeviathanException InvalidFrame(EntityId scope, string message) => new(new LeviathanError
+    {
+        Code = ErrorCode.FrameUnregistered, Scope = scope.ToString(), Message = message,
+    });
+
+    private static NativeCapture RequireDisplayFrame(NativeProject project, EntityId surfaceId, EntityId captureId,
+        CaptureDisplayDescriptor display)
+    {
+        var capture = CaptureDisplayService.ResolveCapture(project, surfaceId, captureId);
+        if (display is null || display.ProjectId != project.Id.ToString() || display.SurfaceId != surfaceId.ToString()
+            || display.CaptureId != captureId.ToString() || display.SourceFrameRef != capture.Frame.ImageRef.ToString()
+            || display.Orientation != "raw" || display.SourceWidth <= 0 || display.SourceHeight <= 0)
+            throw InvalidFrame(surfaceId, "The display does not identify this capture's raw source frame.");
+        CaptureDisplayService.ValidateObservedFrameDimensions(project, capture.Frame.ImageRef, display.SourceWidth, display.SourceHeight);
+        return capture;
+    }
+
+    private static void RequireRawBounds(EntityId scope, CaptureDisplayDescriptor display,
+        IReadOnlyList<PointD> polygon, IReadOnlyList<PointD> baseline)
+    {
+        if (polygon.Concat(baseline).Any(p => p.X < 0 || p.Y < 0 || p.X > display.SourceWidth || p.Y > display.SourceHeight))
+            throw InvalidFrame(scope, "Geometry must stay within the raw source frame.");
+    }
+
+    private static string? CaptureDisplayEvidence(CaptureDisplayDescriptor? display) => display is null ? null : JsonSerializer.Serialize(new
+    {
+        kind = "capture-display-evidence", captureId = display.CaptureId,
+        sourceFrameRef = display.SourceFrameRef, observedSourceChecksum = display.ObservedSourceChecksum,
+        derivativeId = display.DerivativeId, sourceWidth = display.SourceWidth, sourceHeight = display.SourceHeight,
+    });
 
     /// <summary>
     /// Delete a line that carries no transcription evidence. Lines with an L1 revision are
@@ -238,14 +331,7 @@ public sealed class GeometryService(IProjectStore store)
         NativeProject project, EntityId lineId, string author = "manual-editor")
     {
         var (foundProject, surface, line) = FindLine(project, lineId);
-        if (line.DiplomaticRevisionId is not null)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RevisionConflict,
-                Scope = lineId.ToString(),
-                RemedyHint = RemedyHint.RebaseRevision,
-                Message = "Line has a diplomatic revision; refusing to delete transcribed evidence.",
-            });
+        RequireNoLineEvidence(surface, line);
 
         var updated = surface with
         {
@@ -272,13 +358,15 @@ public sealed class GeometryService(IProjectStore store)
 
     public (NativeProject Project, NativeSurface Surface) SetReadingOrder(
         NativeProject project, EntityId surfaceId, IReadOnlyList<EntityId> orderedRegionIds,
-        string author = "manual-editor")
+        string author = "manual-editor", IReadOnlyList<EntityId>? expectedRegionIds = null)
     {
         var (foundProject, surface) = FindSurface(project, surfaceId);
 
+        RequireUniqueOrder(surface.Regions.Select(r => r.Id).ToArray(), surfaceId);
         var existing = surface.Regions.Select(r => r.Id).ToHashSet();
-        var requested = orderedRegionIds.ToHashSet();
-        if (existing.Count != requested.Count || !existing.SetEquals(requested))
+        var requested = orderedRegionIds?.ToHashSet() ?? [];
+        if (orderedRegionIds is null || orderedRegionIds.Count != existing.Count
+            || existing.Count != requested.Count || !existing.SetEquals(requested))
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
@@ -291,8 +379,11 @@ public sealed class GeometryService(IProjectStore store)
                 Message = "Reading order must list every region of the surface exactly once.",
             });
 
+        var currentOrder = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(r => r.Id).ToArray();
+        RequireExpectedOrder(currentOrder, expectedRegionIds, surfaceId);
+
         var index = orderedRegionIds.Select((id, position) => (id, position)).ToDictionary(p => p.id, p => p.position);
-        var beforeOrder = string.Join(',', surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(r => r.Id));
+        var beforeOrder = string.Join(',', currentOrder);
         var afterOrder = string.Join(',', orderedRegionIds);
         surface = surface with
         {
@@ -314,6 +405,70 @@ public sealed class GeometryService(IProjectStore store)
         foundProject = WithSurface(foundProject, surface);
         foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, surface);
+    }
+
+    /// <summary>Replace only this capture frame's slots in the complete surface order.</summary>
+    public (NativeProject Project, NativeSurface Surface) SetCaptureReadingOrder(
+        NativeProject project, EntityId surfaceId, EntityId captureId, IReadOnlyList<EntityId> orderedRegionIds,
+        IReadOnlyList<EntityId> expectedSurfaceRegionIds, string author = "manual-editor")
+    {
+        var capture = CaptureDisplayService.ResolveCapture(project, surfaceId, captureId);
+        var (_, surface) = FindSurface(project, surfaceId);
+        var current = surface.Regions.OrderBy(r => r.ReadingOrderIndex).Select(r => r.Id).ToArray();
+        RequireCompleteExpectedOrder(current, expectedSurfaceRegionIds, surfaceId);
+        var selected = surface.Regions.Where(r => r.FrameRef == capture.Frame.ImageRef).Select(r => r.Id).ToHashSet();
+        var replacement = ReplaceFrameSlots(current, selected, orderedRegionIds, surfaceId);
+        return SetReadingOrder(project, surfaceId, replacement, author, expectedSurfaceRegionIds);
+    }
+
+    /// <summary>Replace only compatible line slots, leaving other-frame lines in place.</summary>
+    public (NativeProject Project, NativeSurface Surface) SetCaptureLineOrder(
+        NativeProject project, EntityId surfaceId, EntityId captureId, EntityId regionId,
+        IReadOnlyList<EntityId> orderedLineIds, IReadOnlyList<EntityId> expectedRegionLineIds,
+        string author = "manual-editor")
+    {
+        var capture = CaptureDisplayService.ResolveCapture(project, surfaceId, captureId);
+        var (_, surface) = FindSurface(project, surfaceId);
+        var matches = surface.Regions.Where(r => r.Id == regionId).ToArray();
+        if (matches.Length > 1) throw InvalidFrame(regionId, "The selected region identity is ambiguous.");
+        var region = matches.FirstOrDefault()
+            ?? throw InvalidFrame(regionId, "The region is not on this surface.");
+        if (region.FrameRef != capture.Frame.ImageRef)
+            throw InvalidFrame(regionId, "The region belongs to a different source frame.");
+        var lines = surface.Lines.Where(l => l.RegionId == regionId).ToArray();
+        var current = lines.Select(l => l.Id).ToArray();
+        RequireCompleteExpectedOrder(current, expectedRegionLineIds, regionId);
+        var selected = lines.Where(l => l.FrameRef == capture.Frame.ImageRef).Select(l => l.Id).ToHashSet();
+        var replacement = ReplaceFrameSlots(current, selected, orderedLineIds, regionId);
+        return SetLineOrder(project, regionId, replacement, author, expectedRegionLineIds);
+    }
+
+    private static void RequireCompleteExpectedOrder(IReadOnlyList<EntityId> current,
+        IReadOnlyList<EntityId>? expected, EntityId scope)
+    {
+        RequireUniqueOrder(current, scope);
+        if (expected is null) throw InvalidFrame(scope, "The complete loaded order is required.");
+        RequireExpectedOrder(current, expected, scope);
+    }
+
+    private static void RequireUniqueOrder(IReadOnlyList<EntityId> current, EntityId scope)
+    {
+        if (current.Distinct().Count() != current.Count)
+            throw InvalidFrame(scope, "The stored order contains ambiguous native identities. Repair its registration explicitly before editing.");
+    }
+
+    private static IReadOnlyList<EntityId> ReplaceFrameSlots(IReadOnlyList<EntityId> current,
+        HashSet<EntityId> selected, IReadOnlyList<EntityId>? requested, EntityId scope)
+    {
+        if (requested is null || requested.Count != selected.Count || requested.Distinct().Count() != requested.Count
+            || !selected.SetEquals(requested))
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation, Scope = scope.ToString(),
+                Message = "Frame order must list every compatible item exactly once, without items from other frames.",
+            });
+        var pointer = 0;
+        return current.Select(id => selected.Contains(id) ? requested[pointer++] : id).ToArray();
     }
 
     private static string? ValidateScript(string? script)
@@ -340,7 +495,7 @@ public sealed class GeometryService(IProjectStore store)
         static bool Finite(IReadOnlyList<PointD> points) =>
             points.All(p => double.IsFinite(p.X) && double.IsFinite(p.Y));
 
-        if (polygon.Count < 3)
+        if (polygon is null || baseline is null || polygon.Count < 3)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
@@ -368,25 +523,23 @@ public sealed class GeometryService(IProjectStore store)
 
     public (NativeProject Project, NativeSurface Surface) SetLineOrder(
         NativeProject project, EntityId regionId, IReadOnlyList<EntityId> orderedLineIds,
-        string author = "manual-editor")
+        string author = "manual-editor", IReadOnlyList<EntityId>? expectedLineIds = null)
     {
-        var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Regions.Any(r => r.Id == regionId))
-            ?? throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.InputMissing,
-                Scope = regionId.ToString(),
-                Message = "No such region in the project.",
-            });
-
-        var expected = surface.Lines.Where(l => l.RegionId == regionId).Select(l => l.Id).ToHashSet();
-        var requested = orderedLineIds.ToHashSet();
-        if (expected.Count != requested.Count || !expected.SetEquals(requested))
+        var (surface, _) = FindRegion(project, regionId);
+        var currentOrder = surface.Lines.Where(l => l.RegionId == regionId).Select(l => l.Id).ToArray();
+        RequireUniqueOrder(currentOrder, regionId);
+        var expected = currentOrder.ToHashSet();
+        var requested = orderedLineIds?.ToHashSet() ?? [];
+        if (orderedLineIds is null || orderedLineIds.Count != expected.Count
+            || expected.Count != requested.Count || !expected.SetEquals(requested))
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
                 Scope = regionId.ToString(),
                 Message = "Line order must list every line of the region exactly once.",
             });
+
+        RequireExpectedOrder(currentOrder, expectedLineIds, regionId);
 
         // Rebuild the surface line list: lines of this region in the requested order,
         // other regions' lines keep their relative positions.
@@ -406,7 +559,7 @@ public sealed class GeometryService(IProjectStore store)
             }
         }
 
-        var beforeOrder = string.Join(',', surface.Lines.Where(l => l.RegionId == regionId).Select(l => l.Id));
+        var beforeOrder = string.Join(',', currentOrder);
         var updated = surface with
         {
             Lines = ordered,
@@ -430,6 +583,17 @@ public sealed class GeometryService(IProjectStore store)
         return (foundProject, updated);
     }
 
+    private static void RequireExpectedOrder(IReadOnlyList<EntityId> current, IReadOnlyList<EntityId>? expected, EntityId scope)
+    {
+        if (expected is null || current.SequenceEqual(expected)) return;
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.RevisionConflict, Scope = scope.ToString(),
+            RemedyHint = RemedyHint.RebaseRevision,
+            Message = "Order changed since it was loaded; keep the draft and reload before reconciling.",
+        });
+    }
+
     /// <summary>
     /// Split an untranscribed line at a horizontal y position (correction for merged
     /// detections). Refuses lines carrying diplomatic text: that evidence must not be
@@ -439,19 +603,14 @@ public sealed class GeometryService(IProjectStore store)
         NativeProject project, EntityId lineId, double splitY, string author = "manual-editor")
     {
         var (foundProject, surface, line) = FindLine(project, lineId);
-        if (line.DiplomaticRevisionId is not null)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RevisionConflict,
-                Scope = lineId.ToString(),
-                Message = "Line has a diplomatic revision; splitting it would detach text from geometry.",
-            });
+        RequireNoLineEvidence(surface, line);
+        RequirePlacedPolygon(line);
 
         double top = line.Polygon.Min(p => p.Y);
         double bottom = line.Polygon.Max(p => p.Y);
         double left = line.Polygon.Min(p => p.X);
         double right = line.Polygon.Max(p => p.X);
-        if (splitY <= top + 2 || splitY >= bottom - 2)
+        if (!double.IsFinite(splitY) || splitY <= top + 2 || splitY >= bottom - 2)
             throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.StageContractViolation,
@@ -523,13 +682,7 @@ public sealed class GeometryService(IProjectStore store)
             });
 
         var (foundProject, surface, first) = FindLine(project, firstLineId);
-        if (first.DiplomaticRevisionId is not null)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RevisionConflict,
-                Scope = firstLineId.ToString(),
-                Message = "First line has a diplomatic revision; merging would detach text from geometry.",
-            });
+        RequireNoLineEvidence(surface, first);
         var second = surface.Lines.FirstOrDefault(l => l.Id == secondLineId)
             ?? throw new LeviathanException(new LeviathanError
             {
@@ -537,13 +690,9 @@ public sealed class GeometryService(IProjectStore store)
                 Scope = secondLineId.ToString(),
                 Message = "No such line on the first line's surface.",
             });
-        if (second.DiplomaticRevisionId is not null)
-            throw new LeviathanException(new LeviathanError
-            {
-                Code = ErrorCode.RevisionConflict,
-                Scope = secondLineId.ToString(),
-                Message = "Second line has a diplomatic revision; merging would detach text from geometry.",
-            });
+        RequireNoLineEvidence(surface, second);
+        if (first.FrameRef != second.FrameRef)
+            throw InvalidFrame(secondLineId, "Lines in different source frames cannot be merged.");
         if (second.RegionId != first.RegionId)
             throw new LeviathanException(new LeviathanError
             {
@@ -551,6 +700,9 @@ public sealed class GeometryService(IProjectStore store)
                 Scope = secondLineId.ToString(),
                 Message = "Lines belong to different regions.",
             });
+
+        RequirePlacedPolygon(first);
+        RequirePlacedPolygon(second);
 
         double left = Math.Min(first.Polygon.Min(p => p.X), second.Polygon.Min(p => p.X));
         double right = Math.Max(first.Polygon.Max(p => p.X), second.Polygon.Max(p => p.X));
@@ -589,6 +741,29 @@ public sealed class GeometryService(IProjectStore store)
         foundProject = WithSurface(foundProject, updated);
         foundProject = foundProject with { Version = store.SaveProject(foundProject) };
         return (foundProject, updated, merged);
+    }
+
+    private static void RequireNoLineEvidence(NativeSurface surface, NativeLine line)
+    {
+        if (line.DiplomaticRevisionId is null && !surface.Revisions.Any(r => r.ScopeId == line.Id)
+            && !surface.ReviewDecisions.Any(r => r.LineId == line.Id)) return;
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.RevisionConflict, Scope = line.Id.ToString(), RemedyHint = RemedyHint.RebaseRevision,
+            Message = "Line carries revision or review evidence; structural removal or repartition would detach it from its source geometry.",
+        });
+    }
+
+    private static void RequirePlacedPolygon(NativeLine line)
+    {
+        if (line.Polygon.Count >= 3 && line.Polygon.All(p => double.IsFinite(p.X) && double.IsFinite(p.Y))
+            && line.Polygon.Max(p => p.X) > line.Polygon.Min(p => p.X)
+            && line.Polygon.Max(p => p.Y) > line.Polygon.Min(p => p.Y)) return;
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.StageContractViolation, Scope = line.Id.ToString(),
+            Message = "Structural repartition requires a finite placed polygon with nonzero bounds; place the line geometry first.",
+        });
     }
 
     /// <summary>
@@ -663,38 +838,58 @@ public sealed class GeometryService(IProjectStore store)
 
     private static (NativeProject Project, NativeSurface Surface) FindSurface(NativeProject project, EntityId surfaceId)
     {
-        foreach (var obj in project.Objects)
-            foreach (var surface in obj.Surfaces)
-                if (surface.Id == surfaceId)
-                    return (project, surface);
+        var matches = project.Objects.SelectMany(obj => obj.Surfaces).Where(surface => surface.Id == surfaceId).Take(2).ToArray();
+        if (matches.Length > 1) throw InvalidFrame(surfaceId, "The surface identity is ambiguous; no native evidence was changed.");
+        if (matches.Length == 1) return (project, matches[0]);
         throw new LeviathanException(new LeviathanError
         {
-            Code = ErrorCode.InputMissing,
-            Scope = surfaceId.ToString(),
-            Message = "No such surface in the project.",
+            Code = ErrorCode.InputMissing, Scope = surfaceId.ToString(), Message = "No such surface in the project.",
         });
     }
 
     private static (NativeProject Project, NativeSurface Surface, NativeLine Line) FindLine(NativeProject project, EntityId lineId)
     {
-        foreach (var obj in project.Objects)
-            foreach (var surface in obj.Surfaces)
-                foreach (var line in surface.Lines)
-                    if (line.Id == lineId)
-                        return (project, surface, line);
+        var matches = project.Objects.SelectMany(obj => obj.Surfaces)
+            .SelectMany(surface => surface.Lines.Where(line => line.Id == lineId).Select(line => (Surface: surface, Line: line)))
+            .Take(2).ToArray();
+        if (matches.Length > 1) throw InvalidFrame(lineId, "The line identity is ambiguous; no native evidence was changed.");
+        if (matches.Length == 1)
+        {
+            FindSurface(project, matches[0].Surface.Id);
+            return (project, matches[0].Surface, matches[0].Line);
+        }
         throw new LeviathanException(new LeviathanError
         {
-            Code = ErrorCode.InputMissing,
-            Scope = lineId.ToString(),
-            Message = "No such line in the project.",
+            Code = ErrorCode.InputMissing, Scope = lineId.ToString(), Message = "No such line in the project.",
         });
     }
 
-    private static NativeProject WithSurface(NativeProject project, NativeSurface surface) =>
-        project with
+    private static (NativeSurface Surface, NativeRegion Region) FindRegion(NativeProject project, EntityId regionId)
+    {
+        var matches = project.Objects.SelectMany(obj => obj.Surfaces)
+            .SelectMany(surface => surface.Regions.Where(region => region.Id == regionId).Select(region => (Surface: surface, Region: region)))
+            .Take(2).ToArray();
+        if (matches.Length > 1) throw InvalidFrame(regionId, "The region identity is ambiguous; no native evidence was changed.");
+        if (matches.Length == 1)
+        {
+            FindSurface(project, matches[0].Surface.Id);
+            return matches[0];
+        }
+        throw new LeviathanException(new LeviathanError
+        {
+            Code = ErrorCode.InputMissing, Scope = regionId.ToString(), Message = "No such region in the project.",
+        });
+    }
+
+    private static NativeProject WithSurface(NativeProject project, NativeSurface surface)
+    {
+        // Even callers that located a line/region must not replace multiple surfaces.
+        FindSurface(project, surface.Id);
+        return project with
         {
             Objects = [.. project.Objects.Select(o => o.Surfaces.Any(s => s.Id == surface.Id)
                 ? o with { Surfaces = [.. o.Surfaces.Select(s => s.Id == surface.Id ? surface : s)] }
                 : o)],
         };
+    }
 }

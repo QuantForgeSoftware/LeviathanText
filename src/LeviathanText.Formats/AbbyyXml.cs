@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 using LeviathanText.Contracts;
 
@@ -7,7 +8,8 @@ namespace LeviathanText.Formats;
 /// Bounded ABBYY FineReader XML adapter (FineReader 10 namespace). Supported subset: one
 /// page, text blocks, text lines with l/t/r/b, baseline and plain character content.
 /// Character boxes are emitted as one charParams per line (no word segmentation synthesis);
-/// imports concatenate charParams/line text. Unsupported structural data is not interpreted.
+/// imports concatenate recognized charParams text without recognition alternatives.
+/// Unsupported structures and discarded metadata are reported as import losses.
 /// </summary>
 public static class AbbyyXml
 {
@@ -65,7 +67,8 @@ public static class AbbyyXml
 
     public static ImportResult Import(string xml, EntityId frameEntity, Checksum frameChecksum)
     {
-        var doc = XDocument.Parse(xml, LoadOptions.None);
+        // A standalone space charParams is recognized content, not XML indentation.
+        var doc = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
         if (doc.DocumentType is not null)
             throw new InvalidDataException("DOCTYPE/external entities are not accepted in ABBYY imports.");
         var root = doc.Root ?? throw new InvalidDataException("Missing ABBYY document root.");
@@ -77,24 +80,64 @@ public static class AbbyyXml
         var lines = new List<NativeLine>();
         var revisions = new List<TextRevision>();
         var unsupported = new List<PageXml.ImportIssue>();
+        var reported = new HashSet<string>(StringComparer.Ordinal);
+        void Report(string element, string description, PageXml.IssueSeverity severity = PageXml.IssueSeverity.Loss)
+        {
+            if (reported.Add(element)) unsupported.Add(new(element, description, severity));
+        }
+        if (root.Elements(Ns + "page").Skip(1).Any())
+            Report("page", "Only the first page is imported; retain the source XML for additional pages.");
+        if (root.Element(Ns + "documentData") is not null)
+            Report("documentData", "Document style metadata is not represented in the bounded native import.");
         int regionOrder = 0;
         foreach (var block in page.Elements(Ns + "block"))
         {
+            if (block.Attribute("blockType") is { Value: not "Text" } blockType)
+            {
+                Report("blockType", $"Non-text blocks (including {blockType.Value}) are not imported; retain the source XML.");
+                continue;
+            }
             var blockId = ExternalIds.Sanitize((string?)block.Attribute("id") ?? $"abbyy-block-{regionOrder}");
             var regionId = new EntityId(EntityKind.Region, blockId);
+            var blockBounds = ReadBounds(block);
+            if (blockBounds is null && new[] { "l", "t", "r", "b" }.Any(name => block.Attribute(name) is not null))
+                Report("block-geometry", "Invalid or incomplete block bounds were omitted; coordinates were not synthesized.");
+            if (block.Element(Ns + "region") is not null)
+                Report("block-region", "Detailed block regions are not represented; only valid enclosing block bounds are imported.");
             regions.Add(new NativeRegion
             {
                 Id = regionId,
                 FrameRef = frameEntity,
+                Polygon = blockBounds is { } bb ? Rectangle(bb) : [],
                 LayoutSource = LayoutSource.Imported,
                 ReadingOrderIndex = regionOrder++,
             });
-            foreach (var line in block.Descendants(Ns + "line"))
+            foreach (var line in block.Elements(Ns + "text").Elements(Ns + "par").Elements(Ns + "line"))
             {
                 var lineId = ExternalIds.Sanitize((string?)line.Attribute("id") ?? $"abbyy-line-{lines.Count}");
-                int left = IntAttr(line, "l"), top = IntAttr(line, "t"), right = IntAttr(line, "r"), bottom = IntAttr(line, "b");
-                var text = string.Concat(line.Descendants(Ns + "charParams").Select(e => e.Value));
-                if (string.IsNullOrEmpty(text)) text = line.Value.Trim();
+                var lineBounds = ReadBounds(line);
+                if (lineBounds is null)
+                    Report("line-geometry", "Invalid or incomplete line bounds were omitted; coordinates were not synthesized.");
+                var baseline = ReadInt(line, "baseline");
+                if (line.Attribute("baseline") is not null && baseline is null)
+                    Report("baseline", "An invalid declared baseline was omitted.");
+                else if (baseline is null && lineBounds is { } fallbackBounds)
+                {
+                    baseline = fallbackBounds.Bottom;
+                    Report("baseline-fallback", "A line without a declared baseline uses its bottom edge for compatibility.", PageXml.IssueSeverity.Note);
+                }
+                // Descendant traversal would also accept chars from word/character alternatives.
+                var formatting = line.Elements(Ns + "formatting").ToArray();
+                var characters = formatting.Elements(Ns + "charParams").ToArray();
+                var text = string.Concat(characters.SelectMany(e => e.Nodes().OfType<XText>()).Select(n => n.Value));
+                if (line.Descendants().Any(e => e.Name.LocalName is "charRecVariants" or "charRecVariant" or "wordRecVariants" or "wordRecVariant"))
+                    Report("recognition-variants", "Recognition alternatives are not selected or appended to diplomatic text; retain the source XML.");
+                if (characters.Any(e => e.Attributes().Any()))
+                    Report("character-metadata", "Character boxes, confidence, word boundaries and other character attributes are not represented in the line-level import.");
+                if (formatting.Any(e => e.Attributes().Any(a => !string.IsNullOrEmpty(a.Value))))
+                    Report("formatting-metadata", "Source language and formatting attributes are not represented in the bounded import.");
+                if (formatting.Length == 0 && !line.HasElements)
+                    text = line.Value.Trim(); // Legacy plain-line compatibility, never variant text.
                 var lineEntity = new EntityId(EntityKind.Line, lineId);
                 TextRevision? revision = null;
                 if (!string.IsNullOrEmpty(text))
@@ -111,8 +154,9 @@ public static class AbbyyXml
                 lines.Add(new NativeLine
                 {
                     Id = lineEntity, RegionId = regionId, FrameRef = frameEntity,
-                    Polygon = [new(left, top), new(right, top), new(right, bottom), new(left, bottom)],
-                    Baseline = [new(left, bottom), new(right, bottom)],
+                    Polygon = lineBounds is { } lb ? Rectangle(lb) : [],
+                    Baseline = lineBounds is { } valid && baseline is { } y
+                        ? [new(valid.Left, y), new(valid.Right, y)] : [],
                     DiplomaticRevisionId = revision?.Id,
                 });
             }
@@ -120,8 +164,16 @@ public static class AbbyyXml
         return new ImportResult(regions, lines, revisions, unsupported);
     }
 
-    private static int IntAttr(XElement element, string name) =>
-        int.TryParse((string?)element.Attribute(name), out var value) ? value : 0;
+    private static int? ReadInt(XElement element, string name) =>
+        int.TryParse((string?)element.Attribute(name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    private static (int Left, int Top, int Right, int Bottom)? ReadBounds(XElement element) =>
+        ReadInt(element, "l") is { } left && ReadInt(element, "t") is { } top &&
+        ReadInt(element, "r") is { } right && ReadInt(element, "b") is { } bottom && right >= left && bottom >= top
+            ? (left, top, right, bottom) : null;
+
+    private static PointD[] Rectangle((int Left, int Top, int Right, int Bottom) bounds) =>
+        [new(bounds.Left, bounds.Top), new(bounds.Right, bounds.Top), new(bounds.Right, bounds.Bottom), new(bounds.Left, bounds.Bottom)];
 
     private static (int Left, int Top, int Right, int Bottom) Bounds(IReadOnlyList<PointD> points) =>
         points.Count == 0 ? (0, 0, 0, 0) : ((int)Math.Round(points.Min(p => p.X)), (int)Math.Round(points.Min(p => p.Y)),

@@ -87,6 +87,46 @@ public sealed class LayoutProjectHandlerTests : IDisposable
     }
 
     [Fact]
+    public void Revoked_membership_stops_before_the_next_surface_and_retains_the_completed_surface()
+    {
+        using var store = new LocalStore(_db);
+        var project = Seed(store);
+        var owner = store.CreateUser("batch-owner", UserRole.Annotator, "fixture-batch-hash");
+        store.AddProjectMember(project.Id, owner.Id);
+        var job = new JobRecord
+        {
+            Id = new(EntityKind.Job, "revoked-batch"), Type = LayoutProjectHandler.JobType,
+            Inputs = [new StageArtifact(project.Id, new Checksum { Algorithm = "project", Digest = "" })],
+            Owner = new AgentRef { Id = owner.Id, IsModel = false }, Status = JobStatus.Pending,
+            BoundProjectId = project.Id,
+        };
+        var jobs = new Program.LocalStoreJobStore(store);
+        jobs.Save(job);
+        bool Authorized(JobRecord current) => ProjectJobAuthorization.CanExecute(store, current);
+        int started = 0;
+        var handler = new LayoutProjectHandler(store, jobs: jobs, authorize: Authorized, modelResolver: _ =>
+        {
+            // Revoke after this surface's checkpoint, while its work is already admitted.
+            started++;
+            store.RemoveProjectMember(project.Id, owner.Id);
+            return null;
+        });
+        var worker = new WorkerHost(jobs, [handler], authorize: Authorized);
+
+        var finished = Assert.IsType<JobRecord>(worker.RunNext());
+
+        Assert.Equal(JobStatus.Cancelled, finished.Status);
+        Assert.Equal(ErrorCode.Cancelled, finished.Failure!.Code);
+        Assert.Equal(0, finished.RetriesUsed);
+        Assert.Equal(1, started);
+        var surfaces = store.LoadProject(project.Id)!.Objects[0].Surfaces;
+        Assert.NotEmpty(surfaces[0].Lines);
+        Assert.Empty(surfaces[1].Lines);
+        Assert.Single(surfaces[2].Lines);
+        Assert.Null(worker.RunNext());
+    }
+
+    [Fact]
     public void Detects_missing_layout_and_skips_existing()
     {
         using var store = new LocalStore(_db);

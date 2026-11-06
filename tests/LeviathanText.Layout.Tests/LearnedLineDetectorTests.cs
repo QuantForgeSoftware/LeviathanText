@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using SkiaSharp;
 
 namespace LeviathanText.Layout.Tests;
@@ -26,7 +27,7 @@ public class LearnedLineDetectorTests
             RowFeatureExtractor.Labels(page.Height, shifted));
     }
 
-    [Fact]
+    [FittingFact]
     public void Trains_and_detects_the_same_synthetic_bands()
     {
         var trainingPages = new List<LearnedLineDetector.TrainingExample>();
@@ -52,7 +53,7 @@ public class LearnedLineDetectorTests
         Assert.InRange(result.Lines[2].Top, 90, 102);
     }
 
-    [Fact]
+    [FittingFact]
     public void Blank_page_yields_no_lines()
     {
         var trainingPages = new List<LearnedLineDetector.TrainingExample>();
@@ -65,7 +66,7 @@ public class LearnedLineDetectorTests
         Assert.Empty(detector.Detect(blank).Lines);
     }
 
-    [Fact]
+    [FittingFact]
     public void Persisted_model_round_trips_and_reproduces_results()
     {
         var trainingPages = new List<LearnedLineDetector.TrainingExample>();
@@ -82,7 +83,7 @@ public class LearnedLineDetectorTests
         Assert.Equal(first.Lines.Select(l => (l.Top, l.Bottom)), second.Lines.Select(l => (l.Top, l.Bottom)));
     }
 
-    [Fact]
+    [FittingFact]
     public void Incompatible_feature_version_is_rejected()
     {
         var json = """{"ModelVersion":"row-logit-v1","Weights":[0],"Bias":0,"FeatureVersion":99}""";
@@ -90,7 +91,7 @@ public class LearnedLineDetectorTests
         Assert.Contains("incompatible", ex.Message);
     }
 
-    [Fact]
+    [FittingFact]
     public void Training_is_deterministic_for_the_same_seed_and_data()
     {
         var training = new List<LearnedLineDetector.TrainingExample>();
@@ -103,7 +104,7 @@ public class LearnedLineDetectorTests
         Assert.Equal(a.Bias, b.Bias);
     }
 
-    [Fact]
+    [FittingFact]
     public void Feature_vector_has_the_contract_size_and_is_finite()
     {
         using var page = Page((0, 10));

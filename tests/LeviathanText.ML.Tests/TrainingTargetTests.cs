@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Globalization;
 using System.Text.Json;
 using LeviathanText.Recognition;
@@ -23,7 +24,7 @@ public sealed class TrainingTargetTests
         new("β", new LineImage(16, 16, new float[256])),
     ];
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Reaching_control_target_stops_at_first_epoch_and_records_final_diagnostics()
     {
         set_num_threads(1);
@@ -57,7 +58,7 @@ public sealed class TrainingTargetTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData(null)]
     [InlineData(.5)]
     public void Missing_or_unreached_target_keeps_the_fixed_epoch_budget(double? target)
@@ -117,7 +118,7 @@ public sealed class TrainingTargetTests
         finally { CultureInfo.CurrentCulture = culture; }
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData(null)]
     [InlineData(1.0)]
     public void First_target_crossing_is_selected_even_inside_the_ordinary_improvement_tolerance(double? target)

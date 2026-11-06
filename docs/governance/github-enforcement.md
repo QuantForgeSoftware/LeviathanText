@@ -1,6 +1,6 @@
 # GitHub maintainer enforcement checklist
 
-**Proposed setup, checked November 4, 2026.** Local branch `main` has an `origin` configured. The checked-in `.github/` contains the pull request template and no workflow, CODEOWNERS, or DCO configuration. No remote settings were inspected, and no accounts, credentials, or hosting changes were used. The checklist implements the official-project acceptance policy in [GOVERNANCE.md](../../GOVERNANCE.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md).
+**Proposed setup, reviewed November 5, 2026.** Local branch `main` has an `origin` configured. The checked-in `.github/` contains the pull request template and no workflow, CODEOWNERS, or DCO configuration. A [read-only November5 host audit](../evaluation/governance-host-audit-2026-11-05.md) confirms the public repository defaults to main, main is unprotected, no rulesets exist and no Actions workflows are registered. No remote settings were changed; mandatory hosting enforcement remains unconfigured. An inactive [functional-regression example](functional-regression.yml.example) and a [local engineering entry point](../../scripts/verify-engineering.sh) are now prepared for maintainer review; official action tag references and runner documentation were checked. The example is outside `.github/workflows` and has not run on GitHub. The checklist implements the official-project acceptance policy in [GOVERNANCE.md](../../GOVERNANCE.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## 1. Resolve ownership before activating review gates
 

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
@@ -129,13 +130,14 @@ public sealed class LayoutImpactPageCerTests(ITestOutputHelper output)
             truth.Count == 0 ? 0 : (double)matched / truth.Count);
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Learned_layout_improves_page_cer_over_projection()
     {
         var root = FindRepoRoot();
         Skip.IfNot(root is not null, "repo root not found");
         var m02a = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a");
         Skip.IfNot(Directory.Exists(m02a), "M02a not available");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Learned_layout_improves_page_cer_over_projection), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         // Layout training pages (same page-level split as the layout reports).
         var xmlFiles = Directory.GetFiles(Path.Combine(m02a, "xml"), "*.xml").OrderBy(f => f, StringComparer.Ordinal).ToList();
@@ -312,7 +314,7 @@ public sealed class LayoutImpactPageCerTests(ITestOutputHelper output)
             recognition split was used for cross-witness scoring earlier. The model remains
             opt-in and per-material.
             """;
-        var path = Path.Combine(root!, "docs", "evaluation", "layout-impact-page-cer.md");
+        var path = Path.Combine(experimentDirectory, "layout-impact-page-cer.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, markdown);
 

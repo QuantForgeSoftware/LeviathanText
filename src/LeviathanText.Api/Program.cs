@@ -14,8 +14,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
-using System.Net.ServerSentEvents;
-using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -48,6 +46,7 @@ builder.Services.AddScoped<InterchangeService>();
 builder.Services.AddScoped<TranscriptionService>();
 builder.Services.AddScoped<GeometryService>();
 builder.Services.AddScoped<ReviewService>();
+builder.Services.AddSingleton<ICaptureDisplayService, CaptureDisplayService>();
 builder.Services.AddScoped(sp =>
 {
     var cache = builder.Configuration["LeviathanText:ImageCache"]
@@ -73,6 +72,8 @@ builder.Services.AddSingleton(sp =>
     return new AiProviderRegistry(settings, new HttpClient(), new EnvironmentCredentialSource());
 });
 builder.Services.AddSingleton<BulkProposalAcceptanceService>();
+builder.Services.AddScoped<NativeAiProposalService>();
+builder.Services.AddScoped<NativeAiProjectResolver>();
 builder.Services.AddScoped<PresenceService>(sp => new PresenceService(sp.GetRequiredService<LocalStore>()));
 builder.Services.AddScoped(sp => new SessionService(
     sp.GetRequiredService<LocalStore>(),
@@ -178,6 +179,8 @@ if (string.IsNullOrEmpty(authApiKey))
 
 app.Use(async (context, next) =>
 {
+    // Apply before authentication, including denied /me responses and aliases.
+    if (PrincipalDescriptor.IsMePath(context.Request.Path)) PrincipalDescriptor.ApplyNoStore(context.Response);
     if (!context.Request.Path.StartsWithSegments("/api/v1"))
     {
         await next();
@@ -194,10 +197,11 @@ app.Use(async (context, next) =>
     }
 
     var store = context.RequestServices.GetRequiredService<LocalStore>();
-    var hasUsers = store.LoadUsers().Count > 0;
+    var hasUsers = store.HasUsers();
     if (string.IsNullOrEmpty(authApiKey) && !hasUsers)
     {
         // Local-only mode (no credentials configured).
+        PrincipalDescriptor.MarkAdmission(context, PrincipalAdmissionMode.Local);
         await next();
         return;
     }
@@ -223,10 +227,12 @@ app.Use(async (context, next) =>
             Role = UserRole.Admin,
             CreatedAt = DateTimeOffset.MinValue,
         };
+        PrincipalDescriptor.MarkAdmission(context, PrincipalAdmissionMode.Bootstrap);
     }
     else if (!string.IsNullOrEmpty(provided))
     {
         principal = store.FindUserByKeyHash(LeviathanText.Infrastructure.UserKeys.Hash(provided));
+        if (principal is not null) PrincipalDescriptor.MarkAdmission(context, PrincipalAdmissionMode.Account);
     }
 
     if (principal is null)
@@ -326,7 +332,7 @@ static AuthAuditEntry AuditOf(HttpContext context, UserAccount principal, string
 };
 
 static bool IsReviewDecision(string method, string path) =>
-    HttpMethods.IsPost(method) && path.EndsWith("/review", StringComparison.OrdinalIgnoreCase);
+    HttpMethods.IsPost(method) && path.TrimEnd('/').EndsWith("/review", StringComparison.OrdinalIgnoreCase);
 
 static UserAccount PrincipalOf(HttpContext context) =>
     context.Items["user"] as UserAccount ?? new UserAccount
@@ -896,14 +902,14 @@ api.MapPost("projects/{id}/import-iiif", (ProjectService projects, string id, [F
     });
 });
 
-api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] LineGeometryRequest request) =>
+api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService geometry, HttpContext http, string lineId, [FromBody] LineGeometryRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
     var (_, _, line) = geometry.SetLineGeometry(project, lineEntityId, request.Polygon, request.Baseline,
-        request.AuthorId ?? "api", request.ExpectedGeometry);
+        MutationAttribution.Actor(http, request.AuthorId), request.ExpectedGeometry);
     return Results.Ok(new
     {
         lineId = line.Id.ToString(),
@@ -912,36 +918,36 @@ api.MapPut("lines/{lineId}/geometry", (ProjectService projects, GeometryService 
     });
 });
 
-api.MapPut("lines/{lineId}/orientation", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] OrientationRequest request) =>
+api.MapPut("lines/{lineId}/orientation", (ProjectService projects, GeometryService geometry, HttpContext http, string lineId, [FromBody] OrientationRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
     var (_, _, line) = geometry.SetLineOrientation(project, lineEntityId,
-        request.Direction, request.Script, request.AuthorId ?? "api");
+        request.Direction, request.Script, MutationAttribution.Actor(http, request.AuthorId));
     return Results.Ok(new { lineId = line.Id.ToString(), direction = line.Direction, script = line.Script });
 });
 
-api.MapPut("regions/{regionId}/orientation", (ProjectService projects, GeometryService geometry, string regionId, [FromBody] OrientationRequest request) =>
+api.MapPut("regions/{regionId}/orientation", (ProjectService projects, GeometryService geometry, HttpContext http, string regionId, [FromBody] OrientationRequest request) =>
 {
     var regionEntityId = EntityId.Parse(regionId, EntityKind.Region);
     var project = projects.LoadProjectForRegion(regionEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = regionId, Message = "Region not found in any project." });
 
     var (_, _, region) = geometry.SetRegionOrientation(project, regionEntityId,
-        request.Direction, request.Script, request.AuthorId ?? "api");
+        request.Direction, request.Script, MutationAttribution.Actor(http, request.AuthorId));
     return Results.Ok(new { regionId = region.Id.ToString(), direction = region.Direction, script = region.Script });
 });
 
-api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] AddLineRequest request) =>
+api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryService geometry, HttpContext http, string surfaceId, [FromBody] AddLineRequest request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
     var (_, _, line) = geometry.AddLine(project, surfaceEntityId, request.Polygon, request.Baseline,
-        request.RegionId, request.AuthorId ?? "api");
+        request.RegionId, MutationAttribution.Actor(http, request.AuthorId));
     return Results.Created($"/api/v1/lines/{line.Id}", new
     {
         lineId = line.Id.ToString(),
@@ -951,32 +957,32 @@ api.MapPost("surfaces/{surfaceId}/lines", (ProjectService projects, GeometryServ
     });
 });
 
-api.MapPost("lines/{lineId}/split", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] SplitLineRequest request) =>
+api.MapPost("lines/{lineId}/split", (ProjectService projects, GeometryService geometry, HttpContext http, string lineId, [FromBody] SplitLineRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
-    var (_, _, top, bottom) = geometry.SplitLine(project, lineEntityId, request.Y, request.AuthorId ?? "api");
+    var (_, _, top, bottom) = geometry.SplitLine(project, lineEntityId, request.Y, MutationAttribution.Actor(http, request.AuthorId));
     return Results.Ok(new { topLineId = top.Id.ToString(), bottomLineId = bottom.Id.ToString() });
 });
 
-api.MapPost("lines/{lineId}/merge", (ProjectService projects, GeometryService geometry, string lineId, [FromBody] MergeLinesRequest request) =>
+api.MapPost("lines/{lineId}/merge", (ProjectService projects, GeometryService geometry, HttpContext http, string lineId, [FromBody] MergeLinesRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
     var (_, _, merged) = geometry.MergeLines(project, lineEntityId,
-        EntityId.Parse(request.OtherLineId, EntityKind.Line), request.AuthorId ?? "api");
+        EntityId.Parse(request.OtherLineId, EntityKind.Line), MutationAttribution.Actor(http, request.AuthorId));
     return Results.Ok(new { lineId = merged.Id.ToString() });
 });
 
-api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, string lineId, string? author) =>
+api.MapDelete("lines/{lineId}", (ProjectService projects, GeometryService geometry, HttpContext http, string lineId, string? author) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
-    geometry.DeleteLine(project, lineEntityId, author ?? "api");
+    geometry.DeleteLine(project, lineEntityId, MutationAttribution.Actor(http, author));
     return Results.NoContent();
 });
 
@@ -990,13 +996,13 @@ api.MapGet("surfaces/{surfaceId}/geometry-history", (ProjectService projects, st
 });
 
 api.MapPost("surfaces/{surfaceId}/geometry-history/{editId}/restore", (ProjectService projects,
-    GeometryService geometry, string surfaceId, string editId, [FromBody] RestoreGeometryRequest? request) =>
+    GeometryService geometry, HttpContext http, string surfaceId, string editId, [FromBody] RestoreGeometryRequest? request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
     var (_, surface, edit) = geometry.RestoreLineGeometry(project, surfaceEntityId, editId,
-        request?.AuthorId ?? "api");
+        MutationAttribution.Actor(http, request?.AuthorId));
     return Results.Ok(new
     {
         editId = edit.Id,
@@ -1005,14 +1011,14 @@ api.MapPost("surfaces/{surfaceId}/geometry-history/{editId}/restore", (ProjectSe
     });
 });
 
-api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, string surfaceId, [FromBody] ReadingOrderRequest request) =>
+api.MapPut("surfaces/{surfaceId}/reading-order", (ProjectService projects, GeometryService geometry, HttpContext http, string surfaceId, [FromBody] ReadingOrderRequest request) =>
 {
     var surfaceEntityId = EntityId.Parse(surfaceId, EntityKind.Surface);
     var project = projects.LoadProjectForSurface(surfaceEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = surfaceId, Message = "Surface not found in any project." });
 
     var (_, surface) = geometry.SetReadingOrder(project, surfaceEntityId, request.RegionIds,
-        request.AuthorId ?? "api");
+        MutationAttribution.Actor(http, request.AuthorId), request.ExpectedRegionIds);
     return Results.Ok(new
     {
         surfaceId = surface.Id.ToString(),
@@ -1249,14 +1255,14 @@ api.MapGet("projects/{id}/training-export", (ProjectService projects, string id)
     return Results.Content(TrainingDataExport.ToJson(TrainingDataExport.Export(project)), "application/json");
 });
 
-api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometryService geometry, string regionId, [FromBody] LineOrderRequest request) =>
+api.MapPut("regions/{regionId}/line-order", (ProjectService projects, GeometryService geometry, HttpContext http, string regionId, [FromBody] LineOrderRequest request) =>
 {
     var regionEntityId = EntityId.Parse(regionId, EntityKind.Region);
     var project = projects.LoadProjectForRegion(regionEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = regionId, Message = "Region not found in any project." });
 
     var (_, surface) = geometry.SetLineOrder(project, regionEntityId, request.LineIds,
-        request.AuthorId ?? "api");
+        MutationAttribution.Actor(http, request.AuthorId), request.ExpectedLineIds);
     return Results.Ok(new
     {
         regionId = regionId,
@@ -1363,7 +1369,7 @@ api.MapGet("lines/{lineId}/crop", (ProjectService projects, ImageResolver imageR
     }
 });
 
-api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AppendRevisionRequest request) =>
+api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionService transcription, HttpContext http, string lineId, [FromBody] AppendRevisionRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
@@ -1376,7 +1382,7 @@ api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionS
     {
         var (_, mergedSurface, mergedRevision, merged) = transcription.AppendLineRevisionMerged(
             project, lineEntityId, request.Layer, request.Text,
-            new AgentRef { Id = request.AuthorId, IsModel = false }, parent);
+            new AgentRef { Id = MutationAttribution.Actor(http, request.AuthorId), IsModel = false }, parent);
         return Results.Ok(new
         {
             revisionId = mergedRevision.Id.ToString(),
@@ -1388,7 +1394,7 @@ api.MapPost("lines/{lineId}/revisions", (ProjectService projects, TranscriptionS
 
     var (_, surface, revision) = transcription.AppendLineRevision(project, lineEntityId, request.Layer,
         request.Text,
-        new AgentRef { Id = request.AuthorId, IsModel = false }, parent);
+        new AgentRef { Id = MutationAttribution.Actor(http, request.AuthorId), IsModel = false }, parent);
 
     return Results.Ok(new
     {
@@ -1412,13 +1418,13 @@ api.MapGet("lines/{lineId}/revisions", (ProjectService projects, TranscriptionSe
     }));
 });
 
-api.MapPost("lines/{lineId}/review", (ProjectService projects, ReviewService reviews, string lineId, [FromBody] ReviewRequest request) =>
+api.MapPost("lines/{lineId}/review", (ProjectService projects, ReviewService reviews, HttpContext http, string lineId, [FromBody] ReviewRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = lineId, Message = "Line not found in any project." });
 
-    var (_, _, decision, correction) = reviews.Record(project, lineEntityId, request.Reviewer,
+    var (_, _, decision, correction) = reviews.Record(project, lineEntityId, MutationAttribution.Actor(http, request.Reviewer, ""),
         request.Outcome, request.Note, request.CorrectionText,
         string.IsNullOrWhiteSpace(request.RevisionId)
             ? null
@@ -1445,12 +1451,12 @@ api.MapGet("projects/{id}/adjudication.csv", (ProjectService projects, ReviewSer
     return Results.Text(reviews.ExportAdjudicationCsv(project), "text/csv");
 });
 
-api.MapPost("annotations/{annotationId}/retract", (ProjectService projects, TranscriptionService transcription, string annotationId, [FromBody] RetractAnnotationRequest request) =>
+api.MapPost("annotations/{annotationId}/retract", (ProjectService projects, TranscriptionService transcription, HttpContext http, string annotationId, [FromBody] RetractAnnotationRequest request) =>
 {
     var id = EntityId.Parse(annotationId, EntityKind.Annotation);
     var project = projects.LoadProjectForAnnotation(id)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = annotationId, Message = "Annotation not found in any project." });
-    var (_, _, retraction) = transcription.RetractAnnotation(project, id, request.Reviewer, request.Reason);
+    var (_, _, retraction) = transcription.RetractAnnotation(project, id, MutationAttribution.Actor(http, request.Reviewer, ""), request.Reason);
     return Results.Ok(new { retractionId = retraction.Id, annotationId = annotationId });
 });
 
@@ -1462,7 +1468,7 @@ api.MapGet("lines/{lineId}/annotations", (ProjectService projects, Transcription
     return Results.Ok(transcription.AnnotationsFor(project, lineEntityId));
 });
 
-api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, string lineId, [FromBody] AddAnnotationRequest request) =>
+api.MapPost("lines/{lineId}/annotations", (ProjectService projects, TranscriptionService transcription, HttpContext http, string lineId, [FromBody] AddAnnotationRequest request) =>
 {
     var lineEntityId = EntityId.Parse(lineId, EntityKind.Line);
     var project = projects.LoadProjectForLine(lineEntityId)
@@ -1490,6 +1496,7 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
         SequenceId = request.SequenceId,
         SequenceIndex = request.SequenceIndex,
         OrderBasis = request.OrderBasis,
+        Author = MutationAttribution.AnnotationAuthor(http),
     };
 
     var (_, _, anchored) = transcription.AddAnnotation(project, lineEntityId, annotation);
@@ -1502,13 +1509,8 @@ api.MapPost("lines/{lineId}/annotations", (ProjectService projects, Transcriptio
 
 // Jobs: durable creation with idempotency keys; progress via server-sent events (project-plan §4),
 // with the job resource remaining authoritative.
-api.MapGet("me", (HttpContext http) =>
-{
-    var user = http.Items["user"] as UserAccount;
-    return Results.Ok(user is null
-        ? new { authenticated = false, name = "local", role = "admin" }
-        : new { authenticated = true, name = user.Name, role = user.Role.ToString() });
-});
+api.MapGet("me", (HttpContext http, LocalStore store, IConfiguration configuration) =>
+    PrincipalDescriptor.Read(http, store, configuration));
 
 api.MapGet("projects/{id}/invites", (ProjectService projects, LocalStore store, string id) =>
 {
@@ -1734,7 +1736,7 @@ api.MapPost("jobs", (JobEnqueuer enqueuer, LocalStore store, HttpContext http, I
 
         // Surface IDs can repeat across imported projects. The worker must use the
         // project authorized here, even if a separate lookup would find another copy.
-        if (target.Kind == EntityKind.Surface) boundProjectId = projectId;
+        boundProjectId = projectId;
     }
 
     // A client-supplied owner id is a local-mode convenience.
@@ -1776,39 +1778,29 @@ api.MapGet("jobs/{id}", (LocalStore store, string id) =>
 api.MapPost("jobs/{id}/cancel", (JobEnqueuer enqueuer, string id) =>
     Results.Content(ContractJson.ToJson(enqueuer.Cancel(EntityId.Parse(id, EntityKind.Job))), "application/json"));
 
-api.MapGet("jobs/{id}/events", (JobEventBus bus, LocalStore store, string id, CancellationToken cancellation) =>
+api.MapGet("jobs/{id}/events", (JobEventBus bus, LocalStore store, HttpContext http,
+    IConfiguration configuration, string id, CancellationToken cancellation) =>
 {
     var jobId = EntityId.Parse(id, EntityKind.Job);
     _ = store.LoadJob(jobId)
         ?? throw new LeviathanException(new LeviathanError { Code = ErrorCode.InputMissing, Scope = id, Message = "Unknown job." });
-    return Results.ServerSentEvents(JobEvents(bus, jobId, cancellation));
-});
-
-static async IAsyncEnumerable<SseItem<string>> JobEvents(JobEventBus bus, EntityId jobId,
-    [EnumeratorCancellation] CancellationToken cancellation)
-{
-    // Subscribe first so nothing is missed between replay and live delivery.
-    var channel = System.Threading.Channels.Channel.CreateUnbounded<JobEventBus.JobEvent>();
-    using var subscription = bus.Subscribe(jobId, evt => channel.Writer.TryWrite(evt));
-
+    bool Authorized()
+    {
+        if (!JobStreamAccessPolicy.TryRefresh(http, store, configuration, out var current)) return false;
+        if (current is null) return true;
+        return store.LoadJob(jobId) is { } job &&
+            CanAccessJob(job, store, current,
+                membershipEnabled: configuration.GetValue<bool>("LeviathanText:Auth:ProjectMembership"));
+    }
+    var requestedCursor = http.Request.Headers["Last-Event-ID"];
     long cursor = 0;
-    foreach (var evt in bus.Replay(jobId, cursor))
-    {
-        cursor = evt.Sequence;
-        yield return new SseItem<string>(evt.Payload, evt.Kind) { EventId = evt.Sequence.ToString() };
-    }
-
-    var reader = channel.Reader;
-    while (await reader.WaitToReadAsync(cancellation).ConfigureAwait(false))
-    {
-        while (reader.TryRead(out var evt))
-        {
-            if (evt.Sequence <= cursor) continue;
-            cursor = evt.Sequence;
-            yield return new SseItem<string>(evt.Payload, evt.Kind) { EventId = evt.Sequence.ToString() };
-        }
-    }
-}
+    if (requestedCursor.Count > 1 || !string.IsNullOrEmpty(requestedCursor.ToString())
+        && !long.TryParse(requestedCursor.ToString(), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out cursor))
+        return Results.BadRequest(new { code = "invalid_event_cursor", message = "Last-Event-ID must be a non-negative integer." });
+    return Results.ServerSentEvents(JobEventStream.Read(bus, jobId, Authorized,
+        () => store.LoadJob(jobId), cursor, cancellation));
+});
 
 app.MapGet("/", () => Results.Ok(new { service = "LeviathanText", contract = ContractVersion.Current }));
 
@@ -1888,9 +1880,11 @@ public sealed record LineGeometryRequest(IReadOnlyList<PointD> Polygon, IReadOnl
 
 public sealed record OrientationRequest(TextDirection? Direction = null, string? Script = null, string? AuthorId = null);
 
-public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds, string? AuthorId = null);
+public sealed record ReadingOrderRequest(IReadOnlyList<EntityId> RegionIds, string? AuthorId = null,
+    IReadOnlyList<EntityId>? ExpectedRegionIds = null);
 
-public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds, string? AuthorId = null);
+public sealed record LineOrderRequest(IReadOnlyList<EntityId> LineIds, string? AuthorId = null,
+    IReadOnlyList<EntityId>? ExpectedLineIds = null);
 
 public sealed record SplitLineRequest(double Y, string? AuthorId = null);
 

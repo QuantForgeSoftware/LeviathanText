@@ -11,4 +11,16 @@ copyright notices and license terms. Dataset images, transcriptions,
 annotations, and model weights require their own recorded terms; the
 project software license does not grant blanket rights to those assets.
 
+The Angular CLI development toolchain includes
+@isaacs/nonrecursive-glob-match 1.0.3, licensed under Blue Oak Model
+License 1.0.0: https://blueoakcouncil.org/license/1.0.0.
+This is a development-toolchain dependency, not a LeviathanText binary
+runtime dependency. Preserve its license text or this official link when
+redistributing copies of the toolchain.
+
 This notice is informational and does not modify the Apache License.
+
+Packaged builds include exact available upstream runtime notices, Angular's
+browser-license output, and runtime package metadata under third-party/.
+The inventory records unresolved coverage; it is not a complete native
+component SBOM or a redistribution-compliance certification.

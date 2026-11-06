@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Net;
 using System.Net.Http.Json;
 using LeviathanText.Contracts;
@@ -69,7 +70,7 @@ public sealed class LayoutModelApiTests : IDisposable
         }
     }
 
-    [Fact]
+    [FittingFact]
     public async Task Configured_model_runs_for_its_surface_kind()
     {
         using var factory = new LayoutFactory(_package);

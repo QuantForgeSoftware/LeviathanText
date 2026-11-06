@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiClient, RegistryEntry } from './api-client';
@@ -21,7 +22,7 @@ describe('ModelRegistryPanel', () => {
     };
     TestBed.configureTestingModule({
       imports: [ModelRegistryPanel],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ role: 'Admin', projectId: 'col-1' }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(ModelRegistryPanel);
     fixture.detectChanges();

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using Xunit;
@@ -9,7 +10,7 @@ public class TrainingModeTests
 {
     private static readonly string[] Vocabulary = ["α", "β"];
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData(false)]
     [InlineData(true)]
     public void Failed_training_restores_the_callers_mode(bool training)
@@ -45,7 +46,7 @@ public class TrainingModeTests
         Assert.False(model.training);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Resumed_training_uses_training_mode_even_if_caller_left_model_in_eval()
     {
         set_num_threads(1);

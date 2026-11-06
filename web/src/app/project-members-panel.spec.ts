@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiClient } from './api-client';
@@ -36,7 +37,7 @@ describe('ProjectMembersPanel', () => {
     };
     TestBed.configureTestingModule({
       imports: [ProjectMembersPanel],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ role: 'Admin', projectId: 'col-1' }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(ProjectMembersPanel);
     fixture.componentRef.setInput('projectId', 'col-1');

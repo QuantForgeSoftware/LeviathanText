@@ -14,4 +14,7 @@
     <PackageReference Include="TorchSharp" Version="0.107.0" />
     <PackageReference Include="libtorch-cpu-osx-arm64" Version="2.10.0" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="LeviathanText.ML.Tests" />
+  </ItemGroup>
 </Project>

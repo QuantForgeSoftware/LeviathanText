@@ -287,6 +287,20 @@ public static class Program
         if (rest.Length >= 3 && rest[0] == "migrate" && rest[1] == "inventory")
             return InventoryMigration(rest);
 
+        if (rest is ["migrate", "rebind-images", ..])
+        {
+            if (rest.Length is not (5 or 6) || rest.Length == 6 && rest[5] != "--dry-run")
+                throw new ArgumentException("Usage: migrate rebind-images <projectId> <old-root> <new-root> [--dry-run]");
+            var projectId = EntityId.Parse(rest[2]);
+            if (!File.Exists(storePath))
+                throw new FileNotFoundException("Capture relocation requires an existing project store.", storePath);
+            using var relocationStore = LocalStore.OpenExisting(storePath, readOnly: rest.Length == 6);
+            var report = new CaptureRelocation(relocationStore).Rebind(projectId, rest[3], rest[4], rest.Length == 6);
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(report,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            return 0;
+        }
+
         if (rest is ["layout", "compare", ..])
             return LayoutCompareCommand.Run(rest[2..]);
 
@@ -769,7 +783,7 @@ public static class Program
                 using var tensorScope = TorchSharp.torch.NewDisposeScope();
                 var loaded = RecognitionModelLoader.Load(packageDirectory);
                 using var model = loaded.Model;
-                var snapshot = P01LineDataset.Load(datasetDirectory, imageExtension,
+                var snapshot = P01LineDataset.LoadPartitions(datasetDirectory, DatasetPartitionAccess.TrainDev, imageExtension,
                     targetHeight: loaded.Model.InputHeightPixels, preprocessingProfile: loaded.DatasetPreprocessingProfile);
                 var lines = split == "dev" ? snapshot.Dev : snapshot.Train;
                 if (lines.Count == 0)
@@ -1286,7 +1300,7 @@ public static class Program
 
             case "layout" when rest.Length >= 3 && rest[1] == "inspect":
             {
-                var model = PatchLayoutModel.Load(rest[2]);
+                using var model = PatchLayoutModel.Load(rest[2]);
                 var metadataPath = Path.Combine(rest[2], "layout-metadata.json");
                 var metadata = System.Text.Json.JsonDocument.Parse(File.ReadAllText(metadataPath)).RootElement;
                 Console.WriteLine($"package: {rest[2]}");
@@ -1364,7 +1378,7 @@ public static class Program
                     AugmentTraining = !rest.Contains("--no-augment"),
                 };
                 var watch = System.Diagnostics.Stopwatch.StartNew();
-                var model = LeviathanText.Layout.PatchLayoutModel.Train(train, options,
+                using var model = LeviathanText.Layout.PatchLayoutModel.Train(train, options,
                     message => Console.Error.WriteLine(message));
                 watch.Stop();
 
@@ -1387,7 +1401,7 @@ public static class Program
                             : 2 * summary.MeanPrecision * summary.MeanRecall / (summary.MeanPrecision + summary.MeanRecall);
                         if (f1 > bestF1) { bestF1 = f1; bestThreshold = threshold; bestP = summary.MeanPrecision; bestR = summary.MeanRecall; }
                     }
-                    var tuned = model.WithThreshold(bestThreshold);
+                    using var tuned = model.WithThreshold(bestThreshold);
                     tuned.Save(outDir);
                     double bestF1Value = bestP + bestR == 0 ? 0 : 2 * bestP * bestR / (bestP + bestR);
                     var layoutRunId = $"run-{Guid.NewGuid().ToString("N")[..12]}";
@@ -1443,7 +1457,7 @@ public static class Program
                 var maxIndex = Array.IndexOf(rest, "--max-pixels");
                 var maxPixels = maxIndex >= 0 && maxIndex + 1 < rest.Length ? long.Parse(rest[maxIndex + 1]) : 12_000_000;
                 var modelIndex = Array.IndexOf(rest, "--model");
-                PatchLayoutModel? patchModel = modelIndex >= 0 && modelIndex + 1 < rest.Length
+                using PatchLayoutModel? patchModel = modelIndex >= 0 && modelIndex + 1 < rest.Length
                     ? PatchLayoutModel.Load(rest[modelIndex + 1])
                     : null;
                 var outcome = layout.Detect(project, surfaceId, maxPixels, patchModel,
@@ -1474,7 +1488,7 @@ public static class Program
                 int diagnosticsSamples = DiagnosticsOption("--diagnostics-samples", 3, 100);
 
                 var preprocessing = LinePreprocessingProfile.P01Otsu(CrnnModel.InputHeight);
-                var snapshot = P01LineDataset.Load(dataDir, preprocessingProfile: preprocessing);
+                var snapshot = P01LineDataset.LoadPartitions(dataDir, DatasetPartitionAccess.TrainDev, preprocessingProfile: preprocessing);
                 if (profileStrict)
                 {
                     // Exclude labels with scalars outside the transcription profile (markup
@@ -1552,7 +1566,8 @@ public static class Program
                     WeightDecay = 0,
                     TrainLines = snapshot.Train.Count,
                     DevLines = snapshot.Dev.Count,
-                    TestLockedLines = snapshot.TestLocked.Count,
+                    TestLockedLines = null,
+                    LoadedPartitions = snapshot.LoadedPartitions,
                     SplitHash = splitHash,
                     LabelSetHash = CheckpointStore.LabelSetHash(labels),
                     CheckpointDigest = bestDigest,
@@ -1589,6 +1604,7 @@ public static class Program
                         ["labels"] = labels.NumClasses.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         ["diagnosticsEveryNEpochs"] = config.DiagnosticsEveryNEpochs.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         ["diagnosticsSampleCount"] = config.DiagnosticsSampleCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        ["datasetPartitionAccess"] = DatasetPartitionAccess.TrainDev.ToString(),
                     },
                     Metrics = new Dictionary<string, double>
                     {
@@ -1596,11 +1612,10 @@ public static class Program
                         ["epochsCompleted"] = run.EpochsCompleted,
                         ["trainLines"] = snapshot.Train.Count,
                         ["devLines"] = snapshot.Dev.Count,
-                        ["testLockedLines"] = snapshot.TestLocked.Count,
                     },
                     History = [.. run.History.Select(h => h.ValidationCer)],
                     Artifacts = [package.Directory, package.ModelPath, package.ManifestPath],
-                    Notes = "PAGE-derived labels; not specialist-adjudicated. Locked test split was not used.",
+                    Notes = "PAGE-derived labels; not specialist-adjudicated. Locked test label contents were not loaded; their line count is unknown.",
                 });
 
                 Console.WriteLine($"trained {config.ModelName}: best dev CER {run.BestValidationCer:0.###} over {run.EpochsCompleted} epochs");
@@ -2168,6 +2183,7 @@ public static class Program
               leviathan [--store <path>] import dir <projectId> <page-xml-dir>
               leviathan [--store <path>] import iiif <projectId> <manifest.json>
               leviathan [--store <path>] import pdf <projectId> <document.pdf> [--out <dir>] [--dpi 200] [--max-pages 500] [--text]
+              leviathan migrate rebind-images <projectId> <old-root> <new-root> [--dry-run]
               leviathan migrate inventory <existing-tree> [--out <report.json|csv>] [--csv] [--limit N] [--no-hash]
               leviathan migrate import <existing-tree> <new-project-name> [--limit N] [--out <ledger.csv>] [--audit]
               leviathan validate tei <record.xml> [--schema <tei.xsd>] [--expect-schema-sha256 <hash>] [--strict]

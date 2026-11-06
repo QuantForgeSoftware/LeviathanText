@@ -177,8 +177,8 @@ public sealed class StaticCredentialSource(IReadOnlyDictionary<string, string> v
 }
 
 /// <summary>
-/// Session spend accounting. The preflight reserves the worst-case output tokens so a
-/// misconfigured model cannot overshoot the cap before usage is known.
+/// Session estimate accounting. In-flight attempts reserve allowances atomically;
+/// unknown billed usage retains its estimate. Provider invoices remain authoritative.
 /// </summary>
 public sealed class AiSpendBudget
 {
@@ -186,6 +186,7 @@ public sealed class AiSpendBudget
     private readonly AiTokenPrice _price;
     private readonly decimal _limitUsd;
     private decimal _spentUsd;
+    private decimal _reservedUsd;
 
     public AiSpendBudget(AiTokenPrice price, decimal limitUsd)
     {
@@ -196,18 +197,97 @@ public sealed class AiSpendBudget
 
     public decimal SpentUsd { get { lock (_gate) return _spentUsd; } }
 
-    public decimal RemainingUsd { get { lock (_gate) return Math.Max(0, _limitUsd - _spentUsd); } }
+    public decimal RemainingUsd { get { lock (_gate) return Math.Max(0, _limitUsd - _spentUsd - _reservedUsd); } }
 
     public void EnsureAffordable(int maxInputTokens, int maxOutputTokens)
     {
         var estimate = _price.Cost(maxInputTokens, maxOutputTokens);
         lock (_gate)
         {
-            if (_spentUsd + estimate > _limitUsd)
+            if (_spentUsd + _reservedUsd + estimate > _limitUsd)
                 throw new AiProviderException(
                     AiFailureReasons.SpendBudgetExceeded,
                     detail: string.Create(CultureInfo.InvariantCulture,
-                        $"Estimated ${estimate:0.######} would exceed the remaining ${(_limitUsd - _spentUsd):0.######} budget."));
+                        $"Estimated ${estimate:0.######} would exceed the remaining ${(_limitUsd - _spentUsd - _reservedUsd):0.######} budget."));
+        }
+    }
+
+    /// <summary>One logical request; each actual HTTP attempt obtains its own allowance.</summary>
+    public Reservation CreateReservation(int estimatedInputTokens, int maxOutputTokens) =>
+        new(this, Math.Max(0, estimatedInputTokens), Math.Max(0, maxOutputTokens));
+
+    public sealed class Reservation : IDisposable
+    {
+        private readonly AiSpendBudget _owner;
+        private readonly int _input;
+        private readonly int _output;
+        private readonly decimal _attemptCost;
+        private decimal _held;
+        private int _attempts;
+        private bool _pending;
+        private bool _closed;
+
+        internal Reservation(AiSpendBudget owner, int input, int output)
+        {
+            _owner = owner;
+            _input = input;
+            _output = output;
+            _attemptCost = owner._price.Cost(input, output);
+        }
+
+        /// <summary>Called after local request validation, immediately before network dispatch.</summary>
+        public void ReserveAttempt()
+        {
+            lock (_owner._gate)
+            {
+                ObjectDisposedException.ThrowIf(_closed, this);
+                if (_pending) throw new InvalidOperationException("A reserved attempt has not been dispatched.");
+                if (_owner._spentUsd + _owner._reservedUsd + _attemptCost > _owner._limitUsd)
+                    throw new AiProviderException(AiFailureReasons.SpendBudgetExceeded,
+                        detail: "The estimated attempt cost exceeds the unreserved session allowance.");
+                _owner._reservedUsd += _attemptCost;
+                _held += _attemptCost;
+                _pending = true;
+            }
+        }
+
+        /// <summary>Marks an allowance as potentially billed, immediately before SendAsync.</summary>
+        public void MarkDispatched()
+        {
+            lock (_owner._gate)
+            {
+                ObjectDisposedException.ThrowIf(_closed, this);
+                if (!_pending) throw new InvalidOperationException("No attempt allowance was reserved.");
+                _pending = false;
+                _attempts++;
+            }
+        }
+
+        /// <summary>Only the final response has reported usage; earlier attempts retain their estimates.</summary>
+        public void Settle(int? inputTokens, int? outputTokens)
+        {
+            lock (_owner._gate)
+            {
+                ObjectDisposedException.ThrowIf(_closed, this);
+                if (_attempts == 0 || _pending) throw new InvalidOperationException("No HTTP attempt was reserved.");
+                var actual = _owner._price.Cost(Math.Max(0, inputTokens ?? _input), Math.Max(0, outputTokens ?? _output));
+                _owner._reservedUsd -= _held;
+                _owner._spentUsd += (_attempts - 1) * _attemptCost + actual;
+                _closed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_owner._gate)
+            {
+                if (_closed) return;
+                // A timeout, cancellation or malformed response does not prove the
+                // remote provider performed no billable work. Keep its allowance.
+                _owner._reservedUsd -= _held;
+                _owner._spentUsd += _attempts * _attemptCost;
+                _closed = true;
+            }
         }
     }
 

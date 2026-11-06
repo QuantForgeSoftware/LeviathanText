@@ -66,7 +66,7 @@ public sealed class VlmBenchmarkCommandTests : IDisposable
         var producers = run["producerAssemblies"]?.AsArray();
         Assert.NotNull(producers);
         Assembly[] expected = [typeof(VlmBenchmarkCommand).Assembly, typeof(AI.VisionHttpProvider).Assembly,
-            typeof(Evaluation.VlmBenchmarkScorer).Assembly, typeof(SixLabors.ImageSharp.Image).Assembly];
+            typeof(Evaluation.VlmBenchmarkScorer).Assembly, typeof(SkiaSharp.SKCodec).Assembly];
         Assert.Equal(expected.Length, producers.Count);
         foreach (var assembly in expected)
         {

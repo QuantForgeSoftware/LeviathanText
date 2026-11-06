@@ -5,6 +5,83 @@ namespace LeviathanText.Formats.Tests;
 
 public class HocrFormatTests
 {
+    [Theory]
+    [InlineData(TextDirection.Ltr, false, "bbox 10 58 110 58")]
+    [InlineData(TextDirection.Ltr, true, "bbox 10 32 110 32")]
+    [InlineData(TextDirection.Ltr, null, "bbox 10 45 110 45")]
+    [InlineData(TextDirection.Rtl, false, "bbox 10 58 110 58")]
+    [InlineData(TextDirection.Rtl, true, "bbox 10 32 110 32")]
+    [InlineData(TextDirection.Rtl, null, "bbox 10 45 110 45")]
+    [InlineData(TextDirection.VerticalTopToBottom, false, "bbox 35 20 35 70")]
+    [InlineData(TextDirection.VerticalTopToBottom, true, "bbox 85 20 85 70")]
+    [InlineData(TextDirection.VerticalTopToBottom, null, "bbox 60 20 60 70")]
+    [InlineData(TextDirection.VerticalBottomToTop, false, "bbox 85 20 85 70")]
+    [InlineData(TextDirection.VerticalBottomToTop, true, "bbox 35 20 35 70")]
+    [InlineData(TextDirection.VerticalBottomToTop, null, "bbox 60 20 60 70")]
+    public void Export_uses_baseline_extents_when_boundary_is_empty_without_changing_direction_or_input(
+        TextDirection direction, bool? topline, string expectedBox)
+    {
+        var (surface, capture) = Sample();
+        var baseline = LineGeometry.Baseline(new(10, 20, 110, 70), direction, topline).ToArray();
+        var before = baseline.ToArray();
+        var line = surface.Lines[0] with { Polygon = [], Baseline = baseline, Direction = direction };
+        surface = surface with { Lines = [line] };
+
+        var document = System.Xml.Linq.XDocument.Parse(HocrFormat.Export(surface, capture, surface.Revisions));
+        var exported = document.Descendants().Single(element => (string?)element.Attribute("id") == "line_ln1");
+        var title = (string)exported.Attribute("title")!;
+
+        Assert.StartsWith(expectedBox + "; baseline 0 ", title);
+        Assert.Equal(expectedBox, (string?)Assert.Single(exported.Elements()).Attribute("title"));
+        if (direction is TextDirection.Ltr or TextDirection.Rtl)
+            Assert.Equal(direction == TextDirection.Rtl ? "rtl" : "ltr", (string?)exported.Attribute("dir"));
+        else
+        {
+            Assert.Contains("ocr_vertical", (string)exported.Attribute("class")!);
+            Assert.EndsWith(direction == TextDirection.VerticalBottomToTop ? "; textangle -90" : "; textangle 90", title);
+        }
+        Assert.Empty(line.Polygon);
+        Assert.Equal(before, line.Baseline);
+        Assert.Same(baseline, line.Baseline);
+    }
+
+    [Fact]
+    public void Export_prefers_boundary_extents_and_preserves_existing_midpoint_rounding()
+    {
+        var (surface, capture) = Sample();
+        PointD[] polygon = [new(10.5, 20.5), new(110.5, 20.5), new(110.5, 70.5), new(10.5, 70.5)];
+        PointD[] baseline = [new(-50, -60), new(250, 260)];
+        var line = surface.Lines[0] with { Polygon = polygon, Baseline = baseline };
+        var originalPolygon = polygon.ToArray();
+        var originalBaseline = baseline.ToArray();
+        surface = surface with { Lines = [line] };
+
+        var html = HocrFormat.Export(surface, capture, surface.Revisions);
+
+        Assert.Contains("bbox 10 20 110 70; baseline 0 320", html);
+        Assert.Equal(originalPolygon, line.Polygon);
+        Assert.Equal(originalBaseline, line.Baseline);
+    }
+
+    [Theory]
+    [InlineData(true, "bbox 5 5 5 5")]
+    [InlineData(false, "bbox 0 0 0 0")]
+    public void Export_preserves_degenerate_or_missing_geometry_without_inventing_area(bool baselinePresent, string expectedBox)
+    {
+        var (surface, capture) = Sample();
+        var line = surface.Lines[0] with
+        {
+            Polygon = [], Baseline = baselinePresent ? LineGeometry.Baseline(new(5, 5, 5, 5)) : [],
+        };
+        surface = surface with { Lines = [line] };
+
+        var html = HocrFormat.Export(surface, capture, surface.Revisions);
+
+        Assert.Contains(expectedBox + "; baseline 0 0", html);
+        Assert.Empty(line.Polygon);
+        Assert.Equal(baselinePresent ? 2 : 0, line.Baseline.Count);
+    }
+
     private static (NativeSurface Surface, NativeCapture Capture) Sample()
     {
         var captureId = new EntityId(EntityKind.Capture, "cap1");

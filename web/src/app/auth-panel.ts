@@ -1,8 +1,9 @@
 /** API key entry for shared deployments (local-only mode when empty). */
-import { Component, OnInit, signal } from '@angular/core';
-import { apiKey, hasApiKey, setApiKey } from './auth';
+import { Component, OnInit, OnDestroy, DoCheck, signal } from '@angular/core';
+import { apiKey, hasApiKey, setApiKey, cacheCredentialGeneration, ApiKeyStorageKey } from './auth';
 import { ApiClient } from './api-client';
-import { clearCache } from './offline-cache';
+import { cacheAuthorityRevision, ensureCacheAuthorityRevision, CacheAuthorityRevisionStorageKey } from './offline-cache-storage';
+import { Subscription } from 'rxjs';
 import { authorId, setAuthorId } from './identity';
 
 @Component({
@@ -11,11 +12,7 @@ import { authorId, setAuthorId } from './identity';
   template: `
     <section>
       <h2>API key</h2>
-      @if (hasKey()) {
-        <p class="hint">Key configured — {{ identity() }}</p>
-      } @else {
-        <p class="hint">No key configured — local-only server.</p>
-      }
+      <p class="hint">{{ hasKey() ? 'Key configured' : 'No key configured' }} — {{ identity() }}</p>
       <div class="tools">
         <input [value]="draft()" (input)="onInput($event)" placeholder="paste API key" type="password" aria-label="API key" />
         <button type="button" (click)="save()">Save</button>
@@ -36,7 +33,7 @@ import { authorId, setAuthorId } from './identity';
     .hint { color: #667; font-size: 0.85rem; }
   `],
 })
-export class AuthPanel implements OnInit {
+export class AuthPanel implements OnInit, OnDestroy, DoCheck {
   protected readonly draft = signal('');
   protected readonly hasKey = signal(hasApiKey());
   protected readonly status = signal('');
@@ -50,14 +47,49 @@ export class AuthPanel implements OnInit {
     this.api = api;
   }
 
+  private destroyed = false;
+  private identityVersion = 0;
+  private identityRequest: Subscription | null = null;
+  private observed: { credential: string; generation: number; authority: string | null } | null = null;
+  private readonly onStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === ApiKeyStorageKey || event.key === CacheAuthorityRevisionStorageKey)
+      this.loadIdentity();
+  };
+
   ngOnInit(): void {
-    if (this.hasKey()) this.loadIdentity();
+    globalThis.addEventListener?.('storage', this.onStorage);
+    this.loadIdentity();
+  }
+
+  ngDoCheck(): void {
+    if (!this.destroyed && this.observed && (this.observed.credential !== apiKey()
+      || this.observed.generation !== cacheCredentialGeneration()
+      || this.observed.authority !== cacheAuthorityRevision())) this.loadIdentity();
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true; this.identityVersion++;
+    this.identityRequest?.unsubscribe(); this.identityRequest = null;
+    globalThis.removeEventListener?.('storage', this.onStorage);
   }
 
   private loadIdentity(): void {
-    this.api.me().subscribe({
-      next: (me) => this.identity.set(me.authenticated ? `${me.name} (${me.role})` : 'local-only'),
-      error: () => this.identity.set('key rejected or server unreachable'),
+    if (this.destroyed) return;
+    const credential = apiKey(), generation = cacheCredentialGeneration(), authority = ensureCacheAuthorityRevision();
+    const version = ++this.identityVersion;
+    this.observed = { credential, generation, authority };
+    this.identityRequest?.unsubscribe(); this.identityRequest = null;
+    this.hasKey.set(credential.length > 0);
+    this.identity.set('checking identity…');
+    const current = () => !this.destroyed && version === this.identityVersion
+      && credential === apiKey() && generation === cacheCredentialGeneration() && authority === cacheAuthorityRevision();
+    this.identityRequest = this.api.me(credential).subscribe({
+      next: me => {
+        if (!current()) return;
+        this.identity.set(me.authenticated ? `${me.name} (${me.role})`
+          : me.mode === 'local' ? 'local server confirmed' : 'identity not confirmed');
+      },
+      error: () => { if (current()) this.identity.set('identity not confirmed'); },
     });
   }
 
@@ -75,18 +107,16 @@ export class AuthPanel implements OnInit {
   }
 
   protected save(): void {
-    setApiKey(this.draft());
+    const requested = this.draft().trim();
+    setApiKey(requested);
     this.draft.set('');
-    clearCache();
-    this.hasKey.set(hasApiKey());
-    this.status.set('saved; reload data to use the new credentials');
-    if (this.hasKey()) this.loadIdentity();
+    this.status.set(apiKey() === requested ? 'saved; checking current credentials' : 'Credential change could not be saved.');
+    this.loadIdentity();
   }
 
   protected clear(): void {
     setApiKey('');
-    clearCache();
-    this.hasKey.set(false);
-    this.status.set('cleared');
+    this.status.set(apiKey() === '' ? 'cleared; checking server access' : 'Credential change could not be saved.');
+    this.loadIdentity();
   }
 }

@@ -19,7 +19,7 @@ public class TeiProfileTests
         Assert.Single(result.Revisions, r => r.Layer == layer);
 
     [Fact]
-    public void Edition_lines_split_at_lb_with_numbers_ids_and_break_no_continuation()
+    public void Edition_lines_split_at_lb_even_when_an_orthographic_token_continues()
     {
         var xml = Document("""
             <div type="edition" subtype="primary"><div type="textpart">
@@ -30,10 +30,12 @@ public class TeiProfileTests
         var result = TeiXml.Import(xml);
 
         var l1 = result.Revisions.Where(r => r.Layer == TextLayer.L1Diplomatic).ToList();
-        Assert.Equal(2, l1.Count);
-        Assert.Equal("αβγδ", l1[0].Text);
-        Assert.Equal("εζ", l1[1].Text);
-        Assert.Equal(new int?[] { 1, 3 }, result.Document!.Lines.Select(l => l.Number));
+        // TEI @break controls token continuity, not the physical line boundary:
+        // https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.breaking.html
+        Assert.Equal(3, l1.Count);
+        Assert.Equal(new[] { "αβ", "γδ", "εζ" }, l1.Select(r => r.Text));
+        Assert.Equal(new int?[] { 1, 2, 3 }, result.Document!.Lines.Select(l => l.Number));
+        Assert.Contains("tei-lb-break=no", result.Document.Lines[1].Tags);
         Assert.Equal("line-a", result.Document.Lines[0].XmlId);
         Assert.Equal(l1[0].ScopeId, result.Document.Lines[0].LineId);
     }
@@ -160,6 +162,7 @@ public class TeiProfileTests
                   <w>ε<unclear>ι</unclear></w> <w>ετι</w> <w><abbr type="nomSac"><hi rend="overline">χρυ</hi></abbr></w>
                   <lb/><w>ουκ</w>
                 </ab>
+                <lb/><!-- Physical boundary is explicit; a verse ab alone is not one. -->
                 <ab n="B09K1V11"><app>
                   <rdg type="orig" hand="firsthand"><w>ιουδασμω</w></rdg>
                   <rdg type="corr" hand="corrector"><w>ιουδαισμω</w></rdg>

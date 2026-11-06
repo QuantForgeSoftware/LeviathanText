@@ -67,6 +67,17 @@ These conventions apply to every contract record on the wire:
 | Records with dictionary payloads (e.g. `LeviathanError.Details`) | compare by content, not reference (round-trip equality holds) |
 
 
+Native placement references have a narrow absence representation: `NativeLine.regionId`,
+`NativeLine.frameRef` and `NativeRegion.frameRef` remain required properties but may be
+JSON null for explicitly unplaced text/geometry. Their property-specific converter maps
+null to the existing default `EntityId` and writes that absence as null. The exact old
+writer sentinel `"col-"` is recovered as absence only in these three fields; loading
+never rewrites the original document or assigns a region/capture. Other malformed
+values, missing required properties and absent/malformed required entity identities
+remain errors. Valid IDs are retained without new kind restrictions during native
+forensic loading; semantic integrity is evaluated separately. This correction is integrated following narrow codec and persistence verification; see the [regression evidence](../evaluation/native-unplaced-reference-2026-11-06.md).
+
+
 ### 2.1 Core resource behaviors
 
 | Area | Contract |
@@ -87,7 +98,7 @@ These conventions apply to every contract record on the wire:
 | --- | --- |
 | Job creation | Returns job ID + status URI. Inputs validated up front; unknown model/profile → immediate rejection with the §6 vocabulary codes. |
 | Progress | Server-sent events first (project-plan §4): `job.progress` (stage, percent/bounded counters), `job.stage-change`, `job.completed`, `job.failed` (with error object), `heartbeat`. Events are advisory; the job resource is authoritative. |
-| Ordering/resume | Event replay from a cursor; missed events degrade to polling the job resource. |
+| Ordering/resume | Bounded process-local advisory replay after nonnegative `Last-Event-ID`; SQLite job state is authoritative. A trimmed/evicted/unknown cursor or live-queue loss emits `job.resync-required` with an empty SSE ID (clear browser cursor), then a freshly authorized snapshot. Snapshots have no event ID; terminal observations close the stream. Process restarts do not preserve history. Subscription-capacity refusal sends an explicit resync/snapshot and closes; clients must refresh rather than retry indefinitely. [Bounded contract](../tasks/bounded-job-events-2026-11-05.md), [worker observations](../evaluation/external-worker-job-events-2026-11-05.md). |
 | Idempotency | Job creation accepts a client idempotency key; duplicate creation returns the existing job (domain-and-pipeline.md §5). |
 | Cancellation | `cancel` on the job resource; event `job.cancelled`. Cooperative per §5 semantics. |
 

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
@@ -55,7 +56,7 @@ public sealed class LearnedLayoutIntegrationTests : IDisposable
         return (project, surface.Id);
     }
 
-    [Fact]
+    [FittingFact]
     public void Learned_detector_can_be_selected_for_layout_detection()
     {
         var training = new List<LayoutTrainingPage>();
@@ -81,7 +82,7 @@ public sealed class LearnedLayoutIntegrationTests : IDisposable
         Assert.Equal(LayoutSource.Automatic, outcome.Surface.Regions[0].LayoutSource);
     }
 
-    [Fact]
+    [FittingFact]
     public void Without_a_model_the_projection_detector_is_used()
     {
         var image = WritePage("projection", (40, 80), (160, 200));

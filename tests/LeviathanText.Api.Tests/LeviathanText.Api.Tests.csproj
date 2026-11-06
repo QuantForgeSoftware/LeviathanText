@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\src\LeviathanText.Api\LeviathanText.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/FittingTestAttributes.cs" Link="TestSupport/FittingTestAttributes.cs" />
+  </ItemGroup>
+
 </Project>

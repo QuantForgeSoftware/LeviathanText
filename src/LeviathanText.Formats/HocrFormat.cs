@@ -225,11 +225,11 @@ public static class HocrFormat
 
     private static (int X0, int Y0, int X1, int Y1) Bounds(NativeLine line)
     {
-        if (line.Polygon.Count == 0) return (0, 0, 0, 0);
+        var box = LineGeometry.Bounds(line.Polygon.Count > 0 ? line.Polygon : line.Baseline);
         return (
-            (int)Math.Round(line.Polygon.Min(p => p.X)),
-            (int)Math.Round(line.Polygon.Min(p => p.Y)),
-            (int)Math.Round(line.Polygon.Max(p => p.X)),
-            (int)Math.Round(line.Polygon.Max(p => p.Y)));
+            (int)Math.Round(box.Left),
+            (int)Math.Round(box.Top),
+            (int)Math.Round(box.Right),
+            (int)Math.Round(box.Bottom));
     }
 }

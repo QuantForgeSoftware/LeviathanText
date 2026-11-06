@@ -1,0 +1,17 @@
+# Native unplaced-reference preservation
+
+The generated journal-study fixture exposed a native project that saved successfully but could not reload: an absent placement reference is a default `EntityId`, whose global string representation is `col-`, while the global parser correctly refuses an empty suffix. Unplaced text is an explicit supported state in ProjectIntegrity; assigning an invented capture or region would discard that distinction.
+
+## Before and isolated correction
+
+Artifact root: `.artifacts/experiments/native-unplaced-reference-v1/`. The unchanged-product second baseline has **9 failures and52 passes among61 checks** (`before-v2.trx`). The failures cover native Save→Load of each default placement reference, explicit JSON null on each field, and the exact old writer sentinel `col-` on each field. An initial test receipt has12 failures; three were fixture equality artifacts from JSON-node DateTimeOffset escaping rather than product defects. The old tests/log remain, with the exact adaptation recorded in `test-adaptation.json`; final assertions compare JSON trees for mutated fixtures and canonical repeated output for stable saves.
+
+The isolated candidate passes **61/61**, with zero build warnings/errors. It adds a property-specific converter to `NativeLine.RegionId`, `NativeLine.FrameRef` and `NativeRegion.FrameRef`. Null maps to default and default writes null. The ordinal exact old sentinel `col-` recovers as absence only on these properties. Valid IDs retain their full value, including known kinds not semantically assigned by this loader; near misses and non-string/non-null values remain refused. No ID is minted, capture selected, region assigned, database migrated or source file rewritten by loading.
+
+Required entity identities retain the shared strict converter, and each required reference property must still be present in JSON. Tests retain required-ID null/sentinel refusals, missing-property refusals, malformed reference refusals, valid odd-suffix/kind forensic roundtrip, full document/revision preservation and unchanged ordinary-project roundtrip. The contract version is unchanged; this corrects the representation of an already supported absence state in the current draft native profile, not a new domain capability.
+
+## Review and integration gates
+
+An independent source/policy reviewer approved the narrow three-field policy before implementation and the exact converter afterward. Independent LocalStore/read-only/reopen/BackupTo/VerifyBackupDatabase/fresh-file snapshot restoration checks pass14/14 against the candidate, versus9 original failures and5 unchanged refusal controls. Original database and stored JSON bytes stay unchanged on loading and verification; these are store-level snapshot controls, not a new CLI force/rollback claim. Evidence is in `.artifacts/experiments/native-unplaced-persistence-independent-v1/`.
+
+The exact two production files are integrated. The complete Formats suite passes284 and the fitting-disabled engineering-v7 gate passes2125 with18 intentional skips, zero build warnings/errors. The TypeScript native projection admits null references; the geometry view retains a known-frame/missing-region line without inheriting a region, excludes unknown-frame geometry and leaves source payload bytes unchanged. Two new null cases plus existing capture/surface controls pass23; application TypeScript checking passes. The global required-ID parser remains unchanged. Whole frontend verification will be repeated with the separate stream-transport iteration.

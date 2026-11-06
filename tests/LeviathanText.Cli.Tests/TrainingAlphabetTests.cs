@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Training;
 using SkiaSharp;
 
@@ -46,7 +47,7 @@ public sealed class TrainingAlphabetTests : IDisposable
     private int Run(string data, string package) => LeviathanText.Cli.Program.Main(
         ["--store", Path.Combine(_root, "store.db"), "train", "lines", data, "--out", package, "--epochs", "1"]);
 
-    [Fact]
+    [FittingFact]
     public void Development_only_graphemes_fail_before_training_without_expanding_or_dropping_labels()
     {
         TorchSharp.torch.set_num_threads(1);
@@ -69,7 +70,7 @@ public sealed class TrainingAlphabetTests : IDisposable
         Assert.DoesNotContain("0.xml", message); // Locked labels do not define the alphabet.
     }
 
-    [Fact]
+    [FittingFact]
     public void Compatible_development_keeps_training_order_and_excludes_locked_only_labels()
     {
         TorchSharp.torch.set_num_threads(1);
@@ -81,10 +82,11 @@ public sealed class TrainingAlphabetTests : IDisposable
         Assert.Equal(3, metadata.Labels.Count + 1);
         Assert.Equal(1, manifest.TrainLines);
         Assert.Equal(1, manifest.DevLines);
-        Assert.Equal(1, manifest.TestLockedLines);
+        Assert.Null(manifest.TestLockedLines);
+        Assert.Equal(DatasetPartitionAccess.TrainDev, manifest.LoadedPartitions);
     }
 
-    [Fact]
+    [FittingFact]
     public void PAGE_sources_keep_distinct_document_and_line_ids_without_changing_old_line_JSON()
     {
         string data = Data(unknownDev: true);

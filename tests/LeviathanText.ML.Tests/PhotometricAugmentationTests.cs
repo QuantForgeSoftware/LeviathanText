@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using LeviathanText.Recognition;
@@ -129,7 +130,7 @@ public sealed class PhotometricAugmentationTests
         Assert.True(model.training);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Gamma_affects_only_opted_in_training_and_round_trips_in_the_manifest()
     {
         set_num_threads(1);

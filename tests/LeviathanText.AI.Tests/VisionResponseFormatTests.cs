@@ -3,8 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LeviathanText.AI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace LeviathanText.AI.Tests;
@@ -20,7 +18,7 @@ public sealed class VisionResponseFormatTests
     };
     private static byte[] Png()
     {
-        using var image = new Image<L8>(2, 1, new L8(0));
+        using var image = new SkiaFixture(2, 1, (byte)0);
         using var buffer = new MemoryStream(); image.SaveAsPng(buffer); return buffer.ToArray();
     }
     private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));

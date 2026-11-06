@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
@@ -26,7 +27,7 @@ public sealed class PipelineIntegrationTests(ITestOutputHelper output)
         return dir is null ? "" : Path.Combine(dir.FullName, ".artifacts", "datasets", "p01-v0.9");
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Train_ThenRecognizeThroughPipeline_ThenScore()
     {
         var dataDir = FindDataDir();

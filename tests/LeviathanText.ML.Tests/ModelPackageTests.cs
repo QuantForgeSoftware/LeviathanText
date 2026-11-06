@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -20,7 +21,7 @@ public class ModelPackageTests
         return dir;
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Package_contains_artifacts_manifest_and_card_and_reloads()
     {
         var checkpointDir = NewDirectory("checkpoints");
@@ -84,7 +85,7 @@ public class ModelPackageTests
         Assert.Equal(originalText, loaded.CreateRecognizer().Recognize([dev[0].Image])[0].Text);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Package_without_manifest_uses_the_single_best_metadata()
     {
         var checkpointDir = NewDirectory("nomanifest-checkpoints");
@@ -114,7 +115,7 @@ public class ModelPackageTests
         Assert.Equal(labels.NumClasses, loaded.Labels.NumClasses);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Missing_labels_in_metadata_are_rejected()
     {
         var checkpointDir = NewDirectory("nolabels-checkpoints");
@@ -143,7 +144,7 @@ public class ModelPackageTests
         Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Manifest_name_mismatch_is_reported_as_model_incompatible()
     {
         var checkpointDir = NewDirectory("mismatch-checkpoints");
@@ -171,7 +172,7 @@ public class ModelPackageTests
         Assert.Equal(ErrorCode.ModelIncompatible, ex.Error.Code);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Tampered_weights_are_rejected_by_the_manifest_digest()
     {
         var checkpointDir = NewDirectory("tamper-checkpoints");

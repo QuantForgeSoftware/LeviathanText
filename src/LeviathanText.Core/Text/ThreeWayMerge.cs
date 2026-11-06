@@ -37,6 +37,38 @@ public static class ThreeWayMerge
         var localHunks = Diff(baseScalars, Scalars(localText));
         var remoteHunks = Diff(baseScalars, Scalars(remoteText));
 
+        return MergeHunks(baseText, baseScalars, localHunks, remoteHunks);
+    }
+
+    /// <summary>
+    /// Merge one explicitly anchored scalar replacement without re-diffing away its
+    /// source intent. Existing editorial text is aligned only when the bounded unit-cost
+    /// Levenshtein alignment is unique; ambiguous or oversized remote mappings refuse.
+    /// This stricter contract does not change the generic full-text merge above.
+    /// </summary>
+    public static MergeResult MergeAnchoredReplacement(string baseText, Hunk replacement, string remoteText)
+    {
+        ArgumentNullException.ThrowIfNull(baseText);
+        ArgumentNullException.ThrowIfNull(replacement);
+        ArgumentNullException.ThrowIfNull(replacement.Replacement);
+        ArgumentNullException.ThrowIfNull(remoteText);
+        var source = Scalars(baseText);
+        if (replacement.Start < 0 || replacement.End < replacement.Start || replacement.End > source.Length)
+            throw new ArgumentOutOfRangeException(nameof(replacement), "The replacement must be anchored within the source scalars.");
+        var composed = MergeHunks(baseText, source, [replacement], []);
+        if (remoteText == baseText) return composed;
+        if (!TryUniqueRemoteHunks(source, Scalars(remoteText), out var remoteHunks))
+            return MergeResult.Conflicted(baseText, [new(replacement.Start, replacement.End, replacement.Replacement, remoteText)]);
+        // Equality is safe only after proving the remote alignment; the selected
+        // local span may intentionally include unchanged prefix/suffix characters.
+        if (remoteText == composed.Text) return composed;
+        return MergeHunks(baseText, source, [replacement], remoteHunks);
+    }
+
+    private static MergeResult MergeHunks(string baseText, int[] baseScalars,
+        IReadOnlyList<Hunk> localHunks, IReadOnlyList<Hunk> remoteHunks)
+    {
+
         var accepted = new List<SourcedHunk>();
         var conflicts = new List<MergeConflict>();
         foreach (var candidate in localHunks.Select(h => new SourcedHunk(h, true))
@@ -80,6 +112,60 @@ public static class ThreeWayMerge
     }
 
     private sealed record SourcedHunk(Hunk Hunk, bool IsLocal);
+
+    private static bool TryUniqueRemoteHunks(int[] source, int[] remote, out List<Hunk> hunks)
+    {
+        var result = new List<Hunk>();
+        hunks = result;
+        int n = source.Length, m = remote.Length;
+        if ((long)(n + 1) * (m + 1) > MaxExactDiffCells) return false;
+        var distance = new int[n + 1, m + 1];
+        var paths = new byte[n + 1, m + 1];
+        paths[n, m] = 1;
+        for (int i = n; i >= 0; i--)
+        for (int j = m; j >= 0; j--)
+        {
+            if (i == n && j == m) continue;
+            int best = int.MaxValue, count = 0;
+            void Consider(int cost, byte continuations)
+            {
+                if (cost < best) { best = cost; count = continuations; }
+                else if (cost == best) count = Math.Min(2, count + continuations);
+            }
+            if (i < n && j < m) Consider(distance[i + 1, j + 1] + (source[i] == remote[j] ? 0 : 1), paths[i + 1, j + 1]);
+            if (i < n) Consider(distance[i + 1, j] + 1, paths[i + 1, j]);
+            if (j < m) Consider(distance[i, j + 1] + 1, paths[i, j + 1]);
+            distance[i, j] = best;
+            paths[i, j] = (byte)Math.Min(2, count);
+        }
+        if (paths[0, 0] != 1) return false;
+
+        int x = 0, y = 0, start = -1;
+        var text = new List<int>();
+        void Flush()
+        {
+            if (start < 0) return;
+            result.Add(new(start, x, FromScalars(text)));
+            start = -1;
+            text.Clear();
+        }
+        while (x < n || y < m)
+        {
+            bool diagonal = x < n && y < m && distance[x, y] == distance[x + 1, y + 1] + (source[x] == remote[y] ? 0 : 1);
+            if (diagonal && source[x] == remote[y])
+            {
+                Flush();
+                x++; y++;
+                continue;
+            }
+            if (start < 0) start = x;
+            if (diagonal) { text.Add(remote[y]); x++; y++; }
+            else if (x < n && distance[x, y] == distance[x + 1, y] + 1) x++;
+            else { text.Add(remote[y]); y++; }
+        }
+        Flush();
+        return true;
+    }
 
     private static bool Overlaps(Hunk a, Hunk b)
     {

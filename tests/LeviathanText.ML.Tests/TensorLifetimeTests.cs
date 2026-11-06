@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -64,7 +65,7 @@ public class TensorLifetimeTests
         }
     }
 
-    [Theory]
+    [CapabilityTheory(TestCapabilities.Fitting)]
     [InlineData(false)]
     [InlineData(true)]
     public void Collation_failure_releases_already_allocated_inputs_and_restores_mode(bool training)
@@ -86,7 +87,7 @@ public class TensorLifetimeTests
         Assert.True(double.IsFinite(trainer.Evaluate(Lines).Loss));
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Scoped_training_has_stable_live_aliases_and_preserves_reference_adam_and_resume_parameters()
     {
         set_num_threads(1);

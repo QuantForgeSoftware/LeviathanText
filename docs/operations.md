@@ -1,6 +1,6 @@
 # Operating LeviathanText (pilot)
 
-Date: 2026-11-02. Local-first, single-user by default. This is a pilot operations guide,
+Date: 2026-11-06. Local-first, single-user by default. This is a pilot operations guide,
 not a production runbook.
 
 ## Components
@@ -89,6 +89,30 @@ OS-assigned loopback port; a fixed port is also supported. The script waits for 
 process's fresh listener announcement and refuses an occupied port before sending API
 requests. Its exit handler stops only its API/worker children. Each run needs a dedicated
 output directory: the probe replaces the store and generated PAGE fixtures there.
+
+## Worker lease ownership
+
+The ordinary worker entry point still runs with automatic renewal disabled. The worker
+library supports explicit `LeaseRenewalOptions` on `WorkerHost`, using an independently
+owned `Program.LocalStoreLeaseRenewalSession`, a positive interval shorter than the lease
+and observed renewal diagnostics. There is no new CLI switch at this checkpoint. Existing
+retry pacing and the entry point's drain-current-handler shutdown behavior remain in use.
+
+A renewal captures the job ID, worker ID and claim nonce at dispatch. Each durable tick
+performs at most one exact-JSON conditional update through its own SQLite connection.
+The renewal task stops and joins before terminal/retry publication and connection disposal.
+The legacy nonce-less `Heartbeat(jobId)` now refuses renewal; library callers must use
+`HeartbeatAttempt` with the nonce captured at dispatch. Re-reading the current claim to
+supply that nonce would let stale callbacks act on a replacement attempt and is unsafe.
+
+The independent generated host/observer proof confirms actual renewal during a blocked
+handler and exact final output, with stale-nonce/cancellation/contention controls. This does
+not establish representative inference overhead, exactly-once side effects or a hard
+native cancellation deadline. SQLite command waits are provider-bounded, not an OS wall
+limit. Expiry or failed renewal is not evidence that an old publisher stopped: ordinary
+polling still excludes Running jobs, and explicit recovery must establish publisher exit.
+Before enabling renewal in a shared installation, drain older worker binaries that may
+rewrite unknown lease nonce fields. See [the implementation and independent proof](evaluation/worker-heartbeat-independent-2026-11-06.md).
 
 ## Data-ledger audit
 
@@ -350,13 +374,69 @@ The workspace is then at `/ui`; `/` remains the service/contract endpoint and `/
 the API. `WebRoot` is opt-in; no filesystem directory is exposed without it. The SPA fallback
 returns `index.html` for non-file client routes and 404 for missing assets.
 
-## Offline use
+## Workspace ownership and recovery
 
-The workspace caches successful reads (project list/payloads, line payloads, diplomatic exports)
-in browser localStorage and shows an **offline banner** when a read falls back to cache. Editing
-still requires the server: drafts stay local and mutations are never replayed automatically.
-Caches are cleared when the API key changes. Do not rely on cached data for decisions after
-reconnecting.
+The API supports local fallback, a configured bootstrap key, and stored user accounts.
+Local fallback applies only when no bootstrap key and no stored users exist. Account
+mode does not become local fallback merely because a browser omits its key. The fresh
+`GET /api/v1/me` response declares the current mode and stable account ID; names are
+presentation labels and never identify a draft owner. Backend authorization remains
+required for every read and write.
+
+For account deployments, set `LeviathanText:Auth:WorkspaceNamespace` (environment
+variable `LeviathanText__Auth__WorkspaceNamespace`) to an operator-assigned nonempty UUID
+in canonical `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` form. This is a public deployment
+identifier, not a secret. Keep it stable for the same account identity domain, and assign
+a different value when a deployment or restored database should not share browser draft
+ownership with the old one. Do not copy a sample UUID across unrelated installations.
+Missing or invalid configuration leaves the account without durable browser draft
+ownership; the API does not generate a namespace or alter the database schema. Local and
+bootstrap modes do not receive account-owned draft persistence.
+
+The workspace validates fresh identity and project access before exposing a retained
+workspace. A credential, identity, deployment, membership or uncertain access boundary
+conceals private views and prevents old requests, late responses and editing actions
+from acting on another workspace. Mounted unsaved work stays retained. Returning to the
+same namespaced account with fresh project access can resume that work; a different
+account cannot acquire it by reusing a display name. A different account may need a
+fresh workspace after the old work has been resolved; the current mounted recovery flow
+does not automatically discard or transfer the old editor.
+
+Owned text journals retain the loaded base text/revision, current text, undo entries and
+unconfirmed request metadata. Records are append-only and bounded: 2 MiB per record,
+4 MiB and 512 records per scope, with bounded storage enumeration and JSON structure.
+A full journal or storage failure is explicit and retains the mounted text; it does
+not imply that the latest edit was saved durably. Before reloading after a persistence
+warning, preserve the current text outside that mounted editor. Automatic compaction,
+branch reconciliation and legacy draft import are pending. Legacy and foreign-owner
+bytes are not silently imported, overwritten or deleted. Browser storage ownership is
+an application access boundary, not operating-system encryption or protection from
+other code running on the same browser origin.
+
+A lost or ambiguous write response can mean the server committed the operation. The
+workspace retains its recovery packet and blocks duplicate writes or navigation that
+would discard the packet. Authoritative receipt lookup and resolution are still
+pending; do not infer failure from a transport error or manually replay uncertain work.
+Geometry coordinates and source capture identity stay paired in the mounted workspace,
+but durable geometry recovery across reload is not yet implemented.
+
+## Offline reads and authenticated images
+
+Some successful reads can fall back to an owner-scoped browser cache and show an offline
+banner. Workspace admission and line reconciliation use fresh reads, bypassing that
+fallback; cached data cannot establish current identity or project access. Credential
+and shared-authority boundaries invalidate the cache. Mutations are never automatically
+replayed when connectivity returns.
+
+Local capture previews and line crops use authenticated HTTP requests and owned Blob
+URLs. The browser image URL does not contain the API key. Capture selection and crop
+coordinates remain in the original source frame. Local PNG/JPEG display is verified;
+TIFF browser display remains behind the imaging dependency gate. Jobs streaming also uses captured header credentials, with dispatched cursor replay and
+current authorization fencing. Healthy quiet watches remain open. Transient failures have
+at most three reconnects per Watch; response-header admission, parsing and input bytes are
+bounded, and capacity/refusal/protocol limits stop with an explicit status requiring manual
+refresh. The server still accepts its historical query-credential compatibility, and unused
+legacy URL helpers remain; those are not used by the verified browser jobs flow.
 
 ## Bulk annotation import
 
@@ -682,3 +762,8 @@ fail the comparison. The scores describe vertical, single-frame geometry. Valida
 raster identity and reading order separately before using the result for acceptance.
 For empty inputs, center-distance reports perfect empty-to-empty matching. Vertical IoU
 retains the layout report convention of zero precision and recall for that case.
+
+
+### Current raw Jobs authorization boundary
+
+Jobs list, selected-job snapshot and enqueue requests pin the credential captured at admission through final HTTP dispatch. A stale request is refused rather than adopting a replacement key. A current list/snapshot401 or403 invalidates shared authority and suspends protected mounted views. A current enqueue401 does the same; enqueue403 stays local because a Reader may retain valid read access while lacking permission to create a job. A missing-job404 is scope-local. Stale responses cannot invalidate a newly admitted owner. See [current browser proof](evaluation/header-job-stream-current-browser-2026-11-06.md). This does not provide uncertain-write receipts for manual annotations or L2 edits.

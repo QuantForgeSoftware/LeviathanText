@@ -1,0 +1,11 @@
+# Native unplaced references: independent persistence review
+
+The isolated three-field converter candidate passes all14 independently authored generated persistence controls; the original fails9 and passes5. Root separately owns the61-format-control receipt. No global EntityId parser change is needed or justified.
+
+The converter is attached only to NativeLine.RegionId, NativeLine.FrameRef and NativeRegion.FrameRef. It maps null and the exact historical `col-` sentinel to default/absence; writes default as null; leaves valid IDs unchanged; and rejects other malformed values. Required identity and required property-presence behavior remain strict. No ID is minted or assigned to an unplaced line/region. This matches existing ProjectIntegrity handling of default references.
+
+The new `UnplacedNativePersistenceTests.cs` covers all three fields through save, closed-store read-only reload and writable reopening; normal and legacy raw JSON through BackupTo, read-only VerifyBackupDatabase and a fresh-file snapshot restore; and malformed references/required identities without source rewrite. Exact original SQLite bytes and stored JSON remain unchanged on load/verification. The restore controls concern the store-level verified database snapshot, not CLI force/rollback publication. LocalStore's SQL version is checked separately from its canonical stored native JSON, which intentionally writes Version0.
+
+Original failures comprise three directly observed stored `col-` sentinels where null is required, plus six normal/legacy reload format failures. All five malformed/required identity controls remain refusals in both versions. The initial test invocation supplied an unsupported `--configfile` switch and ran no tests; that receipt is preserved separately from the actual `before-v2.log` behavioral run.
+
+Artifacts: `.artifacts/experiments/native-unplaced-persistence-independent-v1/verification.json`, before/candidate logs and TRX, and a source-preparation freeze with zero drift. No images/models/providers/corpus/labels or natural accuracy evaluation were used. Main production adoption remains root-owned and includes nullable frontend representation and serialization-contract documentation; manually stringified DTO fields are not globally changed by a property converter.

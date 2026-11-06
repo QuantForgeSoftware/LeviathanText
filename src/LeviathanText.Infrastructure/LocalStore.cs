@@ -23,6 +23,19 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     {
     }
 
+    /// <summary>
+    /// Open an existing current-schema store without creating directories, migrating its
+    /// schema, or repairing persisted versions. Read-only connections also reject writes
+    /// through independently opened peers. Use the normal constructor for initialization.
+    /// </summary>
+    public static LocalStore OpenExisting(string databasePath, bool readOnly = false) => new(
+        new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.GetFullPath(databasePath),
+            Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWrite,
+            Pooling = false,
+        }.ToString(), initialize: false, new Lock());
+
     private LocalStore(string connectionString, bool initialize, Lock writes)
     {
         _connectionString = connectionString;
@@ -44,7 +57,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
                 busy.ExecuteNonQuery();
                 var version = ReadSchemaVersion();
                 if (version != SchemaVersion)
-                    throw UnsupportedSchema(version, "Peer connections require an initialized store with the current schema.");
+                    throw UnsupportedSchema(version, "Existing connections require an initialized store with the current schema.");
             }
         }
         catch
@@ -81,7 +94,8 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public LocalStore OpenPeer()
     {
         var settings = new SqliteConnectionStringBuilder(_connectionString);
-        if (settings.Mode != SqliteOpenMode.Memory) settings.Mode = SqliteOpenMode.ReadWrite;
+        if (settings.Mode is not (SqliteOpenMode.Memory or SqliteOpenMode.ReadOnly))
+            settings.Mode = SqliteOpenMode.ReadWrite;
         return new LocalStore(settings.ToString(), initialize: false, _writes);
     }
 
@@ -103,7 +117,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
         if (existing < SchemaVersion)
         {
-            var ddl = _connection.CreateCommand();
+            using var ddl = _connection.CreateCommand();
             ddl.Transaction = tx;
             ddl.CommandText = """
                 CREATE TABLE IF NOT EXISTS projects (
@@ -191,12 +205,12 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             ddl.ExecuteNonQuery();
             if (existing >= 1 && !ColumnExists("projects", "version"))
             {
-                var alter = _connection.CreateCommand();
+                using var alter = _connection.CreateCommand();
                 alter.Transaction = tx;
                 alter.CommandText = "ALTER TABLE projects ADD COLUMN version INTEGER NOT NULL DEFAULT 1";
                 alter.ExecuteNonQuery();
             }
-            var setVersion = _connection.CreateCommand();
+            using var setVersion = _connection.CreateCommand();
             setVersion.Transaction = tx;
             setVersion.CommandText = $"PRAGMA user_version={SchemaVersion}";
             setVersion.ExecuteNonQuery();
@@ -204,7 +218,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         // Earlier migrations left persisted rows at zero, which is reserved for
         // unversioned callers. Repair those rows even when the schema is already current
         // so every loaded document participates in the optimistic concurrency check.
-        var repairVersions = _connection.CreateCommand();
+        using var repairVersions = _connection.CreateCommand();
         repairVersions.Transaction = tx;
         repairVersions.CommandText = "UPDATE projects SET version = 1 WHERE version = 0";
         repairVersions.ExecuteNonQuery();
@@ -236,7 +250,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     {
         var id = $"usr-{Guid.NewGuid().ToString("N")[..12]}";
         var createdAt = DateTimeOffset.UtcNow;
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO users (id, name, role, key_hash, created_at, disabled)
             VALUES ($id, $name, $role, $hash, $created, 0)
@@ -261,7 +275,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<UserAccount> LoadUsers()
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT id, name, role, created_at, disabled FROM users ORDER BY name";
         using var reader = cmd.ExecuteReader();
         var users = new List<UserAccount>();
@@ -279,10 +293,36 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         return users;
     }
 
+    /// <summary>Whether any account exists, including disabled accounts.</summary>
+    public bool HasUsers()
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM users LIMIT 1";
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>Find a known principal by its exact ID, retaining disabled state for reauthorization.</summary>
+    public UserAccount? FindUserById(string id)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, name, role, created_at, disabled FROM users WHERE id = $id";
+        cmd.Parameters.AddWithValue("$id", id);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read()) return null;
+        return new UserAccount
+        {
+            Id = reader.GetString(0),
+            Name = reader.GetString(1),
+            Role = Enum.Parse<UserRole>(reader.GetString(2)),
+            CreatedAt = DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
+            Disabled = reader.GetInt64(4) != 0,
+        };
+    }
+
     /// <summary>Authenticate a key hash; disabled accounts are treated as absent.</summary>
     public UserAccount? FindUserByKeyHash(string keyHash)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT id, name, role, created_at, disabled FROM users WHERE key_hash = $hash AND disabled = 0";
         cmd.Parameters.AddWithValue("$hash", keyHash);
         using var reader = cmd.ExecuteReader();
@@ -298,7 +338,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void DisableUser(string id)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE users SET disabled = 1 WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id);
         if (ExecuteWrite(cmd) == 0)
@@ -307,7 +347,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void UpdateUserKey(string id, string keyHash)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE users SET key_hash = $hash WHERE id = $id";
         cmd.Parameters.AddWithValue("$hash", keyHash);
         cmd.Parameters.AddWithValue("$id", id);
@@ -319,7 +359,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void AddProjectMember(EntityId projectId, string userId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO project_members (project_id, user_id, added_at) VALUES ($project, $user, $at)
             ON CONFLICT(project_id, user_id) DO NOTHING
@@ -332,7 +372,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void RemoveProjectMember(EntityId projectId, string userId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM project_members WHERE project_id = $project AND user_id = $user";
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
         cmd.Parameters.AddWithValue("$user", userId);
@@ -341,7 +381,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<string> LoadProjectMembers(EntityId projectId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT user_id FROM project_members WHERE project_id = $project ORDER BY user_id";
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
         using var reader = cmd.ExecuteReader();
@@ -352,7 +392,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public bool IsProjectMember(EntityId projectId, string userId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT 1 FROM project_members WHERE project_id = $project AND user_id = $user LIMIT 1";
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
         cmd.Parameters.AddWithValue("$user", userId);
@@ -398,7 +438,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void SaveRun(RunRecord run)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO runs (id, kind, name, created_at, created_by, dataset_digest,
                               config_json, metrics_json, history_json, artifacts_json, notes)
@@ -423,7 +463,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<RunRecord> LoadRuns(string? kind = null, int limit = 100)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = kind is null
             ? "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs ORDER BY created_at DESC LIMIT $limit"
             : "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs WHERE kind = $kind ORDER BY created_at DESC LIMIT $limit";
@@ -437,7 +477,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public RunRecord? LoadRun(string id)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT id, kind, name, created_at, created_by, dataset_digest, config_json, metrics_json, history_json, artifacts_json, notes FROM runs WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id);
         using var reader = cmd.ExecuteReader();
@@ -463,7 +503,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void TouchPresence(EntityId surfaceId, string editorId, DateTimeOffset at)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO presence (surface_id, editor_id, updated_at) VALUES ($surface, $editor, $at)
             ON CONFLICT(surface_id, editor_id) DO UPDATE SET updated_at = $at
@@ -476,13 +516,13 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<string> ListPresence(EntityId surfaceId, DateTimeOffset since)
     {
-        var prune = _connection.CreateCommand();
+        using var prune = _connection.CreateCommand();
         prune.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND updated_at < $since";
         prune.Parameters.AddWithValue("$surface", surfaceId.ToString());
         prune.Parameters.AddWithValue("$since", since.ToString("O"));
         ExecuteWrite(prune);
 
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT editor_id FROM presence WHERE surface_id = $surface ORDER BY editor_id";
         cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
         using var reader = cmd.ExecuteReader();
@@ -493,7 +533,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void LeavePresence(EntityId surfaceId, string editorId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM presence WHERE surface_id = $surface AND editor_id = $editor";
         cmd.Parameters.AddWithValue("$surface", surfaceId.ToString());
         cmd.Parameters.AddWithValue("$editor", editorId);
@@ -516,7 +556,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             LastSeenAt = now,
             ExpiresAt = now + ttl,
         };
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO edit_sessions
                 (id, user_id, user_name, node_id, surface_id, created_at, last_seen_at, expires_at, revoked_at)
@@ -536,7 +576,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public EditSession? FindSession(string id)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT * FROM edit_sessions WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id);
         using var reader = cmd.ExecuteReader();
@@ -547,7 +587,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public EditSession? TouchSession(string id, DateTimeOffset now, TimeSpan ttl)
     {
         var expires = now + ttl;
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE edit_sessions
             SET last_seen_at = $now, expires_at = $expires
@@ -562,7 +602,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public bool RevokeSession(string id, DateTimeOffset now)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE edit_sessions SET revoked_at = $now
             WHERE id = $id AND revoked_at IS NULL
@@ -575,7 +615,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     public IReadOnlyList<EditSession> ListSessions(DateTimeOffset now, EntityId? surfaceId = null,
         bool includeExpired = false)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         var conditions = new List<string>();
         if (surfaceId is { } surface)
         {
@@ -631,7 +671,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = expiresAt,
         };
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO invites (id, token_hash, project_id, role, created_by, created_at, expires_at)
             VALUES ($id, $hash, $project, $role, $by, $created, $expires)
@@ -649,7 +689,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public ProjectInvite? FindInviteByTokenHash(string tokenHash)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT id, project_id, role, created_by, created_at, expires_at, used_at, used_by
             FROM invites WHERE token_hash = $hash LIMIT 1
@@ -661,7 +701,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<ProjectInvite> ListInvites(EntityId projectId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT id, project_id, role, created_by, created_at, expires_at, used_at, used_by
             FROM invites WHERE project_id = $project ORDER BY created_at DESC
@@ -676,7 +716,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     /// <summary>Revoke an unused invitation; used invitations remain as membership history.</summary>
     public bool DeleteInvite(EntityId projectId, string inviteId)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM invites WHERE id = $id AND project_id = $project AND used_at IS NULL";
         cmd.Parameters.AddWithValue("$id", inviteId);
         cmd.Parameters.AddWithValue("$project", projectId.ToString());
@@ -686,7 +726,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     /// <summary>Atomically consume an unused invitation; false means it was already used.</summary>
     public bool MarkInviteUsed(string inviteId, string userId, DateTimeOffset at)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE invites SET used_at = $at, used_by = $user WHERE id = $id AND used_at IS NULL";
         cmd.Parameters.AddWithValue("$at", at.ToString("O"));
         cmd.Parameters.AddWithValue("$user", userId);
@@ -710,7 +750,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public void AppendAuthAudit(AuthAuditEntry entry)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO auth_audit (at, user_id, user_name, role, action, method, path, status)
             VALUES ($at, $uid, $name, $role, $action, $method, $path, $status)
@@ -728,7 +768,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<AuthAuditEntry> LoadAuthAudit(int limit = 100)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT id, at, user_id, user_name, role, action, method, path, status
             FROM auth_audit ORDER BY id DESC LIMIT $limit
@@ -756,7 +796,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     private bool ColumnExists(string table, string column)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = $"PRAGMA table_info({table})";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -771,15 +811,36 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     /// version it was read at; saving a stale document fails with <c>revision-conflict</c>
     /// instead of silently replacing another writer's changes.
     /// </summary>
-    public long SaveProject(NativeProject project)
+    public long SaveProject(NativeProject project) =>
+        SaveProjectCore(project, enforceAuthorization: false, actorId: null, requireMembership: false);
+
+    /// <summary>
+    /// Save after checking the current principal in the same SQLite write transaction.
+    /// A null actor represents previously admitted anonymous local mode and requires
+    /// that no accounts exist. Bootstrap bypass is a caller decision, never an ID alias.
+    /// </summary>
+    public long SaveProjectAuthorized(NativeProject project, string? actorId, bool requireMembership) =>
+        SaveProjectAuthorized(project, actorId, requireMembership, expectedKeyHash: null);
+
+    /// <summary>Optionally require the admitted account credential inside the same write transaction.</summary>
+    public long SaveProjectAuthorized(NativeProject project, string? actorId, bool requireMembership, string? expectedKeyHash) =>
+        SaveProjectCore(project, enforceAuthorization: true, actorId, requireMembership, expectedKeyHash);
+
+    private long SaveProjectCore(NativeProject project, bool enforceAuthorization, string? actorId, bool requireMembership,
+        string? expectedKeyHash = null)
     {
         var json = NativeJson.Save(project with { Version = 0 });
         lock (_writes)
         {
-            using var tx = _connection.BeginTransaction();
+            // Reserve the SQLite write lock before reading authorization. Revocation
+            // through another connection/process must serialize with this whole save,
+            // rather than landing between a membership read and project publication.
+            using var tx = enforceAuthorization ? _connection.BeginTransaction(deferred: false)
+                : _connection.BeginTransaction();
+            if (enforceAuthorization) RequireProjectWriteAccess(project.Id, actorId, requireMembership, expectedKeyHash, tx);
             if (project.Version > 0)
             {
-                var update = _connection.CreateCommand();
+                using var update = _connection.CreateCommand();
                 update.Transaction = tx;
                 update.CommandText = """
                     UPDATE projects
@@ -797,7 +858,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
                 return project.Version + 1;
             }
 
-            var insert = _connection.CreateCommand();
+            using var insert = _connection.CreateCommand();
             insert.Transaction = tx;
             // Version 0 means the caller never loaded a persisted document (new project or a
             // legacy/unversioned caller). Keep the historical upsert for compatibility; any
@@ -812,7 +873,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             insert.Parameters.AddWithValue("$cv", ContractVersion.Current);
             insert.Parameters.AddWithValue("$json", json);
             insert.ExecuteNonQuery();
-            var next = _connection.CreateCommand();
+            using var next = _connection.CreateCommand();
             next.Transaction = tx;
             next.CommandText = "SELECT version FROM projects WHERE id = $id";
             next.Parameters.AddWithValue("$id", project.Id.ToString());
@@ -822,9 +883,34 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         }
     }
 
+    private void RequireProjectWriteAccess(EntityId projectId, string? actorId, bool requireMembership, string? expectedKeyHash, SqliteTransaction tx)
+    {
+        using var command = _connection.CreateCommand();
+        command.Transaction = tx;
+        command.CommandText = """
+            SELECT CASE WHEN $actor IS NULL THEN NOT EXISTS (SELECT 1 FROM users)
+            ELSE EXISTS (
+                SELECT 1 FROM users AS principal
+                WHERE principal.id = $actor AND principal.disabled = 0
+                    AND ($expectedKeyHash IS NULL OR principal.key_hash = $expectedKeyHash)
+                    AND principal.role IN ('Annotator', 'Reviewer', 'Admin')
+                    AND ($membership = 0 OR principal.role = 'Admin' OR EXISTS (
+                        SELECT 1 FROM project_members
+                        WHERE project_id = $project AND user_id = principal.id
+                    ))
+            ) END
+            """;
+        command.Parameters.AddWithValue("$actor", (object?)actorId ?? DBNull.Value);
+        command.Parameters.AddWithValue("$expectedKeyHash", (object?)expectedKeyHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("$membership", requireMembership ? 1 : 0);
+        command.Parameters.AddWithValue("$project", projectId.ToString());
+        if (Convert.ToInt64(command.ExecuteScalar()) != 1)
+            throw new ProjectWriteAccessDeniedException();
+    }
+
     private void ThrowConflict(EntityId id, SqliteTransaction tx, long expected)
     {
-        var current = _connection.CreateCommand();
+        using var current = _connection.CreateCommand();
         current.Transaction = tx;
         current.CommandText = "SELECT version FROM projects WHERE id = $id";
         current.Parameters.AddWithValue("$id", id.ToString());
@@ -845,7 +931,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public NativeProject? LoadProject(EntityId id)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT json, version FROM projects WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id.ToString());
         using var reader = cmd.ExecuteReader();
@@ -857,7 +943,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
 
     public IReadOnlyList<(EntityId Id, string Name)> ListProjects()
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT id, name FROM projects ORDER BY name";
         using var reader = cmd.ExecuteReader();
         var list = new List<(EntityId, string)>();
@@ -871,7 +957,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         lock (_writes)
         {
             using var tx = _connection.BeginTransaction();
-            var cmd = _connection.CreateCommand();
+            using var cmd = _connection.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = "DELETE FROM projects WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", id.ToString());
@@ -929,6 +1015,68 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
             """;
         cmd.Parameters.AddWithValue("$owner", ownerId);
         return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    /// <summary>Independent renewal connection, no migration or version repair.
+    /// SQLite waits are provider-bounded (one second per command), not a hard native deadline.</summary>
+    public LocalStore OpenLeaseRenewalPeer()
+    {
+        var settings = new SqliteConnectionStringBuilder(_connectionString)
+        {
+            DefaultTimeout = 1,
+            Pooling = false,
+        };
+        if (settings.Mode is not (SqliteOpenMode.Memory or SqliteOpenMode.ReadOnly))
+            settings.Mode = SqliteOpenMode.ReadWrite;
+        return new LocalStore(settings.ToString(), initialize: false, _writes);
+    }
+
+    /// <summary>One read and at most one CAS, never the generic unbounded transition loop.
+    /// Call only on a renewal-owned peer connection. No automatic recovery is performed.</summary>
+    public JobLeaseRenewalResult RenewJobLeaseOnce(EntityId jobId, EntityId workerId, string claimId,
+        DateTimeOffset now, TimeSpan leaseDuration)
+    {
+        if (string.IsNullOrWhiteSpace(claimId) || leaseDuration <= TimeSpan.Zero)
+            throw new ArgumentException("Renewal requires a captured claim and positive duration.");
+        try
+        {
+            string? previous;
+            using (var read = _connection.CreateCommand())
+            {
+                read.CommandTimeout = 1;
+                read.CommandText = "SELECT json FROM jobs WHERE id = $id";
+                read.Parameters.AddWithValue("$id", jobId.ToString());
+                previous = read.ExecuteScalar() as string;
+            }
+            if (previous is null) return JobLeaseRenewalResult.OwnershipLost;
+            var current = ContractJson.FromJson<JobRecord>(previous);
+            if (current.Status != JobStatus.Running || current.Lease is not { } lease
+                || lease.Worker != workerId || lease.ClaimId != claimId)
+                return JobLeaseRenewalResult.OwnershipLost;
+            var expiry = now + leaseDuration;
+            var replacement = current with { Lease = lease with
+            {
+                LastHeartbeat = lease.LastHeartbeat is { } last && last > now ? last : now,
+                ExpiresAt = expiry > lease.ExpiresAt ? expiry : lease.ExpiresAt,
+            } };
+            // Do not wait behind a handler's process-local write transaction.
+            if (!_writes.TryEnter()) return JobLeaseRenewalResult.Contended;
+            try
+            {
+                using var update = _connection.CreateCommand();
+                update.CommandTimeout = 1;
+                update.CommandText = "UPDATE jobs SET json = $next WHERE id = $id AND json = $previous";
+                update.Parameters.AddWithValue("$next", ContractJson.ToJson(replacement));
+                update.Parameters.AddWithValue("$id", jobId.ToString());
+                update.Parameters.AddWithValue("$previous", previous);
+                return update.ExecuteNonQuery() == 1 ? JobLeaseRenewalResult.Renewed : JobLeaseRenewalResult.Contended;
+            }
+            finally { _writes.Exit(); }
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode is 5 or 6)
+        {
+            return JobLeaseRenewalResult.Contended;
+        }
     }
 
     /// <summary>
@@ -994,7 +1142,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     /// <summary>Most recent jobs first (bounded list for operators and the workspace).</summary>
     public IReadOnlyList<JobRecord> LoadJobs(int limit = 100)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT json FROM jobs ORDER BY rowid DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
         using var reader = cmd.ExecuteReader();
@@ -1007,7 +1155,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     /// <summary>All jobs in a given status, oldest first (worker claim queries).</summary>
     public IReadOnlyList<JobRecord> LoadJobsByStatus(JobStatus status)
     {
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT json FROM jobs WHERE status = $status ORDER BY id";
         cmd.Parameters.AddWithValue("$status", status.ToString());
         using var reader = cmd.ExecuteReader();
@@ -1029,7 +1177,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         var dir = Path.GetDirectoryName(full);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-        var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = "VACUUM INTO $target";
         cmd.Parameters.AddWithValue("$target", full);
         cmd.ExecuteNonQuery();
@@ -1039,9 +1187,7 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
     {
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
-            DataSource = path,
-            Mode = SqliteOpenMode.ReadOnly,
-            Pooling = false,
+            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false,
         }.ToString());
         connection.Open();
         using var command = connection.CreateCommand();
@@ -1049,10 +1195,135 @@ public sealed class LocalStore : IDisposable, IProjectStore, IPresenceStore, ISe
         if (!string.Equals(command.ExecuteScalar() as string, "ok", StringComparison.Ordinal))
             throw new InvalidDataException("Backup database failed SQLite verification.");
         command.CommandText = "PRAGMA user_version";
-        if (Convert.ToInt32(command.ExecuteScalar()) > SchemaVersion)
-            throw new InvalidDataException("Backup database uses a newer store schema.");
-        command.CommandText = "SELECT id, name, contract_version, json FROM projects LIMIT 0";
+        var schema = Convert.ToInt64(command.ExecuteScalar());
+        if (schema < 0 || schema > SchemaVersion)
+            throw new InvalidDataException("Backup database uses an unsupported store schema.");
+
+        // A current-schema file is not migrated on open: require its query shapes
+        // now. Older stores retain the established minimum project shape; this
+        // read-only verifier neither migrates nor claims full migration validation.
+        if (schema == SchemaVersion)
+        {
+            (string Table, string Columns)[] shapes =
+            [
+                ("projects", "id,name,contract_version,json,version"),
+                ("jobs", "id,type,status,idempotency_key,retries,json"),
+                ("users", "id,name,role,key_hash,created_at,disabled"),
+                ("auth_audit", "id,at,user_id,user_name,role,action,method,path,status"),
+                ("project_members", "project_id,user_id,added_at"),
+                ("runs", "id,kind,name,created_at,created_by,dataset_digest,config_json,metrics_json,history_json,artifacts_json,notes"),
+                ("presence", "surface_id,editor_id,updated_at"),
+                ("invites", "id,token_hash,project_id,role,created_by,created_at,expires_at,used_at,used_by"),
+                ("edit_sessions", "id,user_id,user_name,node_id,surface_id,created_at,last_seen_at,expires_at,revoked_at"),
+            ];
+            foreach (var shape in shapes)
+            {
+                using var table = connection.CreateCommand();
+                table.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$name COLLATE NOCASE";
+                table.Parameters.AddWithValue("$name", shape.Table);
+                if (table.ExecuteScalar() is null)
+                    throw new InvalidDataException("Backup current-schema table is missing or has an unsupported shape.");
+                table.Parameters.Clear();
+                table.CommandText = $"SELECT {shape.Columns} FROM {shape.Table} LIMIT 0";
+                try { using var columns = table.ExecuteReader(); }
+                catch (SqliteException error)
+                { throw new InvalidDataException("Backup current-schema table has an unsupported query shape.", error); }
+            }
+            command.CommandText = "SELECT 1 FROM projects WHERE typeof(version) != 'integer' OR version < 0 LIMIT 1";
+            if (command.ExecuteScalar() is not null)
+                throw new InvalidDataException("Backup project version is not a nonnegative integer.");
+            // Zero remains eligible for the existing normal-open repair, not a write here.
+        }
+
+        if (schema == 0)
+        {
+            // The established migrator cannot add this column to a preexisting
+            // schema-zero projects table; refuse before replacing a healthy store.
+            using var legacyVersion = connection.CreateCommand();
+            legacyVersion.CommandText = "SELECT version FROM projects LIMIT 0";
+            try { using var version = legacyVersion.ExecuteReader(); }
+            catch (SqliteException error)
+            { throw new InvalidDataException("Backup schema-zero projects lack the version column required for migration.", error); }
+        }
+        using (var minimum = connection.CreateCommand())
+        {
+            minimum.CommandText = "SELECT id, name, contract_version, json FROM projects LIMIT 0";
+            try { using var shape = minimum.ExecuteReader(); }
+            catch (SqliteException error)
+            { throw new InvalidDataException("Backup projects do not have the required minimum query shape.", error); }
+        }
+        command.CommandText = "SELECT id, name, contract_version, json FROM projects";
         using var projects = command.ExecuteReader();
+        while (projects.Read())
+        {
+            if (projects.IsDBNull(0) || projects.IsDBNull(1) || projects.IsDBNull(2) || projects.IsDBNull(3)
+                || !EntityId.TryParse(projects.GetString(0), EntityKind.Collection, out var rowId)
+                || !string.Equals(projects.GetString(2), ContractVersion.Current, StringComparison.Ordinal))
+                throw new InvalidDataException("Backup project identity or contract metadata is invalid.");
+            NativeProject project;
+            try { project = NativeJson.Load(projects.GetString(3)); }
+            catch (Exception error) when (error is System.Text.Json.JsonException or LeviathanException
+                or FormatException or ArgumentException or InvalidOperationException)
+            {
+                throw new InvalidDataException("Backup contains an unreadable or unsupported native project payload.", error);
+            }
+            if (project is null || project.Id.Kind != EntityKind.Collection
+                || !EntityId.TryParse(project.Id.ToString(), EntityKind.Collection, out var nativeId) || nativeId != rowId)
+                throw new InvalidDataException("Backup native project identity does not match its database row.");
+            VerifyNativeContainers(project);
+            // Do not rewrite payloads, normalize versions or reject/deduplicate legacy inner IDs.
+        }
+
+        // Required JSON properties can still contain explicit nulls: nullable annotations
+        // are not runtime validation. Refuse unusable traversal containers before restore
+        // publication, without changing global NativeJson/forensic loading semantics.
+        static void VerifyNativeContainers(NativeProject project)
+        {
+            RequireItems(project.Objects);
+            foreach (var obj in project.Objects)
+            {
+                RequireMap(obj.ExternalRefs); RequireMap(obj.Metadata);
+                RequireItems(obj.Attachments); RequireItems(obj.Fragments); RequireItems(obj.Surfaces);
+                foreach (var fragment in obj.Fragments)
+                {
+                    RequireMap(fragment.ExternalRefs); RequireMap(fragment.Metadata); RequireItems(fragment.SurfaceIds);
+                }
+                foreach (var surface in obj.Surfaces)
+                {
+                    RequireMap(surface.ExternalRefs);
+                    RequireItems(surface.Captures); RequireItems(surface.Regions); RequireItems(surface.Lines);
+                    RequireItems(surface.Revisions); RequireItems(surface.Annotations); RequireItems(surface.GeometryEdits);
+                    RequireItems(surface.ReviewDecisions); RequireItems(surface.AnnotationRetractions);
+                    foreach (var region in surface.Regions)
+                    {
+                        RequireItems(region.Polygon); RequireItems(region.Languages); RequireTags(region.Tags);
+                    }
+                    foreach (var line in surface.Lines)
+                    {
+                        RequireItems(line.Polygon); RequireItems(line.Baseline); RequireItems(line.Languages); RequireTags(line.Tags);
+                    }
+                    foreach (var revision in surface.Revisions) RequireItems(revision.GraphemeConfidences);
+                }
+            }
+        }
+
+        static void RequireItems<T>(IEnumerable<T>? items)
+        {
+            if (items is null || items.Any(item => item is null))
+                throw new InvalidDataException("Backup native project contains a null collection or collection entry.");
+        }
+
+        static void RequireMap(IReadOnlyDictionary<string, string>? map)
+        {
+            // Preserve scalar metadata values verbatim, including legacy null values.
+            if (map is null) throw new InvalidDataException("Backup native project contains a null metadata container.");
+        }
+
+        static void RequireTags(IReadOnlyDictionary<string, IReadOnlyList<string>>? tags)
+        {
+            if (tags is null) throw new InvalidDataException("Backup native project contains a null tag container.");
+            foreach (var values in tags.Values) RequireItems(values);
+        }
     }
 
     public void Dispose() => _connection.Dispose();

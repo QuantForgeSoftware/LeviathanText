@@ -8,7 +8,8 @@ namespace LeviathanText.Imaging;
 /// Bounded PDF text extraction (PdfPig). Output is a coordinate-bearing **L2 reference**
 /// only: PDF text may be editorial, normalized or synthesized, so it must never be imported
 /// as visible-text/L1 labels. Word boxes use PDF points with a bottom-left origin; callers
-/// map them onto rendered page pixels. Rotated/mixed-direction pages are not interpreted.
+/// map them onto rendered page pixels. Rotated pages and non-horizontal glyph orientations
+/// are explicitly refused; they remain available through image-only PDF ingestion.
 /// </summary>
 public static class PdfTextExtractor
 {
@@ -43,6 +44,21 @@ public static class PdfTextExtractor
             using var document = PdfDocument.Open(pdfPath);
             foreach (var page in document.GetPages().Take(Math.Clamp(maxPages, 1, MaxPages)))
             {
+                var unsupported = page.Letters.FirstOrDefault(letter =>
+                    !string.IsNullOrWhiteSpace(letter.Value) && letter.TextOrientation != TextOrientation.Horizontal);
+                if (page.Rotation.Value != 0 || unsupported is not null)
+                    throw new LeviathanException(new LeviathanError
+                    {
+                        Code = ErrorCode.StageContractViolation,
+                        Scope = $"{pdfPath}#page-{page.Number}",
+                        Details = new Dictionary<string, string>
+                        {
+                            ["pageRotation"] = page.Rotation.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            ["textOrientation"] = unsupported?.TextOrientation.ToString() ?? "Horizontal",
+                            ["reason"] = "unsupported_pdf_text_orientation",
+                        },
+                        Message = "Coordinate-bearing PDF text extraction does not support this page/text orientation. Retry PDF import without text extraction to keep page images.",
+                    });
                 var words = page.GetWords()
                     .Where(w => !string.IsNullOrWhiteSpace(w.Text))
                     .ToList();

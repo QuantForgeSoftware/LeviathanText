@@ -5,6 +5,34 @@ namespace LeviathanText.Imaging.Tests;
 
 public class PdfRendererTests : IDisposable
 {
+    [Theory]
+    [InlineData(90)]
+    [InlineData(180)]
+    [InlineData(270)]
+    public void Image_only_rendering_keeps_page_rotation_and_places_ink_in_the_rotated_frame(int rotation)
+    {
+        var plain = PdfRotationFixture.Write(_dir);
+        var rotated = PdfRotationFixture.Write(_dir, pageRotation: rotation);
+        var baseline = Assert.Single(PdfRenderer.Render(plain, Path.Combine(_dir, "plain"), 72));
+        var rendered = Assert.Single(PdfRenderer.Render(rotated, Path.Combine(_dir, "rotated"), 72));
+        using var original = SKBitmap.Decode(baseline.ImagePath);
+        using var actual = SKBitmap.Decode(rendered.ImagePath);
+        var box = PdfRasterInk.Bounds(original);
+        var ink = PdfRasterInk.Bounds(actual);
+        Assert.Equal(rotation == 180 ? 300 : 200, actual.Width);
+        Assert.Equal(rotation == 180 ? 200 : 300, actual.Height);
+        var expected = rotation switch
+        {
+            90 => (Left: 200 - box.Bottom, Top: box.Left, Right: 200 - box.Top, Bottom: box.Right),
+            180 => (Left: 300 - box.Right, Top: 200 - box.Bottom, Right: 300 - box.Left, Bottom: 200 - box.Top),
+            _ => (Left: box.Top, Top: 300 - box.Right, Right: box.Bottom, Bottom: 300 - box.Left),
+        };
+        Assert.InRange(Math.Abs(ink.Left - expected.Left), 0, 2);
+        Assert.InRange(Math.Abs(ink.Top - expected.Top), 0, 2);
+        Assert.InRange(Math.Abs(ink.Right - expected.Right), 0, 2);
+        Assert.InRange(Math.Abs(ink.Bottom - expected.Bottom), 0, 2);
+    }
+
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"leviathan-pdf-{Guid.NewGuid():N}");
 
     public PdfRendererTests() => Directory.CreateDirectory(_dir);

@@ -1,0 +1,51 @@
+# AUTH-RECOVERY-02: authoritative mutation receipts
+
+Status: proposed implementation contract, not implemented or an approval to replay existing uncertain writes. Tracked uncertain L1/AI/geometry/order writes remain retained and blocked. General manual annotation/L2 actions still lack comprehensive uncertain-outcome locking and partial-commit handling; this contract does not retroactively close that gap. This design follows source inspection of AppendRevisionRequest, TranscriptionService, RequestProjectStore and LocalStore.SaveProjectCore. No training, providers, source labels or machine/hosting settings are involved.
+
+## Scope and first delivery
+
+Start with account-owned L1/L2 revision appends through an explicit project/line route. Current AppendRevisionRequest has no operation ID, and LineEditor's new pending submission contains text/parent but no server-recognized request identity. Existing uncertain packets therefore cannot be retroactively declared idempotent. Matching present text, a cancelled HTTP request, a missing receipt or an equal author name is not proof of rollback or authorship.
+
+Stage1 delivers a reviewed durable receipt/write contract plus generated transaction tests. Stage2 adds the client request ID before first dispatch, exact pending-packet persistence, positive receipt lookup and current-owner reconciliation. Stage3 separately applies the same proof to annotations, proposal acceptance and geometry. Do not clear those other unknown outcomes when only text appends are covered. Existing writes without an operation ID retain their historical route and behavior; no automatic replay/import is introduced.
+
+The first durable client flow requires a fresh persisted account ID, explicit server WorkspaceNamespace and fresh project access. Local/bootstrap sessions and namespace-less accounts must not invent durable ownership. A later local-mode design needs its own stable store/session ownership policy; it is not supplied by a display name, API-key digest or transient label.
+
+## Operation identity and payload binding
+
+Mint a cryptographically generated canonical nonempty UUID once per user-intended submission, before persisting its recovery packet and before HTTP dispatch. Retries of that same operation must reuse the exact ID and effective payload. New edits, changed parent/merge policy or a new explicit save use a new ID; never overwrite the old uncertain packet to manufacture a retry.
+
+Bind the operation to server-confirmed namespace, stable account ID, project ID, line ID, text layer, exact original submitted text, explicit nullable requested parent and merge flag. The effective actor is server-derived; no client author/name can select another owner. Fingerprint a specified deterministic UTF-8 encoding with SHA-256 and a format-version/domain prefix. Freeze property order, null/boolean/enum encoding and Unicode treatment in cross-language fixtures. Include NFC/NFD distinctions, supplementary scalars, escaping and newline vectors; reject unpaired UTF-16 surrogates/invalid scalar input before fingerprinting, rather than relying on different serializers to repair it. No trimming, case folding or Unicode normalization may silently make two distinct submissions share a request fingerprint. Stored result text may differ after a valid merge; retain both requested and resulting identities/hashes.
+
+Reject malformed/empty IDs, excessive operation bodies and same-owner ID reuse with any bound-field mismatch. Define concrete bounds before coding; do not reuse unbounded source text or arbitrary exception messages as receipt diagnostics. The operation ID is a correlation key, not authentication. Never put API keys, provider credentials, raw authorization headers or source filesystem paths in the receipt.
+
+## Atomic durability and schema gate
+
+A durable table with a uniqueness key `(namespace, account_id, operation_id)` is the preferred design. Store request fingerprint, typed operation/target identity, committed result identity and the bounded result needed to reconcile the client. Receipt and native project revision must commit in the **same SQLite write transaction**. A receipt recorded before or after a separate SaveProject is insufficient.
+
+This requires an explicit schema migration and supported-old-store tests. Do not add an unversioned table under SchemaVersion9 or rely on old binaries silently preserving unknown native JSON fields. Old binaries must refuse a newer receipt schema rather than rewriting away operation evidence. Backups, read-only verification, relocation, migration rollback and published worker compatibility must cover the new schema before rollout. Keep the current schema unchanged until this gate is reviewed.
+
+Use a short immediate write transaction: read current authorization/project version, inspect the operation key, prepare the pure revision/merge, publish the project and receipt, then commit. Reuse the transaction-bound account/role/membership checks already required by SaveProjectAuthorized. Do not call providers, open images or wait on HTTP inside that transaction. Refactor pure revision preparation separately from store publication; do not wrap the current self-committing TranscriptionService method in an unrelated outer transaction.
+
+An existing matching committed receipt returns its original result without another revision, even if the current text later changed. A mismatched fingerprint returns a stable conflict and changes nothing. A concurrent duplicate must serialize on the uniqueness constraint/transaction, never create two revisions. A failed transaction publishes neither revision nor committed receipt. Decide explicitly how a definitive precommit refusal is represented; do not persist a generic exception as proof that external effects rolled back.
+
+Receipt storage/retention needs a bounded growth policy. Eviction, database restoration, legacy rewrite or operator deletion must never turn an old operation ID into a fresh writable ID. Until tombstone/retention guarantees are designed, do not promise safe indefinite replay or reclaim IDs. A missing receipt remains unknown and keeps the old packet blocked. Positive lookup is useful independently of automatic retries.
+
+## Lookup and reconciliation
+
+A read-only project-scoped lookup rechecks current identity and project access. It returns a receipt only for its exact stable account and namespace. Equal display names, common project access and a different account's admin status do not silently transfer pending ownership. A stale response cannot alter a newer workspace. Do not expose submitted text or another owner's operation existence through a convenient global lookup.
+
+Distinguish a committed positive receipt, definitive bound-payload mismatch, denied access and unknown/not-observed status. An ordinary404/missing row does not prove that a request is absent from an in-flight transaction, historical backup or different deployment. Namespace changes and restored databases must fail closed. GET receipt lookup may remain available to the same account after write-role downgrade if it still has current read access; a new/replayed POST still requires current write permission.
+
+For a valid positive receipt, verify exact operation/owner/target/fingerprint, reconcile against a fresh line payload and the actual retained base, and settle only that pending operation. Preserve a newer mounted edit and its undo; do not replace it with an acknowledged older submission. If another later revision exists, a receipt is still proof of the older commit, not permission to overwrite the current line. Resume through the existing three-way comparison policy. No automatic duplicate save, annotation or geometry write follows from lookup.
+
+## Parallel ownership and dependencies
+
+Instance A owns the versioned DTO/fingerprint specification, pure C# preparation seam, schema migration, atomic authorized operation store, project-scoped HTTP write/lookup and new backend transaction tests. Freeze the DTO/encoding and failure vocabulary for B before production edits. Do not change generic SaveProject compatibility, unrelated worker lease behavior or existing corpus/training contracts as a shortcut.
+
+Instance B independently authors cross-language fingerprint vectors, controlled client/HTTP tests and the retained LineEditor pending-operation integration. Before A's API is available, use explicit recording doubles against the frozen contract and keep existing routes operational. Own before/after commit-then-lost-response tests and an actual generated browser/API proof. Do not edit A's persistence/migration files. Root owns shared plan updates, receipt policy review, integration and whole-suite/source/cleanup gates.
+
+Acceptance: two independent processes racing the same operation produce exactly one revision and the same receipt; exact-ID body/owner/project mismatch changes no bytes; revocation before commit refuses both project and receipt; successful commit followed by lost response resolves from a current-owner lookup without duplicate revision; precommit faults leave no committed record; pending/in-flight lookup remains unknown; stale-account responses cannot settle another account; later mounted edits and all original recovery bytes survive; role downgrade/read-only lookup policy is verified; backups/old-schema/new-binary and migration/rollback behavior are explicit.
+
+Fault tests must cover commit acknowledgement loss, cancellation around transaction boundaries, same-key concurrent writers, storage-full/SQLite contention, mismatched payload, stale parents with merge, old namespace and account name reuse. Use generated text and owned disposable stores. Register any actual subprocess/browser proof with finite caps, exact source/runtime/input hashes and complete owned cleanup before dispatch. Frozen failure receipts stay preserved. Do not claim distributed exactly-once effects beyond this single SQLite transaction.
+
+Handoff source/binary hashes, complete passing and failing receipts, public DTO/encoding vectors, schema compatibility, unresolved retention decisions and exact per-layer client scope. Keep AUTH-RECOVERY-02 open until the applicable end-to-end outcomes pass; the presence of a receipt table or a request UUID alone is not completion.

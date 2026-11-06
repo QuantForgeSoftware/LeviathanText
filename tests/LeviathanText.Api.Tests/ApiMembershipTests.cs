@@ -18,6 +18,78 @@ namespace LeviathanText.Api.Tests;
 /// </summary>
 public sealed class ApiMembershipTests
 {
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Open_job_event_stream_reauthorizes_during_idle_and_stops_before_leaking_events(
+        bool enabled, bool publishAfterRevoke)
+    {
+        using var factory = new MembershipFactory(enabled);
+        using var admin = WithKey(factory.CreateClient(), AdminKey);
+        var (ownerId, ownerKey) = await CreateUser(admin, "stream-owner", "annotator");
+        using var owner = WithKey(factory.CreateClient(), ownerKey);
+        using var created = await owner.PostAsJsonAsync("/api/v1/projects", new { name = "stream-private" });
+        var projectId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetString()!;
+        using var submitted = await owner.PostAsJsonAsync("/api/v1/jobs", new { type = "layout.project", ownerId = "ignored", projectId });
+        var job = await submitted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(enabled, job.TryGetProperty("boundProjectId", out _));
+        var jobId = EntityId.Parse(job.GetProperty("id").GetString()!, EntityKind.Job);
+        var bus = factory.Services.GetRequiredService<LeviathanText.Api.JobEventBus>();
+        bus.Publish(jobId, "probe", "admitted");
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var response = await owner.GetAsync($"/api/v1/jobs/{jobId}/events",
+            HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var stream = new StreamReader(await response.Content.ReadAsStreamAsync(deadline.Token));
+        string? admitted;
+        do { admitted = await stream.ReadLineAsync(deadline.Token); }
+        while (admitted is not null && admitted != "data: admitted");
+        Assert.Equal("data: admitted", admitted);
+        using var revoked = await admin.DeleteAsync($"/api/v1/projects/{projectId}/members/{ownerId}");
+        Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+        if (enabled)
+        {
+            if (publishAfterRevoke) bus.Publish(jobId, "probe", "secret-after-revoke");
+            // The idle case must release the scope without waiting for another event.
+            var tail = await stream.ReadToEndAsync(deadline.Token);
+            Assert.DoesNotContain("secret-after-revoke", tail);
+        }
+        else
+        {
+            bus.Publish(jobId, "probe", "still-permitted");
+            string? line;
+            do { line = await stream.ReadLineAsync(deadline.Token); }
+            while (line is not null && line != "data: still-permitted");
+            Assert.Equal("data: still-permitted", line);
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Disabling_an_account_closes_its_existing_event_stream_even_without_membership_policy(bool membership)
+    {
+        using var factory = new MembershipFactory(membership);
+        using var admin = WithKey(factory.CreateClient(), AdminKey);
+        var (ownerId, ownerKey) = await CreateUser(admin, "disabled-stream-owner", "annotator");
+        using var owner = WithKey(factory.CreateClient(), ownerKey);
+        using var created = await owner.PostAsJsonAsync("/api/v1/jobs", new { type = "noop", ownerId = "ignored" });
+        var jobId = EntityId.Parse((await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetString()!);
+        var bus = factory.Services.GetRequiredService<LeviathanText.Api.JobEventBus>();
+        bus.Publish(jobId, "probe", "before-disable");
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        using var response = await owner.GetAsync($"/api/v1/jobs/{jobId}/events", HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(deadline.Token));
+        string? line;
+        do { line = await reader.ReadLineAsync(deadline.Token); } while (line is not null && line != "data: before-disable");
+        Assert.Equal("data: before-disable", line);
+        using var disabled = await admin.PostAsync($"/api/v1/users/{ownerId}/disable", null);
+        Assert.Equal(HttpStatusCode.NoContent, disabled.StatusCode);
+        bus.Publish(jobId, "probe", "after-disable");
+        Assert.DoesNotContain("after-disable", await reader.ReadToEndAsync(deadline.Token));
+    }
+
     private const string AdminKey = "membership-admin-key-0123456789";
 
     private sealed class MembershipFactory(bool enabled = true) : WebApplicationFactory<Program>

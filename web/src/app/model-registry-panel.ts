@@ -4,13 +4,14 @@
  * browser never receives registry credentials or arbitrary filesystem paths.
  */
 import { Component, signal } from '@angular/core';
+import { WorkspaceComponentScope } from './workspace-component-scope';
 import { ApiClient, RegistryEntry } from './api-client';
 
 @Component({
   selector: 'app-model-registry-panel',
   standalone: true,
   template: `
-    <details class="registry">
+    <details data-workspace-protected data-workspace-role="admin" [hidden]="!workspaceAvailable() || !workspaceAdmin()" [attr.inert]="!workspaceAvailable() || !workspaceAdmin() ? '' : null" class="registry">
       <summary>Model registry</summary>
       <p class="hint">
         The server must allow the registry host in
@@ -37,17 +38,26 @@ import { ApiClient, RegistryEntry } from './api-client';
   `,
 })
 export class ModelRegistryPanel {
+  protected workspaceAvailable(): boolean { return this.scope.active(); }
+  protected workspaceAdmin(): boolean { return this.scope.role('admin'); }
+  protected workspaceCanEdit(): boolean { return this.scope.mayEdit(); }
+  private get api(): ApiClient { return this.scope.request(this.baseApi); }
+
+  private readonly baseApi: ApiClient;
+  private readonly scope: WorkspaceComponentScope;
   protected readonly indexUrl = signal('');
   protected readonly entries = signal<RegistryEntry[]>([]);
   protected readonly status = signal('');
 
-  constructor(private readonly api: ApiClient) {}
+  constructor(api: ApiClient) { this.baseApi = api; this.scope = new WorkspaceComponentScope(); }
 
   protected onUrl(event: Event): void {
+    if (!this.workspaceAdmin()) { (event.target as HTMLInputElement).value = this.indexUrl(); return; }
     this.indexUrl.set((event.target as HTMLInputElement).value);
   }
 
   protected load(): void {
+    if (!this.workspaceAdmin()) return;
     const url = this.indexUrl().trim();
     if (!url) return;
     this.api.registry(url).subscribe({
@@ -63,6 +73,7 @@ export class ModelRegistryPanel {
   }
 
   protected pull(entry: RegistryEntry): void {
+    if (!this.workspaceAdmin()) return;
     this.status.set(`pulling ${entry.id}...`);
     this.api.pullRegistry(this.indexUrl().trim(), entry.id).subscribe({
       next: result => this.status.set(`pulled ${result.id} (${result.sha256.slice(0, 12)}...)`),

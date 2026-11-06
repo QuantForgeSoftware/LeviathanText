@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
 import { ApiClient } from './api-client';
@@ -15,7 +16,7 @@ describe('DualPane (diff)', () => {
     };
     TestBed.configureTestingModule({
       imports: [DualPane],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({}), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(DualPane);
     fixture.componentRef.setInput('lineId', 'ln1');
@@ -34,10 +35,30 @@ describe('DualPane (diff)', () => {
 
 
 describe('DualPane annotation coordinates', () => {
+  it('refreshes the same line and ignores an older in-flight response', () => {
+    const oldHistory = new Subject<unknown>();
+    const newHistory = new Subject<unknown>();
+    const history = jasmine.createSpy('history').and.returnValues(oldHistory, newHistory);
+    TestBed.configureTestingModule({ imports: [DualPane], providers: [provideWorkspaceTestAccess({}), { provide: ApiClient, useValue: {
+      line: () => of({ line: 'ln-refresh', diplomatic: 'αβ', history: [{ id: 'l1', text: 'αβ', author: '', at: '' }] }),
+      lineLayerHistory: history, annotations: () => of([]),
+    } }] });
+    const fixture = TestBed.createComponent(DualPane);
+    fixture.componentRef.setInput('lineId', 'ln-refresh');
+    fixture.componentRef.setInput('imageLink', ''); fixture.detectChanges();
+    fixture.componentRef.setInput('refreshToken', 1); fixture.detectChanges();
+    newHistory.next([{ id: 'new-l2', text: 'αΩ', layer: 'L2Editorial', author: '', at: '' }]);
+    oldHistory.next([{ id: 'old-l2', text: 'αδ', layer: 'L2Editorial', author: '', at: '' }]); fixture.detectChanges();
+    expect(history.calls.count()).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.pane')[1].querySelector('.greek').textContent).toBe('αΩ');
+    fixture.destroy();
+    expect(newHistory.observed).toBeFalse();
+  });
+
   it('shows boundaries only on their current L1 or L2 reading, regardless of response order', () => {
     const line = new Subject<unknown>();
     const editorial = new Subject<unknown>();
-    TestBed.configureTestingModule({ imports: [DualPane], providers: [{ provide: ApiClient, useValue: {
+    TestBed.configureTestingModule({ imports: [DualPane], providers: [provideWorkspaceTestAccess({}), { provide: ApiClient, useValue: {
       line: () => line,
       lineLayerHistory: () => editorial,
       annotations: () => of([
@@ -62,7 +83,7 @@ describe('DualPane annotation coordinates', () => {
 
   it('reloads the displayed revision on a line switch and ignores the previous response', () => {
     const previousAnnotations = new Subject<unknown>();
-    TestBed.configureTestingModule({ imports: [DualPane], providers: [{ provide: ApiClient, useValue: {
+    TestBed.configureTestingModule({ imports: [DualPane], providers: [provideWorkspaceTestAccess({}), { provide: ApiClient, useValue: {
       line: (line: string) => of({ line, diplomatic: line === 'ln-first' ? 'αβ' : 'γδ',
         history: [{ id: `${line}-revision`, text: line === 'ln-first' ? 'αβ' : 'γδ', author: 'human', at: '' }] }),
       lineLayerHistory: () => of([]),

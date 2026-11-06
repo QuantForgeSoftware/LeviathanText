@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -15,11 +16,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01RegularizationTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Compare_weight_decay_values()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping regularization A/B.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Compare_weight_decay_values), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir, targetHeight: 16);
         var vocabulary = snapshot.Train.Concat(snapshot.Dev)
@@ -29,7 +31,7 @@ public sealed class P01RegularizationTests(ITestOutputHelper output)
         var labels = new LabelSet(vocabulary);
 
         var results = new[] { 0.0, 1e-4, 1e-3 }
-            .Select(weightDecay => TrainAndEvaluate(snapshot, labels, weightDecay))
+            .Select(weightDecay => TrainAndEvaluate(experimentDirectory, snapshot, labels, weightDecay))
             .ToArray();
 
         var summary = new StringBuilder();
@@ -47,16 +49,16 @@ public sealed class P01RegularizationTests(ITestOutputHelper output)
         var text = summary.ToString();
         output.WriteLine(text);
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         File.WriteAllText(Path.Combine(artifactDir, "p01-regularization.txt"), text);
 
         Assert.All(results, r => Assert.True(r.Cer < 1.0, "every run must beat the empty baseline"));
     }
 
-    private static Result TrainAndEvaluate(P01LineDataset.Snapshot snapshot, LabelSet labels, double weightDecay)
+    private static Result TrainAndEvaluate(string experimentDirectory, P01LineDataset.Snapshot snapshot, LabelSet labels, double weightDecay)
     {
-        var checkpointDir = Path.Combine(Path.GetTempPath(), $"lt-wd-{weightDecay}", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, $"lt-wd-{weightDecay}", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,

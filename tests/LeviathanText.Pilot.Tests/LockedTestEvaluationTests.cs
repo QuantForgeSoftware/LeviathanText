@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Core.Unicode;
 using LeviathanText.Evaluation;
@@ -16,7 +17,7 @@ namespace LeviathanText.Pilot.Tests;
 /// </summary>
 public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void OneShot_ScoreLockedTest_AndPublishReport()
     {
         Skip.IfNot(Environment.GetEnvironmentVariable("LEVIATHANTEXT_RUN_LOCKED") == "1",
@@ -24,8 +25,9 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
             "and must not be re-scored by routine suites.");
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(OneShot_ScoreLockedTest_AndPublishReport), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
-        var snapshot = P01LineDataset.Load(dataDir);
+        var snapshot = P01LineDataset.LoadPartitions(dataDir, DatasetPartitionAccess.TrainDevAndLocked);
         Assert.True(snapshot.TestLocked.Count > 0, "locked test split must exist");
 
         // Label set from train+dev only (no leakage into the locked set).
@@ -34,7 +36,7 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
             .Distinct(StringComparer.Ordinal).ToList();
         var labels = new LabelSet(vocabulary);
 
-        var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-eval", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, "lt-eval", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300, BatchSize = 8, LearningRate = 3e-3, Seed = 42,
@@ -115,7 +117,7 @@ public sealed class LockedTestEvaluationTests(ITestOutputHelper output)
             - The locked split has been used multiple times; under acceptance-plan §1 it is spent for threshold purposes and any further claim requires fresh held-out witnesses and disclosure.
             - Missing tracks: manuscripts and inscriptions are not evaluated here; the combined initial scope is not complete (acceptance-plan §9).
             """;
-        var reportPath = FindRepoRoot() is { } root ? Path.Combine(root, "docs", "evaluation", "pilot-p01-report.md") : "pilot-p01-report.md";
+        var reportPath = Path.Combine(experimentDirectory, "pilot-p01-report.md");
         Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
         File.WriteAllText(reportPath, report);
         output.WriteLine($"wrote {reportPath}");

@@ -83,7 +83,10 @@ public sealed record TrainingRunManifest
     public double GammaMax { get; init; } = 1;
     public required int TrainLines { get; init; }
     public required int DevLines { get; init; }
-    public required int TestLockedLines { get; init; }
+    /// <summary>Null when reserved label contents were not loaded. Legacy integer counts remain readable.</summary>
+    public required int? TestLockedLines { get; init; }
+    /// <summary>Null for legacy manifests whose load scope was not recorded.</summary>
+    public DatasetPartitionAccess? LoadedPartitions { get; init; }
 
     /// <summary>Stable hash of the sorted witness→split assignment (corpus-manifest §5).</summary>
     public required string SplitHash { get; init; }
@@ -131,6 +134,12 @@ public static class TrainingRunManifestWriter
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
+    // Retain the existing compiled writer entry point for callers with a known reserved count.
+    public static TrainingRunManifest Create(CrnnModel model, LabelSet labels, TrainingConfig config,
+        TrainingRunResult run, int trainLines, int devLines, int testLockedLines, string splitHash,
+        DateTimeOffset? at = null) =>
+        Create(model, labels, config, run, trainLines, devLines, (int?)testLockedLines, splitHash, at, null);
+
     public static TrainingRunManifest Create(
         CrnnModel model,
         LabelSet labels,
@@ -138,9 +147,10 @@ public static class TrainingRunManifestWriter
         TrainingRunResult run,
         int trainLines,
         int devLines,
-        int testLockedLines,
+        int? testLockedLines,
         string splitHash,
-        DateTimeOffset? at = null)
+        DateTimeOffset? at = null,
+        DatasetPartitionAccess? loadedPartitions = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(labels);
@@ -174,6 +184,7 @@ public static class TrainingRunManifestWriter
             TrainLines = trainLines,
             DevLines = devLines,
             TestLockedLines = testLockedLines,
+            LoadedPartitions = loadedPartitions,
             SplitHash = splitHash,
             LabelSetHash = CheckpointStore.LabelSetHash(labels),
             CheckpointDigest = FileDigest(run.BestCheckpointPath),
@@ -338,6 +349,11 @@ public static class TrainingRunManifestWriter
 
     private static void ValidateHistory(TrainingRunManifest manifest)
     {
+        if (manifest.LoadedPartitions is { } scope
+            && (!Enum.IsDefined(scope)
+                || scope == DatasetPartitionAccess.TrainDev && manifest.TestLockedLines is not null
+                || scope == DatasetPartitionAccess.TrainDevAndLocked && manifest.TestLockedLines is not >= 0))
+            throw new InvalidDataException("Reserved line count must agree with the explicitly loaded dataset partitions.");
         if (manifest.History is null || manifest.History.Any(epoch => epoch is null))
             throw new InvalidDataException("Training history and its epoch entries cannot be null.");
     }

@@ -40,7 +40,14 @@ if ! ( cd "$ROOT/web" && npx ng build >"$BUILD_LOG" 2>&1 ); then
 fi
 cp -R "$ROOT/web/dist/web/browser/." "$OUT/web/"
 cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$OUT/"
-cp "$ROOT/docs/release/known-issues.md" "$OUT/KNOWN-ISSUES.md"
+cp -R "$ROOT/docs" "$OUT/docs"
+# The root convenience copy needs links relative to the package root; the original
+# remains under docs/release with its normal source-relative links.
+sed 's#](\.\./#](docs/#g' "$ROOT/docs/release/known-issues.md" > "$OUT/KNOWN-ISSUES.md"
+
+echo "== runtime third-party evidence =="
+python3 "$ROOT/scripts/collect-third-party-notices.py" "$OUT" "$OUT/third-party"
+cp "$ROOT/web/dist/web/3rdpartylicenses.txt" "$OUT/third-party/angular-browser-licenses.txt"
 
 echo "== independence check =="
 if grep -R -q -E --include='*.csproj' --include='*.cs' 'PackageReference Include="[^"]*Kraken|using Kraken|Python\.Runtime|python3' "$ROOT/src"; then
@@ -66,6 +73,11 @@ This is a framework-dependent pilot build. Install the matching .NET runtime fir
 
 Model packages are NOT bundled; train or authorize them separately. No Python or Kraken
 runtime is required. See docs/release/packaging.md for supported/untested targets.
+The bounded TEI profile schema is docs/contracts/tei-bounded-profile.xsd; official
+EpiDoc schemas and dataset/model licenses remain separate.
+Runtime package metadata and exact available upstream notices are under third-party/,
+including Angular's browser-license output. Inventory review flags remain unresolved
+where upstream/native-component notice coverage needs verification.
 TXT
 
 echo "== manifest =="

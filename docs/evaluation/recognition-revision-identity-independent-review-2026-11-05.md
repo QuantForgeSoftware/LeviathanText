@@ -1,0 +1,11 @@
+# Independent recognition revision identity review
+
+Reviewed2026-11-06 before the PERF-01 baseline freeze. Source matches the root-issued recognition-identity-freeze.json exactly. This is read-only source/test review; the reviewer made no production edits, ran no fitting, model calls, data loaders or tests, and opened no corpus/labels. Root separately supplies the8new identity plus7existing preprocessing passes and preserved before failures.
+
+No high-confidence blocker found in the narrow correction. Safe short run/line pairs preserve the exact legacy token. Full run and line identities feed an unambiguous JSON pair into SHA256; base64url preserves all256bits and the47-character l0h suffix fits the63-character contract. Overflowing run IDs and colliding long line prefixes therefore no longer lose identity through truncation. The distinct namespace also avoids collision with newly allocated short legacy tokens.
+
+Historical reuse requires exactly one global legacy record with the same complete scope and L0 layer, belonging to the selected surface. A second colliding line receives its own full-pair hash, and repeat calls retain both records without new saves. Duplicate historical IDs, wrong scopes/layers, cross-surface occupation and duplicate new batch IDs fail before publication. Duplicate/wrong-kind native line IDs are checked before image resolution. Ambiguous pre-existing history is explicitly refused rather than migrated or silently overwritten.
+
+The selected generated tests cover shared-prefix long IDs, maximal valid run/line lengths, historical reuse plus the second line, ambiguous old duplicates, exact short tokens and wrong scope, distinct long runs preserving L1, occupied hashes and duplicate input lines. The final filter removes already persisted IDs only after their scope/layer/local ownership checks. PERF-01 uses safe short IDs and fixed job-suffix RunId, so its exact identity comparison remains applicable.
+
+Limits: this is an identity/preservation correction, not a speed/native-memory/model-quality change. It does not authenticate arbitrary old model provenance, rewrite stored revisions, adjudicate Greek, or establish current-job authorization policy. Root owns centralized execution and final packaging. If source changes after this review, the freeze must be updated and affected cases reviewed again.

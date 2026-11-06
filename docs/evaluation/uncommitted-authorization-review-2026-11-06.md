@@ -1,0 +1,32 @@
+# Backend authorization review and corrections
+
+Two concrete native-AI authorization failures were reproduced through actual HTTP controllers with a held generated provider handler and a fresh generated SQLite project. No model, real provider, natural corpus, fitting, locked labels or LM Studio was accessed. The new admission/SQL fixtures use no images; related existing capture controls use owned generated PNG/JPEG fixtures only.
+
+1. `NativeAiProjectResolver.RequireAccess` refreshed admitted account ID/role/membership but not the request credential/current bootstrap configuration or current read-only policy. Five held-provider cases returned200 and persisted an issued record after account rotation, bootstrap replacement/removal or account/bootstrap read-only activation. Two unchanged-credential controls passed. The resolver now uses the existing captured-request credential refresh and current write policy before issuance/disclosure.
+2. Revocation after that refresh but immediately before Save returned403 while native JSON/version still changed1→2. Three deterministic BeforeSave cases reproduced this for account rotation, bootstrap replacement and read-only activation. The request store now rechecks current policy immediately before entering the store, outside all SQLite/write locks. Account writes also pass a captured credential hash into the existing immediate write transaction; it must match the current account row alongside unchanged role/membership guards. No plaintext credential is persisted. Existing three-argument store callers retain their original overload and behavior; explicit hash binding is additive.
+
+The live configuration check is the latest prewrite observation, not atomic configuration reload. Database account key/role/membership checks serialize with project publication in the existing transaction. No shared configuration lock or rollback guarantee is invented. This correction applies to native-AI/scoped capture bindings, not a claim that every legacy API route has acquired transactional authorization.
+
+`JobStreamAccessPolicy` now shares its exact existing Authorization/Bearer→X-Api-Key→query compatibility resolution with captured-key hashing. Actual account binding cannot silently fall back to a null hash. Generated Bearer/query unchanged and rotated controls pass; no additional transport is enabled. Local/bootstrap semantics and stable actor attribution remain unchanged.
+
+## Evidence
+
+All commands explicitly set `LEVIATHANTEXT_RUN_FITTING=0 LEVIATHANTEXT_RUN_CORPUS=0 LEVIATHANTEXT_RUN_LOCKED=0 LEVIATHAN_OLLAMA_LIVE=0`. Only exact inspected generated classes were selected; no unfiltered suite ran.
+
+- `before-native-results/before-native.trx`: 5 intended authorization failures/2 controls. `before-native.log` retains the actual failures. Earlier `before.log`/TRX is a VSTest sandbox socket abort, not behavior evidence; its one new Assert.Single analyzer warning was corrected before native execution.
+- `after-results/after.trx`: 35 native-AI resolver/workspace controls pass after the first resolver correction.
+- `keyrace-before-results/keyrace-before.trx`: all3 intended BeforeSave cases fail exact native JSON/version preservation despite403 responses.
+- `atomic-transports-after-results/atomic-transports-after.trx`: 78 cases pass, including15 new admission/hash/alternative-transport/prewrite controls and existing native-AI/capture/event controls.
+- `atomic-store-after-results/atomic-store-after.trx`: 21 cases pass (5 new current/stale/foreign/rotated/legacy captured-key cases and16 existing SQLite authorization controls).
+
+Isolated restores preserve NU1900 warnings because NuGet vulnerability metadata was unreachable; this is not a fresh dependency audit or zero-warning isolated-build claim. No new code analyzer warning remained after the initial test assertion correction. Root's central current-source verification is separate.
+
+Source changes are bounded to NativeAiProjectResolver, RequestProjectStore, JobStreamAccessPolicy, CaptureAccessPolicy and the LocalStore authorized-save guard/overload. Tests: new NativeAiCredentialAdmissionTests and CapturedCredentialWriteTests; NativeAiResolverScanTests only gains a genuine generated key/hash/header rather than an ID-only fake principal, with assertions retained. No schema, model, corpus or deployment change.
+
+Root's independent review identified a latest-membership-config binding edge: the initial membership requirement could remain stale across a live policy change. Three direct callback/SQL composition controls reproduced2 state failures/1 unchanged control. The real resolver-installed callback now refreshes ONLY the authorization record's membership flag after the live access check, preserving actor/project/captured hash. Both native and capture bindings use the same bounded update; no callback recursively saves/rebinds, and no DB lock encloses it. The three controls cover false→true enforcement, true→false legitimate opt-out and unchangedtrue; actual revoked-membership SQL denial and unchanged JSON are then composed with the callback state. This is explicitly not a new end-to-end scheduler-race or atomic-config proof.
+
+Final current-source focused results are81 API cases plus21 Infrastructure cases, zero failures/skips; they overlap earlier runs and are not added to them. Receipts: `membership-before-results/membership-before.trx`, `membership-after-results/membership-after.trx`, `membership-store-after-results/membership-store-after.trx`. All .NET processes closed and the exclusive slot was released. `final-proof-v2.json` binds the final nine touched production/test files (the prior `final-proof.json` is preserved) and exact TRX hashes; no board/release-doc or commit/push changes.
+
+## Additional read-only review scope
+
+Reviewed the changed HTTP-provider transport/reservation/credential context and shared registry, worker claim/nonce/renewal/polling/cleanup flow, bounded job bus/queue/stream access/replay and principal descriptor source. No additional high-confidence blocking defect was found there. Callback execution/native waits remain existing trusted-extension/liveness limits; no universal latency or native-resource guarantee follows. The root-owned geometry unknown-outcome patch was independently reviewed: a minor enabled-but-no-op discard button mismatch was reported to root, who owns its correction; no source was changed by this reviewer. No inference/training workload was used for this review.

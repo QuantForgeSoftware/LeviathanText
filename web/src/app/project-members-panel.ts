@@ -1,12 +1,13 @@
 /** Admin-only project membership editor (opt-in per-project scoping). */
 import { Component, OnChanges, SimpleChanges, input, signal } from '@angular/core';
+import { WorkspaceComponentScope } from './workspace-component-scope';
 import { ApiClient, ProjectInviteView, UserAccount } from './api-client';
 
 @Component({
   selector: 'app-project-members-panel',
   standalone: true,
   template: `
-    <details class="members">
+    <details data-workspace-protected data-workspace-role="admin" [hidden]="!workspaceAvailable() || !workspaceAdmin()" [attr.inert]="!workspaceAvailable() || !workspaceAdmin() ? '' : null" class="members">
       <summary>Project members (opt-in access scoping)</summary>
       <div class="tools">
         <button type="button" (click)="load()">Load members</button>
@@ -65,6 +66,11 @@ import { ApiClient, ProjectInviteView, UserAccount } from './api-client';
   `],
 })
 export class ProjectMembersPanel implements OnChanges {
+  protected workspaceAvailable(): boolean { return this.scope.active(); }
+  protected workspaceAdmin(): boolean { return this.scope.role('admin'); }
+  protected workspaceCanEdit(): boolean { return this.scope.mayEdit(); }
+  private get api(): ApiClient { const id = this.projectId(); return this.scope.request(this.baseApi, id, () => this.projectId() === id); }
+
   projectId = input.required<string>();
   protected readonly users = signal<UserAccount[]>([]);
   protected readonly members = signal<string[]>([]);
@@ -75,10 +81,12 @@ export class ProjectMembersPanel implements OnChanges {
   protected readonly inviteToken = signal('');
   protected readonly invites = signal<ProjectInviteView[]>([]);
 
-  private readonly api: ApiClient;
+  private readonly baseApi: ApiClient;
+  private readonly scope: WorkspaceComponentScope;
 
   constructor(api: ApiClient) {
-    this.api = api;
+    this.baseApi = api;
+    this.scope = new WorkspaceComponentScope();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -94,14 +102,17 @@ export class ProjectMembersPanel implements OnChanges {
   }
 
   protected onInviteRole(event: Event): void {
+    if (!this.workspaceAdmin()) { (event.target as HTMLInputElement).value = this.inviteRole(); return; }
     this.inviteRole.set((event.target as HTMLSelectElement).value);
   }
 
   protected onInviteHours(event: Event): void {
+    if (!this.workspaceAdmin()) { (event.target as HTMLInputElement).value = String(this.inviteHours()); return; }
     this.inviteHours.set(Math.max(1, Math.min(168, Number((event.target as HTMLInputElement).value) || 24)));
   }
 
   protected createInvite(): void {
+    if (!this.workspaceAdmin()) return;
     this.api.createInvite(this.projectId(), this.inviteRole(), this.inviteHours()).subscribe({
       next: result => {
         this.inviteToken.set(result.token);
@@ -117,14 +128,9 @@ export class ProjectMembersPanel implements OnChanges {
   }
 
   protected load(): void {
+    if (!this.workspaceAdmin()) return;
     this.status.set('loading…');
-    this.api.me().subscribe({
-      next: me => {
-        if (me.role !== 'admin') {
-          this.status.set('admin only');
-          return;
-        }
-        this.api.users().subscribe({
+    this.api.users().subscribe({
           next: users => {
             this.users.set(users);
             this.api.projectMembers(this.projectId()).subscribe({
@@ -138,13 +144,11 @@ export class ProjectMembersPanel implements OnChanges {
             });
           },
           error: () => this.status.set('account list unavailable (admin only)'),
-        });
-      },
-      error: () => this.status.set('identity unavailable'),
     });
   }
 
   private loadInvites(): void {
+    if (!this.workspaceAdmin()) return;
     this.api.invites(this.projectId()).subscribe({
       next: invites => this.invites.set(invites),
       error: () => { /* admin-only; keep the current list */ },
@@ -152,6 +156,7 @@ export class ProjectMembersPanel implements OnChanges {
   }
 
   protected revokeInvite(inviteId: string): void {
+    if (!this.workspaceAdmin()) return;
     this.api.revokeInvite(this.projectId(), inviteId).subscribe({
       next: () => {
         this.invites.update(invites => invites.filter(invite => invite.id !== inviteId));
@@ -162,6 +167,7 @@ export class ProjectMembersPanel implements OnChanges {
   }
 
   protected add(userId: string): void {
+    if (!this.workspaceAdmin()) return;
     this.api.addProjectMember(this.projectId(), userId).subscribe({
       next: members => { this.members.set(members); this.status.set(`${members.length} member(s)`); },
       error: () => this.status.set('add failed'),
@@ -169,6 +175,7 @@ export class ProjectMembersPanel implements OnChanges {
   }
 
   protected remove(userId: string): void {
+    if (!this.workspaceAdmin()) return;
     this.api.removeProjectMember(this.projectId(), userId).subscribe({
       next: () => {
         this.members.update(members => members.filter(id => id !== userId));

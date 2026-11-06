@@ -30,11 +30,11 @@ import { Component, signal } from '@angular/core';
 })
 export class RenderingCheck {
   protected readonly rows = signal([
-    { label: 'EX-2 precomposed ἄνθρωπος', text: 'ἄνθρωπος', expected: 9 },
+    { label: 'EX-2 precomposed ἄνθρωπος', text: 'ἄνθρωπος', expected: 8 },
     { label: 'EX-2 decomposed ἄνθρωπος', text: '\u03B1\u0313\u0301\u03BD\u03B8\u03C1\u03C9\u03C0\u03BF\u03C2', expected: 10 },
     { label: 'EX-3 scriptio continua with lunate sigma', text: 'ΕΑΝΤΙϹΑΛΛΟΓΡΑΦΗ', expected: 15 },
     { label: 'EX-1 overbar nomen sacrum', text: '\u039A\u0305\u03F2\u0305', expected: 4 },
-    { label: 'EX-5 perispomeni on ε (annotation-only mark)', text: 'εα\u0342ντι', expected: 5 },
+    { label: 'EX-5 perispomeni on ε (annotation-only mark)', text: 'εα\u0342ντι', expected: 6 },
   ]);
 
   protected scalars(text: string): number {

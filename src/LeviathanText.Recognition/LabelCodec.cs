@@ -1,4 +1,5 @@
 using LeviathanText.Contracts;
+using System.Collections.ObjectModel;
 
 namespace LeviathanText.Recognition;
 
@@ -10,7 +11,7 @@ namespace LeviathanText.Recognition;
 /// </summary>
 public sealed class LabelCodec
 {
-    private readonly Dictionary<string, IReadOnlyList<int>> _c2l;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<int>> _c2l;
     private readonly Dictionary<string, int[]> _l2cByText;
     private readonly Dictionary<int, string> _singleLabels;
     private readonly string[] _codesByLength;
@@ -19,7 +20,7 @@ public sealed class LabelCodec
     public bool Strict { get; }
 
     public LabelCodec(string charset, bool strict = false)
-        : this(charset.Select(c => c.ToString()).Distinct(StringComparer.Ordinal)
+        : this(CodePoints(charset).Distinct(StringComparer.Ordinal)
             .OrderBy(c => c, StringComparer.Ordinal).ToList(), strict)
     {
     }
@@ -34,8 +35,16 @@ public sealed class LabelCodec
     public LabelCodec(IReadOnlyDictionary<string, IReadOnlyList<int>> mapping, bool strict = false)
     {
         Strict = strict;
-        _c2l = new Dictionary<string, IReadOnlyList<int>>(mapping, StringComparer.Ordinal);
-        if (_c2l.Count == 0) throw new ArgumentException("A codec needs at least one mapping.", nameof(mapping));
+        ArgumentNullException.ThrowIfNull(mapping);
+        if (mapping.Count == 0) throw new ArgumentException("A codec needs at least one mapping.", nameof(mapping));
+        var snapshot = new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
+        foreach (var (text, units) in mapping)
+        {
+            if (string.IsNullOrEmpty(text) || units is null || units.Count == 0)
+                throw new ArgumentException("Codec text and label sequences must be nonempty.", nameof(mapping));
+            snapshot.Add(text, Array.AsReadOnly(units.ToArray()));
+        }
+        _c2l = new ReadOnlyDictionary<string, IReadOnlyList<int>>(snapshot);
         _l2cByText = _c2l.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray(), StringComparer.Ordinal);
         _singleLabels = _c2l.Where(kv => kv.Value.Count == 1).ToDictionary(kv => kv.Value[0], kv => kv.Key);
         _codesByLength = [.. _c2l.Keys.OrderByDescending(k => k.Length).ThenBy(k => k, StringComparer.Ordinal)];
@@ -73,7 +82,9 @@ public sealed class LabelCodec
             bool encoded = false;
             foreach (var code in _codesByLength)
             {
-                if (text.AsSpan(index).StartsWith(code, StringComparison.Ordinal))
+                int end = index + code.Length;
+                if (text.AsSpan(index).StartsWith(code, StringComparison.Ordinal)
+                    && !(end < text.Length && char.IsHighSurrogate(text[end - 1]) && char.IsLowSurrogate(text[end])))
                 {
                     labels.AddRange(_c2l[code]);
                     index += code.Length;
@@ -91,7 +102,7 @@ public sealed class LabelCodec
                     RemedyHint = RemedyHint.MapUnknownLabel,
                     Message = "Non-encodable character sequence.",
                 });
-            index += 1; // non-strict: advance one UTF-16 code unit, matching Kraken's code-point fallback
+            index += CodePointWidth(text, index); // Preserve scalar boundaries, including astral Greek symbols.
         }
         return [.. labels];
     }
@@ -129,7 +140,7 @@ public sealed class LabelCodec
         return text.ToString();
     }
 
-    public LabelCodec AddLabels(string labels) => AddLabels(labels.Select(c => c.ToString()));
+    public LabelCodec AddLabels(string labels) => AddLabels(CodePoints(labels));
 
     public LabelCodec AddLabels(IEnumerable<string> labels)
     {
@@ -147,29 +158,63 @@ public sealed class LabelCodec
         return new LabelCodec(mapping, Strict);
     }
 
-    /// <summary>Merge mappings, dropping labels only used by removed sequences and closing label gaps.</summary>
+    /// <summary>
+    /// Merge compatible unit identities, removing old units exclusive to removed text
+    /// and compacting retained old units. Common sequences must establish a consistent
+    /// one-to-one incoming/old unit correspondence; incompatible identities are rejected.
+    /// This returns a codec mapping, not a checkpoint or weight migration.
+    /// </summary>
     public (LabelCodec Codec, IReadOnlySet<int> RemovedLabels) Merge(LabelCodec other)
     {
+        ArgumentNullException.ThrowIfNull(other);
         var retained = _c2l.Where(kv => other._c2l.ContainsKey(kv.Key))
             .ToDictionary(kv => kv.Key, kv => kv.Value.ToArray(), StringComparer.Ordinal);
-        var removed = new HashSet<int>();
         var used = retained.Values.SelectMany(v => v).ToHashSet();
-        foreach (var value in _c2l.Where(kv => !other._c2l.ContainsKey(kv.Key)).Select(kv => kv.Value))
-            foreach (var label in value)
-                if (!used.Contains(label)) removed.Add(label);
+        var removed = _c2l.Values.SelectMany(v => v).Where(label => !used.Contains(label)).ToHashSet();
+        var incomingToOld = new Dictionary<int, int>();
+        var oldToIncoming = new Dictionary<int, int>();
+        foreach (var (text, oldUnits) in retained)
+        {
+            var incoming = other._c2l[text];
+            if (oldUnits.Length != incoming.Count)
+                throw new ArgumentException("Common text sequences have incompatible label lengths.", nameof(other));
+            for (int i = 0; i < oldUnits.Length; i++)
+            {
+                if ((incomingToOld.TryGetValue(incoming[i], out int old) && old != oldUnits[i])
+                    || (oldToIncoming.TryGetValue(oldUnits[i], out int source) && source != incoming[i]))
+                    throw new ArgumentException("Common text sequences have incompatible label identities.", nameof(other));
+                incomingToOld[incoming[i]] = oldUnits[i];
+                oldToIncoming[oldUnits[i]] = incoming[i];
+            }
+        }
 
-        var remap = new Dictionary<int, int>();
+        var oldToMerged = new Dictionary<int, int>();
         int next = 1;
-        foreach (var label in _c2l.Values.SelectMany(v => v).Concat(retained.Values.SelectMany(v => v)).Distinct().OrderBy(v => v))
-            if (!removed.Contains(label)) remap[label] = next++;
+        foreach (var label in used.Order()) oldToMerged[label] = next++;
+        var incomingToMerged = incomingToOld.ToDictionary(kv => kv.Key, kv => oldToMerged[kv.Value]);
+        foreach (var label in other._c2l.Values.SelectMany(v => v).Distinct().Order())
+            if (!incomingToMerged.ContainsKey(label)) incomingToMerged[label] = next++;
 
         var merged = retained.ToDictionary(kv => kv.Key,
-            kv => (IReadOnlyList<int>)kv.Value.Select(label => remap[label]).ToArray(), StringComparer.Ordinal);
+            kv => (IReadOnlyList<int>)kv.Value.Select(label => oldToMerged[label]).ToArray(), StringComparer.Ordinal);
         foreach (var (key, value) in other._c2l.Where(kv => !merged.ContainsKey(kv.Key)))
-        {
-            var targets = value.Select(label => other._c2l.Values.SelectMany(v => v).Contains(label) ? label : label).ToArray();
-            merged[key] = [.. targets.Select(label => remap.GetValueOrDefault(label, next++))];
-        }
+            merged[key] = [.. value.Select(label => incomingToMerged[label])];
         return (new LabelCodec(merged, Strict), removed);
     }
+
+    // Match Core ScalarText's isolated-surrogate policy without silently replacing
+    // malformed halves with U+FFFD while splitting valid pairs into one code point.
+    private static IEnumerable<string> CodePoints(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        for (int index = 0; index < text.Length;)
+        {
+            int width = CodePointWidth(text, index);
+            yield return text.Substring(index, width);
+            index += width;
+        }
+    }
+
+    private static int CodePointWidth(string text, int index) =>
+        char.IsHighSurrogate(text[index]) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]) ? 2 : 1;
 }

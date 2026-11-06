@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { firstValueFrom, of, throwError } from 'rxjs';
 import { cachedRequest, clearCache, offlineMode, readCache, writeCache } from './offline-cache';
 
 describe('offline cache', () => {
@@ -9,21 +9,19 @@ describe('offline cache', () => {
   });
   afterEach(() => localStorage.clear());
 
-  it('writes successful reads and falls back on transport errors', () => {
-    cachedRequest('projects', of([{ id: 'p1' }])).subscribe();
+  it('writes successful reads and falls back on transport errors', async () => {
+    await firstValueFrom(cachedRequest('projects', of([{ id: 'p1' }])));
     expect(readCache<{ id: string }[]>('projects')).toEqual([{ id: 'p1' }]);
     expect(offlineMode()).toBe(false);
 
-    let result: unknown = null;
-    cachedRequest('projects', throwError(() => new Error('offline')))
-      .subscribe(value => (result = value));
+    const result = await firstValueFrom(cachedRequest('projects', throwError(() => new Error('offline'))));
     expect(result).toEqual([{ id: 'p1' }]);
     expect(offlineMode()).toBe(true);
   });
 
-  it('does not invent data when nothing is cached', () => {
+  it('does not invent data when nothing is cached', async () => {
     let failed = false;
-    cachedRequest('missing', throwError(() => new Error('offline'))).subscribe({ error: () => (failed = true) });
+    await firstValueFrom(cachedRequest('missing', throwError(() => new Error('offline')))).catch(() => (failed = true));
     expect(failed).toBe(true);
     expect(offlineMode()).toBe(false);
   });

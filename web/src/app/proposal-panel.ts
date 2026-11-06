@@ -4,8 +4,9 @@
  * never trusts client-supplied source text. Accepting creates an L2 editorial revision;
  * L1 diplomatic text is untouched (interchange-and-api.md §2.3).
  */
-import { Component, input, signal, SimpleChanges } from '@angular/core';
+import { Component, input, output, signal, SimpleChanges, Inject, Optional } from '@angular/core';
 import { ApiClient } from './api-client';
+import { WORKSPACE_ACCESS, WorkspaceAccess, WorkspaceRequestIntent } from './workspace-access-types';
 
 interface ProviderRow {
   configRef: string;
@@ -18,36 +19,43 @@ interface ProviderRow {
 }
 
 interface ProposalSource {
+  intent: WorkspaceRequestIntent;
   lineId: string;
   revisionId: string;
   range: { start: number; end: number };
+}
+
+export interface ProposalSavedEvent {
+  lineId: string;
+  sourceRevisionId: string;
+  kind: 'editorial' | 'advisory';
 }
 
 @Component({
   selector: 'app-proposal-panel',
   standalone: true,
   template: `
-    <section>
+    <section [hidden]="!workspaceWritable()" [attr.inert]="workspaceWritable() ? null : ''">
       <h3>AI assistance <small>(opt-in; L1 stays untouched)</small></h3>
 
       @if (providers().length === 0) {
         <p class="hint">No providers configured on the server (see README: provider configuration).</p>
       } @else {
         <label>Provider
-          <select [value]="providerRef()" (change)="onProvider($event)">
+          <select [disabled]="!workspaceWritable()" [value]="providerRef()" (change)="onProvider($event)">
             @for (provider of providers(); track provider.configRef) {
               <option [value]="provider.configRef">{{ provider.configRef }} ({{ provider.settings.modelId }}{{ providerBudget(provider) }})</option>
             }
           </select>
         </label>
         <label>Task
-          <select [value]="task()" (change)="onTask($event)">
+          <select [disabled]="!workspaceWritable()" [value]="task()" (change)="onTask($event)">
             @for (option of tasks; track option) {
               <option [value]="option">{{ option }}</option>
             }
           </select>
         </label>
-        <button type="button" (click)="propose()" [disabled]="busy()">Propose at current revision</button>
+        <button type="button" (click)="propose()" [disabled]="busy() || !workspaceWritable() || parentWriteBlocked()">Propose at current revision</button>
       }
 
       @if (proposal(); as p) {
@@ -56,9 +64,9 @@ interface ProposalSource {
           <p class="hint">proposal {{ idOf(p) }} · {{ providerOf(p) }} · {{ statusOf(p) }}</p>
           @if (isAdvisory(p)) {
             <p class="hint">Advisory result only; it cannot replace the witness reading.</p>
-            <button type="button" (click)="saveAdvisory(p)" [disabled]="busy()">Save as advisory annotation</button>
+            <button type="button" (click)="saveAdvisory(p)" [disabled]="busy() || !workspaceWritable() || parentWriteBlocked()">Save as advisory annotation</button>
           } @else {
-            <button type="button" (click)="accept()" [disabled]="busy()">Accept as editorial (L2)</button>
+            <button type="button" (click)="accept()" [disabled]="busy() || !workspaceWritable() || parentWriteBlocked()">Accept as editorial (L2)</button>
           }
         </div>
       }
@@ -76,7 +84,19 @@ export class ProposalPanel {
   revisionId = input.required<string>();
   rangeStart = input.required<number>();
   rangeEnd = input.required<number>();
+  writeBlocked = input<boolean | (() => boolean)>(false);
+  protected parentWriteBlocked(): boolean {
+    const guard = this.writeBlocked();
+    return typeof guard === 'function' ? guard() : guard;
+  }
+  readonly saved = output<ProposalSavedEvent>();
+  readonly mutationPending = output<boolean>();
+  protected workspaceAvailable(): boolean { return this.access?.isActive() === true; }
 
+  protected workspaceWritable(): boolean {
+    return this.workspaceAvailable()
+      && ['admin', 'annotator', 'reviewer'].includes(this.access?.state().principal?.role.toLowerCase() ?? '');
+  }
   protected readonly tasks = ['candidateReading', 'wordDivision', 'expansion', 'accentuation', 'restoration',
     'translation', 'structuredExtraction', 'lexicalAnnotation', 'morphologicalAnnotation'];
   protected readonly providers = signal<ProviderRow[]>([]);
@@ -89,13 +109,23 @@ export class ProposalPanel {
   private readonly api: ApiClient;
   private source: ProposalSource | null = null;
   private requestVersion = 0;
+  private unsubscribeAccess: (() => void) | null = null;
+  private hasPendingMutation = false;
+  private initialized = false;
 
-  constructor(api: ApiClient) {
+  constructor(api: ApiClient, @Optional() @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccess | null) {
     this.api = api;
+    this.unsubscribeAccess = access?.subscribe(state => {
+      if (state.status !== 'active' || !this.workspaceWritable()) {
+        this.requestVersion++;
+        if (!this.hasPendingMutation) this.busy.set(false);
+      } else if (this.initialized && this.providers().length === 0) this.loadProviders();
+    }) ?? null;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['lineId'] || changes['revisionId']) {
+      if (this.hasPendingMutation) return; // A parent change does not prove a submitted write rolled back.
       this.requestVersion++;
       this.clearProposal();
       this.busy.set(false);
@@ -103,15 +133,23 @@ export class ProposalPanel {
     }
   }
 
-  ngOnInit(): void {
-    this.api.providers().subscribe({
+  ngOnInit(): void { this.initialized = true; this.loadProviders(); }
+
+  private loadProviders(): void {
+    if (!this.workspaceWritable()) return;
+    const intent = this.access?.capture();
+    if (!intent) return;
+    this.api.forWorkspaceRequest(intent).providers().subscribe({
       next: (response) => {
+        if (!intent.current()) return;
         this.providers.set(response.providers ?? []);
         if ((response.providers ?? []).length > 0) this.providerRef.set(response.providers[0].configRef);
       },
-      error: () => this.providers.set([]),
+      error: () => { if (intent.current()) this.providers.set([]); },
     });
   }
+
+  ngOnDestroy(): void { this.requestVersion++; this.unsubscribeAccess?.(); this.unsubscribeAccess = null; }
 
   protected providerBudget(provider: ProviderRow): string {
     const parts: string[] = [];
@@ -121,23 +159,35 @@ export class ProposalPanel {
   }
 
   protected onProvider(event: Event): void {
+    if (!this.workspaceWritable()) {
+      if (event.target) (event.target as HTMLSelectElement).value = this.providerRef();
+      return;
+    }
     this.providerRef.set((event.target as HTMLSelectElement).value);
   }
 
   protected onTask(event: Event): void {
+    if (!this.workspaceWritable()) {
+      if (event.target) (event.target as HTMLSelectElement).value = this.task();
+      return;
+    }
     this.task.set((event.target as HTMLSelectElement).value);
   }
 
   protected propose(): void {
+    if (!this.workspaceWritable() || this.busy() || this.parentWriteBlocked()) return;
+    const intent = this.access?.capture();
+    if (!intent) return;
     const version = ++this.requestVersion;
     const source: ProposalSource = {
+      intent,
       lineId: this.lineId(), revisionId: this.revisionId(),
       range: { start: this.rangeStart(), end: this.rangeEnd() },
     };
     this.clearProposal();
     this.busy.set(true);
     this.message.set('');
-    this.api.propose({
+    this.api.forWorkspaceRequest(intent).propose({
       targetRevisionId: source.revisionId,
       range: source.range,
       task: this.task(),
@@ -147,6 +197,7 @@ export class ProposalPanel {
       next: (result) => {
         if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         const failure = (result as { failure?: { reason?: string } }).failure;
         if (failure) {
           this.message.set(`provider failed: ${failure.reason ?? 'unknown'}`);
@@ -163,6 +214,7 @@ export class ProposalPanel {
       error: () => {
         if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         this.message.set('proposal request failed (provider error or unknown configuration)');
       },
     });
@@ -174,16 +226,24 @@ export class ProposalPanel {
     const version = this.requestVersion;
     const source = this.source!;
     this.busy.set(true);
-    this.api.acceptProposal(this.idOf(proposal), proposal, 'workspace-editor').subscribe({
+    this.hasPendingMutation = true; this.mutationPending.emit(true);
+    this.api.forWorkspaceRequest(source.intent).acceptProposal(this.idOf(proposal), proposal, 'workspace-editor').subscribe({
       next: () => {
         if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         this.message.set('accepted as L2 editorial revision');
         this.clearProposal();
+        this.saved.emit({ lineId: source.lineId, sourceRevisionId: source.revisionId, kind: 'editorial' });
       },
-      error: () => {
+      error: (error: { status?: number }) => {
         if (!this.isCurrentRequest(version, source)) return;
+        if (![400, 409, 412, 422].includes(error?.status ?? 0)) {
+          this.message.set('Acceptance has not been confirmed. The proposal is retained; retry is blocked pending reconciliation.');
+          return;
+        }
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         this.message.set('acceptance failed (stale target or blocked proposal)');
       },
     });
@@ -215,7 +275,8 @@ export class ProposalPanel {
     const source = this.source!;
     const version = this.requestVersion;
     this.busy.set(true);
-    this.api.addAnnotation(source.lineId, {
+    this.hasPendingMutation = true; this.mutationPending.emit(true);
+    this.api.forWorkspaceRequest(source.intent).addAnnotation(source.lineId, {
       kind,
       anchoredRevisionId: source.revisionId,
       range: { ...source.range },
@@ -225,12 +286,19 @@ export class ProposalPanel {
       next: () => {
         if (!this.isCurrentRequest(version, source)) return;
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         this.clearProposal();
         this.message.set('advisory result saved as annotation');
+        this.saved.emit({ lineId: source.lineId, sourceRevisionId: source.revisionId, kind: 'advisory' });
       },
       error: (error: { status?: number }) => {
         if (!this.isCurrentRequest(version, source)) return;
+        if (![400, 409, 412, 422].includes(error?.status ?? 0)) {
+          this.message.set('Advisory save has not been confirmed. The proposal is retained; retry is blocked pending reconciliation.');
+          return;
+        }
         this.busy.set(false);
+        if (this.hasPendingMutation) { this.hasPendingMutation = false; this.mutationPending.emit(false); }
         if (error.status === 409) {
           this.clearProposal();
           this.message.set('source revision changed; request a new proposal');
@@ -245,7 +313,7 @@ export class ProposalPanel {
   }
 
   private isCurrentRequest(version: number, source: ProposalSource): boolean {
-    return version === this.requestVersion && source.lineId === this.lineId()
+    return source.intent.current() && this.workspaceAvailable() && version === this.requestVersion && source.lineId === this.lineId()
       && source.revisionId === this.revisionId();
   }
 
@@ -257,7 +325,7 @@ export class ProposalPanel {
   }
 
   private canSave(proposal: Record<string, unknown>): boolean {
-    if (this.busy()) return false;
+    if (!this.workspaceWritable() || this.busy() || this.parentWriteBlocked()) return false;
     if (proposal === this.proposal() && this.source !== null
       && this.isCurrentRequest(this.requestVersion, this.source)
       && this.matchesSource(proposal, this.source)) return true;

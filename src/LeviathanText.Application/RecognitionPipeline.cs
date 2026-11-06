@@ -62,13 +62,28 @@ public sealed class RecognitionPipeline
     public SurfaceOutcome Run(NativeProject project, EntityId surfaceId, Options options, CancellationToken cancellation = default,
         bool persistL0 = true)
     {
-        var surface = project.Objects.SelectMany(o => o.Surfaces).FirstOrDefault(s => s.Id == surfaceId)
+        var matchingSurfaces = project.Objects.SelectMany(o => o.Surfaces).Where(s => s.Id == surfaceId).Take(2).ToArray();
+        if (matchingSurfaces.Length > 1)
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation, Scope = surfaceId.ToString(),
+                Details = new Dictionary<string, string> { ["reason"] = "ambiguous-recognition-surface" },
+                Message = "The surface identity is ambiguous; repair its registration before recognition. No capture or model was opened.",
+            });
+        var surface = matchingSurfaces.FirstOrDefault()
             ?? throw new LeviathanException(new LeviathanError
             {
                 Code = ErrorCode.InputMissing,
                 Scope = surfaceId.ToString(),
                 Message = "No such surface in the project.",
             });
+
+        var lineIds = new HashSet<EntityId>();
+        foreach (var line in surface.Lines)
+            if (line.Id.Kind != EntityKind.Line || !lineIds.Add(line.Id)) throw IdentityConflict(line.Id);
+        var selectedIdentities = new HashSet<EntityId>();
+        foreach (var candidate in project.Objects.SelectMany(obj => obj.Surfaces).SelectMany(page => page.Lines))
+            if (lineIds.Contains(candidate.Id) && !selectedIdentities.Add(candidate.Id)) throw IdentityConflict(candidate.Id);
 
         var capture = surface.Captures.FirstOrDefault()
             ?? throw new LeviathanException(new LeviathanError
@@ -125,7 +140,6 @@ public sealed class RecognitionPipeline
         };
 
         var results = new List<LineRecognition>();
-        var linesById = surface.Lines.ToDictionary(l => l.Id);
         var lineImages = new List<(EntityId Id, LineImage Image, Checksum CropChecksum)>();
         var skippedLines = new List<EntityId>();
 
@@ -179,6 +193,7 @@ public sealed class RecognitionPipeline
             };
             var runId = options.RunId ?? Guid.NewGuid().ToString("N")[..10];
             var existing = surface.Revisions.Select(r => r.Id).ToHashSet();
+            var revisionIds = AllocateRawRevisionIds(project, surface, results, runId);
             var l0Revisions = results.Select(line =>
             {
                 var values = line.Confidence
@@ -189,10 +204,9 @@ public sealed class RecognitionPipeline
                     ? Confidence.None
                     : Confidence.Of(values.Average(), ConfidenceScale.RawModelProbability);
 
-                var lineSuffix = line.LineId.Suffix.Length > 24 ? line.LineId.Suffix[..24] : line.LineId.Suffix;
                 return new TextRevision
                 {
-                    Id = new EntityId(EntityKind.TranscriptionRevision, $"l0-{runId}-{lineSuffix}"),
+                    Id = revisionIds[line.LineId],
                     ScopeId = line.LineId,
                     Layer = TextLayer.L0RawRecognition,
                     Author = modelAuthor,
@@ -238,6 +252,52 @@ public sealed class RecognitionPipeline
 
         return new SurfaceOutcome(results, stages, skippedLines);
     }
+
+    private static IReadOnlyDictionary<EntityId, EntityId> AllocateRawRevisionIds(
+        NativeProject project, NativeSurface surface, IReadOnlyList<LineRecognition> lines, string runId)
+    {
+        var global = project.Objects.SelectMany(obj => obj.Surfaces).SelectMany(page => page.Revisions).ToLookup(revision => revision.Id);
+        var local = surface.Revisions.ToLookup(revision => revision.Id);
+        var assigned = new Dictionary<EntityId, EntityId>();
+        var batch = new HashSet<EntityId>();
+        foreach (var line in lines)
+        {
+            var suffix = line.LineId.Suffix;
+            var legacySuffix = suffix.Length > 24 ? suffix[..24] : suffix;
+            bool validLegacy = EntityId.TryParse($"rev-l0-{runId}-{legacySuffix}", EntityKind.TranscriptionRevision, out var legacy);
+            var historical = validLegacy ? global[legacy].ToArray() : [];
+            bool sameSource(TextRevision revision) => revision.ScopeId == line.LineId && revision.Layer == TextLayer.L0RawRecognition;
+            // Preserve already persisted, unambiguous legacy long-line identities on retry.
+            // Never silently reinterpret an old duplicate ID or another layer as this output.
+            if (historical.Length > 1 || historical.Any(revision => revision.ScopeId == line.LineId && !sameSource(revision)))
+                throw IdentityConflict(validLegacy ? legacy : line.LineId);
+            bool reuseLegacy = historical.Length == 1 && sameSource(historical[0]) && local[legacy].Count() == 1;
+            EntityId id;
+            if (validLegacy && (suffix.Length <= 24 || reuseLegacy)) id = legacy;
+            else
+            {
+                // Hash the complete pair, with unambiguous JSON boundaries. Base64url
+                // retains all 256 bits while fitting the native 63-character suffix limit.
+                var pair = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new[] { runId, line.LineId.ToString() });
+                var digest = System.Security.Cryptography.SHA256.HashData(pair);
+                var token = Convert.ToBase64String(digest).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+                id = new(EntityKind.TranscriptionRevision, "l0h-" + token);
+            }
+            var occupied = global[id].ToArray();
+            if (line.LineId.Kind != EntityKind.Line || occupied.Length > 1
+                || occupied.Length == 1 && (!sameSource(occupied[0]) || local[id].Count() != 1)
+                || !batch.Add(id) || !assigned.TryAdd(line.LineId, id))
+                throw IdentityConflict(id);
+        }
+        return assigned;
+    }
+
+    private static LeviathanException IdentityConflict(EntityId id) => new(new LeviathanError
+    {
+        Code = ErrorCode.StageContractViolation, Scope = id.ToString(),
+        Details = new Dictionary<string, string> { ["reason"] = "ambiguous-recognition-revision" },
+        Message = "Raw recognition revision identity conflicts with native history; repair the registration before retrying.",
+    });
 
     /// <summary>Stable label-set identity for model provenance (same convention as CheckpointStore).</summary>
     private static string LabelSetHash(LabelSet labels)

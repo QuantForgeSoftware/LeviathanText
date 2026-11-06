@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiClient, SessionView } from './api-client';
@@ -28,7 +29,7 @@ describe('SessionPanel', () => {
     };
     TestBed.configureTestingModule({
       imports: [SessionPanel],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({ owner: { workspaceNamespace: '8c589ede-1389-4ab2-89cc-95f54292b99c', accountId: 'usr-1' } }), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(SessionPanel);
     fixture.componentRef.setInput('surfaceId', 'surf-1');

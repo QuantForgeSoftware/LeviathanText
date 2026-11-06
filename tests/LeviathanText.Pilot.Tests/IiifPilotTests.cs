@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -15,7 +16,7 @@ public sealed class IiifPilotTests
     private static string FixturePath(string name) =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Real_manifest_parses_to_canvases_and_rights()
     {
         var path = FixturePath("isic001151.manifest.json");
@@ -35,7 +36,7 @@ public sealed class IiifPilotTests
         Assert.NotNull(front.Images[0].ServiceUrl);
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Views_become_separate_captures_never_merged()
     {
         var path = FixturePath("isic001151.manifest.json");
@@ -63,7 +64,7 @@ public sealed class IiifPilotTests
         Assert.All(captures, c => Assert.NotNull(c.RightsEvidenceRef));
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Fetched_smoke_image_matches_the_manifest_view()
     {
         var path = FixturePath("ISic001151_w800.jpg");

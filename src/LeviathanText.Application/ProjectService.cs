@@ -263,6 +263,9 @@ public sealed class InterchangeService(ProjectService projects)
                 Message = "A persistent output directory is required for rendered PDF pages.",
             });
 
+        // Validate optional reference extraction before writing any page derivatives.
+        // Unsupported text orientation must not leave a seemingly successful image cache.
+        var textPages = extractText ? PdfTextExtractor.Extract(pdfPath, maxPages) : null;
         var pages = PdfRenderer.Render(pdfPath, outputDirectory, dpi, maxPages);
         var surfaces = new List<NativeSurface>(pages.Count);
         var warnings = new List<string> { $"rendered {pages.Count} PDF page(s)" };
@@ -287,9 +290,8 @@ public sealed class InterchangeService(ProjectService projects)
         }
 
         int l2Lines = 0;
-        if (extractText)
+        if (textPages is not null)
         {
-            var textPages = PdfTextExtractor.Extract(pdfPath, maxPages);
             for (int i = 0; i < Math.Min(surfaces.Count, textPages.Count); i++)
             {
                 var textPage = textPages[i];
@@ -408,7 +410,22 @@ public sealed class InterchangeService(ProjectService projects)
         var xml = File.ReadAllText(teiPath);
         var sourceHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(xml)));
-        var parsed = TeiXml.Import(xml);
+        TeiXml.TeiImportResult parsed;
+        try
+        {
+            parsed = TeiXml.Import(xml);
+        }
+        catch (Exception error) when (error is InvalidDataException or System.Xml.XmlException or FormatException)
+        {
+            // Only source parsing/profile refusal is a client contract error. File IO,
+            // decoding and persistence retain their own failure semantics outside here.
+            throw new LeviathanException(new LeviathanError
+            {
+                Code = ErrorCode.StageContractViolation,
+                Scope = "tei-import",
+                Message = "TEI cannot be imported safely. Supply well-formed TEI with unambiguous physical line boundaries and valid bounded source-context metadata; retain the original source for manual review.",
+            });
+        }
         using var decoded = ImageDecoder.Decode(imagePath);
         var captureId = NewCaptureId(project);
         var regionId = NewId(EntityKind.Region, project, "reg");
@@ -516,6 +533,7 @@ public sealed class InterchangeService(ProjectService projects)
         if (!string.IsNullOrWhiteSpace(parsed.Document?.SurfaceId)) metadata["tei:surfaceId"] = parsed.Document!.SurfaceId!;
         if (!string.IsNullOrWhiteSpace(parsed.Document?.Licence)) metadata["tei:licence"] = parsed.Document!.Licence!;
         if (parsed.Document?.LicenceTarget is { } licenceTarget) metadata["tei:licenceTarget"] = licenceTarget;
+        metadata["tei:declaredLanguages"] = System.Text.Json.JsonSerializer.Serialize(parsed.Document?.DeclaredLanguages ?? []);
         if (parsed.Document?.PageBreaks is { Count: > 0 } breaks)
         {
             metadata["tei:pageBreaks"] = (pageNumber is null ? breaks.Count : 1)
@@ -1076,6 +1094,30 @@ public sealed class InterchangeService(ProjectService projects)
         var folioBreak = owner?.Metadata.GetValueOrDefault("tei:folioBreak");
         var licenceTarget = owner?.Metadata.GetValueOrDefault("tei:licenceTarget");
         var sourceHash = owner?.Metadata.GetValueOrDefault("tei:sourceSha256");
+        IReadOnlyList<string>? declaredLanguages = null;
+        if (owner?.Metadata.GetValueOrDefault("tei:declaredLanguages") is { } languageMetadata)
+        {
+            try
+            {
+                // A valid 128×256-code JSON serialization fits comfortably inside
+                // this field bound, even with escaped Unicode. Refuse oversized
+                // stored payloads before allocating a deserialized array.
+                if (languageMetadata.Length > 256 * 1024)
+                    throw new InvalidDataException("Declared language metadata exceeds the bounded JSON field size.");
+                var values = System.Text.Json.JsonSerializer.Deserialize<string[]>(languageMetadata)
+                    ?? throw new InvalidDataException("Declared language metadata must be a JSON array.");
+                declaredLanguages = TeiXml.CheckedDeclaredLanguages(values);
+            }
+            catch (Exception error) when (error is System.Text.Json.JsonException or InvalidDataException)
+            {
+                throw new LeviathanException(new LeviathanError
+                {
+                    Code = ErrorCode.StageContractViolation,
+                    Scope = "tei-export",
+                    Message = "Stored TEI declared-language metadata is invalid or exceeds the bounded profile. Retain the native project and repair the metadata explicitly before exporting.",
+                });
+            }
+        }
         if (folioBreak is null && licenceTarget is null && sourceHash is not null
             && owner?.Attachments.FirstOrDefault(a => a.Role == "original-tei-markup"
                 && string.Equals(a.Sha256, sourceHash, StringComparison.OrdinalIgnoreCase)) is { } source)
@@ -1094,7 +1136,8 @@ public sealed class InterchangeService(ProjectService projects)
             PageBreakCount: int.TryParse(owner?.Metadata.GetValueOrDefault("tei:pageBreaks"),
                 out var pageBreaks) ? pageBreaks : 0,
             FolioBreak: folioBreak,
-            LicenceTarget: licenceTarget));
+            LicenceTarget: licenceTarget,
+            DeclaredLanguages: declaredLanguages));
     }
 
     /// <summary>

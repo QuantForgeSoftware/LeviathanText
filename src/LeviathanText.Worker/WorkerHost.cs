@@ -9,11 +9,21 @@ namespace LeviathanText.Worker;
 /// Polling claims pending jobs only. Running jobs are excluded even after expiry,
 /// since their handlers may still be publishing side effects.
 /// </summary>
-public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handlers, TimeSpan? leaseDuration = null)
+public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handlers, TimeSpan? leaseDuration = null,
+    Func<JobRecord, bool>? authorize = null, LeaseRenewalOptions? leaseRenewal = null)
 {
     private readonly TimeSpan _leaseDuration = leaseDuration ?? TimeSpan.FromSeconds(30);
 
+    public LeaseRenewalSummary? LastRenewal { get; private set; }
+
     public EntityId WorkerId { get; } = new(EntityKind.Job, $"w{Guid.NewGuid().ToString("N")[..10]}");
+
+    /// <summary>
+    /// Completed dispatch attempts during this host's single-threaded lifetime. Counts
+    /// retries, rejected authorization and unsupported types, including an attempt whose
+    /// finalization loses its claim. Idle polls and unsuccessful claims do not count.
+    /// </summary>
+    public long CompletedAttempts { get; private set; }
 
     public IReadOnlyList<JobRecord> ClaimableJobs() => ClaimableJobs(DateTimeOffset.UtcNow);
 
@@ -49,28 +59,53 @@ public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handl
         });
     }
 
-    /// <summary>Renew the lease (heartbeat) if this worker still holds the job.</summary>
-    public JobRecord? Heartbeat(EntityId jobId, DateTimeOffset? now = null)
+    /// <summary>Legacy nonce-less calls cannot prove attempt ownership and always refuse.
+    /// Migrate callers to HeartbeatAttempt using the claim captured at dispatch.</summary>
+    public JobRecord? Heartbeat(EntityId jobId, DateTimeOffset? now = null) => null;
+
+    /// <summary>Manual renewal for this exact captured attempt, never inferred from current state.</summary>
+    public JobRecord? HeartbeatAttempt(EntityId jobId, string capturedClaimId, DateTimeOffset? now = null)
     {
+        if (string.IsNullOrWhiteSpace(capturedClaimId)) return null;
         var at = now ?? DateTimeOffset.UtcNow;
         return store.Update(jobId, current =>
         {
-            if (current.Status != JobStatus.Running || current.Lease is not { } lease || lease.Worker != WorkerId)
+            if (current.Status != JobStatus.Running || current.Lease is not { } lease
+                || lease.Worker != WorkerId || lease.ClaimId != capturedClaimId)
                 return null;
-            return current with { Lease = lease with { LastHeartbeat = at, ExpiresAt = at + _leaseDuration } };
+            var expiry = at + _leaseDuration;
+            return current with { Lease = lease with
+            {
+                LastHeartbeat = lease.LastHeartbeat is { } last && last > at ? last : at,
+                ExpiresAt = expiry > lease.ExpiresAt ? expiry : lease.ExpiresAt,
+            } };
         });
     }
 
-    /// <summary>Run one claimable job of a registered type; returns the finalized record or null if nothing claimable.</summary>
+    /// <summary>
+    /// Dispatch one claimable job. Returns its saved record, preserved API cancellation,
+    /// or null when no claim succeeds or finalization loses ownership. Use
+    /// <see cref="CompletedAttempts"/> to count work independently of finalization.
+    /// </summary>
     public JobRecord? RunNext(CancellationToken cancellation = default, DateTimeOffset? now = null)
     {
+        leaseRenewal?.Validate(_leaseDuration);
         foreach (var job in ClaimableJobs(now ?? DateTimeOffset.UtcNow))
         {
             cancellation.ThrowIfCancellationRequested();
             var claimed = TryClaim(job.Id, now ?? DateTimeOffset.UtcNow, allowRunning: false);
             if (claimed is null) continue;
 
-            var finalized = ExecuteAttempt(claimed, cancellation);
+            // Disabled by default. The independent session is never shared with handlers.
+            LastRenewal = null;
+            JobRecord finalized;
+            using (var renewal = leaseRenewal is null ? null : new AttemptLeaseRenewal(
+                new(claimed.Id, WorkerId, claimed.Lease!.ClaimId!), _leaseDuration, leaseRenewal))
+            {
+                try { finalized = ExecuteAttempt(claimed, cancellation); }
+                finally { if (renewal is not null) LastRenewal = renewal.StopAndJoin(); }
+            }
+            CompletedAttempts++;
             var saved = store.Update(claimed.Id, current =>
                 current.Status == JobStatus.Running &&
                 current.Lease is { } lease && lease.Worker == WorkerId && lease.ClaimId == claimed.Lease!.ClaimId
@@ -82,25 +117,38 @@ public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handl
 
     private JobRecord ExecuteAttempt(JobRecord claimed, CancellationToken cancellation)
     {
-        var handler = handlers.FirstOrDefault(h => h.Type == claimed.Type);
-        if (handler is null)
-        {
-            return claimed with
-            {
-                Status = JobStatus.Failed,
-                Lease = null,
-                Failure = new LeviathanError
-                {
-                    Code = ErrorCode.StageContractViolation,
-                    Scope = claimed.Id.ToString(),
-                    Details = new Dictionary<string, string> { ["type"] = claimed.Type },
-                    Message = "No handler registered for this job type.",
-                },
-            };
-        }
-
         try
         {
+            if (authorize is not null && !authorize(claimed))
+                return claimed with
+                {
+                    Status = JobStatus.Cancelled,
+                    Lease = null,
+                    Failure = new LeviathanError
+                    {
+                        Code = ErrorCode.Cancelled,
+                        Scope = claimed.Id.ToString(),
+                        Message = "Project authorization was revoked before execution.",
+                    },
+                };
+
+            var handler = handlers.FirstOrDefault(h => h.Type == claimed.Type);
+            if (handler is null)
+            {
+                return claimed with
+                {
+                    Status = JobStatus.Failed,
+                    Lease = null,
+                    Failure = new LeviathanError
+                    {
+                        Code = ErrorCode.StageContractViolation,
+                        Scope = claimed.Id.ToString(),
+                        Details = new Dictionary<string, string> { ["type"] = claimed.Type },
+                        Message = "No handler registered for this job type.",
+                    },
+                };
+            }
+
             var executed = handler.Execute(claimed, cancellation);
             return executed with
             {
@@ -113,6 +161,10 @@ public sealed class WorkerHost(IJobStore store, IReadOnlyList<IJobHandler> handl
             // The conditional write preserves an API cancellation. A still owned
             // claim can return to Pending after cooperative cancellation.
             return claimed with { Status = JobStatus.Pending, Lease = null };
+        }
+        catch (LeviathanException ex) when (ex.Error.Code == ErrorCode.Cancelled)
+        {
+            return claimed with { Status = JobStatus.Cancelled, Lease = null, Failure = ex.Error };
         }
         catch (LeviathanException ex)
         {

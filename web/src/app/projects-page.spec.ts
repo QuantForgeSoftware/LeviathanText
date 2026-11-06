@@ -2,11 +2,20 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { ProjectsPage } from './projects-page';
+import { TEST_WORKSPACE_OWNER } from './workspace-testing.fixture.spec';
+const profile = { authenticated: true, mode: 'account', ...TEST_WORKSPACE_OWNER, name: 'Generated reviewer', role: 'Reviewer' };
+const project = { id: 'col-1', name: 'demo', objects: [{ id: 'obj-1', surfaces: [{ id: 'surf-1', kind: 'page', lines: [], regions: [], captures: [] }] }] };
+function freshOpen(http: HttpTestingController) {
+  http.expectOne('/api/v1/me').flush(profile);
+  http.expectOne('/api/v1/projects/col-1').flush(project);
+  http.expectOne('/api/v1/projects').flush([{id:'col-1',name:'demo'}]);
+}
 
 describe('ProjectsPage (search)', () => {
   let http: HttpTestingController;
 
   beforeEach(async () => {
+    window.history.replaceState(null, '', '/');
     await TestBed.configureTestingModule({
       imports: [ProjectsPage],
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -16,14 +25,16 @@ describe('ProjectsPage (search)', () => {
 
   afterEach(() => http.verify());
 
-  it('selects a project, runs a search and renders hits', () => {
+  it('selects a project, runs a search and renders hits', async () => {
     const fixture = TestBed.createComponent(ProjectsPage);
     fixture.detectChanges();
+    http.expectOne('/api/v1/me').flush(profile);
     http.expectOne('/api/v1/projects').flush([{ id: 'col-1', name: 'demo' }]);
     fixture.detectChanges();
 
     const projectButton = fixture.nativeElement.querySelector('button.link') as HTMLButtonElement;
     projectButton.click();
+    freshOpen(http);
     http.expectOne('/api/v1/projects/col-1/stats').flush({
       objects: 1, surfaces: 1, captures: 1, regions: 1, lines: 1,
       transcribedLines: 1, linesWithL0: 0, l0Revisions: 0, l2Revisions: 0,
@@ -32,10 +43,6 @@ describe('ProjectsPage (search)', () => {
     http.expectOne('/api/v1/projects/col-1/review-summary').flush({
       transcribedLines: 0, reviewedLines: 0, doubleReviewedLines: 0, disputedLines: 0,
       needsAdjudication: 0, lines: [],
-    });
-    http.expectOne('/api/v1/projects/col-1').flush({
-      id: 'col-1', name: 'demo',
-      objects: [{ id: 'obj-1', surfaces: [{ id: 'surf-1', kind: 'page', lines: [], regions: [], captures: [] }] }],
     });
     fixture.detectChanges();
     http.expectOne('/api/v1/sessions').flush([]);
@@ -82,12 +89,14 @@ describe('ProjectsPage (deep links)', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('restores and resolves a project from ?project=', () => {
+  it('restores and resolves a project from ?project=', async () => {
     const fixture = TestBed.createComponent(ProjectsPage);
     fixture.detectChanges();
+    http.expectOne('/api/v1/me').flush(profile);
     http.expectOne('/api/v1/projects').flush([{ id: 'col-1', name: 'demo' }]);
     fixture.detectChanges();
 
+    freshOpen(http);
     http.expectOne('/api/v1/projects/col-1/stats').flush({
       objects: 0, surfaces: 0, captures: 0, regions: 0, lines: 0,
       transcribedLines: 0, linesWithL0: 0, l0Revisions: 0, l2Revisions: 0,
@@ -96,9 +105,6 @@ describe('ProjectsPage (deep links)', () => {
     http.expectOne('/api/v1/projects/col-1/review-summary').flush({
       transcribedLines: 0, reviewedLines: 0, doubleReviewedLines: 0, disputedLines: 0,
       needsAdjudication: 0, lines: [],
-    });
-    http.expectOne('/api/v1/projects/col-1').flush({
-      id: 'col-1', name: 'demo', objects: [],
     });
     fixture.detectChanges();
     http.expectOne('/api/v1/sessions').flush([]);

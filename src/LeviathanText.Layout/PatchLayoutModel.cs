@@ -70,7 +70,7 @@ public sealed record PatchLayoutOptions
 /// Scope: horizontal, single-column pages. The width is collapsed deliberately, so column
 /// structure is NOT modeled; multi-column/rotated layouts remain unsupported conditions.
 /// </summary>
-public sealed class PatchLayoutModel
+public sealed class PatchLayoutModel : IDisposable
 {
     public const string Architecture = "patch-row-cnn-v2";
     public const string ModelVersion = "v2";
@@ -78,6 +78,15 @@ public sealed class PatchLayoutModel
     private const string WeightsFileName = "model.pt";
     private const string ModelCardFileName = "model-card.md";
 
+    private sealed class SharedOwner(PatchCnn model)
+    {
+        public readonly object Gate = new();
+        public readonly PatchCnn Model = model;
+        public int References = 1;
+    }
+
+    private readonly SharedOwner _owner;
+    private bool _disposed;
     private readonly PatchCnn _model;
     private readonly PatchLayoutOptions _options;
     private readonly string _modelHash;
@@ -85,18 +94,55 @@ public sealed class PatchLayoutModel
 
     private PatchLayoutModel(PatchCnn model, PatchLayoutOptions options, TrainedMetadata metadata)
     {
+        _owner = new SharedOwner(model);
         _model = model;
         _options = options;
         _metadata = metadata;
         _modelHash = HashOf($"{Architecture}|{options.InputHeight}|{metadata.TrainedPages}|{metadata.Seed}");
     }
 
-    public PatchLayoutOptions Options => _options;
-    public float Threshold => _options.Threshold;
-    public IReadOnlyList<string> TrainedPageNames => _metadata.PageNames;
-    public int EpochCount => _metadata.Epochs;
-    public double FinalTrainingLoss => _metadata.FinalLoss;
-    public IReadOnlyList<double> LossHistory => _metadata.LossHistory;
+    private PatchLayoutModel(SharedOwner owner, PatchLayoutOptions options, TrainedMetadata metadata)
+    {
+        _owner = owner;
+        _model = owner.Model;
+        _options = options;
+        _metadata = metadata;
+        _modelHash = HashOf($"{Architecture}|{options.InputHeight}|{metadata.TrainedPages}|{metadata.Seed}");
+    }
+
+    private void RequireAlive() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    private T Read<T>(Func<T> read)
+    {
+        lock (_owner.Gate) { RequireAlive(); return read(); }
+    }
+
+    public PatchLayoutOptions Options => Read(() => _options);
+    public float Threshold => Read(() => _options.Threshold);
+    public IReadOnlyList<string> TrainedPageNames => Read(() => _metadata.PageNames);
+    public int EpochCount => Read(() => _metadata.Epochs);
+    public double FinalTrainingLoss => Read(() => _metadata.FinalLoss);
+    public IReadOnlyList<double> LossHistory => Read(() => _metadata.LossHistory);
+
+    /// <summary>Release this wrapper; the last alias releases the shared native network.
+    /// Operations across aliases serialize, and disposal waits for admitted operations.</summary>
+    public void Dispose()
+    {
+        lock (_owner.Gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (--_owner.References == 0) _owner.Model.Dispose();
+        }
+    }
+
+    private static PatchCnn CreateOwnedNetwork()
+    {
+        using var scope = NewDisposeScope();
+        var model = new PatchCnn();
+        foreach (var parameter in model.parameters()) parameter.DetachFromDisposeScope();
+        return model;
+    }
 
     /// <summary>Train a model. Pages are preprocessed (content crop + resize + normalization) once.</summary>
     public static PatchLayoutModel Train(
@@ -109,123 +155,151 @@ public sealed class PatchLayoutModel
 
         manual_seed(options.Seed);
         var prepared = pages.Select(page => PreparedPage.Create(page, options)).ToList();
-        var model = new PatchCnn();
-        var optimizer = new TorchSharp.Modules.Adam(model.parameters(), lr: options.LearningRate);
-        var posWeight = tensor((float)options.PositiveWeight);
-        var rng = new Random(options.Seed);
-
-        model.train();
-        double lastLoss = 0;
-        var lossHistory = new List<double>();
-        for (int epoch = 0; epoch < options.Epochs; epoch++)
+        var model = CreateOwnedNetwork();
+        try
         {
-            var order = Enumerable.Range(0, prepared.Count).OrderBy(_ => rng.Next()).ToList();
-            double total = 0;
-            int batches = 0;
+            using var trainingScope = NewDisposeScope();
+            using var optimizer = new TorchSharp.Modules.Adam(model.parameters(), lr: options.LearningRate);
+            using var posWeight = tensor((float)options.PositiveWeight);
+            var rng = new Random(options.Seed);
 
-            for (int i = 0; i < order.Count;)
+            model.train();
+            double lastLoss = 0;
+            var lossHistory = new List<double>();
+            for (int epoch = 0; epoch < options.Epochs; epoch++)
             {
-                int width = prepared[order[i]].Width;
-                int j = i;
-                while (j < order.Count && j - i < options.BatchSize && prepared[order[j]].Width == width) j++;
-                var batch = order.GetRange(i, j - i);
-                i = j;
-                Tensor input, target;
-                if (options.AugmentTraining)
+                var order = Enumerable.Range(0, prepared.Count).OrderBy(_ => rng.Next()).ToList();
+                double total = 0;
+                int batches = 0;
+
+                for (int i = 0; i < order.Count;)
                 {
-                    (input, target) = BuildAugmentedBatch(prepared, batch, options, rng);
-                }
-                else
-                {
-                    input = BuildInputs(prepared, batch, options);
-                    target = BuildTargets(prepared, batch, options);
+                    int width = prepared[order[i]].Width;
+                    int j = i;
+                    while (j < order.Count && j - i < options.BatchSize && prepared[order[j]].Width == width) j++;
+                    var batch = order.GetRange(i, j - i);
+                    i = j;
+                    Tensor input, target;
+                    if (options.AugmentTraining)
+                    {
+                        (input, target) = BuildAugmentedBatch(prepared, batch, options, rng);
+                    }
+                    else
+                    {
+                        input = BuildInputs(prepared, batch, options);
+                        target = BuildTargets(prepared, batch, options);
+                    }
+
+                    optimizer.zero_grad();
+                    using var logits = model.forward(input);
+                    // Weighted BCE (pos_weight semantics); TorchSharp's helper lacks pos_weight.
+                    using var logP = torch.nn.functional.logsigmoid(logits);
+                    using var negLogits = -logits;
+                    using var logNotP = torch.nn.functional.logsigmoid(negLogits);
+                    using var one = torch.ones_like(target);
+                    using var weightedTarget = target * posWeight;
+                    using var positive = weightedTarget * logP;
+                    using var oneMinusTarget = one - target;
+                    using var negative = oneMinusTarget * logNotP;
+                    using var combined = positive + negative;
+                    using var loss = combined.mean().neg();
+                    loss.backward();
+                    optimizer.step();
+
+                    total += loss.item<float>();
+                    batches++;
                 }
 
-                optimizer.zero_grad();
-                using var logits = model.forward(input);
-                // Weighted BCE (pos_weight semantics); TorchSharp's helper lacks pos_weight.
-                using var logP = torch.nn.functional.logsigmoid(logits);
-                using var negLogits = -logits;
-                using var logNotP = torch.nn.functional.logsigmoid(negLogits);
-                using var one = torch.ones_like(target);
-                using var weightedTarget = target * posWeight;
-                using var positive = weightedTarget * logP;
-                using var oneMinusTarget = one - target;
-                using var negative = oneMinusTarget * logNotP;
-                using var combined = positive + negative;
-                using var loss = combined.mean().neg();
-                loss.backward();
-                optimizer.step();
-
-                total += loss.item<float>();
-                batches++;
+                lastLoss = batches == 0 ? 0 : total / batches;
+                lossHistory.Add(lastLoss);
+                if (log is not null && ((epoch + 1) % 20 == 0 || epoch == 0))
+                    log($"epoch {epoch + 1}/{options.Epochs}: bce={lastLoss:0.###}");
             }
 
-            lastLoss = batches == 0 ? 0 : total / batches;
-            lossHistory.Add(lastLoss);
-            if (log is not null && ((epoch + 1) % 20 == 0 || epoch == 0))
-                log($"epoch {epoch + 1}/{options.Epochs}: bce={lastLoss:0.###}");
+            model.eval();
+            var metadata = new TrainedMetadata
+            {
+                Architecture = Architecture,
+                TrainingDataDigest = DataDigestOf(pages),
+                InputHeight = options.InputHeight,
+                MinInputWidth = options.MinInputWidth,
+                MaxInputWidth = options.MaxInputWidth,
+                Threshold = options.Threshold,
+                MinBandBins = options.MinBandBins,
+                CoreFraction = options.CoreFraction,
+                ExpansionFactor = options.ExpansionFactor,
+                Seed = options.Seed,
+                Epochs = options.Epochs,
+                FinalLoss = lastLoss,
+                LossHistory = lossHistory,
+                TrainedPages = prepared.Count,
+                PageNames = [.. pages.Select(p => p.Name)],
+                CreatedAt = DateTimeOffset.UtcNow,
+                Note = "Pilot model trained from PAGE-derived line bands; labels are not specialist-adjudicated. " +
+                       "Single-column pages only; width is collapsed and columns are not modeled.",
+            };
+            return new PatchLayoutModel(model, options, metadata);
         }
-
-        model.eval();
-        var metadata = new TrainedMetadata
-        {
-            Architecture = Architecture,
-            TrainingDataDigest = DataDigestOf(pages),
-            InputHeight = options.InputHeight,
-            MinInputWidth = options.MinInputWidth,
-            MaxInputWidth = options.MaxInputWidth,
-            Threshold = options.Threshold,
-            MinBandBins = options.MinBandBins,
-            CoreFraction = options.CoreFraction,
-            ExpansionFactor = options.ExpansionFactor,
-            Seed = options.Seed,
-            Epochs = options.Epochs,
-            FinalLoss = lastLoss,
-            LossHistory = lossHistory,
-            TrainedPages = prepared.Count,
-            PageNames = [.. pages.Select(p => p.Name)],
-            CreatedAt = DateTimeOffset.UtcNow,
-            Note = "Pilot model trained from PAGE-derived line bands; labels are not specialist-adjudicated. " +
-                   "Single-column pages only; width is collapsed and columns are not modeled.",
-        };
-        return new PatchLayoutModel(model, options, metadata);
+        catch { model.Dispose(); throw; }
     }
 
     /// <summary>A copy of this model with a different decode threshold (dev-selected).</summary>
-    public PatchLayoutModel WithThreshold(float threshold) =>
-        new(_model, _options with { Threshold = threshold }, _metadata with { Threshold = threshold });
+    public PatchLayoutModel WithThreshold(float threshold)
+    {
+        lock (_owner.Gate)
+        {
+            RequireAlive();
+            var alias = new PatchLayoutModel(_owner, _options with { Threshold = threshold },
+                _metadata with { Threshold = threshold });
+            checked { _owner.References++; }
+            return alias;
+        }
+    }
 
     /// <summary>Per-output-row text probability for a page (diagnostics/threshold tuning).</summary>
     public float[] PredictRowProbabilities(SKBitmap page)
     {
-        var prepared = PreparedPage.Create(page, _options, name: "(inference)");
-        using var input = BuildInputs([prepared], [0], _options);
-        using var _ = no_grad();
-        using var logits = _model.forward(input);
-        using var probabilities = sigmoid(logits);
-        return probabilities[0].cpu().data<float>().ToArray();
+        lock (_owner.Gate)
+        {
+            RequireAlive();
+            using var inferenceScope = NewDisposeScope();
+            var prepared = PreparedPage.Create(page, _options, name: "(inference)");
+            using var input = BuildInputs([prepared], [0], _options);
+            using var _ = no_grad();
+            using var logits = _model.forward(input);
+            using var probabilities = sigmoid(logits);
+            return probabilities[0].cpu().data<float>().ToArray();
+        }
     }
 
     /// <summary>Detect line bands on a page using the model's configured threshold.</summary>
-    public LayoutResult Detect(SKBitmap page) => Detect(page, _options.Threshold);
+    public LayoutResult Detect(SKBitmap page) => Detect(page, Threshold);
 
     public LayoutResult Detect(SKBitmap page, float threshold)
     {
-        var prepared = PreparedPage.Create(page, _options, name: "(inference)");
-        var probabilities = Predict(prepared);
-        return DecodePrepared(page, prepared, probabilities, threshold);
+        lock (_owner.Gate)
+        {
+            RequireAlive();
+            var prepared = PreparedPage.Create(page, _options, name: "(inference)");
+            var probabilities = Predict(prepared);
+            return DecodePrepared(page, prepared, probabilities, threshold);
+        }
     }
 
     /// <summary>Decode bands from precomputed row probabilities (threshold tuning/analysis).</summary>
     public LayoutResult DetectFromProbabilities(SKBitmap page, float[] probabilities, float threshold)
     {
-        var prepared = PreparedPage.Create(page, _options, name: "(inference)");
-        return DecodePrepared(page, prepared, probabilities, threshold);
+        lock (_owner.Gate)
+        {
+            RequireAlive();
+            var prepared = PreparedPage.Create(page, _options, name: "(inference)");
+            return DecodePrepared(page, prepared, probabilities, threshold);
+        }
     }
 
     private float[] Predict(PreparedPage prepared)
     {
+        using var inferenceScope = NewDisposeScope();
         using var input = BuildInputs([prepared], [0], _options);
         using var _ = no_grad();
         using var logits = _model.forward(input);
@@ -263,30 +337,38 @@ public sealed class PatchLayoutModel
 
     public LayoutResult Detect(string imagePath)
     {
-        using var decoded = ImageDecoder.Decode(imagePath);
-        return Detect(decoded.Bitmap);
+        lock (_owner.Gate)
+        {
+            RequireAlive();
+            using var decoded = ImageDecoder.Decode(imagePath);
+            return Detect(decoded.Bitmap);
+        }
     }
 
     /// <summary>Save weights + metadata + model card into a package directory.</summary>
     public void Save(string directory)
     {
-        Directory.CreateDirectory(directory);
-        var weightsPath = Path.Combine(directory, WeightsFileName);
-        _model.save(weightsPath);
-        var digest = DigestOf(weightsPath);
-        var metadata = _metadata with
+        lock (_owner.Gate)
         {
-            Threshold = _options.Threshold,
-            WeightsDigest = digest,
-            AugmentTraining = _options.AugmentTraining,
-            AugmentScaleMin = _options.AugmentScaleMin,
-            AugmentScaleMax = _options.AugmentScaleMax,
-            AugmentShiftRows = _options.AugmentShiftRows,
-            AugmentNoise = _options.AugmentNoise,
-        };
-        File.WriteAllText(Path.Combine(directory, MetadataFileName),
-            JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
-        File.WriteAllText(Path.Combine(directory, ModelCardFileName), BuildModelCard(metadata));
+            RequireAlive();
+            Directory.CreateDirectory(directory);
+            var weightsPath = Path.Combine(directory, WeightsFileName);
+            _model.save(weightsPath);
+            var digest = DigestOf(weightsPath);
+            var metadata = _metadata with
+            {
+                Threshold = _options.Threshold,
+                WeightsDigest = digest,
+                AugmentTraining = _options.AugmentTraining,
+                AugmentScaleMin = _options.AugmentScaleMin,
+                AugmentScaleMax = _options.AugmentScaleMax,
+                AugmentShiftRows = _options.AugmentShiftRows,
+                AugmentNoise = _options.AugmentNoise,
+            };
+            File.WriteAllText(Path.Combine(directory, MetadataFileName),
+                JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(Path.Combine(directory, ModelCardFileName), BuildModelCard(metadata));
+        }
     }
 
     public static PatchLayoutModel Load(string directory)
@@ -300,29 +382,44 @@ public sealed class PatchLayoutModel
             throw new InvalidDataException(
                 $"Layout model architecture '{metadata.Architecture}' is not compatible with '{Architecture}'.");
 
-        var model = new PatchCnn();
         var weights = Path.Combine(directory, WeightsFileName);
         if (!File.Exists(weights))
             throw new InvalidDataException($"Layout model weights not found at {weights}.");
         if (!string.IsNullOrEmpty(metadata.WeightsDigest)
             && !string.Equals(DigestOf(weights), metadata.WeightsDigest, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Layout model weights do not match the digest recorded in the metadata.");
-        model.load(weights);
-        model.eval();
-
-        var options = new PatchLayoutOptions
+        // Reject missing/tampered files before constructing native modules. Isolate
+        // construction temporaries so a failed load cannot leak into the caller's scope.
+        using var constructionScope = NewDisposeScope();
+        var model = new PatchCnn();
+        try
         {
-            InputHeight = metadata.InputHeight,
-            MinInputWidth = metadata.MinInputWidth,
-            MaxInputWidth = metadata.MaxInputWidth,
-            Threshold = metadata.Threshold,
-            MinBandBins = metadata.MinBandBins,
-            CoreFraction = metadata.CoreFraction,
-            ExpansionFactor = metadata.ExpansionFactor,
-            Seed = metadata.Seed,
-            Epochs = metadata.Epochs,
-        };
-        return new PatchLayoutModel(model, options, metadata);
+            model.load(weights);
+            model.eval();
+
+            var options = new PatchLayoutOptions
+            {
+                InputHeight = metadata.InputHeight,
+                MinInputWidth = metadata.MinInputWidth,
+                MaxInputWidth = metadata.MaxInputWidth,
+                Threshold = metadata.Threshold,
+                MinBandBins = metadata.MinBandBins,
+                CoreFraction = metadata.CoreFraction,
+                ExpansionFactor = metadata.ExpansionFactor,
+                Seed = metadata.Seed,
+                Epochs = metadata.Epochs,
+            };
+            var loaded = new PatchLayoutModel(model, options, metadata);
+            // Retain only the actual installed model parameters. Loading replaces
+            // constructor tensors; its other temporaries must die with this scope.
+            foreach (var parameter in model.parameters()) parameter.DetachFromDisposeScope();
+            return loaded;
+        }
+        catch
+        {
+            model.Dispose();
+            throw;
+        }
     }
 
     // ---- decoding ----

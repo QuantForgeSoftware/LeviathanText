@@ -127,3 +127,38 @@ Enforce the count and admission in one database write. Export to a staged
 file before replacing an existing result, and measure the completed archive.
 Test late editor replies across every mutation and acknowledge submitted
 snapshots. Review findings added 2026-11-05.
+
+### 2026-11-05 fitting audit refinement
+
+`LearnedLineDetectorTests` fits a row-logistic model on generated pages; it must also
+be excluded from a no-fitting verification selection. The exclusion set therefore
+covers six classes, including this non-TorchSharp trainer, rather than only the
+five previously named neural/CLI fitting classes. Audit actual entry points again
+when tests are added.
+
+### 2026-11-05 pure utility selection and source-snapshot refinement
+
+The mixed ML project may be selected only through an explicit inspected utility
+class allowlist (currently LabelCodecTests and LabelCodecInvariantTests), each
+with its own nonempty receipt. Never turn that exception into a project-wide run.
+Keep retained C# baseline snapshots outside default Compile globs (for example
+`.cs.txt`), or use explicit Compile includes. A shadowed source type can make a
+green build or before/after comparison exercise the wrong implementation; inspect
+compiler warnings and verify the actual referenced assembly. Discard and repeat
+ambiguous harness receipts rather than attributing them to product behavior.
+
+NuGet's signature-independent content hash differs from the raw signed nupkg ZIP
+hash. Preserve those definitions separately; do not invent package-integrity
+failures by comparing them. Notice collection is evidence, not signature
+verification or a complete native-component license attestation.
+
+### 2026-11-05 delegation and fitting-filter incident
+
+Every delegated verification assignment must repeat the non-fitting command and
+the six excluded classes explicitly. Saying “full Application/API suite” is unsafe:
+both contain synthetic fitting fixtures outside the ML project. Use the audited
+engineering entry point, or copy its exact exclusion filter for focused work.
+Before reporting no fitting, inspect actual invocation filters and discovered tests,
+not only data paths or passed totals. Record accidental generated fitting separately
+from authorized corpus training and correct all blanket claims. Investigate a
+default opt-in guard so a missed command-line filter cannot repeat this failure.

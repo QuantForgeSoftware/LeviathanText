@@ -246,12 +246,16 @@ public sealed class VisionHttpProvider : IDisposable
             }
             var wire = Encoding.UTF8.GetString(capturedBytes);
             var text = successHttp ? parser.Text.ToString() : string.Empty;
+            // Without EOF, a capture can end inside the authorization value. Keep
+            // partial diagnostics for keyless local runs, but never guess which
+            // authenticated fragments (including metadata strings) are safe.
+            var suppressIncomplete = secret is not null && !bodyComplete && capturedBytes.Length > 0;
             // Model content can itself be JSON. Inspect that one additional bounded
             // layer before an offline consumer decodes an escaped credential from it.
             // Redact the whole content on a hit rather than repairing/re-encoding JSON.
             var contentEcho = secret is not null
                 && VisionResponseParser.ContainsDecodedSecret(Encoding.UTF8.GetBytes(text), secret);
-            var redacted = secret is not null && (wire.Contains(secret, StringComparison.Ordinal) || text.Contains(secret, StringComparison.Ordinal)
+            var redacted = suppressIncomplete || secret is not null && (wire.Contains(secret, StringComparison.Ordinal) || text.Contains(secret, StringComparison.Ordinal)
                 || (parser.ModelId?.Contains(secret, StringComparison.Ordinal) ?? false) || (parser.FinishReason?.Contains(secret, StringComparison.Ordinal) ?? false)
                 || VisionResponseParser.ContainsDecodedSecret(capturedBytes, secret) || contentEcho);
             if (secret is not null)
@@ -262,6 +266,11 @@ public sealed class VisionHttpProvider : IDisposable
                 text = contentEcho ? "[redacted: model content echoed the configured credential]"
                     : text.Replace(secret, "[redacted]", StringComparison.Ordinal);
             }
+            if (suppressIncomplete)
+            {
+                wire = "[redacted: incomplete authenticated response]";
+                text = string.Empty;
+            }
             return result with
             {
                 Text = text,
@@ -270,8 +279,8 @@ public sealed class VisionHttpProvider : IDisposable
                 CapturedResponseBytes = (int)raw.Length,
                 RawResponseComplete = bodyComplete,
                 CredentialsRedacted = redacted,
-                FinishReason = secret is null ? parser.FinishReason : parser.FinishReason?.Replace(secret, "[redacted]", StringComparison.Ordinal),
-                ResponseModelId = secret is null ? parser.ModelId : parser.ModelId?.Replace(secret, "[redacted]", StringComparison.Ordinal),
+                FinishReason = suppressIncomplete ? null : secret is null ? parser.FinishReason : parser.FinishReason?.Replace(secret, "[redacted]", StringComparison.Ordinal),
+                ResponseModelId = suppressIncomplete ? null : secret is null ? parser.ModelId : parser.ModelId?.Replace(secret, "[redacted]", StringComparison.Ordinal),
                 InputTokens = parser.InputTokens,
                 OutputTokens = parser.OutputTokens,
             };

@@ -5,6 +5,48 @@ namespace LeviathanText.Imaging.Tests;
 
 public class PdfTextExtractorTests : IDisposable
 {
+    [Theory]
+    [InlineData(90, 0, false, false)]
+    [InlineData(180, 0, false, false)]
+    [InlineData(270, 0, false, false)]
+    [InlineData(90, 0, false, true)]
+    [InlineData(0, 90, false, false)]
+    [InlineData(0, 180, false, false)]
+    [InlineData(0, 270, false, false)]
+    [InlineData(0, 45, false, false)]
+    [InlineData(0, 90, true, false)]
+    public void Unsupported_page_or_glyph_rotation_is_explicitly_refused_before_returning_false_reference_geometry(
+        int pageRotation, int textRotation, bool mixed, bool inheritedRotation)
+    {
+        var path = PdfRotationFixture.Write(_dir, pageRotation, textRotation, mixed, inheritedRotation);
+
+        var ex = Assert.Throws<LeviathanException>(() => PdfTextExtractor.Extract(path));
+
+        Assert.Equal(ErrorCode.StageContractViolation, ex.Error.Code);
+        Assert.Equal(path + "#page-1", ex.Error.Scope);
+        Assert.Equal(pageRotation.ToString(), ex.Error.Details!["pageRotation"]);
+        Assert.Contains("without text extraction", ex.Error.Message);
+        Assert.False(string.IsNullOrWhiteSpace(ex.Error.Details["textOrientation"]));
+    }
+
+    [Fact]
+    public void Unrotated_reference_box_aligns_with_actual_raster_ink()
+    {
+        var path = PdfRotationFixture.Write(_dir);
+        var text = Assert.Single(PdfTextExtractor.Extract(path));
+        var line = Assert.Single(text.Lines);
+        Assert.Equal("ABCD", line.Text);
+        var rendered = Assert.Single(PdfRenderer.Render(path, Path.Combine(_dir, "plain"), dpi: 72));
+        using var image = SKBitmap.Decode(rendered.ImagePath);
+        Assert.Equal(300, image.Width);
+        Assert.Equal(200, image.Height);
+        var ink = PdfRasterInk.Bounds(image);
+        Assert.InRange(Math.Abs(line.Left - ink.Left), 0, 2);
+        Assert.InRange(Math.Abs((text.Height - line.Top) - ink.Top), 0, 2);
+        Assert.InRange(Math.Abs(line.Right - ink.Right), 0, 2);
+        Assert.InRange(Math.Abs((text.Height - line.Bottom) - ink.Bottom), 0, 2);
+    }
+
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"leviathan-pdftext-{Guid.NewGuid():N}");
 
     public PdfTextExtractorTests() => Directory.CreateDirectory(_dir);

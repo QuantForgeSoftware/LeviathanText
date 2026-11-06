@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Application;
 using Xunit;
 
@@ -14,7 +15,7 @@ public sealed class ManifestAuditPilotTests
         return dir?.FullName;
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Repository_manifests_have_no_audit_errors()
     {
         var root = FindRepoRoot();

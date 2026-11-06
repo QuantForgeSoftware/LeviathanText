@@ -113,11 +113,9 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     public async Task Proposals_require_a_known_provider_config_ref()
     {
         var client = NewClient();
-        // Seed one revision into the host's chain; then use an unknown provider ref.
-        var chain = _factory.Services.GetRequiredService<LeviathanText.Core.Revisions.RevisionChain>();
-        var revision = chain.Append(new LeviathanText.Contracts.EntityId(EntityKind.Line, "seedline"),
-            LeviathanText.Contracts.TextLayer.L1Diplomatic, "αβ",
-            new LeviathanText.Contracts.AgentRef { Id = "seed", IsModel = false });
+        // A real native target ensures this checks provider lookup, not unknown-target rejection.
+        var project = ApiAttributionTests.Seed(_factory);
+        var revision = project.Objects[0].Surfaces[0].Revisions[0];
 
         var response = await client.PostAsJsonAsync("/api/v1/proposals", new
         {
@@ -128,6 +126,7 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
             promptVersion = "v1",
         });
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode); // InputMissing maps to 404 via the error middleware
+        Assert.Contains("No configured provider", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

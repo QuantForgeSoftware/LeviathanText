@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -25,7 +26,7 @@ public sealed class InscriptionPilotTests(ITestOutputHelper output)
         return dir is null ? "" : Path.Combine(dir.FullName, ".artifacts", "datasets", "i01", "repo");
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void Audit_GreekRecords_WithCommentAwareImageAvailability()
     {
         var repo = RepoDir();
@@ -56,7 +57,7 @@ public sealed class InscriptionPilotTests(ITestOutputHelper output)
         Assert.Equal(2001, nonGreek);
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus)]
     public void SmokeImage_Decodes_WithChecksum()
     {
         var repo = RepoDir();
@@ -69,7 +70,7 @@ public sealed class InscriptionPilotTests(ITestOutputHelper output)
         Assert.Equal("sha256", decoded.SourceChecksum.Algorithm);
     }
 
-    [SkippableTheory]
+    [CapabilitySkippableTheory(Required = TestCapabilities.Corpus)]
     [InlineData("ISic001151")]
     [InlineData("ISic003785")]
     public void Real_EpiDoc_Imports_ThroughBoundedProfile(string id)

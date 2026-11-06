@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Diagnostics;
 using System.Text;
 using LeviathanText.Core.Unicode;
@@ -19,11 +20,12 @@ namespace LeviathanText.ML.Tests;
 /// </summary>
 public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
 {
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Fitting | TestCapabilities.Corpus)]
     public void Compare_greedy_and_beam_on_the_dev_split()
     {
         var dataDir = FindDataDir();
         Skip.IfNot(dataDir != "", "P01 dataset not downloaded; skipping decoding comparison.");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Compare_greedy_and_beam_on_the_dev_split), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var snapshot = P01LineDataset.Load(dataDir);
         Assert.True(snapshot.Dev.Count > 0, "dev split must exist");
@@ -34,7 +36,7 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
             .ToList();
         var labels = new LabelSet(vocabulary);
 
-        var checkpointDir = Path.Combine(Path.GetTempPath(), "lt-decode", Guid.NewGuid().ToString("N"));
+        var checkpointDir = Path.Combine(experimentDirectory, "lt-decode", Guid.NewGuid().ToString("N"));
         var config = new TrainingConfig
         {
             Epochs = 300,
@@ -52,7 +54,7 @@ public sealed class P01DecodingComparisonTests(ITestOutputHelper output)
         var run = trainer.Fit(snapshot.Train, snapshot.Dev);
         trainer.RestoreBest(); // measure the selected checkpoint, not the last epoch
 
-        var artifactDir = Path.Combine(FindRepoRoot() ?? ".", ".artifacts", "pilot");
+        var artifactDir = experimentDirectory;
         Directory.CreateDirectory(artifactDir);
         var splitHash = TrainingRunManifestWriter.SplitHash(
             snapshot.WitnessSplitMap.Select(kv => $"{kv.Key}={kv.Value}"));

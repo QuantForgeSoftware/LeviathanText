@@ -115,7 +115,8 @@ public static class ModelPackageWriter
         sb.AppendLine();
         sb.AppendLine("## Data");
         sb.AppendLine();
-        sb.AppendLine($"- train {manifest.TrainLines} / dev {manifest.DevLines} / locked test {manifest.TestLockedLines} lines");
+        sb.AppendLine($"- train {manifest.TrainLines} / dev {manifest.DevLines} / locked test {manifest.TestLockedLines?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not loaded"} lines");
+        if (manifest.LoadedPartitions is { } partitions) sb.AppendLine($"- loaded partitions: {partitions}");
         sb.AppendLine($"- split hash: `{manifest.SplitHash}`");
         sb.AppendLine();
         sb.AppendLine("## Training");

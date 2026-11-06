@@ -3,8 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LeviathanText.AI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace LeviathanText.AI.Tests;
@@ -42,7 +40,7 @@ public sealed class VisionCredentialContentTests
             static string Delta(string content, string? reason) => "data: " + JsonSerializer.Serialize(new { choices = new[] { new { index = 0, delta = new { content }, finish_reason = reason } } }) + "\n\n";
             wire = Delta(text[..20], null) + Delta(text[20..], "stop") + "data: [DONE]\n\n";
         }
-        using var image = new Image<L8>(2, 1, new L8(255)); using var png = new MemoryStream(); image.SaveAsPng(png); var bytes = png.ToArray();
+        using var image = new SkiaFixture(2, 1, (byte)255); using var png = new MemoryStream(); image.SaveAsPng(png); var bytes = png.ToArray();
         using var handler = new Handler(wire, kind == "nested-sse" ? "text/event-stream" : "application/json");
         using var provider = new VisionHttpProvider(new AiProviderSettings
         {

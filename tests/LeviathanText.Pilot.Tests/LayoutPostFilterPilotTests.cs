@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Contracts;
 using LeviathanText.Formats;
 using LeviathanText.Imaging;
@@ -11,7 +12,7 @@ namespace LeviathanText.Pilot.Tests;
 /// <summary>
 /// Layout post-filter experiment with a disciplined split: candidate filters are selected
 /// on M02a DEV pages only, then the selected filter is reported on held-out M02a pages and
-/// on P01 (out-of-domain). Writes docs/evaluation/layout-postfilter.md. The filter is
+/// on P01 (out-of-domain). Historical report: docs/evaluation/layout-postfilter.md. The filter is
 /// deliberately simple (density/height plausibility relative to the page's own lines) so
 /// its failure modes are explainable.
 /// </summary>
@@ -99,7 +100,7 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
         };
     }
 
-    [SkippableFact]
+    [CapabilitySkippableFact(Required = TestCapabilities.Corpus | TestCapabilities.LockedEvaluation)]
     public void Dev_selected_postfilter_is_reported_on_held_out_pages()
     {
         var root = FindRepoRoot();
@@ -108,6 +109,7 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
         var m02a = Path.Combine(root!, ".artifacts", "datasets", "m02a-v1.0", "m02a");
         var p01 = Path.Combine(root!, ".artifacts", "datasets", "p01-v0.9");
         Skip.IfNot(Directory.Exists(m02a), "M02a not available");
+        var experimentDirectory = ExperimentOutput.Reserve(nameof(Dev_selected_postfilter_is_reported_on_held_out_pages), FindRepoRoot() ?? throw new InvalidOperationException("Repository root not found."));
 
         var dev = new List<(string Name, IReadOnlyList<DetectedLine> Lines, List<(int, int)> Truth)>();
         var test = new List<(string Name, IReadOnlyList<DetectedLine> Lines, List<(int, int)> Truth)>();
@@ -273,7 +275,7 @@ public sealed class LayoutPostFilterPilotTests(ITestOutputHelper output)
                 layouts remain unsupported; the next iteration is patch-level learning.
                 """;
 
-            var path = Path.Combine(root!, "docs", "evaluation", "layout-postfilter.md");
+            var path = Path.Combine(experimentDirectory, "layout-postfilter.md");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, markdown);
             output.WriteLine($"selected={best.Name}; baseline P={baseline.MeanPrecision:0.###} R={baseline.MeanRecall:0.###}; " +

@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
 using Xunit;
@@ -12,7 +13,7 @@ public class TrainingRecoveryTests
 {
     private static readonly string[] Vocabulary = ["α", "β", "γ", "δ"];
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Failure_during_validation_writes_reloadable_failure_checkpoint()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-training-recovery", Guid.NewGuid().ToString("N"));
@@ -56,7 +57,7 @@ public class TrainingRecoveryTests
         Assert.Equal(CheckpointStore.LabelSetHash(labels), metadata.LabelSetHash);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Cancellation_writes_failure_checkpoint_and_rethrows()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-training-recovery", Guid.NewGuid().ToString("N"));

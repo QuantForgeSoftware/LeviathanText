@@ -5,6 +5,11 @@
     <RootNamespace>LeviathanText.ML.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Shared/ExperimentOutput.cs" Link="Shared/ExperimentOutput.cs" />
+    <Compile Include="../Shared/TestCapabilityAttributes.cs" Link="Shared/TestCapabilityAttributes.cs" />
+    <Compile Include="../Shared/SkippableCapabilityAttributes.cs" Link="Shared/SkippableCapabilityAttributes.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../src/LeviathanText.Contracts/LeviathanText.Contracts.csproj" />
     <ProjectReference Include="../../src/LeviathanText.Core/LeviathanText.Core.csproj" />
     <ProjectReference Include="../../src/LeviathanText.Recognition/LeviathanText.Recognition.csproj" />

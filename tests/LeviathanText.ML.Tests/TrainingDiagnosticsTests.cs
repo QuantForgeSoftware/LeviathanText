@@ -1,3 +1,4 @@
+using LeviathanText.TestSupport;
 using System.Text.Json;
 using LeviathanText.Recognition;
 using LeviathanText.Training;
@@ -88,7 +89,7 @@ public class TrainingDiagnosticsTests
         Assert.Null(old.ValidationEvaluation);
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Interval_final_epoch_resume_and_manifest_preserve_diagnostics()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-diagnostics", Guid.NewGuid().ToString("N"));
@@ -126,7 +127,7 @@ public class TrainingDiagnosticsTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Early_stopped_final_epoch_is_measured_even_off_interval()
     {
         var directory = Path.Combine(Path.GetTempPath(), "lt-diagnostics", Guid.NewGuid().ToString("N"));
@@ -145,7 +146,7 @@ public class TrainingDiagnosticsTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    [Fact]
+    [CapabilityFact(TestCapabilities.Fitting)]
     public void Enabling_telemetry_does_not_change_dropout_training_or_checkpoint_selection()
     {
         set_num_threads(1);

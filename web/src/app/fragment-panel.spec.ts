@@ -1,3 +1,4 @@
+import { provideWorkspaceTestAccess } from './workspace-testing.fixture.spec';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiClient, NativeFragmentView } from './api-client';
@@ -21,7 +22,7 @@ describe('FragmentPanel', () => {
     };
     TestBed.configureTestingModule({
       imports: [FragmentPanel],
-      providers: [{ provide: ApiClient, useValue: stub }],
+      providers: [provideWorkspaceTestAccess({}), { provide: ApiClient, useValue: stub }],
     });
     const fixture = TestBed.createComponent(FragmentPanel);
     fixture.componentRef.setInput('surfaceId', 'surf-1');

@@ -11,7 +11,7 @@ namespace LeviathanText.Worker;
 /// overwritten). Failures are isolated per surface and reported in the output counts.
 /// </summary>
 public sealed class LayoutProjectHandler(IProjectStore store, ImageResolver? imageResolver = null, IJobStore? jobs = null,
-    Func<string, PatchLayoutModel?>? modelResolver = null) : IJobHandler
+    Func<string, PatchLayoutModel?>? modelResolver = null, Func<JobRecord, bool>? authorize = null) : IJobHandler
 {
     public const string JobType = "layout.project";
 
@@ -50,6 +50,7 @@ public sealed class LayoutProjectHandler(IProjectStore store, ImageResolver? ima
         foreach (var surface in project.Objects.SelectMany(o => o.Surfaces).ToList())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ProjectJobAuthorization.Checkpoint(job, authorize);
             if (jobs?.Find(job.Id)?.Status == JobStatus.Cancelled)
                 throw new OperationCanceledException();
 

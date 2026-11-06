@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using LeviathanText.Contracts;
 
 namespace LeviathanText.AI;
@@ -11,6 +12,7 @@ namespace LeviathanText.AI;
 public sealed class AiProviderRegistry
 {
     private readonly Dictionary<string, AiProviderSettings> _settings;
+    private readonly ConcurrentDictionary<string, Lazy<AiHttpProvider>> _providers = new(StringComparer.Ordinal);
     private readonly HttpClient _client;
     private readonly IAiCredentialSource? _credentials;
     private readonly Func<TimeSpan, CancellationToken, Task>? _delay;
@@ -55,8 +57,14 @@ public sealed class AiProviderRegistry
         new SchemaValidatingAiProvider(RawProviderFor(providerConfigRef));
 
     /// <summary>Raw adapter for callers that need the unvalidated text path (tests/tools).</summary>
-    public AiHttpProvider RawProviderFor(string providerConfigRef) =>
-        new(SettingsFor(providerConfigRef), _client, _credentials, _delay);
+    public AiHttpProvider RawProviderFor(string providerConfigRef)
+    {
+        var settings = SettingsFor(providerConfigRef);
+        // One adapter owns the counters for this registry session. Lazy prevents
+        // concurrent first lookups from creating independent spend/call allowances.
+        return _providers.GetOrAdd(providerConfigRef, _ => new Lazy<AiHttpProvider>(
+            () => new AiHttpProvider(settings, _client, _credentials, _delay))).Value;
+    }
 
     public IAiModelCatalog ModelCatalogFor(string providerConfigRef) =>
         new AiHttpModelCatalog(SettingsFor(providerConfigRef), _client, _credentials, _delay);

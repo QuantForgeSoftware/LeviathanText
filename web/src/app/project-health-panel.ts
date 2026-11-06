@@ -1,12 +1,13 @@
 /** Read-only project integrity/overlap checks with CSV export. */
 import { Component, OnChanges, SimpleChanges, input, signal } from '@angular/core';
+import { WorkspaceComponentScope } from './workspace-component-scope';
 import { ApiClient, ProjectIntegrityIssue, ProjectOverlap } from './api-client';
 
 @Component({
   selector: 'app-project-health-panel',
   standalone: true,
   template: `
-    <details class="health">
+    <details data-workspace-protected [hidden]="!workspaceAvailable()" [attr.inert]="!workspaceAvailable() ? '' : null" class="health">
       <summary>Project health (read-only)</summary>
       <div class="tools">
         <button type="button" (click)="load()">Check project</button>
@@ -41,6 +42,11 @@ import { ApiClient, ProjectIntegrityIssue, ProjectOverlap } from './api-client';
   `],
 })
 export class ProjectHealthPanel implements OnChanges {
+  protected workspaceAvailable(): boolean { return this.scope.active(); }
+  protected workspaceAdmin(): boolean { return this.scope.role('admin'); }
+  protected workspaceCanEdit(): boolean { return this.scope.mayEdit(); }
+  private get api(): ApiClient { const id = this.projectId(); return this.scope.request(this.baseApi, id, () => this.projectId() === id); }
+
   projectId = input.required<string>();
 
   protected readonly issues = signal<ProjectIntegrityIssue[]>([]);
@@ -48,10 +54,12 @@ export class ProjectHealthPanel implements OnChanges {
   protected readonly loaded = signal(false);
   protected readonly status = signal('');
 
-  private readonly api: ApiClient;
+  private readonly baseApi: ApiClient;
+  private readonly scope: WorkspaceComponentScope;
 
   constructor(api: ApiClient) {
-    this.api = api;
+    this.baseApi = api;
+    this.scope = new WorkspaceComponentScope();
   }
 
   ngOnChanges(_changes: SimpleChanges): void {
@@ -62,6 +70,7 @@ export class ProjectHealthPanel implements OnChanges {
   }
 
   protected load(): void {
+    if (!this.workspaceAvailable()) return;
     this.status.set('checking…');
     this.api.projectIntegrity(this.projectId()).subscribe({
       next: issues => {
@@ -80,6 +89,7 @@ export class ProjectHealthPanel implements OnChanges {
   }
 
   protected downloadIntegrity(): void {
+    if (!this.workspaceAvailable()) return;
     this.api.integrityCsv(this.projectId()).subscribe({
       next: csv => this.download('integrity.csv', csv),
       error: () => this.status.set('integrity export failed'),
@@ -87,6 +97,7 @@ export class ProjectHealthPanel implements OnChanges {
   }
 
   protected downloadOverlap(): void {
+    if (!this.workspaceAvailable()) return;
     this.api.overlapCsv(this.projectId()).subscribe({
       next: csv => this.download('overlap.csv', csv),
       error: () => this.status.set('overlap export failed'),

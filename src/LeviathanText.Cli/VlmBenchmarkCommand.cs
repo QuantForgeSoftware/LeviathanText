@@ -133,7 +133,7 @@ public static class VlmBenchmarkCommand
             producerAssemblies = new[]
             {
                 typeof(VlmBenchmarkCommand).Assembly, typeof(VisionHttpProvider).Assembly,
-                typeof(VlmBenchmarkScorer).Assembly, typeof(SixLabors.ImageSharp.Image).Assembly,
+                typeof(VlmBenchmarkScorer).Assembly, typeof(SkiaSharp.SKCodec).Assembly,
             }.Select(assembly => new
             {
                 name = assembly.GetName().Name, version = assembly.GetName().Version?.ToString(),
